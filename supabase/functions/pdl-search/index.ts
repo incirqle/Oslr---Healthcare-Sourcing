@@ -76,7 +76,7 @@ Examples:
 }
 
 async function searchPDL(sql: string, size: number) {
-  const res = await fetch("https://api.peopledatalabs.com/v5/person/search", {
+  const res = await fetch("https://sandbox.api.peopledatalabs.com/v5/person/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
