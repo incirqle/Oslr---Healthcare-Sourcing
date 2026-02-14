@@ -51,6 +51,7 @@ export default function SearchPage() {
   const [sqlUsed, setSqlUsed] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveDialogCandidates, setSaveDialogCandidates] = useState<Candidate[]>([]);
   const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
 
   const handleSearch = async (searchQuery?: string) => {
@@ -124,6 +125,16 @@ export default function SearchPage() {
 
   const selectedCandidates = candidates.filter((c) => selected.has(c.id));
 
+  const openBulkSave = () => {
+    setSaveDialogCandidates(selectedCandidates);
+    setSaveDialogOpen(true);
+  };
+
+  const openSingleSave = (candidate: Candidate) => {
+    setSaveDialogCandidates([candidate]);
+    setSaveDialogOpen(true);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -179,7 +190,7 @@ export default function SearchPage() {
                 Results {searched && !loading && `(${total.toLocaleString()} found)`}
               </CardTitle>
               {selected.size > 0 && (
-                <Button size="sm" variant="outline" onClick={() => setSaveDialogOpen(true)}>
+                <Button size="sm" variant="outline" onClick={openBulkSave}>
                   <FolderPlus className="h-3.5 w-3.5 mr-1.5" />
                   Save {selected.size} to Project
                 </Button>
@@ -237,7 +248,7 @@ export default function SearchPage() {
                       <TableHead className="font-medium">Location</TableHead>
                       <TableHead className="font-medium">Avg Tenure</TableHead>
                       <TableHead className="font-medium">Skills</TableHead>
-                      <TableHead className="font-medium w-[60px]"></TableHead>
+                      <TableHead className="font-medium w-[80px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -300,17 +311,26 @@ export default function SearchPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {c.linkedin_url && (
-                            <a
-                              href={c.linkedin_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => openSingleSave(c)}
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
+                              title="Save to project"
                             >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          )}
+                              <FolderPlus className="h-3.5 w-3.5" />
+                            </button>
+                            {c.linkedin_url && (
+                              <a
+                                href={c.linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-md text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -325,7 +345,7 @@ export default function SearchPage() {
       <SaveToProjectDialog
         open={saveDialogOpen}
         onOpenChange={setSaveDialogOpen}
-        candidates={selectedCandidates}
+        candidates={saveDialogCandidates}
       />
 
       <CandidateDrawer
