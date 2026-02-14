@@ -9,9 +9,18 @@ const corsHeaders = {
 const PDL_API_KEY = Deno.env.get("PDL_API_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+const PDL_BASE = "https://sandbox.api.peopledatalabs.com/v5";
+
 interface SearchRequest {
-  query: string;
+  action?: "search" | "enrich_person" | "enrich_company";
+  query?: string;
   size?: number;
+  // For person enrichment
+  linkedin_url?: string;
+  email?: string;
+  // For company enrichment
+  company_name?: string;
+  company_website?: string;
 }
 
 async function translateQueryToSQL(naturalLanguage: string): Promise<string> {
@@ -68,41 +77,69 @@ Examples:
 
   const data = await res.json();
   let sql = data.choices?.[0]?.message?.content?.trim() || "";
-  
-  // Clean up markdown formatting if present
   sql = sql.replace(/```sql\n?/g, "").replace(/```\n?/g, "").trim();
-  
   return sql;
 }
 
 async function searchPDL(sql: string, size: number) {
-  const res = await fetch("https://sandbox.api.peopledatalabs.com/v5/person/search", {
+  const res = await fetch(`${PDL_BASE}/person/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-api-key": PDL_API_KEY,
     },
-    body: JSON.stringify({
-      sql,
-      size,
-      pretty: true,
-      dataset: "all",
-    }),
+    body: JSON.stringify({ sql, size, pretty: true, dataset: "all" }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`PDL API error (${res.status}): ${errText}`);
+    // PDL returns 404 when no results found — not an error
+    if (res.status === 404) {
+      return { data: [], total: 0 };
+    }
+    throw new Error(`PDL Search error (${res.status}): ${errText}`);
   }
-
   return await res.json();
 }
 
-function transformResults(pdlData: any) {
+async function enrichPerson(params: { linkedin_url?: string; email?: string }) {
+  const queryParams = new URLSearchParams();
+  if (params.linkedin_url) queryParams.set("profile", params.linkedin_url);
+  if (params.email) queryParams.set("email", params.email);
+  queryParams.set("pretty", "true");
+
+  const res = await fetch(`${PDL_BASE}/person/enrich?${queryParams.toString()}`, {
+    headers: { "X-api-key": PDL_API_KEY },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`PDL Person Enrich error (${res.status}): ${errText}`);
+  }
+  return await res.json();
+}
+
+async function enrichCompany(params: { company_name?: string; company_website?: string }) {
+  const queryParams = new URLSearchParams();
+  if (params.company_name) queryParams.set("name", params.company_name);
+  if (params.company_website) queryParams.set("website", params.company_website);
+  queryParams.set("pretty", "true");
+
+  const res = await fetch(`${PDL_BASE}/company/enrich?${queryParams.toString()}`, {
+    headers: { "X-api-key": PDL_API_KEY },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`PDL Company Enrich error (${res.status}): ${errText}`);
+  }
+  return await res.json();
+}
+
+function transformSearchResults(pdlData: any) {
   if (!pdlData?.data) return [];
 
   return pdlData.data.map((person: any) => {
-    // Calculate average tenure from experience
     let avgTenureMonths: number | null = null;
     if (person.experience && person.experience.length > 0) {
       const tenures = person.experience
@@ -146,8 +183,37 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { query, size = 25 }: SearchRequest = await req.json();
+    const body: SearchRequest = await req.json();
+    const action = body.action || "search";
 
+    if (action === "enrich_person") {
+      if (!body.linkedin_url && !body.email) {
+        return new Response(
+          JSON.stringify({ error: "linkedin_url or email required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const result = await enrichPerson({ linkedin_url: body.linkedin_url, email: body.email });
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "enrich_company") {
+      if (!body.company_name && !body.company_website) {
+        return new Response(
+          JSON.stringify({ error: "company_name or company_website required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const result = await enrichCompany({ company_name: body.company_name, company_website: body.company_website });
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Default: search
+    const { query, size = 25 } = body;
     if (!query || query.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "Search query is required" }),
@@ -155,27 +221,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Translate natural language to PDL SQL
     const sql = await translateQueryToSQL(query);
     console.log("Generated SQL:", sql);
 
-    // Step 2: Search PDL
     const pdlResults = await searchPDL(sql, size);
     console.log("PDL returned", pdlResults.total, "total results");
 
-    // Step 3: Transform results
-    const candidates = transformResults(pdlResults);
+    const candidates = transformSearchResults(pdlResults);
 
     return new Response(
-      JSON.stringify({
-        candidates,
-        total: pdlResults.total || 0,
-        sql_used: sql,
-      }),
+      JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    console.error("Search error:", error.message);
+    console.error("PDL error:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
