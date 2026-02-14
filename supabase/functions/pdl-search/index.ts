@@ -12,47 +12,57 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const PDL_BASE = "https://sandbox.api.peopledatalabs.com/v5";
 
 interface SearchRequest {
-  action?: "search" | "enrich_person" | "enrich_company";
+  action?: "search" | "enrich_person" | "enrich_company" | "parse_filters" | "search_with_filters";
   query?: string;
   size?: number;
-  // For person enrichment
+  filters?: ParsedFilters;
   linkedin_url?: string;
   email?: string;
-  // For company enrichment
   company_name?: string;
   company_website?: string;
 }
 
-async function translateQueryToSQL(naturalLanguage: string): Promise<string> {
-  const systemPrompt = `You are a People Data Labs SQL query translator specialized in healthcare recruiting.
+interface ParsedFilters {
+  job_titles: string[];
+  locations: string[];
+  companies: string[];
+  keywords: string[];
+  experience_years?: number | null;
+  specialties: string[];
+}
 
-Convert natural language queries into PDL SQL format: SELECT * FROM person WHERE ...
+async function parseQueryToFilters(naturalLanguage: string): Promise<{ filters: ParsedFilters; sql: string; }> {
+  const systemPrompt = `You are a search query parser for healthcare recruiting. Parse the natural language query into structured filters AND a PDL SQL query.
 
-Available PDL fields for healthcare:
-- job_title (text): e.g. 'registered nurse', 'cardiologist', 'nurse practitioner', 'physician assistant'
-- job_title_role (enum): 'health' for healthcare roles
-- job_company_name (text): employer name e.g. 'HCA Healthcare', 'Kaiser Permanente'
-- location_locality (text): city
-- location_region (text): state e.g. 'texas', 'california'
-- location_country (text): country code e.g. 'united states'
-- experience (array): contains job history with title, company, start/end dates
-- skills (array): e.g. 'nursing', 'cardiology', 'icu', 'emergency medicine'
-- industry (text): e.g. 'hospitals and health care', 'medical practices'
-- job_company_industry (text): company's industry
+Return JSON with this exact structure:
+{
+  "filters": {
+    "job_titles": ["nurse", "registered nurse"],
+    "locations": ["Texas"],
+    "companies": [],
+    "keywords": ["icu"],
+    "experience_years": null,
+    "specialties": ["cardiology"]
+  },
+  "sql": "SELECT * FROM person WHERE job_title LIKE '%nurse%' AND location_region='texas' AND job_title_role='health'"
+}
 
-Rules:
-- Always include job_title_role='health' to focus on healthcare
+Rules for filters:
+- job_titles: extract role/title keywords
+- locations: extract city, state, or region names (keep original casing)
+- companies: extract company names
+- keywords: extract skills, certifications, or general keywords
+- experience_years: extract if mentioned (e.g. "5+ years" → 5), null otherwise
+- specialties: extract medical specialties
+
+Rules for SQL (PDL format):
+- Always include job_title_role='health' for healthcare
 - Use LIKE with % for partial matches on job titles
-- For experience years, use job_start_date
-- For location, prefer location_region for states, location_locality for cities
-- Output ONLY the SQL string, nothing else
+- Use location_region for states, location_locality for cities
 - Use single quotes for string values
-- Keep it simple and valid PDL SQL
+- Output valid PDL SQL
 
-Examples:
-- "Nurses in Texas" → SELECT * FROM person WHERE job_title LIKE '%nurse%' AND location_region='texas' AND job_title_role='health'
-- "Cardiologists at Kaiser" → SELECT * FROM person WHERE job_title LIKE '%cardiologist%' AND job_company_name LIKE '%kaiser%' AND job_title_role='health'
-- "ICU nurses in Dallas" → SELECT * FROM person WHERE job_title LIKE '%nurse%' AND skills='icu' AND location_locality='dallas' AND job_title_role='health'`;
+Return ONLY valid JSON, nothing else.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -67,7 +77,7 @@ Examples:
         { role: "user", content: naturalLanguage },
       ],
       temperature: 0.1,
-      max_tokens: 300,
+      max_tokens: 500,
     }),
   });
 
@@ -76,9 +86,51 @@ Examples:
   }
 
   const data = await res.json();
-  let sql = data.choices?.[0]?.message?.content?.trim() || "";
-  sql = sql.replace(/```sql\n?/g, "").replace(/```\n?/g, "").trim();
-  return sql;
+  let content = data.choices?.[0]?.message?.content?.trim() || "";
+  content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  
+  try {
+    return JSON.parse(content);
+  } catch {
+    // Fallback: return empty filters and try to use content as SQL
+    return {
+      filters: { job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [] },
+      sql: content,
+    };
+  }
+}
+
+function filtersToSQL(filters: ParsedFilters): string {
+  const conditions: string[] = ["job_title_role='health'"];
+
+  if (filters.job_titles.length > 0) {
+    const titleConditions = filters.job_titles.map(t => `job_title LIKE '%${t.toLowerCase()}%'`);
+    conditions.push(`(${titleConditions.join(" OR ")})`);
+  }
+
+  if (filters.locations.length > 0) {
+    const locConditions = filters.locations.map(l => 
+      `(location_region='${l.toLowerCase()}' OR location_locality='${l.toLowerCase()}')`
+    );
+    conditions.push(`(${locConditions.join(" OR ")})`);
+  }
+
+  if (filters.companies.length > 0) {
+    const compConditions = filters.companies.map(c => `job_company_name LIKE '%${c.toLowerCase()}%'`);
+    conditions.push(`(${compConditions.join(" OR ")})`);
+  }
+
+  if (filters.keywords.length > 0) {
+    const kwConditions = filters.keywords.map(k => `skills='${k.toLowerCase()}'`);
+    conditions.push(`(${kwConditions.join(" OR ")})`);
+  }
+
+  if (filters.specialties.length > 0) {
+    const specConditions = filters.specialties.map(s => `skills='${s.toLowerCase()}'`);
+    conditions.push(`(${specConditions.join(" OR ")})`);
+  }
+
+  return `SELECT * FROM person WHERE ${conditions.join(" AND ")}`;
 }
 
 async function searchPDL(sql: string, size: number) {
@@ -93,7 +145,6 @@ async function searchPDL(sql: string, size: number) {
 
   if (!res.ok) {
     const errText = await res.text();
-    // PDL returns 404 when no results found — not an error
     if (res.status === 404) {
       return { data: [], total: 0 };
     }
@@ -212,7 +263,52 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Default: search
+    if (action === "parse_filters") {
+      const { query } = body;
+      if (!query || query.trim().length === 0) {
+        return new Response(
+          JSON.stringify({ error: "Search query is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { filters, sql } = await parseQueryToFilters(query);
+      console.log("Parsed filters:", JSON.stringify(filters));
+      console.log("Generated SQL:", sql);
+
+      // Do a quick count/search to get total matches
+      const pdlResults = await searchPDL(sql, 1);
+
+      return new Response(
+        JSON.stringify({ filters, total: pdlResults.total || 0, sql_used: sql }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "search_with_filters") {
+      const { filters, size = 25 } = body;
+      if (!filters) {
+        return new Response(
+          JSON.stringify({ error: "Filters are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const sql = filtersToSQL(filters);
+      console.log("Filters SQL:", sql);
+
+      const pdlResults = await searchPDL(sql, size);
+      console.log("PDL returned", pdlResults.total, "total results");
+
+      const candidates = transformSearchResults(pdlResults);
+
+      return new Response(
+        JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Default: legacy search (translate + search in one step)
     const { query, size = 25 } = body;
     if (!query || query.trim().length === 0) {
       return new Response(
@@ -221,7 +317,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const sql = await translateQueryToSQL(query);
+    const { filters, sql } = await parseQueryToFilters(query);
     console.log("Generated SQL:", sql);
 
     const pdlResults = await searchPDL(sql, size);
@@ -230,7 +326,7 @@ Deno.serve(async (req) => {
     const candidates = transformSearchResults(pdlResults);
 
     return new Response(
-      JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql }),
+      JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql, filters }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
