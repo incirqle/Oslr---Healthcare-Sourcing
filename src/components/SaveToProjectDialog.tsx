@@ -17,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FolderKanban, Plus } from "lucide-react";
-import { useProjectStore } from "@/stores/projectStore";
+import { FolderKanban, Plus, Loader2 } from "lucide-react";
+import { useProjects, useCreateProject, useAddCandidates } from "@/hooks/useProjects";
 import { toast } from "sonner";
 
 interface SearchCandidate {
@@ -43,53 +43,53 @@ interface SaveToProjectDialogProps {
 }
 
 export function SaveToProjectDialog({ open, onOpenChange, candidates }: SaveToProjectDialogProps) {
-  const { projects, addProject, addCandidateToProject } = useProjectStore();
+  const { data: projects = [] } = useProjects();
+  const createProject = useCreateProject();
+  const addCandidates = useAddCandidates();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [showCreate, setShowCreate] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    let projectId = selectedProjectId;
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      let projectId = selectedProjectId;
 
-    if (showCreate && newProjectName.trim()) {
-      projectId = addProject(newProjectName.trim());
-      toast.success(`Project "${newProjectName.trim()}" created`);
-    }
+      if (showCreate && newProjectName.trim()) {
+        projectId = await createProject.mutateAsync({ name: newProjectName.trim() });
+        toast.success(`Project "${newProjectName.trim()}" created`);
+      }
 
-    if (!projectId) return;
+      if (!projectId) return;
 
-    let addedCount = 0;
-    for (const c of candidates) {
-      const before = useProjectStore.getState().getProject(projectId)?.candidates.length ?? 0;
-      addCandidateToProject(projectId, {
-        id: c.id,
-        full_name: c.full_name,
-        title: c.title,
-        current_employer: c.current_employer,
-        location: c.location,
-        linkedin_url: c.linkedin_url,
-        email: c.email,
-        phone: c.phone,
-        skills: c.skills,
-        avg_tenure_months: c.avg_tenure_months,
-        industry: c.industry,
-        company_size: c.company_size,
-        pdl_id: c.id,
+      const count = await addCandidates.mutateAsync({
+        projectId,
+        candidates: candidates.map((c) => ({
+          full_name: c.full_name,
+          title: c.title,
+          current_employer: c.current_employer,
+          location: c.location,
+          linkedin_url: c.linkedin_url,
+          email: c.email,
+          phone: c.phone,
+          skills: c.skills,
+          avg_tenure_months: c.avg_tenure_months,
+          pdl_id: c.id,
+        })),
       });
-      const after = useProjectStore.getState().getProject(projectId)?.candidates.length ?? 0;
-      if (after > before) addedCount++;
-    }
 
-    if (addedCount > 0) {
-      toast.success(`${addedCount} candidate${addedCount > 1 ? "s" : ""} saved to project`);
-    } else {
-      toast.info("Candidates already in this project");
-    }
+      toast.success(`${count} candidate${count > 1 ? "s" : ""} saved to project`);
 
-    setSelectedProjectId("");
-    setShowCreate(false);
-    setNewProjectName("");
-    onOpenChange(false);
+      setSelectedProjectId("");
+      setShowCreate(false);
+      setNewProjectName("");
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save candidates");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -118,9 +118,6 @@ export function SaveToProjectDialog({ open, onOpenChange, candidates }: SaveToPr
                           <div className="flex items-center gap-2">
                             <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
                             <span>{p.name}</span>
-                            <span className="text-muted-foreground text-xs">
-                              ({p.candidates.length})
-                            </span>
                           </div>
                         </SelectItem>
                       ))}
@@ -168,9 +165,9 @@ export function SaveToProjectDialog({ open, onOpenChange, candidates }: SaveToPr
           </Button>
           <Button
             onClick={handleSave}
-            disabled={showCreate ? !newProjectName.trim() : !selectedProjectId}
+            disabled={(showCreate ? !newProjectName.trim() : !selectedProjectId) || saving}
           >
-            Save Candidates
+            {saving ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Saving...</> : "Save Candidates"}
           </Button>
         </DialogFooter>
       </DialogContent>

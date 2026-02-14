@@ -16,31 +16,41 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { FolderKanban, Plus, Users, Calendar, Trash2 } from "lucide-react";
-import { useProjectStore } from "@/stores/projectStore";
+import { FolderKanban, Plus, Users, Calendar, Trash2, Loader2 } from "lucide-react";
+import { useProjects, useCreateProject, useDeleteProject } from "@/hooks/useProjects";
 import { toast } from "sonner";
 
 export default function Projects() {
-  const { projects, addProject, deleteProject } = useProjectStore();
+  const { data: projects = [], isLoading } = useProjects();
+  const createProject = useCreateProject();
+  const deleteProject = useDeleteProject();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const navigate = useNavigate();
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) return;
-    const id = addProject(name.trim(), description.trim());
-    toast.success("Project created");
-    setName("");
-    setDescription("");
-    setOpen(false);
-    navigate(`/projects/${id}`);
+    try {
+      const id = await createProject.mutateAsync({ name: name.trim(), description: description.trim() });
+      toast.success("Project created");
+      setName("");
+      setDescription("");
+      setOpen(false);
+      navigate(`/projects/${id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create project");
+    }
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    deleteProject(id);
-    toast.success("Project deleted");
+    try {
+      await deleteProject.mutateAsync(id);
+      toast.success("Project deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete project");
+    }
   };
 
   return (
@@ -89,13 +99,19 @@ export default function Projects() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate} disabled={!name.trim()}>Create Project</Button>
+                <Button onClick={handleCreate} disabled={!name.trim() || createProject.isPending}>
+                  {createProject.isPending ? "Creating..." : "Create Project"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        {projects.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : projects.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
@@ -111,78 +127,42 @@ export default function Projects() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => {
-              const statusCounts = {
-                new: project.candidates.filter((c) => c.status === "new").length,
-                contacted: project.candidates.filter((c) => c.status === "contacted").length,
-                interested: project.candidates.filter((c) => c.status === "interested").length,
-                hired: project.candidates.filter((c) => c.status === "hired").length,
-              };
-
-              return (
-                <Card
-                  key={project.id}
-                  className="group cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                >
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                          <FolderKanban className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold font-display">{project.name}</h3>
-                          {project.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
-                          )}
-                        </div>
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="group cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+                onClick={() => navigate(`/projects/${project.id}`)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                        <FolderKanban className="h-4 w-4 text-primary" />
                       </div>
-                      <button
-                        onClick={(e) => handleDelete(e, project.id)}
-                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div>
+                        <h3 className="text-sm font-semibold font-display">{project.name}</h3>
+                        {project.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
+                        )}
+                      </div>
                     </div>
+                    <button
+                      onClick={(e) => handleDelete(e, project.id)}
+                      className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
 
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {project.candidates.length} candidates
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {new Date(project.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <div className="flex gap-1.5">
-                      {statusCounts.new > 0 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {statusCounts.new} New
-                        </Badge>
-                      )}
-                      {statusCounts.contacted > 0 && (
-                        <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-0">
-                          {statusCounts.contacted} Contacted
-                        </Badge>
-                      )}
-                      {statusCounts.interested > 0 && (
-                        <Badge className="text-[10px] px-1.5 py-0 bg-warning/10 text-warning border-0">
-                          {statusCounts.interested} Interested
-                        </Badge>
-                      )}
-                      {statusCounts.hired > 0 && (
-                        <Badge className="text-[10px] px-1.5 py-0 bg-success/10 text-success border-0">
-                          {statusCounts.hired} Hired
-                        </Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(project.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>

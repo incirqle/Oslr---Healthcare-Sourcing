@@ -26,9 +26,10 @@ import {
   ExternalLink,
   Trash2,
   Users,
+  Loader2,
 } from "lucide-react";
-import { useProjectStore } from "@/stores/projectStore";
-import { STATUS_CONFIG, CandidateStatus, ProjectCandidate } from "@/types/project";
+import { useProject, useProjectCandidates, useUpdateCandidateStatus, useRemoveCandidate } from "@/hooks/useProjects";
+import { STATUS_CONFIG, CandidateStatus } from "@/types/project";
 import { toast } from "sonner";
 import { useState } from "react";
 import { CandidateDrawer } from "@/components/CandidateDrawer";
@@ -36,9 +37,23 @@ import { CandidateDrawer } from "@/components/CandidateDrawer";
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, updateCandidateStatus, removeCandidateFromProject } = useProjectStore();
-  const project = getProject(id!);
-  const [drawerCandidate, setDrawerCandidate] = useState<ProjectCandidate | null>(null);
+  const { data: project, isLoading: projectLoading } = useProject(id!);
+  const { data: candidates = [], isLoading: candidatesLoading } = useProjectCandidates(id!);
+  const updateStatus = useUpdateCandidateStatus();
+  const removeCandidate = useRemoveCandidate();
+  const [drawerCandidate, setDrawerCandidate] = useState<any>(null);
+
+  const isLoading = projectLoading || candidatesLoading;
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!project) {
     return (
@@ -54,10 +69,10 @@ export default function ProjectDetail() {
   }
 
   const statusCounts = {
-    new: project.candidates.filter((c) => c.status === "new").length,
-    contacted: project.candidates.filter((c) => c.status === "contacted").length,
-    interested: project.candidates.filter((c) => c.status === "interested").length,
-    hired: project.candidates.filter((c) => c.status === "hired").length,
+    new: candidates.filter((c) => c.status === "new").length,
+    contacted: candidates.filter((c) => c.status === "contacted").length,
+    interested: candidates.filter((c) => c.status === "interested").length,
+    hired: candidates.filter((c) => c.status === "hired").length,
   };
 
   const formatTenure = (months: number | null) => {
@@ -68,14 +83,22 @@ export default function ProjectDetail() {
     return remaining > 0 ? `${years}y ${remaining}mo` : `${years}y`;
   };
 
-  const handleStatusChange = (candidateId: string, status: CandidateStatus) => {
-    updateCandidateStatus(project.id, candidateId, status);
-    toast.success(`Status updated to ${STATUS_CONFIG[status].label}`);
+  const handleStatusChange = async (candidateId: string, status: CandidateStatus) => {
+    try {
+      await updateStatus.mutateAsync({ id: candidateId, status, projectId: id! });
+      toast.success(`Status updated to ${STATUS_CONFIG[status].label}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    }
   };
 
-  const handleRemove = (candidateId: string) => {
-    removeCandidateFromProject(project.id, candidateId);
-    toast.success("Candidate removed");
+  const handleRemove = async (candidateId: string) => {
+    try {
+      await removeCandidate.mutateAsync({ id: candidateId, projectId: id! });
+      toast.success("Candidate removed");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove candidate");
+    }
   };
 
   return (
@@ -122,11 +145,11 @@ export default function ProjectDetail() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-display">
-              Candidates ({project.candidates.length})
+              Candidates ({candidates.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {project.candidates.length === 0 ? (
+            {candidates.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary mb-3">
                   <Users className="h-6 w-6 opacity-30" />
@@ -154,7 +177,7 @@ export default function ProjectDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {project.candidates.map((c) => (
+                    {candidates.map((c) => (
                       <TableRow key={c.id} className="group hover:bg-secondary/20 cursor-pointer" onClick={() => setDrawerCandidate(c)}>
                         <TableCell className="font-medium">
                           <div>
