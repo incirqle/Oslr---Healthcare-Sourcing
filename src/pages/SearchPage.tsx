@@ -17,6 +17,7 @@ import { Search, Sparkles, Loader2, MapPin, Building2, ExternalLink, Clock, Fold
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SaveToProjectDialog } from "@/components/SaveToProjectDialog";
+import { CandidateDrawer } from "@/components/CandidateDrawer";
 
 interface Candidate {
   id: string;
@@ -50,6 +51,7 @@ export default function SearchPage() {
   const [sqlUsed, setSqlUsed] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
 
   const handleSearch = async (searchQuery?: string) => {
     const q = searchQuery || query;
@@ -240,8 +242,8 @@ export default function SearchPage() {
                   </TableHeader>
                   <TableBody>
                     {candidates.map((c) => (
-                      <TableRow key={c.id} className="group hover:bg-secondary/20">
-                        <TableCell>
+                      <TableRow key={c.id} className="group hover:bg-secondary/20 cursor-pointer" onClick={() => setDrawerCandidate(c)}>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selected.has(c.id)}
                             onCheckedChange={() => toggleSelect(c.id)}
@@ -324,6 +326,12 @@ export default function SearchPage() {
         open={saveDialogOpen}
         onOpenChange={setSaveDialogOpen}
         candidates={selectedCandidates}
+      />
+
+      <CandidateDrawer
+        open={!!drawerCandidate}
+        onOpenChange={(open) => !open && setDrawerCandidate(null)}
+        candidate={drawerCandidate}
       />
     </AppLayout>
   );
