@@ -9,10 +9,12 @@ import { SearchHero } from "@/components/search/SearchHero";
 import { FilterReview, type ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate } from "@/components/search/SearchResults";
+import { useSearchHistory } from "@/hooks/useSearchHistory";
 
 type SearchStep = "hero" | "parsing" | "review" | "searching" | "results";
 
 export default function SearchPage() {
+  const { history, addEntry, clearHistory } = useSearchHistory();
   const [step, setStep] = useState<SearchStep>("hero");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ParsedFilters>({
@@ -70,6 +72,7 @@ export default function SearchPage() {
       } else {
         toast.info("No results found. Try adjusting your filters.");
       }
+      addEntry(query, data.total || 0);
     } catch (err: any) {
       console.error("Search error:", err);
       toast.error(err.message || "Search failed");
@@ -105,7 +108,7 @@ export default function SearchPage() {
     <AppLayout>
       <div className="space-y-6">
         {step === "hero" && (
-          <SearchHero onSearch={handleInitialSearch} loading={false} />
+          <SearchHero onSearch={handleInitialSearch} loading={false} history={history} onClearHistory={clearHistory} />
         )}
 
         {step === "parsing" && (
