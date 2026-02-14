@@ -125,6 +125,108 @@ export type Database = {
         }
         Relationships: []
       }
+      email_campaigns: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          project_id: string | null
+          recipient_count: number
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          project_id?: string | null
+          recipient_count?: number
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          project_id?: string | null
+          recipient_count?: number
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaigns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          body: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
