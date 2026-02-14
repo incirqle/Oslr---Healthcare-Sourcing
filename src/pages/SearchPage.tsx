@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -12,9 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Sparkles, Loader2, MapPin, Building2, ExternalLink, Clock } from "lucide-react";
+import { Search, Sparkles, Loader2, MapPin, Building2, ExternalLink, Clock, FolderPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SaveToProjectDialog } from "@/components/SaveToProjectDialog";
 
 interface Candidate {
   id: string;
@@ -46,6 +48,8 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [sqlUsed, setSqlUsed] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   const handleSearch = async (searchQuery?: string) => {
     const q = searchQuery || query;
@@ -53,6 +57,7 @@ export default function SearchPage() {
 
     setLoading(true);
     setSearched(true);
+    setSelected(new Set());
 
     try {
       const { data, error } = await supabase.functions.invoke("pdl-search", {
@@ -65,7 +70,7 @@ export default function SearchPage() {
       setCandidates(data.candidates || []);
       setTotal(data.total || 0);
       setSqlUsed(data.sql_used || "");
-      
+
       if (data.candidates?.length > 0) {
         toast.success(`Found ${data.total.toLocaleString()} matching professionals`);
       } else {
@@ -97,6 +102,25 @@ export default function SearchPage() {
     const remaining = months % 12;
     return remaining > 0 ? `${years}y ${remaining}mo` : `${years}y`;
   };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === candidates.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(candidates.map((c) => c.id)));
+    }
+  };
+
+  const selectedCandidates = candidates.filter((c) => selected.has(c.id));
 
   return (
     <AppLayout>
@@ -148,9 +172,17 @@ export default function SearchPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-display">
-              Results {searched && !loading && `(${total.toLocaleString()} found)`}
-            </CardTitle>
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-base font-display">
+                Results {searched && !loading && `(${total.toLocaleString()} found)`}
+              </CardTitle>
+              {selected.size > 0 && (
+                <Button size="sm" variant="outline" onClick={() => setSaveDialogOpen(true)}>
+                  <FolderPlus className="h-3.5 w-3.5 mr-1.5" />
+                  Save {selected.size} to Project
+                </Button>
+              )}
+            </div>
             {sqlUsed && (
               <span className="text-[10px] font-mono text-muted-foreground/50 max-w-md truncate">
                 {sqlUsed}
@@ -191,6 +223,12 @@ export default function SearchPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-secondary/30">
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={selected.size === candidates.length && candidates.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead className="font-medium">Name</TableHead>
                       <TableHead className="font-medium">Title</TableHead>
                       <TableHead className="font-medium">Employer</TableHead>
@@ -203,6 +241,12 @@ export default function SearchPage() {
                   <TableBody>
                     {candidates.map((c) => (
                       <TableRow key={c.id} className="group hover:bg-secondary/20">
+                        <TableCell>
+                          <Checkbox
+                            checked={selected.has(c.id)}
+                            onCheckedChange={() => toggleSelect(c.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           <div>
                             <p className="text-sm">{c.full_name}</p>
@@ -275,6 +319,12 @@ export default function SearchPage() {
           </CardContent>
         </Card>
       </div>
+
+      <SaveToProjectDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        candidates={selectedCandidates}
+      />
     </AppLayout>
   );
 }

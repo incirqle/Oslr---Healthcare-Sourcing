@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import SearchPage from "./pages/SearchPage";
 import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
 import Campaigns from "./pages/Campaigns";
 import CompanyDirectory from "./pages/CompanyDirectory";
 import TeamSettings from "./pages/TeamSettings";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/companies" element={<CompanyDirectory />} />
             <Route path="/settings" element={<TeamSettings />} />
