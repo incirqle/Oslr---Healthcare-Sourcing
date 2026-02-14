@@ -7,6 +7,7 @@ import {
   Settings,
   LogOut,
   Stethoscope,
+  Command,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,6 +58,17 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
+      {/* Command palette hint */}
+      <div className="px-4 py-2.5">
+        <button className="flex items-center gap-2 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/50 px-3 py-1.5 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent transition-colors">
+          <Search className="h-3.5 w-3.5" />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="inline-flex items-center gap-0.5 rounded border border-sidebar-border bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-mono text-sidebar-foreground/40">
+            <Command className="h-2.5 w-2.5" />K
+          </kbd>
+        </button>
+      </div>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/40 text-[11px] uppercase tracking-wider font-medium">
@@ -69,8 +81,8 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
+                      className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/70 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -93,8 +105,8 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
+                      className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/70 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
