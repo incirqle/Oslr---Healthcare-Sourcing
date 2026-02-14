@@ -38,13 +38,13 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/search" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
-            <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-            <Route path="/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
-            <Route path="/companies" element={<ProtectedRoute><CompanyDirectory /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><TeamSettings /></ProtectedRoute>} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/companies" element={<CompanyDirectory />} />
+            <Route path="/settings" element={<TeamSettings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
