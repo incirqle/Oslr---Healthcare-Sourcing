@@ -28,14 +28,17 @@ import {
   Users,
 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
-import { STATUS_CONFIG, CandidateStatus } from "@/types/project";
+import { STATUS_CONFIG, CandidateStatus, ProjectCandidate } from "@/types/project";
 import { toast } from "sonner";
+import { useState } from "react";
+import { CandidateDrawer } from "@/components/CandidateDrawer";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getProject, updateCandidateStatus, removeCandidateFromProject } = useProjectStore();
   const project = getProject(id!);
+  const [drawerCandidate, setDrawerCandidate] = useState<ProjectCandidate | null>(null);
 
   if (!project) {
     return (
@@ -152,7 +155,7 @@ export default function ProjectDetail() {
                   </TableHeader>
                   <TableBody>
                     {project.candidates.map((c) => (
-                      <TableRow key={c.id} className="group hover:bg-secondary/20">
+                      <TableRow key={c.id} className="group hover:bg-secondary/20 cursor-pointer" onClick={() => setDrawerCandidate(c)}>
                         <TableCell className="font-medium">
                           <div>
                             <p className="text-sm">{c.full_name}</p>
@@ -190,7 +193,7 @@ export default function ProjectDetail() {
                             <span className="text-sm">{formatTenure(c.avg_tenure_months)}</span>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={c.status}
                             onValueChange={(v) => handleStatusChange(c.id, v as CandidateStatus)}
@@ -209,7 +212,7 @@ export default function ProjectDetail() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             {c.linkedin_url && (
                               <a
@@ -238,6 +241,12 @@ export default function ProjectDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <CandidateDrawer
+        open={!!drawerCandidate}
+        onOpenChange={(open) => !open && setDrawerCandidate(null)}
+        candidate={drawerCandidate}
+      />
     </AppLayout>
   );
 }
