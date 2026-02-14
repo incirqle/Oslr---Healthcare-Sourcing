@@ -1,66 +1,51 @@
 
 
-# MedSource AI — Healthcare Recruiter Sourcing Platform
+# Design Polish: Clay/Apollo-Inspired SaaS Look
 
-A modern SaaS platform for healthcare recruiters to source doctors, nurses, and other medical professionals using natural language search powered by People Data Labs.
+The current codebase already has the dark sidebar + light content area foundation with the right color tokens. This plan refines the visual details to match the polished, modern SaaS aesthetic of tools like Clay and Apollo.
 
-**Design:** Dark sidebar + light content area (similar to Clay/Apollo), clean and professional.
+## What Changes
 
----
+### 1. Auth Page Enhancement
+- Add a subtle gradient or pattern to the left side of the auth page (split-screen layout like Apollo's login)
+- Add a tagline/feature highlights on the left panel
+- Tighten card styling with softer shadows and refined spacing
 
-## 1. Authentication & Company Workspaces
-- Full signup/login flow using Supabase Auth (email + password)
-- Company workspaces: users belong to an organization
-- Role-based access: **Admin**, **Recruiter**, **Viewer**
-  - **Admin**: Manage team members, billing, all projects & campaigns
-  - **Recruiter**: Create/edit searches, projects, campaigns
-  - **Viewer**: Read-only access to shared projects and candidate lists
-- User profiles with name, avatar, and company association
+### 2. Sidebar Refinements
+- Add subtle hover transitions and active state indicator (left border accent bar on active item, like Clay)
+- Add a search/command palette shortcut hint in the sidebar
+- Refine spacing and icon sizing for a tighter, more professional feel
 
-## 2. Natural Language Search (Core Feature)
-- AI-powered search bar where users type queries like *"Registered nurses in Dallas with 5+ years experience at HCA Healthcare"*
-- Translates natural language into People Data Labs API queries via a Supabase Edge Function
-- Search results displayed in a rich, sortable/filterable table showing:
-  - Name, title, current employer, location
-  - **Salary range** (from PDL data)
-  - **Average tenure** at each position (calculated from PDL job history)
-  - Company/hospital details (enriched from PDL company data)
-- Filters panel for refining results by specialty, location, experience, employer, etc.
+### 3. Dashboard Cards Polish
+- Add subtle gradient borders or hover lift effects on stat cards
+- Use colored icon backgrounds (circular badges) instead of plain icons
+- Add a welcome banner at the top with the user's name
 
-## 3. Project Lists & Candidate Management
-- Create named projects (e.g., "ICU Nurses - Q1 Hiring")
-- Save candidates from search results into project lists
-- Add notes and tags to candidates within a project
-- Track candidate status (New → Contacted → Interested → Hired)
-- Shared across the company workspace based on user roles
+### 4. Search Page Enhancement
+- Make the search bar more prominent with a larger input, subtle glow/ring on focus
+- Add suggested search chips below the search bar (e.g., "Nurses in Texas", "Cardiologists")
+- Better empty state illustration
 
-## 4. Company & Hospital Enrichment
-- Automatically pull company/hospital data from PDL's Company API when viewing a candidate
-- Display company profile cards with: size, industry, location, founding year
-- Show how many candidates in your lists work at each company
+### 5. Global Design Tokens
+- Slightly adjust border radius to 0.625rem for a softer look
+- Add subtle card hover states globally (translate-y and shadow transition)
+- Ensure consistent 4px/8px spacing grid across all components
 
-## 5. Find Similar Profiles
-- "Find Similar" button on any candidate profile
-- Uses PDL fields (company, title, skills, location) to find matching professionals
-- Results can be saved directly into project lists
+### 6. Top Header Bar
+- Add breadcrumb navigation showing current page name
+- Add a global search trigger (Cmd+K style) in the header
+- Add notification bell placeholder icon
 
-## 6. Email Campaigns (Basic)
-- Create email templates with merge fields (first name, title, company, etc.)
-- Build recipient lists from project candidates
-- Preview personalized emails before sending
-- Export campaign lists as CSV for use in external email tools (Mailchimp, Outreach, etc.)
+## Technical Details
 
-## 7. Dashboard & Analytics
-- Overview dashboard showing:
-  - Total candidates sourced
-  - Active projects and their statuses
-  - Recent searches
-  - Team activity feed
-- Per-project stats: candidates added, contacted, response tracking
+Files to modify:
+- `src/index.css` -- Add utility classes for card hover effects, subtle animations
+- `src/components/AppLayout.tsx` -- Enhanced header with breadcrumbs, search trigger
+- `src/components/AppSidebar.tsx` -- Active state accent bar, refined hover styles
+- `src/pages/Auth.tsx` -- Split-screen layout with feature panel
+- `src/pages/Dashboard.tsx` -- Welcome banner, enhanced stat cards with icon badges
+- `src/pages/SearchPage.tsx` -- Prominent search bar with suggestion chips
+- `tailwind.config.ts` -- Adjusted border radius, add box-shadow utilities
 
-## 8. Layout & Navigation
-- **Dark sidebar** with navigation: Dashboard, Search, Projects, Campaigns, Company Directory, Team Settings
-- **Light content area** with clean cards and tables
-- Responsive design for desktop-first use
-- Collapsible sidebar with icon-only mini mode
+No database or backend changes needed -- this is purely a frontend visual polish pass.
 
