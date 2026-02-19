@@ -1,86 +1,87 @@
 
 
-# Switch PDL Search to Preview API + 15 Results Per Page
+# Marketing Landing Page for Oslr
 
-## What This Changes
+## Overview
 
-Right now, every search hits the full PDL Person Search API, which consumes enrichment credits per record. The Preview Search API uses the **same endpoint** but with a preview-enabled API key -- it returns real data for key identifying fields (name, title, company, location, LinkedIn URL, industry) and `true/false` for everything else. This lets you dial in searches without burning credits.
+Build a comprehensive, conversion-focused marketing landing page at the root URL (`/`) that communicates Oslr's value proposition as a clinical recruiter sourcing platform. The page will be a single, scroll-based experience with multiple sections, animated elements, and clear CTAs driving visitors to sign up.
 
-Enrichment (getting emails, phones, full experience) will remain available as a separate action for later -- we won't touch it in this change.
+## Page Structure
 
-## Plan
+The landing page will be a new component at `src/pages/Landing.tsx` with the following sections:
 
-### 1. Update the edge function (`supabase/functions/pdl-search/index.ts`)
+### 1. Hero Section
+- Large headline: "Stop Scrolling LinkedIn. Start Sourcing Smarter."
+- Subheadline explaining the pain: traditional healthcare recruiting is slow, manual, and scattered across job boards, LinkedIn, and spreadsheets.
+- Animated search bar mockup showing a natural language query ("Orthopedic surgeons in Miami") transforming into structured results.
+- Two CTAs: "Get Started Free" (primary) and "See How It Works" (ghost/scroll anchor).
+- Floating social proof badges: "1.5B+ professional profiles" / "AI-powered matching".
 
-**Change the default page size from 25 to 15:**
-- In `search_with_filters` action: change default `size` from `25` to `15`
-- In the legacy search fallback: change default `size` from `25` to `15`
+### 2. Problem Statement / Pain Points
+- Section title: "Healthcare recruiting is broken"
+- Three-column layout with pain points:
+  - **Scattered Data** -- Toggling between LinkedIn, job boards, internal databases, and spreadsheets to find one candidate.
+  - **Manual Sourcing** -- Hours spent filtering, copy-pasting, and cross-referencing profiles instead of actually recruiting.
+  - **Poor Match Quality** -- Generic search tools built for tech recruiting that don't understand specialties, certifications, or clinical workflows.
 
-**Update `transformSearchResults` to handle Preview API responses:**
-- The Preview API returns actual values for: `id`, `full_name`, `sex`, `linkedin_url`, `industry`, `job_title`, `job_title_levels`, `job_company_name`, and company location fields
-- All other fields (emails, phones, skills, experience) come back as `true`/`false` booleans instead of actual data
-- Update the transform to gracefully handle booleans: if `person.skills` is `true` instead of an array, show an indicator like "Available" rather than crashing; same for emails, phones, experience/tenure
-- Add a `preview: true` flag to each candidate object so the frontend knows this is preview data
+### 3. How It Works (3-step flow)
+- Step 1: **Search in plain English** -- Type "ICU nurses in Dallas with CCRN" and Oslr's AI parses it into structured filters (job title, location, certifications, experience).
+- Step 2: **Review and refine** -- See a preview of matching candidates with match scores, edit filters, narrow results.
+- Step 3: **Save, organize, and reach out** -- Save candidates to hiring projects, launch email campaigns, and track your pipeline.
 
-**Update the AI parser system prompt:**
-- Remove remaining sales/spine rep references and focus on clinical roles (doctors, nurses, allied health)
+### 4. Key Features Grid
+- **AI-Powered Search** -- Natural language queries understood by healthcare-trained AI.
+- **Match Scoring** -- Every result scored on title match, location, data completeness.
+- **Candidate Enrichment** -- One-click deep profiles with work history, education, contact info, certifications.
+- **Project Management** -- Organize candidates into hiring projects by role, department, or facility.
+- **Email Campaigns** -- Build outreach templates with merge fields, send campaigns to candidate lists.
+- **Healthcare News Feed** -- Stay current with industry news from Becker's, Healthcare Dive, and more.
+- **Company Intelligence** -- Enriched company profiles for hospitals and health systems.
+- **Team Collaboration** -- Invite recruiters, share projects, track team sourcing performance.
 
-### 2. Update the frontend results display (`src/components/search/SearchResults.tsx`)
+### 5. Social Proof / Stats Bar
+- Horizontal strip with key numbers:
+  - "1.5B+ professional profiles indexed"
+  - "200M+ verified emails and phones"
+  - "Natural language AI search"
+  - "Built for healthcare recruiting"
 
-**Adjust the `Candidate` interface:**
-- Add an optional `preview?: boolean` field
-- Add optional `has_email?: boolean`, `has_phone?: boolean`, `has_skills?: boolean` fields to indicate data availability without showing actual values
+### 6. Comparison Section
+- "Oslr vs. The Old Way" side-by-side comparison table:
+  - LinkedIn Recruiter: expensive, generic, manual filtering
+  - Job boards: reactive (waiting for applicants), no outbound
+  - Spreadsheets: no intelligence, no enrichment, no collaboration
+  - Oslr: AI search, healthcare-specific, enrichment, campaigns, projects -- all in one.
 
-**Update table columns for preview mode:**
-- Skills column: instead of showing actual skill badges, show a green "Available" or red "Unavailable" indicator based on the boolean
-- Email under the name: hide email text in preview mode, optionally show a small icon indicating email is available
-- Tenure column: show "Available" or a dash based on whether experience data exists
+### 7. CTA / Closing Section
+- "Ready to source healthcare talent 10x faster?"
+- Email input + "Get Started Free" button
+- Small note: "No credit card required. Start searching in under 60 seconds."
 
-### 3. Update the search page (`src/pages/SearchPage.tsx`)
+### 8. Footer
+- Oslr logo and tagline
+- Links: Product, Pricing, Login, Sign Up
+- Copyright line
 
-**Change the requested page size to 15:**
-- Update the `handleRunSearch` call from `size: 25` to `size: 15`
+## Routing Changes
 
-### 4. Update the filter review total display
-
-- The `parse_filters` step already fetches a count with `size: 1` -- no change needed there
-- The count will still reflect the full matching pool; we just fetch 15 at a time
-
----
+- `src/App.tsx`: Change `/` from redirecting to `/dashboard` to rendering the new `Landing` component. Keep `/dashboard` route as-is.
+- The landing page navbar will have "Login" and "Sign Up" buttons linking to `/auth`.
 
 ## Technical Details
 
-### Preview API behavior (same endpoint, different response shape)
+### New Files
+- `src/pages/Landing.tsx` -- The full marketing landing page component
 
-The Preview Search API uses the same `POST /v5/person/search` endpoint. The difference is determined by the API key permissions. Since the user's current `PDL_API_KEY` may already be preview-enabled (or they may need a separate key), the code will treat any boolean field values as "preview mode" automatically -- making it work regardless of which key type is configured.
+### Modified Files
+- `src/App.tsx` -- Update the `/` route to render `Landing` instead of redirecting to `/dashboard`
 
-### Fields returned with real data in Preview mode
-- `id`, `full_name`, `sex`, `linkedin_url`
-- `industry`, `job_title`, `job_title_levels`
-- `job_company_name`, `job_company_location_*`
-
-### Fields returned as `true`/`false` in Preview mode
-- `emails`, `phone_numbers`, `mobile_phone`, `work_email`
-- `skills`, `experience`, `education`
-- `location_locality`, `location_region` (these may or may not be included -- the transform will check)
-
-### Transform logic change (pseudocode)
-```text
-if typeof person.skills === 'boolean'
-  -> has_skills = person.skills, skills = []
-else
-  -> has_skills = true, skills = person.skills
-
-if typeof person.work_email === 'boolean'
-  -> has_email = person.work_email, email = null
-else
-  -> extract email as before
-```
-
-### File changes summary
-| File | Change |
-|------|--------|
-| `supabase/functions/pdl-search/index.ts` | Default size 25 to 15, update transform for preview booleans, clean up AI prompt |
-| `src/components/search/SearchResults.tsx` | Add preview-aware rendering for skills/email/tenure columns |
-| `src/pages/SearchPage.tsx` | Change `size: 25` to `size: 15` |
+### Design Approach
+- Uses existing Tailwind theme colors (primary green, dark sidebar palette for contrast sections)
+- Framer Motion for scroll-triggered animations (fade-in, slide-up) using the already-installed `framer-motion` package
+- Fully responsive (mobile-first)
+- Dark sections alternating with light sections for visual rhythm
+- Lucide icons throughout (already installed)
+- DM Sans for headings, Inter for body (already configured)
+- No new dependencies required
 
