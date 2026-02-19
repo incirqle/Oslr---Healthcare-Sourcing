@@ -141,50 +141,61 @@ Rules:
 
 IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user said.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: naturalLanguage },
-      ],
-      temperature: 0.1,
-      max_tokens: 400,
-    }),
-  });
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: naturalLanguage },
+        ],
+        temperature: 0.1,
+        max_tokens: 400,
+      }),
+    });
 
-  if (!res.ok) throw new Error(`AI gateway error: ${res.status}`);
+    if (res.ok) {
+      const data = await res.json();
+      let content = data.choices?.[0]?.message?.content?.trim() || "";
+      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-  const data = await res.json();
-  let content = data.choices?.[0]?.message?.content?.trim() || "";
-  content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      try {
+        const parsed = JSON.parse(content);
+        return {
+          job_titles: parsed.job_titles ?? [],
+          locations: parsed.locations ?? [],
+          companies: parsed.companies ?? [],
+          keywords: parsed.keywords ?? [],
+          experience_years: parsed.experience_years ?? null,
+          specialties: parsed.specialties ?? [],
+        };
+      } catch {
+        console.error("Failed to parse AI response:", content);
+        return {
+          job_titles: [],
+          locations: [],
+          companies: [],
+          keywords: [],
+          experience_years: null,
+          specialties: [],
+        };
+      }
+    }
 
-  try {
-    const parsed = JSON.parse(content);
-    return {
-      job_titles: parsed.job_titles ?? [],
-      locations: parsed.locations ?? [],
-      companies: parsed.companies ?? [],
-      keywords: parsed.keywords ?? [],
-      experience_years: parsed.experience_years ?? null,
-      specialties: parsed.specialties ?? [],
-    };
-  } catch {
-    console.error("Failed to parse AI response:", content);
-    return {
-      job_titles: [],
-      locations: [],
-      companies: [],
-      keywords: [],
-      experience_years: null,
-      specialties: [],
-    };
+    console.error(`AI gateway attempt ${attempt + 1} failed: ${res.status}`);
+    await res.text(); // consume body
+    lastError = new Error(`AI gateway error: ${res.status}`);
   }
+
+  throw lastError!;
+
 }
 
 async function searchPDL(sql: string, size: number, from: number = 0) {
