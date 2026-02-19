@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const PDL_API_KEY = Deno.env.get("PDL_API_KEY")!;
+const PDL_PREVIEW_API_KEY = Deno.env.get("PDL_PREVIEW_API_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const PDL_BASE = "https://sandbox.api.peopledatalabs.com/v5";
@@ -161,7 +162,7 @@ async function searchPDL(sql: string, size: number) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-api-key": PDL_API_KEY,
+      "X-api-key": PDL_PREVIEW_API_KEY,
     },
     body: JSON.stringify({ sql, size, pretty: true, dataset: "all" }),
   });
