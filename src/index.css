@@ -107,3 +107,23 @@
     font-family: 'DM Sans', sans-serif;
   }
 }
+
+@keyframes gradient-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, 20px) scale(1.05); }
+  66% { transform: translate(20px, -15px) scale(0.95); }
+}
+
+@keyframes gradient-float-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(20px, -20px) scale(0.95); }
+  66% { transform: translate(-25px, 15px) scale(1.05); }
+}
+
+.animate-gradient-float {
+  animation: gradient-float 12s ease-in-out infinite;
+}
+
+.animate-gradient-float-reverse {
+  animation: gradient-float-reverse 14s ease-in-out infinite;
+}
