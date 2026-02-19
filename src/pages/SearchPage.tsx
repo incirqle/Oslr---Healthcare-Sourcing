@@ -164,6 +164,7 @@ export default function SearchPage() {
               onOpenCandidate={setDrawerCandidate}
               onSaveSingle={(c) => { setSaveDialogCandidates([c]); setSaveDialogOpen(true); }}
               onSaveBulk={() => { setSaveDialogCandidates(selectedCandidates); setSaveDialogOpen(true); }}
+              onEditFilters={() => setStep("review")}
             />
           </>
         )}

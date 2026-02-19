@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MapPin, Building2, Clock, ExternalLink, FolderPlus } from "lucide-react";
+import { MapPin, Building2, Clock, ExternalLink, FolderPlus, SearchX, SlidersHorizontal } from "lucide-react";
 
 export interface Candidate {
   id: string;
@@ -35,6 +35,7 @@ interface SearchResultsProps {
   onOpenCandidate: (candidate: Candidate) => void;
   onSaveSingle: (candidate: Candidate) => void;
   onSaveBulk: () => void;
+  onEditFilters?: () => void;
 }
 
 function formatTenure(months: number | null) {
@@ -54,7 +55,31 @@ export function SearchResults({
   onOpenCandidate,
   onSaveSingle,
   onSaveBulk,
+  onEditFilters,
 }: SearchResultsProps) {
+  if (candidates.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
+        <div className="rounded-full bg-muted p-6 mb-5">
+          <SearchX className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-display font-semibold mb-2">No results found</h3>
+        <p className="text-sm text-muted-foreground max-w-sm mb-1">
+          We couldn't find any professionals matching your current filters.
+        </p>
+        <p className="text-sm text-muted-foreground max-w-sm mb-6">
+          Try broadening your search by removing some filters, using fewer job titles, or expanding your location.
+        </p>
+        {onEditFilters && (
+          <Button variant="outline" onClick={onEditFilters}>
+            <SlidersHorizontal className="h-4 w-4 mr-2" />
+            Edit Filters
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
