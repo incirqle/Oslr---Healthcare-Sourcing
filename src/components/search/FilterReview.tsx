@@ -90,7 +90,7 @@ export function FilterReview({ query, filters, total, onEdit, onReset, onRunSear
           <RotateCcw className="h-3.5 w-3.5" />
           Reset Search
         </button>
-        <Button onClick={onRunSearch} disabled={loading} className="rounded-full px-8 h-11">
+        <Button onClick={() => onRunSearch()} disabled={loading} className="rounded-full px-8 h-11">
           {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           Run Search
         </Button>
