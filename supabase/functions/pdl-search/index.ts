@@ -143,69 +143,74 @@ Rules:
 
 IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user said.`;
 
-  const models = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
+  const models = ["google/gemini-2.5-flash-lite", "openai/gpt-5-mini"];
   let lastError: Error | null = null;
 
   for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
-      try {
-        const isOpenAI = model.startsWith("openai/");
-        const bodyObj: any = {
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: naturalLanguage },
-          ],
-        };
-        if (isOpenAI) {
-          bodyObj.max_completion_tokens = 400;
-        } else {
-          bodyObj.temperature = 0.1;
-          bodyObj.max_tokens = 400;
-        }
-        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          },
-          body: JSON.stringify(bodyObj),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          let content = data.choices?.[0]?.message?.content?.trim() || "";
-          content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-          try {
-            const parsed = JSON.parse(content);
-            return {
-              job_titles: parsed.job_titles ?? [],
-              locations: parsed.locations ?? [],
-              companies: parsed.companies ?? [],
-              keywords: parsed.keywords ?? [],
-              experience_years: parsed.experience_years ?? null,
-              specialties: parsed.specialties ?? [],
-            };
-          } catch {
-            console.error("Failed to parse AI response:", content);
-            throw new Error("Failed to understand your search query. Please try rephrasing it.");
-          }
-        }
-
-        const errBody = await res.text();
-        console.error(`AI gateway ${model} attempt ${attempt + 1} failed: ${res.status} - ${errBody}`);
-        lastError = new Error(`AI gateway error: ${res.status}`);
-      } catch (e) {
-        console.error(`AI gateway ${model} attempt ${attempt + 1} exception:`, e);
-        lastError = e instanceof Error ? e : new Error(String(e));
+    try {
+      const isOpenAI = model.startsWith("openai/");
+      const bodyObj: any = {
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: naturalLanguage },
+        ],
+      };
+      if (isOpenAI) {
+        bodyObj.max_completion_tokens = 2000;
+      } else {
+        bodyObj.temperature = 0.1;
+        bodyObj.max_tokens = 400;
       }
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        },
+        body: JSON.stringify(bodyObj),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`AI gateway ${model} failed: ${res.status} - ${errBody}`);
+        lastError = new Error(`AI gateway error: ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      console.log(`AI gateway ${model} responded successfully`);
+      let content = data.choices?.[0]?.message?.content?.trim() || "";
+      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+      if (!content) {
+        console.error(`AI gateway ${model} returned empty content, trying next`);
+        lastError = new Error("AI returned empty response");
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(content);
+        return {
+          job_titles: parsed.job_titles ?? [],
+          locations: parsed.locations ?? [],
+          companies: parsed.companies ?? [],
+          keywords: parsed.keywords ?? [],
+          experience_years: parsed.experience_years ?? null,
+          specialties: parsed.specialties ?? [],
+        };
+      } catch {
+        console.error("Failed to parse AI response:", content);
+        lastError = new Error("Failed to parse AI response");
+        continue;
+      }
+    } catch (e) {
+      console.error(`AI gateway ${model} exception:`, e);
+      lastError = e instanceof Error ? e : new Error(String(e));
     }
   }
 
-  throw lastError!;
-
+  throw new Error("Failed to understand your search query after multiple attempts. Please try rephrasing it.");
 }
 
 async function searchPDL(sql: string, size: number, from: number = 0) {
