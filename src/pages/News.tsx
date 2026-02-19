@@ -27,9 +27,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   Workforce: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400",
   Physicians: "bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400",
   Industry: "bg-slate-500/10 text-slate-600 border-slate-500/20 dark:text-slate-400",
+  Anesthesia: "bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400",
 };
 
-const ALL_CATEGORIES = ["All", "Recruiting", "Nursing", "Staffing", "Trends", "Workforce", "Physicians", "Industry"];
+const ALL_CATEGORIES = ["All", "Recruiting", "Nursing", "Staffing", "Trends", "Workforce", "Physicians", "Anesthesia", "Industry"];
 
 function ArticleSkeleton() {
   return (
@@ -167,7 +168,7 @@ export default function News() {
           <span className="font-medium text-foreground/60 flex items-center gap-1.5">
             <Newspaper className="h-3.5 w-3.5" /> Sources:
           </span>
-          {["🏥 Becker's Hospital Review", "🏨 Modern Healthcare", "🔥 Fierce Healthcare", "📊 Healthcare Dive", "📰 Google News"].map((s) => (
+          {["🏥 Becker's Hospital Review", "🏨 Becker's ASC Review", "💻 Becker's Health IT", "📊 Healthcare Dive", "🔥 Fierce Healthcare", "📰 Google News (8 topic feeds)"].map((s) => (
             <span key={s}>{s}</span>
           ))}
         </div>
