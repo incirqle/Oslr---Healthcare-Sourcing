@@ -57,7 +57,7 @@ export function SearchHero({ onSearch, loading, history = [], onClearHistory }: 
         <div className="relative flex items-center">
           <Search className="absolute left-4 h-5 w-5 text-muted-foreground" />
           <Input
-            placeholder='Search by name, criteria... e.g., "spine reps in Texas"'
+            placeholder='Search by name, criteria... e.g., "General Surgeons in Miami"'
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
