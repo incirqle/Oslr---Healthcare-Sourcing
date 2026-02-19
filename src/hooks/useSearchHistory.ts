@@ -6,7 +6,7 @@ export interface SearchHistoryEntry {
   timestamp: number;
 }
 
-const STORAGE_KEY = "medsource_search_history";
+const STORAGE_KEY = "oslr_search_history";
 const MAX_ENTRIES = 10;
 
 function loadHistory(): SearchHistoryEntry[] {
