@@ -9,7 +9,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MapPin, Building2, Clock, ExternalLink, FolderPlus, SearchX, SlidersHorizontal, Mail, Phone, Check, X } from "lucide-react";
+import {
+  MapPin,
+  Building2,
+  Clock,
+  ExternalLink,
+  FolderPlus,
+  SearchX,
+  SlidersHorizontal,
+  Mail,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 
 export interface Candidate {
   id: string;
@@ -41,6 +56,7 @@ interface SearchResultsProps {
   onSaveSingle: (candidate: Candidate) => void;
   onSaveBulk: () => void;
   onEditFilters?: () => void;
+  onNewSearch?: () => void;
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
@@ -56,7 +72,7 @@ function formatTenure(months: number | null) {
 
 function AvailabilityIndicator({ available }: { available: boolean }) {
   return available ? (
-    <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
       <Check className="h-3 w-3" />
       Available
     </span>
@@ -78,11 +94,13 @@ export function SearchResults({
   onSaveSingle,
   onSaveBulk,
   onEditFilters,
+  onNewSearch,
   page = 1,
   pageSize = 15,
   onPageChange,
 }: SearchResultsProps) {
   const totalPages = Math.ceil(total / pageSize);
+
   if (candidates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
@@ -90,11 +108,8 @@ export function SearchResults({
           <SearchX className="h-10 w-10 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-display font-semibold mb-2">No results found</h3>
-        <p className="text-sm text-muted-foreground max-w-sm mb-1">
-          We couldn't find any professionals matching your current filters.
-        </p>
         <p className="text-sm text-muted-foreground max-w-sm mb-6">
-          Try broadening your search by removing some filters, using fewer job titles, or expanding your location.
+          Try broadening your search by removing some filters or expanding your location.
         </p>
         {onEditFilters && (
           <Button variant="outline" onClick={onEditFilters}>
@@ -109,71 +124,99 @@ export function SearchResults({
   const isPreviewMode = candidates.some((c) => c.preview);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-display font-semibold">
-            Results ({total.toLocaleString()} found)
-          </h2>
+    <div className="space-y-0">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-lg font-display font-semibold leading-tight">
+              {total.toLocaleString()} Results
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}
+            </p>
+          </div>
           {isPreviewMode && (
-            <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-amber-600 border-amber-300 bg-amber-50">
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-amber-600 border-amber-300 bg-amber-50 font-medium">
+              <Sparkles className="h-2.5 w-2.5 mr-1" />
               Preview Mode
             </Badge>
           )}
+        </div>
+        <div className="flex items-center gap-2">
           {selected.size > 0 && (
-            <Button size="sm" variant="outline" onClick={onSaveBulk}>
+            <Button size="sm" onClick={onSaveBulk} className="h-8">
               <FolderPlus className="h-3.5 w-3.5 mr-1.5" />
               Save {selected.size} to Project
+            </Button>
+          )}
+          {onEditFilters && (
+            <Button size="sm" variant="outline" onClick={onEditFilters} className="h-8">
+              <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
+              Edit Criteria
+            </Button>
+          )}
+          {onNewSearch && (
+            <Button size="sm" variant="ghost" onClick={onNewSearch} className="h-8 text-muted-foreground">
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              New Search
             </Button>
           )}
         </div>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      {/* Table */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-secondary/30">
-              <TableHead className="w-[40px]">
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="w-[44px] pl-4">
                 <Checkbox
                   checked={selected.size === candidates.length && candidates.length > 0}
                   onCheckedChange={onToggleSelectAll}
                 />
               </TableHead>
-              <TableHead className="font-medium">Name</TableHead>
-              <TableHead className="font-medium">Title</TableHead>
-              <TableHead className="font-medium">Employer</TableHead>
-              <TableHead className="font-medium">Location</TableHead>
-              <TableHead className="font-medium">Avg Tenure</TableHead>
-              <TableHead className="font-medium">Skills</TableHead>
-              <TableHead className="font-medium w-[80px]"></TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Title</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employer</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tenure</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Skills</TableHead>
+              <TableHead className="w-[72px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {candidates.map((c) => (
-              <TableRow key={c.id} className="group hover:bg-secondary/20 cursor-pointer" onClick={() => onOpenCandidate(c)}>
-                <TableCell onClick={(e) => e.stopPropagation()}>
+            {candidates.map((c, i) => (
+              <TableRow
+                key={c.id}
+                className={`group cursor-pointer transition-colors hover:bg-primary/5 ${i % 2 === 0 ? "bg-card" : "bg-muted/10"}`}
+                onClick={() => onOpenCandidate(c)}
+              >
+                <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected.has(c.id)} onCheckedChange={() => onToggleSelect(c.id)} />
                 </TableCell>
-                <TableCell className="font-medium">
-                  <div>
-                    <p className="text-sm">{c.full_name}</p>
+                <TableCell>
+                  <div className="min-w-[140px]">
+                    <p className="text-sm font-medium text-foreground">{c.full_name}</p>
                     {c.preview ? (
                       c.has_email && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-primary font-medium mt-0.5">
                           <Mail className="h-2.5 w-2.5" /> Email available
                         </span>
                       )
                     ) : (
-                      c.email && <p className="text-xs text-muted-foreground truncate max-w-[180px]">{c.email}</p>
+                      c.email && <p className="text-[11px] text-muted-foreground truncate max-w-[180px] mt-0.5">{c.email}</p>
                     )}
                   </div>
                 </TableCell>
-                <TableCell><span className="text-sm">{c.title || "—"}</span></TableCell>
+                <TableCell>
+                  <span className="text-sm text-foreground/80 leading-snug line-clamp-2">{c.title || "—"}</span>
+                </TableCell>
                 <TableCell>
                   {c.current_employer ? (
                     <div className="flex items-center gap-1.5">
                       <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate max-w-[150px]">{c.current_employer}</span>
+                      <span className="text-sm truncate max-w-[160px]">{c.current_employer}</span>
                     </div>
                   ) : <span className="text-sm text-muted-foreground">—</span>}
                 </TableCell>
@@ -200,17 +243,17 @@ export function SearchResults({
                     <AvailabilityIndicator available={!!c.has_skills} />
                   ) : (
                     <div className="flex flex-wrap gap-1 max-w-[200px]">
-                      {c.skills.slice(0, 3).map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0">{skill}</Badge>
+                      {c.skills.slice(0, 2).map((skill) => (
+                        <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">{skill}</Badge>
                       ))}
-                      {c.skills.length > 3 && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">+{c.skills.length - 3}</Badge>
+                      {c.skills.length > 2 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">+{c.skills.length - 2}</Badge>
                       )}
                     </div>
                   )}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <button
                       onClick={() => onSaveSingle(c)}
                       className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
@@ -236,30 +279,56 @@ export function SearchResults({
         </Table>
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && onPageChange && (
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-4">
           <p className="text-xs text-muted-foreground">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total.toLocaleString()}
+            Page {page} of {totalPages.toLocaleString()}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
+              className="h-8 px-3"
             >
-              ← Previous
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+              Previous
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages.toLocaleString()}
-            </span>
+            {/* Page number pills */}
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  variant={pageNum === page ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 w-8 p-0 text-xs"
+                  onClick={() => onPageChange(pageNum)}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
             <Button
               variant="outline"
               size="sm"
               disabled={page >= totalPages}
               onClick={() => onPageChange(page + 1)}
+              className="h-8 px-3"
             >
-              Next →
+              Next
+              <ChevronRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           </div>
         </div>
