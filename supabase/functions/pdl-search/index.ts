@@ -31,40 +31,15 @@ interface ParsedFilters {
   specialties: string[];
 }
 
-// ─── Healthcare role categories in PDL ───────────────────────────────────────
-// PDL's job_title_role field covers only clinical staff.
-// Medical device / pharma sales reps sit in 'sales' role, NOT 'health'.
-// We detect whether a search is clinical or commercial and pick the right roles.
-function inferRoles(filters: ParsedFilters): string[] {
-  const allTerms = [
-    ...filters.job_titles,
-    ...filters.specialties,
-    ...filters.keywords,
-  ].map((t) => t.toLowerCase());
-
-  const salesKeywords = [
-    "rep", "representative", "sales", "device", "pharma", "account",
-    "territory", "manager", "distributor", "bd", "business development",
-  ];
-  const isSalesRole = allTerms.some((t) =>
-    salesKeywords.some((kw) => t.includes(kw))
-  );
-
-  // If clearly sales-oriented, allow both health and sales roles
-  if (isSalesRole) return ["health", "sales"];
+// ─── Healthcare role — always clinical ───────────────────────────────────────
+function inferRoles(_filters: ParsedFilters): string[] {
   return ["health"];
 }
 
 // ─── Build PDL SQL from structured filters ────────────────────────────────────
-// Key fixes vs. original:
-//  1. job_title_role is now dynamic (sales roles included when relevant)
-//  2. specialties merge into job_title LIKE clauses (no 'specialty' column in PDL)
-//  3. keywords use LIKE '%x%' instead of exact skills='x' match
-//  4. location values are always lowercased
 function filtersToSQL(filters: ParsedFilters): string {
   const conditions: string[] = [];
 
-  // 1. Role filter — dynamic based on what's being searched
   const roles = inferRoles(filters);
   if (roles.length === 1) {
     conditions.push(`job_title_role='${roles[0]}'`);
@@ -72,10 +47,9 @@ function filtersToSQL(filters: ParsedFilters): string {
     conditions.push(`(${roles.map((r) => `job_title_role='${r}'`).join(" OR ")})`);
   }
 
-  // 2. Job titles + specialties both map to job_title LIKE clauses
   const titleTerms = [
     ...filters.job_titles,
-    ...filters.specialties, // specialties become title keywords — PDL has no specialty column
+    ...filters.specialties,
   ];
   if (titleTerms.length > 0) {
     const titleConditions = titleTerms.map(
@@ -84,7 +58,6 @@ function filtersToSQL(filters: ParsedFilters): string {
     conditions.push(`(${titleConditions.join(" OR ")})`);
   }
 
-  // 3. Location — support state and city, always lowercase
   if (filters.locations.length > 0) {
     const locConditions = filters.locations.map((l) => {
       const lc = l.toLowerCase();
@@ -93,7 +66,6 @@ function filtersToSQL(filters: ParsedFilters): string {
     conditions.push(`(${locConditions.join(" OR ")})`);
   }
 
-  // 4. Company filter
   if (filters.companies.length > 0) {
     const compConditions = filters.companies.map(
       (c) => `job_company_name LIKE '%${c.toLowerCase()}%'`
@@ -101,7 +73,6 @@ function filtersToSQL(filters: ParsedFilters): string {
     conditions.push(`(${compConditions.join(" OR ")})`);
   }
 
-  // 5. Keywords — partial match on skills (was exact match — broken)
   if (filters.keywords.length > 0) {
     const kwConditions = filters.keywords.map(
       (k) => `skills LIKE '%${k.toLowerCase()}%'`
@@ -114,11 +85,11 @@ function filtersToSQL(filters: ParsedFilters): string {
 
 // ─── AI query parser ──────────────────────────────────────────────────────────
 async function parseQueryToFilters(naturalLanguage: string): Promise<ParsedFilters> {
-  const systemPrompt = `You are a search query parser for a healthcare recruiting platform. Extract structured filters from the natural language query.
+  const systemPrompt = `You are a search query parser for a clinical healthcare recruiting platform that finds doctors, nurses, and allied health professionals.
 
 Return ONLY valid JSON with this exact structure — no explanation, no markdown:
 {
-  "job_titles": ["spine rep", "spine sales representative"],
+  "job_titles": ["registered nurse", "RN"],
   "locations": ["Texas"],
   "companies": [],
   "keywords": [],
@@ -127,12 +98,14 @@ Return ONLY valid JSON with this exact structure — no explanation, no markdown
 }
 
 Rules:
-- job_titles: Extract role/title keywords. For healthcare sales roles like "spine reps", "ortho reps", "device reps" — include variations like "spine rep", "spine sales representative", "spine sales rep". For clinical roles like "ICU nurse", include "registered nurse", "RN".
+- This platform is ONLY for clinical healthcare roles: physicians, surgeons, nurses, NPs, PAs, CRNAs, therapists, technicians, pharmacists, etc.
+- IGNORE any sales, device rep, pharma rep, or commercial roles — those are not supported.
+- job_titles: Extract clinical role/title keywords. Expand abbreviations: "ER doctor" → ["emergency medicine physician", "emergency physician"]; "ICU nurse" → ["ICU nurse", "intensive care unit nurse", "critical care nurse", "registered nurse"]; "CRNA" → ["CRNA", "certified registered nurse anesthetist"].
 - locations: State or city names exactly as written (e.g., "Texas", "Dallas").
-- companies: Specific employer names only.
-- keywords: Skills, certifications, tools (e.g., "ACLS", "Epic", "laparoscopic").
+- companies: Specific hospital or health system names only (e.g., "HCA Healthcare", "Mayo Clinic").
+- keywords: Clinical skills, certifications, tools (e.g., "ACLS", "BLS", "Epic", "laparoscopic", "ventilator management").
 - experience_years: Number only if explicitly stated (e.g., "5+ years" → 5), null otherwise.
-- specialties: Medical specialties ONLY if not already captured in job_titles (e.g., "cardiology", "orthopedics"). Leave empty for sales roles — specialty is already in the title.
+- specialties: Medical specialties not already captured in job_titles (e.g., "cardiology", "orthopedics", "oncology").
 
 IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user said.`;
 
@@ -161,7 +134,6 @@ IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user
 
   try {
     const parsed = JSON.parse(content);
-    // Normalise — ensure all arrays exist
     return {
       job_titles: parsed.job_titles ?? [],
       locations: parsed.locations ?? [],
@@ -236,12 +208,58 @@ async function enrichCompany(params: { company_name?: string; company_website?: 
   return await res.json();
 }
 
+// ─── Transform: handles both full and preview API responses ───────────────────
 function transformSearchResults(pdlData: any) {
   if (!pdlData?.data) return [];
 
   return pdlData.data.map((person: any) => {
+    // Detect preview mode: if skills/experience are booleans instead of arrays
+    const isPreview =
+      typeof person.skills === "boolean" ||
+      typeof person.experience === "boolean" ||
+      typeof person.work_email === "boolean";
+
+    // Skills
+    let skills: string[] = [];
+    let has_skills = false;
+    if (typeof person.skills === "boolean") {
+      has_skills = person.skills;
+    } else if (Array.isArray(person.skills)) {
+      skills = person.skills.slice(0, 10);
+      has_skills = skills.length > 0;
+    }
+
+    // Email
+    let email: string | null = null;
+    let has_email = false;
+    if (typeof person.work_email === "boolean") {
+      has_email = person.work_email;
+    } else if (typeof person.personal_emails === "boolean") {
+      has_email = person.personal_emails;
+    } else {
+      email = person.work_email || person.personal_emails?.[0] || null;
+      has_email = !!email;
+    }
+
+    // Phone
+    let phone: string | null = null;
+    let has_phone = false;
+    if (typeof person.mobile_phone === "boolean") {
+      has_phone = person.mobile_phone;
+    } else if (typeof person.phone_numbers === "boolean") {
+      has_phone = person.phone_numbers;
+    } else {
+      phone = person.mobile_phone || person.phone_numbers?.[0] || null;
+      has_phone = !!phone;
+    }
+
+    // Tenure — only computable with real experience data
     let avgTenureMonths: number | null = null;
-    if (person.experience && person.experience.length > 0) {
+    let has_experience = false;
+    if (typeof person.experience === "boolean") {
+      has_experience = person.experience;
+    } else if (Array.isArray(person.experience) && person.experience.length > 0) {
+      has_experience = true;
       const tenures = person.experience
         .filter((exp: any) => exp.start_date)
         .map((exp: any) => {
@@ -258,21 +276,34 @@ function transformSearchResults(pdlData: any) {
       }
     }
 
+    // Location — may be booleans in preview
+    let location: string | null = null;
+    if (typeof person.location_locality !== "boolean" || typeof person.location_region !== "boolean") {
+      location = [
+        typeof person.location_locality === "string" ? person.location_locality : null,
+        typeof person.location_region === "string" ? person.location_region : null,
+      ].filter(Boolean).join(", ") || null;
+    }
+
     return {
       id: person.id,
       full_name: person.full_name || "Unknown",
       title: person.job_title || null,
       current_employer: person.job_company_name || null,
-      location: [person.location_locality, person.location_region]
-        .filter(Boolean)
-        .join(", ") || null,
+      location,
       linkedin_url: person.linkedin_url || null,
-      email: person.work_email || person.personal_emails?.[0] || null,
-      phone: person.mobile_phone || person.phone_numbers?.[0] || null,
-      skills: person.skills?.slice(0, 10) || [],
+      email,
+      phone,
+      skills,
       avg_tenure_months: avgTenureMonths,
       industry: person.industry || null,
       company_size: person.job_company_size || null,
+      // Preview indicators
+      preview: isPreview,
+      has_email,
+      has_phone,
+      has_skills,
+      has_experience,
     };
   });
 }
@@ -328,7 +359,6 @@ Deno.serve(async (req) => {
       const filters = await parseQueryToFilters(query);
       console.log("Parsed filters:", JSON.stringify(filters));
 
-      // Use our own filtersToSQL (not AI-generated) for a consistent count
       const sql = filtersToSQL(filters);
       console.log("Count SQL:", sql);
 
@@ -343,7 +373,7 @@ Deno.serve(async (req) => {
 
     // ── Search with filters (step 2 of 2-step search) ─────────────────────────
     if (action === "search_with_filters") {
-      const { filters, size = 25 } = body;
+      const { filters, size = 15 } = body;
       if (!filters) {
         return new Response(
           JSON.stringify({ error: "Filters are required" }),
@@ -366,7 +396,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Legacy single-step search ─────────────────────────────────────────────
-    const { query, size = 25 } = body;
+    const { query, size = 15 } = body;
     if (!query || query.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "Search query is required" }),
