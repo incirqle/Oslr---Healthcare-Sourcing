@@ -52,7 +52,7 @@ export function AppSidebar() {
             <Stethoscope className="h-4 w-4 text-sidebar-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-sidebar-foreground font-display">Oslr Health</span>
+            <span className="text-sm font-semibold text-sidebar-foreground font-display">Oslr</span>
             <span className="text-[11px] text-sidebar-foreground/50">Healthcare Recruiting</span>
           </div>
         </div>
