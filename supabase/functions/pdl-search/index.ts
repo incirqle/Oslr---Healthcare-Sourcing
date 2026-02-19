@@ -61,7 +61,37 @@ function filtersToSQL(filters: ParsedFilters): string {
 
   if (filters.locations.length > 0) {
     const locConditions = filters.locations.map((l) => {
-      const lc = l.toLowerCase();
+      const lc = l.toLowerCase().trim();
+      // US state abbreviation map for common states
+      const stateMap: Record<string, string> = {
+        "alabama": "alabama", "alaska": "alaska", "arizona": "arizona", "arkansas": "arkansas",
+        "california": "california", "colorado": "colorado", "connecticut": "connecticut",
+        "delaware": "delaware", "florida": "florida", "georgia": "georgia", "hawaii": "hawaii",
+        "idaho": "idaho", "illinois": "illinois", "indiana": "indiana", "iowa": "iowa",
+        "kansas": "kansas", "kentucky": "kentucky", "louisiana": "louisiana", "maine": "maine",
+        "maryland": "maryland", "massachusetts": "massachusetts", "michigan": "michigan",
+        "minnesota": "minnesota", "mississippi": "mississippi", "missouri": "missouri",
+        "montana": "montana", "nebraska": "nebraska", "nevada": "nevada",
+        "new hampshire": "new hampshire", "new jersey": "new jersey", "new mexico": "new mexico",
+        "new york": "new york", "north carolina": "north carolina", "north dakota": "north dakota",
+        "ohio": "ohio", "oklahoma": "oklahoma", "oregon": "oregon", "pennsylvania": "pennsylvania",
+        "rhode island": "rhode island", "south carolina": "south carolina", "south dakota": "south dakota",
+        "tennessee": "tennessee", "texas": "texas", "utah": "utah", "vermont": "vermont",
+        "virginia": "virginia", "washington": "washington", "west virginia": "west virginia",
+        "wisconsin": "wisconsin", "wyoming": "wyoming",
+      };
+      // Check if the whole string is a state
+      if (stateMap[lc]) {
+        return `location_region='${lc}'`;
+      }
+      // Check if it ends with a known state (e.g. "Miami Florida" → city=miami, state=florida)
+      for (const state of Object.keys(stateMap)) {
+        if (lc.endsWith(` ${state}`)) {
+          const city = lc.slice(0, lc.length - state.length - 1).trim();
+          return `(location_locality='${city}' AND location_region='${state}')`;
+        }
+      }
+      // Fallback: try both
       return `(location_region='${lc}' OR location_locality='${lc}')`;
     });
     conditions.push(`(${locConditions.join(" OR ")})`);
@@ -102,7 +132,7 @@ Rules:
 - This platform is ONLY for clinical healthcare roles: physicians, surgeons, nurses, NPs, PAs, CRNAs, therapists, technicians, pharmacists, etc.
 - IGNORE any sales, device rep, pharma rep, or commercial roles — those are not supported.
 - job_titles: Extract clinical role/title keywords. Expand abbreviations: "ER doctor" → ["emergency medicine physician", "emergency physician"]; "ICU nurse" → ["ICU nurse", "intensive care unit nurse", "critical care nurse", "registered nurse"]; "CRNA" → ["CRNA", "certified registered nurse anesthetist"].
-- locations: State or city names exactly as written (e.g., "Texas", "Dallas").
+- locations: ALWAYS separate city and state into a SINGLE string like "Miami Florida" (city first, then state). If only a state is given, use just the state name (e.g., "Texas"). If only a city, use just the city (e.g., "Dallas"). Examples: "doctors in Miami, FL" → ["Miami Florida"]; "nurses in Texas" → ["Texas"]; "surgeons in Dallas, Texas" → ["Dallas Texas"].
 - companies: Specific hospital or health system names only (e.g., "HCA Healthcare", "Mayo Clinic").
 - keywords: Clinical skills, certifications, tools (e.g., "ACLS", "BLS", "Epic", "laparoscopic", "ventilator management").
 - experience_years: Number only if explicitly stated (e.g., "5+ years" → 5), null otherwise.
