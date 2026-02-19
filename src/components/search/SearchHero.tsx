@@ -56,7 +56,7 @@ export function SearchHero({ onSearch, loading, history = [], onClearHistory }: 
 
       {/* Branding */}
       <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold font-display text-foreground mb-3 tracking-tight">
-        Search<span className="text-primary">AI</span>
+        Oslr <span className="bg-gradient-to-r from-primary via-primary/70 to-primary/40 bg-clip-text text-transparent">AI</span>
       </h1>
       <p className="text-muted-foreground text-sm md:text-base mb-10 text-center">
         Search for healthcare professionals using natural language
