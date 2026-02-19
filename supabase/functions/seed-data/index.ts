@@ -199,6 +199,31 @@ Deno.serve(async (req) => {
       console.log(`Created company ${company_id} and assigned admin role`);
     }
 
+    // ── Check if data already exists (idempotent) ────────────────────────────
+    const { count: existingProjects } = await supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", company_id);
+
+    if (existingProjects && existingProjects > 0) {
+      // Count candidates too
+      const { count: existingCandidates } = await supabase
+        .from("candidates")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", company_id);
+      console.log(`Data already exists: ${existingProjects} projects, ${existingCandidates} candidates`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          already_seeded: true,
+          projects_created: existingProjects,
+          candidates_inserted: existingCandidates ?? 0,
+          message: "Sandbox data already loaded",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ── Create all projects in one batch ─────────────────────────────────────
     const projectRows = PROJECTS.map((proj) => ({ ...proj, company_id, created_by: user.id }));
     const { data: createdProjects, error: projectsError } = await supabase
