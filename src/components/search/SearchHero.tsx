@@ -12,11 +12,11 @@ const categoryChips = [
 ];
 
 const suggestions = [
-  "Spine reps in Texas",
+  "General surgeons in Miami",
   "ICU nurses in Dallas with CCRN",
-  "Orthopedic sales reps in California",
+  "Orthopedic surgeons in California",
   "CRNAs in Houston",
-  "Cardiac device reps in Florida",
+  "Cardiologists in Florida",
   "Travel nurses with 5+ years experience",
 ];
 
