@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FolderKanban, Search, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, FolderKanban, Search, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const stats = [
   { title: "Candidates Sourced", value: "0", icon: Users, change: "+0 this week", color: "bg-primary/10 text-primary" },
@@ -13,18 +17,54 @@ const stats = [
 export default function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedData = async () => {
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("seed-data", {});
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        `Sandbox data loaded! ${data.projects_created} projects and ${data.candidates_inserted} candidates added.`
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to seed data");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <AppLayout>
       <div className="space-y-6">
         {/* Welcome banner */}
         <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent p-5">
-          <h1 className="text-2xl font-bold font-display text-foreground">
-            Welcome back, {firstName} 👋
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Here's an overview of your healthcare recruiting pipeline
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold font-display text-foreground">
+                Welcome back, {firstName} 👋
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                Here's an overview of your healthcare recruiting pipeline
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSeedData}
+              disabled={seeding}
+              className="shrink-0 border-dashed text-muted-foreground hover:text-foreground"
+              title="Load sandbox data for testing"
+            >
+              {seeding ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              {seeding ? "Loading data…" : "Load sandbox data"}
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
