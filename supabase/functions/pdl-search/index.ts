@@ -269,7 +269,7 @@ async function enrichCompany(params: { company_name?: string; company_website?: 
 }
 
 // ─── Transform: handles both full and preview API responses ───────────────────
-function transformSearchResults(pdlData: any) {
+function transformSearchResults(pdlData: any, filters?: ParsedFilters) {
   if (!pdlData?.data) return [];
 
   return pdlData.data.map((person: any) => {
@@ -359,6 +359,56 @@ function transformSearchResults(pdlData: any) {
     // Capitalize properly
     fullName = fullName.replace(/\b\w/g, (c: string) => c.toUpperCase());
 
+    // ── Compute match score (0-100) ──
+    let match_score = 50; // base score (they matched the SQL query)
+    const jobTitle = (person.job_title || "").toLowerCase();
+    const personLoc = location?.toLowerCase() || "";
+
+    if (filters) {
+      let signals = 0;
+      let maxSignals = 0;
+
+      // Title match quality
+      const titleTerms = [...(filters.job_titles || []), ...(filters.specialties || [])];
+      if (titleTerms.length > 0) {
+        maxSignals += 2;
+        const exactMatch = titleTerms.some(t => jobTitle === t.toLowerCase());
+        const partialMatch = titleTerms.some(t => jobTitle.includes(t.toLowerCase()));
+        if (exactMatch) signals += 2;
+        else if (partialMatch) signals += 1;
+      }
+
+      // Location match quality
+      if ((filters.locations || []).length > 0) {
+        maxSignals += 2;
+        const locMatched = filters.locations.some(l => {
+          const ll = l.toLowerCase();
+          return personLoc.includes(ll) || ll.split(" ").every(part => personLoc.includes(part));
+        });
+        if (locMatched) signals += 2;
+        else if (personLoc) signals += 1; // has location but doesn't match
+      }
+
+      // Company match
+      if ((filters.companies || []).length > 0) {
+        maxSignals += 1;
+        const employer = (person.job_company_name || "").toLowerCase();
+        if (filters.companies.some(c => employer.includes(c.toLowerCase()))) signals += 1;
+      }
+
+      // Data completeness bonus
+      maxSignals += 3;
+      if (has_email) signals += 1;
+      if (has_phone) signals += 0.5;
+      if (has_experience) signals += 0.5;
+      if (has_skills) signals += 0.5;
+      if (person.linkedin_url) signals += 0.5;
+
+      match_score = maxSignals > 0 ? Math.round((signals / maxSignals) * 100) : 50;
+      // Clamp between 20-99
+      match_score = Math.max(20, Math.min(99, match_score));
+    }
+
     return {
       id: person.id,
       full_name: fullName,
@@ -372,12 +422,12 @@ function transformSearchResults(pdlData: any) {
       avg_tenure_months: avgTenureMonths,
       industry: person.industry || null,
       company_size: typeof person.job_company_size === "boolean" ? null : (person.job_company_size || null),
-      // Preview indicators
       preview: isPreview,
       has_email,
       has_phone,
       has_skills,
       has_experience,
+      match_score,
     };
   });
 }
@@ -462,7 +512,7 @@ Deno.serve(async (req) => {
       const pdlResults = await searchPDL(sql, size, from);
       console.log("PDL returned", pdlResults.total, "total results");
 
-      const candidates = transformSearchResults(pdlResults);
+      const candidates = transformSearchResults(pdlResults, filters);
 
       return new Response(
         JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql }),
@@ -486,7 +536,7 @@ Deno.serve(async (req) => {
     const pdlResults = await searchPDL(sql, size);
     console.log("PDL returned", pdlResults.total, "total results");
 
-    const candidates = transformSearchResults(pdlResults);
+    const candidates = transformSearchResults(pdlResults, filters);
 
     return new Response(
       JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql, filters }),

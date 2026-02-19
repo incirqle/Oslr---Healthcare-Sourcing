@@ -24,7 +24,9 @@ import {
   ChevronRight,
   RotateCcw,
   Sparkles,
+  Signal,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface Candidate {
   id: string;
@@ -44,6 +46,7 @@ export interface Candidate {
   has_phone?: boolean;
   has_skills?: boolean;
   has_experience?: boolean;
+  match_score?: number;
 }
 
 interface SearchResultsProps {
@@ -81,6 +84,35 @@ function AvailabilityIndicator({ available }: { available: boolean }) {
       <X className="h-3 w-3" />
       Unavailable
     </span>
+  );
+}
+
+function MatchScoreIndicator({ score }: { score: number }) {
+  const getColor = () => {
+    if (score >= 80) return { bar: "bg-primary", text: "text-primary", label: "Excellent" };
+    if (score >= 60) return { bar: "bg-primary/70", text: "text-primary", label: "Good" };
+    if (score >= 40) return { bar: "bg-amber-500", text: "text-amber-600", label: "Fair" };
+    return { bar: "bg-muted-foreground/40", text: "text-muted-foreground", label: "Low" };
+  };
+  const { bar, text, label } = getColor();
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-2 min-w-[80px]">
+            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className={`h-full rounded-full ${bar} transition-all`} style={{ width: `${score}%` }} />
+            </div>
+            <span className={`text-[11px] font-semibold tabular-nums ${text}`}>{score}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p className="font-medium">{label} match ({score}/100)</p>
+          <p className="text-muted-foreground">Based on title, location & data completeness</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -176,6 +208,9 @@ export function SearchResults({
                   onCheckedChange={onToggleSelectAll}
                 />
               </TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1"><Signal className="h-3 w-3" /> Match</span>
+              </TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Title</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employer</TableHead>
@@ -194,6 +229,9 @@ export function SearchResults({
               >
                 <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected.has(c.id)} onCheckedChange={() => onToggleSelect(c.id)} />
+                </TableCell>
+                <TableCell>
+                  <MatchScoreIndicator score={c.match_score ?? 50} />
                 </TableCell>
                 <TableCell>
                   <div className="min-w-[140px]">
