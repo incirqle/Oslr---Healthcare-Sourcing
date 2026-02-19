@@ -149,21 +149,6 @@ export default function SearchPage() {
         )}
 
         {step === "results" && (
-          <>
-            <div className="flex items-center gap-3 mb-2">
-              <button
-                onClick={() => setStep("review")}
-                className="text-sm text-primary hover:underline"
-              >
-                ← Back to filters
-              </button>
-              <button
-                onClick={handleReset}
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                New search
-              </button>
-            </div>
             <SearchResults
               candidates={candidates}
               total={total}
@@ -174,11 +159,11 @@ export default function SearchPage() {
               onSaveSingle={(c) => { setSaveDialogCandidates([c]); setSaveDialogOpen(true); }}
               onSaveBulk={() => { setSaveDialogCandidates(selectedCandidates); setSaveDialogOpen(true); }}
               onEditFilters={() => setStep("review")}
+              onNewSearch={handleReset}
               page={page}
               pageSize={pageSize}
               onPageChange={handlePageChange}
             />
-          </>
         )}
       </div>
 
