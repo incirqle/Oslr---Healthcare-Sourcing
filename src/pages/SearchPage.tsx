@@ -23,6 +23,8 @@ export default function SearchPage() {
   const [filterTotal, setFilterTotal] = useState(0);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveDialogCandidates, setSaveDialogCandidates] = useState<Candidate[]>([]);
@@ -51,13 +53,14 @@ export default function SearchPage() {
     }
   };
 
-  const handleRunSearch = async () => {
+  const handleRunSearch = async (searchPage = 1) => {
     setStep("searching");
     setSelected(new Set());
 
     try {
+      const from = (searchPage - 1) * pageSize;
       const { data, error } = await supabase.functions.invoke("pdl-search", {
-        body: { action: "search_with_filters", filters, size: 15 },
+        body: { action: "search_with_filters", filters, size: pageSize, from },
       });
 
       if (error) throw error;
@@ -65,6 +68,7 @@ export default function SearchPage() {
 
       setCandidates(data.candidates || []);
       setTotal(data.total || 0);
+      setPage(searchPage);
       setStep("results");
 
       if (data.candidates?.length > 0) {
@@ -72,12 +76,16 @@ export default function SearchPage() {
       } else {
         toast.info("No results found. Try adjusting your filters.");
       }
-      addEntry(query, data.total || 0);
+      if (searchPage === 1) addEntry(query, data.total || 0);
     } catch (err: any) {
       console.error("Search error:", err);
       toast.error(err.message || "Search failed");
       setStep("review");
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    handleRunSearch(newPage);
   };
 
   const handleReset = () => {
@@ -86,6 +94,7 @@ export default function SearchPage() {
     setFilters({ job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [] });
     setCandidates([]);
     setTotal(0);
+    setPage(1);
     setSelected(new Set());
   };
 
@@ -165,6 +174,9 @@ export default function SearchPage() {
               onSaveSingle={(c) => { setSaveDialogCandidates([c]); setSaveDialogOpen(true); }}
               onSaveBulk={() => { setSaveDialogCandidates(selectedCandidates); setSaveDialogOpen(true); }}
               onEditFilters={() => setStep("review")}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
             />
           </>
         )}
