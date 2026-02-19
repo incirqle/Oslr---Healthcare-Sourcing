@@ -199,43 +199,48 @@ Deno.serve(async (req) => {
       console.log(`Created company ${company_id} and assigned admin role`);
     }
 
-    // ── Create projects ───────────────────────────────────────────────────────
-    const createdProjectIds: string[] = [];
-    for (const proj of PROJECTS) {
-      const { data, error } = await supabase
-        .from("projects")
-        .insert({ ...proj, company_id, created_by: user.id })
-        .select("id")
-        .single();
-      if (error) {
-        console.error(`Project insert error (${proj.name}):`, error.message);
-      } else if (data) {
-        createdProjectIds.push(data.id);
-      }
-    }
+    // ── Create all projects in one batch ─────────────────────────────────────
+    const projectRows = PROJECTS.map((proj) => ({ ...proj, company_id, created_by: user.id }));
+    const { data: createdProjects, error: projectsError } = await supabase
+      .from("projects")
+      .insert(projectRows)
+      .select("id");
 
-    // ── Insert candidates ─────────────────────────────────────────────────────
+    if (projectsError || !createdProjects) {
+      throw new Error(`Failed to create projects: ${projectsError?.message}`);
+    }
+    const createdProjectIds = createdProjects.map((p: any) => p.id);
+    console.log(`Created ${createdProjectIds.length} projects`);
+
+    // ── Insert candidates in per-project batches ──────────────────────────────
     let totalInserted = 0;
+    const candidateBatches: any[][] = [];
+
     for (let pi = 0; pi < createdProjectIds.length; pi++) {
       const projectId = createdProjectIds[pi];
       const idxList = PROJECT_ASSIGNMENTS[pi] ?? [];
-      for (const idx of idxList) {
-        const candidate = CANDIDATES[idx];
-        if (!candidate) continue;
-        const { error } = await supabase.from("candidates").insert({
+      const batch = idxList
+        .map((idx) => CANDIDATES[idx])
+        .filter(Boolean)
+        .map((candidate) => ({
           ...candidate,
           project_id: projectId,
           company_id,
           added_by: user.id,
           linkedin_url: `https://linkedin.com/in/${candidate.full_name.toLowerCase().replace(/[\s,.]+/g, "-")}-demo`,
-        });
-        if (error) {
-          console.error(`Candidate insert error (${candidate.full_name}):`, error.message);
-        } else {
-          totalInserted++;
-        }
-      }
+        }));
+      candidateBatches.push(batch);
     }
+
+    // Insert all candidates in one shot
+    const allCandidates = candidateBatches.flat();
+    const { error: candidatesError } = await supabase.from("candidates").insert(allCandidates);
+    if (candidatesError) {
+      console.error("Candidates insert error:", candidatesError.message);
+    } else {
+      totalInserted = allCandidates.length;
+    }
+    console.log(`Inserted ${totalInserted} candidates`);
 
     console.log(`Seed complete — ${createdProjectIds.length} projects, ${totalInserted} candidates`);
 
