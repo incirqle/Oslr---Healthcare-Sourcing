@@ -63,7 +63,6 @@ function filtersToSQL(filters: ParsedFilters): string {
   if (filters.locations.length > 0) {
     const locConditions = filters.locations.map((l) => {
       const lc = l.toLowerCase().trim();
-      // US state abbreviation map for common states
       const stateMap: Record<string, string> = {
         "alabama": "alabama", "alaska": "alaska", "arizona": "arizona", "arkansas": "arkansas",
         "california": "california", "colorado": "colorado", "connecticut": "connecticut",
@@ -81,18 +80,15 @@ function filtersToSQL(filters: ParsedFilters): string {
         "virginia": "virginia", "washington": "washington", "west virginia": "west virginia",
         "wisconsin": "wisconsin", "wyoming": "wyoming",
       };
-      // Check if the whole string is a state
       if (stateMap[lc]) {
         return `location_region='${lc}'`;
       }
-      // Check if it ends with a known state (e.g. "Miami Florida" → city=miami, state=florida)
       for (const state of Object.keys(stateMap)) {
         if (lc.endsWith(` ${state}`)) {
           const city = lc.slice(0, lc.length - state.length - 1).trim();
           return `(location_locality='${city}' AND location_region='${state}')`;
         }
       }
-      // Fallback: try both
       return `(location_region='${lc}' OR location_locality='${lc}')`;
     });
     conditions.push(`(${locConditions.join(" OR ")})`);
@@ -110,6 +106,12 @@ function filtersToSQL(filters: ParsedFilters): string {
       (k) => `skills LIKE '%${k.toLowerCase()}%'`
     );
     conditions.push(`(${kwConditions.join(" OR ")})`);
+  }
+
+  // Safety: if only the role filter exists (no titles, locations, companies, or keywords),
+  // the query is too broad and will return millions of results
+  if (conditions.length <= 1) {
+    throw new Error("Filters are too broad — at least a job title, location, or company is required to run a search.");
   }
 
   return `SELECT * FROM person WHERE ${conditions.join(" AND ")}`;
@@ -188,14 +190,7 @@ IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user
             };
           } catch {
             console.error("Failed to parse AI response:", content);
-            return {
-              job_titles: [],
-              locations: [],
-              companies: [],
-              keywords: [],
-              experience_years: null,
-              specialties: [],
-            };
+            throw new Error("Failed to understand your search query. Please try rephrasing it.");
           }
         }
 
