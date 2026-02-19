@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MapPin, Building2, Clock, ExternalLink, FolderPlus, SearchX, SlidersHorizontal } from "lucide-react";
+import { MapPin, Building2, Clock, ExternalLink, FolderPlus, SearchX, SlidersHorizontal, Mail, Phone, Check, X } from "lucide-react";
 
 export interface Candidate {
   id: string;
@@ -24,6 +24,11 @@ export interface Candidate {
   avg_tenure_months: number | null;
   industry: string | null;
   company_size: string | null;
+  preview?: boolean;
+  has_email?: boolean;
+  has_phone?: boolean;
+  has_skills?: boolean;
+  has_experience?: boolean;
 }
 
 interface SearchResultsProps {
@@ -44,6 +49,20 @@ function formatTenure(months: number | null) {
   const years = Math.floor(months / 12);
   const remaining = months % 12;
   return remaining > 0 ? `${years}y ${remaining}mo` : `${years}y`;
+}
+
+function AvailabilityIndicator({ available }: { available: boolean }) {
+  return available ? (
+    <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+      <Check className="h-3 w-3" />
+      Available
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <X className="h-3 w-3" />
+      Unavailable
+    </span>
+  );
 }
 
 export function SearchResults({
@@ -80,6 +99,8 @@ export function SearchResults({
     );
   }
 
+  const isPreviewMode = candidates.some((c) => c.preview);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -87,6 +108,11 @@ export function SearchResults({
           <h2 className="text-base font-display font-semibold">
             Results ({total.toLocaleString()} found)
           </h2>
+          {isPreviewMode && (
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-amber-600 border-amber-300 bg-amber-50">
+              Preview Mode
+            </Badge>
+          )}
           {selected.size > 0 && (
             <Button size="sm" variant="outline" onClick={onSaveBulk}>
               <FolderPlus className="h-3.5 w-3.5 mr-1.5" />
@@ -124,7 +150,15 @@ export function SearchResults({
                 <TableCell className="font-medium">
                   <div>
                     <p className="text-sm">{c.full_name}</p>
-                    {c.email && <p className="text-xs text-muted-foreground truncate max-w-[180px]">{c.email}</p>}
+                    {c.preview ? (
+                      c.has_email && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600">
+                          <Mail className="h-2.5 w-2.5" /> Email available
+                        </span>
+                      )
+                    ) : (
+                      c.email && <p className="text-xs text-muted-foreground truncate max-w-[180px]">{c.email}</p>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell><span className="text-sm">{c.title || "—"}</span></TableCell>
@@ -145,20 +179,28 @@ export function SearchResults({
                   ) : <span className="text-sm text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm">{formatTenure(c.avg_tenure_months)}</span>
-                  </div>
+                  {c.preview ? (
+                    <AvailabilityIndicator available={!!c.has_experience} />
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm">{formatTenure(c.avg_tenure_months)}</span>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1 max-w-[200px]">
-                    {c.skills.slice(0, 3).map((skill) => (
-                      <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0">{skill}</Badge>
-                    ))}
-                    {c.skills.length > 3 && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">+{c.skills.length - 3}</Badge>
-                    )}
-                  </div>
+                  {c.preview ? (
+                    <AvailabilityIndicator available={!!c.has_skills} />
+                  ) : (
+                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      {c.skills.slice(0, 3).map((skill) => (
+                        <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0">{skill}</Badge>
+                      ))}
+                      {c.skills.length > 3 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">+{c.skills.length - 3}</Badge>
+                      )}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-1">

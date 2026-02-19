@@ -57,7 +57,7 @@ export default function SearchPage() {
 
     try {
       const { data, error } = await supabase.functions.invoke("pdl-search", {
-        body: { action: "search_with_filters", filters, size: 25 },
+        body: { action: "search_with_filters", filters, size: 15 },
       });
 
       if (error) throw error;
