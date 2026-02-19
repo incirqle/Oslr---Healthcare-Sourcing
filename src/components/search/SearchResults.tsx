@@ -41,6 +41,9 @@ interface SearchResultsProps {
   onSaveSingle: (candidate: Candidate) => void;
   onSaveBulk: () => void;
   onEditFilters?: () => void;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
 }
 
 function formatTenure(months: number | null) {
@@ -75,7 +78,11 @@ export function SearchResults({
   onSaveSingle,
   onSaveBulk,
   onEditFilters,
+  page = 1,
+  pageSize = 15,
+  onPageChange,
 }: SearchResultsProps) {
+  const totalPages = Math.ceil(total / pageSize);
   if (candidates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
@@ -228,6 +235,35 @@ export function SearchResults({
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && onPageChange && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+            >
+              ← Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages.toLocaleString()}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+            >
+              Next →
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

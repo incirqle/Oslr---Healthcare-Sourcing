@@ -16,6 +16,7 @@ interface SearchRequest {
   action?: "search" | "enrich_person" | "enrich_company" | "parse_filters" | "search_with_filters";
   query?: string;
   size?: number;
+  from?: number;
   filters?: ParsedFilters;
   linkedin_url?: string;
   email?: string;
@@ -186,15 +187,17 @@ IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user
   }
 }
 
-async function searchPDL(sql: string, size: number) {
-  console.log("PDL SQL:", sql);
+async function searchPDL(sql: string, size: number, from: number = 0) {
+  console.log("PDL SQL:", sql, "size:", size, "from:", from);
+  const body: any = { sql, size, pretty: true, dataset: "all" };
+  if (from > 0) body.from = from;
   const res = await fetch(`${PDL_BASE}/person/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-api-key": PDL_PREVIEW_API_KEY,
     },
-    body: JSON.stringify({ sql, size, pretty: true, dataset: "all" }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -419,7 +422,7 @@ Deno.serve(async (req) => {
 
     // ── Search with filters (step 2 of 2-step search) ─────────────────────────
     if (action === "search_with_filters") {
-      const { filters, size = 15 } = body;
+      const { filters, size = 15, from = 0 } = body;
       if (!filters) {
         return new Response(
           JSON.stringify({ error: "Filters are required" }),
@@ -430,7 +433,7 @@ Deno.serve(async (req) => {
       const sql = filtersToSQL(filters);
       console.log("Search SQL:", sql);
 
-      const pdlResults = await searchPDL(sql, size);
+      const pdlResults = await searchPDL(sql, size, from);
       console.log("PDL returned", pdlResults.total, "total results");
 
       const candidates = transformSearchResults(pdlResults);
