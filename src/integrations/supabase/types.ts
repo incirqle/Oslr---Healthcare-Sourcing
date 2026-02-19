@@ -306,6 +306,48 @@ export type Database = {
           },
         ]
       }
+      reading_list: {
+        Row: {
+          article_id: string
+          category: string | null
+          description: string | null
+          id: string
+          published_at: string | null
+          saved_at: string
+          source: string
+          source_icon: string | null
+          title: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          category?: string | null
+          description?: string | null
+          id?: string
+          published_at?: string | null
+          saved_at?: string
+          source: string
+          source_icon?: string | null
+          title: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          category?: string | null
+          description?: string | null
+          id?: string
+          published_at?: string | null
+          saved_at?: string
+          source?: string
+          source_icon?: string | null
+          title?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       search_history: {
         Row: {
           company_id: string

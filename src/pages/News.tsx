@@ -1,11 +1,21 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { ExternalLink, RefreshCw, Newspaper, Clock, AlertCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
+import {
+  ExternalLink,
+  RefreshCw,
+  Newspaper,
+  Clock,
+  AlertCircle,
+  Bookmark,
+  BookmarkCheck,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface NewsArticle {
@@ -30,7 +40,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Anesthesia: "bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400",
 };
 
-const ALL_CATEGORIES = ["All", "Recruiting", "Nursing", "Staffing", "Trends", "Workforce", "Physicians", "Anesthesia", "Industry"];
+const ALL_CATEGORIES = ["All", "Saved", "Recruiting", "Nursing", "Staffing", "Trends", "Workforce", "Physicians", "Anesthesia", "Industry"];
 
 function ArticleSkeleton() {
   return (
@@ -50,7 +60,17 @@ function ArticleSkeleton() {
   );
 }
 
-function ArticleCard({ article }: { article: NewsArticle }) {
+function ArticleCard({
+  article,
+  isSaved,
+  onToggleSave,
+  isSaving,
+}: {
+  article: NewsArticle;
+  isSaved: boolean;
+  onToggleSave: (article: NewsArticle) => void;
+  isSaving: boolean;
+}) {
   const categoryClass = CATEGORY_COLORS[article.category] || CATEGORY_COLORS.Industry;
   const timeAgo = (() => {
     try {
@@ -61,45 +81,71 @@ function ArticleCard({ article }: { article: NewsArticle }) {
   })();
 
   return (
-    <a
-      href={article.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block rounded-xl border border-border bg-card p-5 hover:border-primary/30 hover:shadow-md transition-all duration-200"
-    >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base">{article.sourceIcon}</span>
-          <span className="text-xs font-medium text-muted-foreground">{article.source}</span>
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryClass}`}>
-            {article.category}
-          </Badge>
+    <div className="group relative rounded-xl border border-border bg-card p-5 hover:border-primary/30 hover:shadow-md transition-all duration-200 flex flex-col">
+      {/* Bookmark button */}
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleSave(article);
+        }}
+        disabled={isSaving}
+        title={isSaved ? "Remove from reading list" : "Save to reading list"}
+        className={`absolute top-4 right-4 z-10 rounded-md p-1.5 transition-all duration-150 ${
+          isSaved
+            ? "text-primary bg-primary/10 hover:bg-primary/20"
+            : "text-muted-foreground/40 hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100"
+        }`}
+      >
+        {isSaved ? (
+          <BookmarkCheck className="h-4 w-4" />
+        ) : (
+          <Bookmark className="h-4 w-4" />
+        )}
+      </button>
+
+      <a
+        href={article.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex flex-col flex-1 min-w-0"
+      >
+        <div className="flex items-start justify-between gap-3 mb-3 pr-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base">{article.sourceIcon}</span>
+            <span className="text-xs font-medium text-muted-foreground">{article.source}</span>
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryClass}`}>
+              {article.category}
+            </Badge>
+          </div>
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
         </div>
-        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
-      </div>
 
-      <h3 className="text-sm font-semibold text-foreground leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
-        {article.title}
-      </h3>
+        <h3 className="text-sm font-semibold text-foreground leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
+          {article.title}
+        </h3>
 
-      {article.description && (
-        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-          {article.description}
-        </p>
-      )}
+        {article.description && (
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+            {article.description}
+          </p>
+        )}
 
-      {timeAgo && (
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-          <Clock className="h-3 w-3" />
-          {timeAgo}
-        </div>
-      )}
-    </a>
+        {timeAgo && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 mt-auto pt-2">
+            <Clock className="h-3 w-3" />
+            {timeAgo}
+          </div>
+        )}
+      </a>
+    </div>
   );
 }
 
 export default function News() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["news-feed"],
@@ -109,14 +155,91 @@ export default function News() {
       if (data?.error) throw new Error(data.error);
       return data as { articles: NewsArticle[]; total: number };
     },
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
   });
 
+  // Fetch saved article IDs
+  const { data: savedArticles } = useQuery({
+    queryKey: ["reading-list", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("reading_list" as any)
+        .select("article_id, title, description, url, source, source_icon, published_at, category")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!user,
+  });
+
+  const savedIds = new Set((savedArticles ?? []).map((a: any) => a.article_id));
+
+  // Toggle bookmark mutation
+  const { mutate: toggleSave, isPending: isSaving } = useMutation({
+    mutationFn: async (article: NewsArticle) => {
+      if (!user) throw new Error("Not authenticated");
+      if (savedIds.has(article.id)) {
+        const { error } = await supabase
+          .from("reading_list" as any)
+          .delete()
+          .eq("user_id", user.id)
+          .eq("article_id", article.id);
+        if (error) throw error;
+        return { action: "removed", title: article.title };
+      } else {
+        const { error } = await supabase
+          .from("reading_list" as any)
+          .insert({
+            user_id: user.id,
+            article_id: article.id,
+            title: article.title,
+            description: article.description,
+            url: article.url,
+            source: article.source,
+            source_icon: article.sourceIcon,
+            published_at: article.publishedAt,
+            category: article.category,
+          });
+        if (error) throw error;
+        return { action: "saved", title: article.title };
+      }
+    },
+    onSuccess: ({ action }) => {
+      queryClient.invalidateQueries({ queryKey: ["reading-list", user?.id] });
+      toast({
+        title: action === "saved" ? "Saved to reading list" : "Removed from reading list",
+        description: action === "saved"
+          ? "Article bookmarked — find it under the Saved tab."
+          : "Article removed from your reading list.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+    },
+  });
+
   const articles = data?.articles ?? [];
-  const filtered = activeCategory === "All"
-    ? articles
-    : articles.filter((a) => a.category === activeCategory);
+
+  // Build the list to display — "Saved" tab shows bookmarked articles
+  const filtered = (() => {
+    if (activeCategory === "Saved") {
+      // Reconstruct NewsArticle shape from saved rows
+      return (savedArticles ?? []).map((a: any) => ({
+        id: a.article_id,
+        title: a.title,
+        description: a.description ?? "",
+        url: a.url,
+        source: a.source,
+        sourceIcon: a.source_icon ?? "📰",
+        publishedAt: a.published_at ?? "",
+        category: a.category ?? "Industry",
+      })) as NewsArticle[];
+    }
+    if (activeCategory === "All") return articles;
+    return articles.filter((a) => a.category === activeCategory);
+  })();
 
   return (
     <AppLayout>
@@ -143,38 +266,63 @@ export default function News() {
 
         {/* Category filter pills */}
         <div className="flex items-center gap-2 flex-wrap">
-          {ALL_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border ${
-                activeCategory === cat
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
-              }`}
-            >
-              {cat}
-              {cat !== "All" && data && (
-                <span className="ml-1.5 opacity-60">
-                  {articles.filter((a) => a.category === cat).length}
-                </span>
-              )}
-            </button>
-          ))}
+          {ALL_CATEGORIES.map((cat) => {
+            const isSavedTab = cat === "Saved";
+            const count = isSavedTab
+              ? (savedArticles?.length ?? 0)
+              : cat === "All"
+              ? undefined
+              : articles.filter((a) => a.category === cat).length;
+
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border flex items-center gap-1.5 ${
+                  activeCategory === cat
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : isSavedTab
+                    ? "bg-secondary/50 text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
+                    : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
+                }`}
+              >
+                {isSavedTab && <Bookmark className="h-3 w-3" />}
+                {cat}
+                {count !== undefined && (
+                  <span className="opacity-60">{count}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Sources banner */}
-        <div className="rounded-lg border border-border/60 bg-secondary/20 px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground/60 flex items-center gap-1.5">
-            <Newspaper className="h-3.5 w-3.5" /> Sources:
-          </span>
-          {["🏥 Becker's Hospital Review", "🏨 Becker's ASC Review", "💻 Becker's Health IT", "📊 Healthcare Dive", "🔥 Fierce Healthcare", "📰 Google News (8 topic feeds)"].map((s) => (
-            <span key={s}>{s}</span>
-          ))}
-        </div>
+        {/* Sources banner — hide on Saved tab */}
+        {activeCategory !== "Saved" && (
+          <div className="rounded-lg border border-border/60 bg-secondary/20 px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground/60 flex items-center gap-1.5">
+              <Newspaper className="h-3.5 w-3.5" /> Sources:
+            </span>
+            {["🏥 Becker's Hospital Review", "🏨 Becker's ASC Review", "💻 Becker's Health IT", "📊 Healthcare Dive", "🔥 Fierce Healthcare", "📰 Google News (8 topic feeds)"].map((s) => (
+              <span key={s}>{s}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Saved tab empty state */}
+        {activeCategory === "Saved" && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <Bookmark className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">No saved articles yet</p>
+            <p className="text-xs text-muted-foreground">
+              Click the bookmark icon on any article to save it here for later.
+            </p>
+          </div>
+        )}
 
         {/* Error state */}
-        {isError && (
+        {isError && activeCategory !== "Saved" && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="rounded-full bg-destructive/10 p-4 mb-4">
               <AlertCircle className="h-8 w-8 text-destructive" />
@@ -186,11 +334,11 @@ export default function News() {
         )}
 
         {/* Articles grid */}
-        {isLoading ? (
+        {isLoading && activeCategory !== "Saved" ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 9 }).map((_, i) => <ArticleSkeleton key={i} />)}
           </div>
-        ) : filtered.length === 0 && !isError ? (
+        ) : filtered.length === 0 && !isError && activeCategory !== "Saved" ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="rounded-full bg-muted p-4 mb-4">
               <Newspaper className="h-8 w-8 text-muted-foreground" />
@@ -198,18 +346,26 @@ export default function News() {
             <p className="text-sm font-medium text-foreground mb-1">No articles in this category</p>
             <p className="text-xs text-muted-foreground">Try selecting a different category or refresh.</p>
           </div>
-        ) : (
+        ) : filtered.length > 0 ? (
           <>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((article) => (
-                <ArticleCard key={article.id} article={article} />
+                <ArticleCard
+                  key={article.id}
+                  article={article}
+                  isSaved={savedIds.has(article.id)}
+                  onToggleSave={toggleSave}
+                  isSaving={isSaving}
+                />
               ))}
             </div>
             <p className="text-center text-xs text-muted-foreground pb-2">
-              Showing {filtered.length} articles · Refreshes automatically every 10 minutes
+              {activeCategory === "Saved"
+                ? `${filtered.length} saved article${filtered.length !== 1 ? "s" : ""} in your reading list`
+                : `Showing ${filtered.length} articles · Refreshes automatically every 10 minutes`}
             </p>
           </>
-        )}
+        ) : null}
       </div>
     </AppLayout>
   );
