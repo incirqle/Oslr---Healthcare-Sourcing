@@ -25,9 +25,11 @@ export default function Dashboard() {
       const { data, error } = await supabase.functions.invoke("seed-data", {});
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(
-        `Sandbox data loaded! ${data.projects_created} projects and ${data.candidates_inserted} candidates added.`
-      );
+      if (data?.already_seeded) {
+        toast.info(`Sandbox data already loaded — ${data.projects_created} projects and ${data.candidates_inserted} candidates are ready in Projects.`);
+      } else {
+        toast.success(`Sandbox data loaded! ${data.projects_created} projects and ${data.candidates_inserted} candidates added. Go to Projects to see them.`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to seed data");
     } finally {
