@@ -10,7 +10,7 @@ const PDL_API_KEY = Deno.env.get("PDL_API_KEY")!;
 const PDL_PREVIEW_API_KEY = Deno.env.get("PDL_PREVIEW_API_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-const PDL_BASE = "https://sandbox.api.peopledatalabs.com/v5";
+const PDL_BASE = "https://api.peopledatalabs.com/v5";
 
 interface SearchRequest {
   action?: "search" | "enrich_person" | "enrich_company" | "parse_filters" | "search_with_filters";
