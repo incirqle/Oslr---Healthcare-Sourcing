@@ -12,11 +12,12 @@ const categoryChips = [
 ];
 
 const suggestions = [
-  "Registered nurses in Dallas",
-  "Cardiologists with ICU experience",
-  "Travel nurses in California",
-  "Nurse practitioners at HCA Healthcare",
-  "Emergency room physicians in Houston",
+  "Spine reps in Texas",
+  "ICU nurses in Dallas with CCRN",
+  "Orthopedic sales reps in California",
+  "CRNAs in Houston",
+  "Cardiac device reps in Florida",
+  "Travel nurses with 5+ years experience",
 ];
 
 interface SearchHeroProps {

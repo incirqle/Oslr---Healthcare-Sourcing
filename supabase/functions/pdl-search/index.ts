@@ -31,38 +31,110 @@ interface ParsedFilters {
   specialties: string[];
 }
 
-async function parseQueryToFilters(naturalLanguage: string): Promise<{ filters: ParsedFilters; sql: string; }> {
-  const systemPrompt = `You are a search query parser for healthcare recruiting. Parse the natural language query into structured filters AND a PDL SQL query.
+// ─── Healthcare role categories in PDL ───────────────────────────────────────
+// PDL's job_title_role field covers only clinical staff.
+// Medical device / pharma sales reps sit in 'sales' role, NOT 'health'.
+// We detect whether a search is clinical or commercial and pick the right roles.
+function inferRoles(filters: ParsedFilters): string[] {
+  const allTerms = [
+    ...filters.job_titles,
+    ...filters.specialties,
+    ...filters.keywords,
+  ].map((t) => t.toLowerCase());
 
-Return JSON with this exact structure:
-{
-  "filters": {
-    "job_titles": ["nurse", "registered nurse"],
-    "locations": ["Texas"],
-    "companies": [],
-    "keywords": ["icu"],
-    "experience_years": null,
-    "specialties": ["cardiology"]
-  },
-  "sql": "SELECT * FROM person WHERE job_title LIKE '%nurse%' AND location_region='texas' AND job_title_role='health'"
+  const salesKeywords = [
+    "rep", "representative", "sales", "device", "pharma", "account",
+    "territory", "manager", "distributor", "bd", "business development",
+  ];
+  const isSalesRole = allTerms.some((t) =>
+    salesKeywords.some((kw) => t.includes(kw))
+  );
+
+  // If clearly sales-oriented, allow both health and sales roles
+  if (isSalesRole) return ["health", "sales"];
+  return ["health"];
 }
 
-Rules for filters:
-- job_titles: extract role/title keywords
-- locations: extract city, state, or region names (keep original casing)
-- companies: extract company names
-- keywords: extract skills, certifications, or general keywords
-- experience_years: extract if mentioned (e.g. "5+ years" → 5), null otherwise
-- specialties: extract medical specialties
+// ─── Build PDL SQL from structured filters ────────────────────────────────────
+// Key fixes vs. original:
+//  1. job_title_role is now dynamic (sales roles included when relevant)
+//  2. specialties merge into job_title LIKE clauses (no 'specialty' column in PDL)
+//  3. keywords use LIKE '%x%' instead of exact skills='x' match
+//  4. location values are always lowercased
+function filtersToSQL(filters: ParsedFilters): string {
+  const conditions: string[] = [];
 
-Rules for SQL (PDL format):
-- Always include job_title_role='health' for healthcare
-- Use LIKE with % for partial matches on job titles
-- Use location_region for states, location_locality for cities
-- Use single quotes for string values
-- Output valid PDL SQL
+  // 1. Role filter — dynamic based on what's being searched
+  const roles = inferRoles(filters);
+  if (roles.length === 1) {
+    conditions.push(`job_title_role='${roles[0]}'`);
+  } else {
+    conditions.push(`(${roles.map((r) => `job_title_role='${r}'`).join(" OR ")})`);
+  }
 
-Return ONLY valid JSON, nothing else.`;
+  // 2. Job titles + specialties both map to job_title LIKE clauses
+  const titleTerms = [
+    ...filters.job_titles,
+    ...filters.specialties, // specialties become title keywords — PDL has no specialty column
+  ];
+  if (titleTerms.length > 0) {
+    const titleConditions = titleTerms.map(
+      (t) => `job_title LIKE '%${t.toLowerCase()}%'`
+    );
+    conditions.push(`(${titleConditions.join(" OR ")})`);
+  }
+
+  // 3. Location — support state and city, always lowercase
+  if (filters.locations.length > 0) {
+    const locConditions = filters.locations.map((l) => {
+      const lc = l.toLowerCase();
+      return `(location_region='${lc}' OR location_locality='${lc}')`;
+    });
+    conditions.push(`(${locConditions.join(" OR ")})`);
+  }
+
+  // 4. Company filter
+  if (filters.companies.length > 0) {
+    const compConditions = filters.companies.map(
+      (c) => `job_company_name LIKE '%${c.toLowerCase()}%'`
+    );
+    conditions.push(`(${compConditions.join(" OR ")})`);
+  }
+
+  // 5. Keywords — partial match on skills (was exact match — broken)
+  if (filters.keywords.length > 0) {
+    const kwConditions = filters.keywords.map(
+      (k) => `skills LIKE '%${k.toLowerCase()}%'`
+    );
+    conditions.push(`(${kwConditions.join(" OR ")})`);
+  }
+
+  return `SELECT * FROM person WHERE ${conditions.join(" AND ")}`;
+}
+
+// ─── AI query parser ──────────────────────────────────────────────────────────
+async function parseQueryToFilters(naturalLanguage: string): Promise<ParsedFilters> {
+  const systemPrompt = `You are a search query parser for a healthcare recruiting platform. Extract structured filters from the natural language query.
+
+Return ONLY valid JSON with this exact structure — no explanation, no markdown:
+{
+  "job_titles": ["spine rep", "spine sales representative"],
+  "locations": ["Texas"],
+  "companies": [],
+  "keywords": [],
+  "experience_years": null,
+  "specialties": []
+}
+
+Rules:
+- job_titles: Extract role/title keywords. For healthcare sales roles like "spine reps", "ortho reps", "device reps" — include variations like "spine rep", "spine sales representative", "spine sales rep". For clinical roles like "ICU nurse", include "registered nurse", "RN".
+- locations: State or city names exactly as written (e.g., "Texas", "Dallas").
+- companies: Specific employer names only.
+- keywords: Skills, certifications, tools (e.g., "ACLS", "Epic", "laparoscopic").
+- experience_years: Number only if explicitly stated (e.g., "5+ years" → 5), null otherwise.
+- specialties: Medical specialties ONLY if not already captured in job_titles (e.g., "cardiology", "orthopedics"). Leave empty for sales roles — specialty is already in the title.
+
+IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user said.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -77,63 +149,42 @@ Return ONLY valid JSON, nothing else.`;
         { role: "user", content: naturalLanguage },
       ],
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: 400,
     }),
   });
 
-  if (!res.ok) {
-    throw new Error(`AI gateway error: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`AI gateway error: ${res.status}`);
 
   const data = await res.json();
   let content = data.choices?.[0]?.message?.content?.trim() || "";
   content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  
+
   try {
-    return JSON.parse(content);
-  } catch {
-    // Fallback: return empty filters and try to use content as SQL
+    const parsed = JSON.parse(content);
+    // Normalise — ensure all arrays exist
     return {
-      filters: { job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [] },
-      sql: content,
+      job_titles: parsed.job_titles ?? [],
+      locations: parsed.locations ?? [],
+      companies: parsed.companies ?? [],
+      keywords: parsed.keywords ?? [],
+      experience_years: parsed.experience_years ?? null,
+      specialties: parsed.specialties ?? [],
+    };
+  } catch {
+    console.error("Failed to parse AI response:", content);
+    return {
+      job_titles: [],
+      locations: [],
+      companies: [],
+      keywords: [],
+      experience_years: null,
+      specialties: [],
     };
   }
 }
 
-function filtersToSQL(filters: ParsedFilters): string {
-  const conditions: string[] = ["job_title_role='health'"];
-
-  if (filters.job_titles.length > 0) {
-    const titleConditions = filters.job_titles.map(t => `job_title LIKE '%${t.toLowerCase()}%'`);
-    conditions.push(`(${titleConditions.join(" OR ")})`);
-  }
-
-  if (filters.locations.length > 0) {
-    const locConditions = filters.locations.map(l => 
-      `(location_region='${l.toLowerCase()}' OR location_locality='${l.toLowerCase()}')`
-    );
-    conditions.push(`(${locConditions.join(" OR ")})`);
-  }
-
-  if (filters.companies.length > 0) {
-    const compConditions = filters.companies.map(c => `job_company_name LIKE '%${c.toLowerCase()}%'`);
-    conditions.push(`(${compConditions.join(" OR ")})`);
-  }
-
-  if (filters.keywords.length > 0) {
-    const kwConditions = filters.keywords.map(k => `skills='${k.toLowerCase()}'`);
-    conditions.push(`(${kwConditions.join(" OR ")})`);
-  }
-
-  if (filters.specialties.length > 0) {
-    const specConditions = filters.specialties.map(s => `skills='${s.toLowerCase()}'`);
-    conditions.push(`(${specConditions.join(" OR ")})`);
-  }
-
-  return `SELECT * FROM person WHERE ${conditions.join(" AND ")}`;
-}
-
 async function searchPDL(sql: string, size: number) {
+  console.log("PDL SQL:", sql);
   const res = await fetch(`${PDL_BASE}/person/search`, {
     method: "POST",
     headers: {
@@ -145,9 +196,7 @@ async function searchPDL(sql: string, size: number) {
 
   if (!res.ok) {
     const errText = await res.text();
-    if (res.status === 404) {
-      return { data: [], total: 0 };
-    }
+    if (res.status === 404) return { data: [], total: 0 };
     throw new Error(`PDL Search error (${res.status}): ${errText}`);
   }
   return await res.json();
@@ -228,6 +277,7 @@ function transformSearchResults(pdlData: any) {
   });
 }
 
+// ─── Request handler ──────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -237,6 +287,7 @@ Deno.serve(async (req) => {
     const body: SearchRequest = await req.json();
     const action = body.action || "search";
 
+    // ── Enrich person ─────────────────────────────────────────────────────────
     if (action === "enrich_person") {
       if (!body.linkedin_url && !body.email) {
         return new Response(
@@ -250,6 +301,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Enrich company ────────────────────────────────────────────────────────
     if (action === "enrich_company") {
       if (!body.company_name && !body.company_website) {
         return new Response(
@@ -263,6 +315,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Parse filters (step 1 of 2-step search) ───────────────────────────────
     if (action === "parse_filters") {
       const { query } = body;
       if (!query || query.trim().length === 0) {
@@ -272,12 +325,15 @@ Deno.serve(async (req) => {
         );
       }
 
-      const { filters, sql } = await parseQueryToFilters(query);
+      const filters = await parseQueryToFilters(query);
       console.log("Parsed filters:", JSON.stringify(filters));
-      console.log("Generated SQL:", sql);
 
-      // Do a quick count/search to get total matches
+      // Use our own filtersToSQL (not AI-generated) for a consistent count
+      const sql = filtersToSQL(filters);
+      console.log("Count SQL:", sql);
+
       const pdlResults = await searchPDL(sql, 1);
+      console.log("Filter count:", pdlResults.total);
 
       return new Response(
         JSON.stringify({ filters, total: pdlResults.total || 0, sql_used: sql }),
@@ -285,6 +341,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── Search with filters (step 2 of 2-step search) ─────────────────────────
     if (action === "search_with_filters") {
       const { filters, size = 25 } = body;
       if (!filters) {
@@ -295,7 +352,7 @@ Deno.serve(async (req) => {
       }
 
       const sql = filtersToSQL(filters);
-      console.log("Filters SQL:", sql);
+      console.log("Search SQL:", sql);
 
       const pdlResults = await searchPDL(sql, size);
       console.log("PDL returned", pdlResults.total, "total results");
@@ -308,7 +365,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Default: legacy search (translate + search in one step)
+    // ── Legacy single-step search ─────────────────────────────────────────────
     const { query, size = 25 } = body;
     if (!query || query.trim().length === 0) {
       return new Response(
@@ -317,8 +374,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { filters, sql } = await parseQueryToFilters(query);
-    console.log("Generated SQL:", sql);
+    const filters = await parseQueryToFilters(query);
+    const sql = filtersToSQL(filters);
+    console.log("Legacy SQL:", sql);
 
     const pdlResults = await searchPDL(sql, size);
     console.log("PDL returned", pdlResults.total, "total results");
