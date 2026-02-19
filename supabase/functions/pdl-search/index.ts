@@ -141,57 +141,72 @@ Rules:
 
 IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user said.`;
 
+  const models = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: naturalLanguage },
-        ],
-        temperature: 0.1,
-        max_tokens: 400,
-      }),
-    });
 
-    if (res.ok) {
-      const data = await res.json();
-      let content = data.choices?.[0]?.message?.content?.trim() || "";
-      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
       try {
-        const parsed = JSON.parse(content);
-        return {
-          job_titles: parsed.job_titles ?? [],
-          locations: parsed.locations ?? [],
-          companies: parsed.companies ?? [],
-          keywords: parsed.keywords ?? [],
-          experience_years: parsed.experience_years ?? null,
-          specialties: parsed.specialties ?? [],
+        const isOpenAI = model.startsWith("openai/");
+        const bodyObj: any = {
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: naturalLanguage },
+          ],
         };
-      } catch {
-        console.error("Failed to parse AI response:", content);
-        return {
-          job_titles: [],
-          locations: [],
-          companies: [],
-          keywords: [],
-          experience_years: null,
-          specialties: [],
-        };
+        if (isOpenAI) {
+          bodyObj.max_completion_tokens = 400;
+        } else {
+          bodyObj.temperature = 0.1;
+          bodyObj.max_tokens = 400;
+        }
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          },
+          body: JSON.stringify(bodyObj),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          let content = data.choices?.[0]?.message?.content?.trim() || "";
+          content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+          try {
+            const parsed = JSON.parse(content);
+            return {
+              job_titles: parsed.job_titles ?? [],
+              locations: parsed.locations ?? [],
+              companies: parsed.companies ?? [],
+              keywords: parsed.keywords ?? [],
+              experience_years: parsed.experience_years ?? null,
+              specialties: parsed.specialties ?? [],
+            };
+          } catch {
+            console.error("Failed to parse AI response:", content);
+            return {
+              job_titles: [],
+              locations: [],
+              companies: [],
+              keywords: [],
+              experience_years: null,
+              specialties: [],
+            };
+          }
+        }
+
+        const errBody = await res.text();
+        console.error(`AI gateway ${model} attempt ${attempt + 1} failed: ${res.status} - ${errBody}`);
+        lastError = new Error(`AI gateway error: ${res.status}`);
+      } catch (e) {
+        console.error(`AI gateway ${model} attempt ${attempt + 1} exception:`, e);
+        lastError = e instanceof Error ? e : new Error(String(e));
       }
     }
-
-    console.error(`AI gateway attempt ${attempt + 1} failed: ${res.status}`);
-    await res.text(); // consume body
-    lastError = new Error(`AI gateway error: ${res.status}`);
   }
 
   throw lastError!;
