@@ -307,18 +307,32 @@ function transformSearchResults(pdlData: any) {
       }
     }
 
-    // Location — may be booleans in preview
+    // Location — in preview mode, person location fields are booleans,
+    // but job_company_location fields have real data
     let location: string | null = null;
-    if (typeof person.location_locality !== "boolean" || typeof person.location_region !== "boolean") {
-      location = [
-        typeof person.location_locality === "string" ? person.location_locality : null,
-        typeof person.location_region === "string" ? person.location_region : null,
-      ].filter(Boolean).join(", ") || null;
+    const locCity = typeof person.location_locality === "string" ? person.location_locality : null;
+    const locRegion = typeof person.location_region === "string" ? person.location_region : null;
+    if (locCity || locRegion) {
+      location = [locCity, locRegion].filter(Boolean).join(", ");
+    } else {
+      // Fallback to company location (available in preview)
+      const compCity = typeof person.job_company_location_locality === "string" ? person.job_company_location_locality : null;
+      const compRegion = typeof person.job_company_location_region === "string" ? person.job_company_location_region : null;
+      if (compCity || compRegion) {
+        location = [compCity, compRegion].filter(Boolean).join(", ");
+      }
     }
+
+    // Clean credential prefixes from full_name (e.g. "faaos john doe" → "john doe")
+    let fullName = person.full_name || "Unknown";
+    const credentialPrefixes = /^(faaos|caqsm|facp|facs|facep|faap|facog|md|do|rn|bsn|msn|dnp|phd|mph|dpm|dds|dmd|aprn|np|pa-c|pt|ot|slp|rd|ldn|pharmd)\s+/i;
+    fullName = fullName.replace(credentialPrefixes, "").trim();
+    // Capitalize properly
+    fullName = fullName.replace(/\b\w/g, (c: string) => c.toUpperCase());
 
     return {
       id: person.id,
-      full_name: person.full_name || "Unknown",
+      full_name: fullName,
       title: person.job_title || null,
       current_employer: person.job_company_name || null,
       location,
@@ -328,7 +342,7 @@ function transformSearchResults(pdlData: any) {
       skills,
       avg_tenure_months: avgTenureMonths,
       industry: person.industry || null,
-      company_size: person.job_company_size || null,
+      company_size: typeof person.job_company_size === "boolean" ? null : (person.job_company_size || null),
       // Preview indicators
       preview: isPreview,
       has_email,
@@ -338,6 +352,7 @@ function transformSearchResults(pdlData: any) {
     };
   });
 }
+
 
 // ─── Request handler ──────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
