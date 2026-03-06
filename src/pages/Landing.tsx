@@ -286,8 +286,27 @@ export default function Landing() {
             className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] text-white"
           >
             The New Way to Source{" "}
-            <span className="bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
-              Healthcare Talent
+            <span className="relative inline-block">
+              <span className="relative z-10 bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                Healthcare Talent
+              </span>
+              {/* Glow effect underneath */}
+              <motion.span
+                className="absolute -inset-x-4 -inset-y-2 rounded-2xl bg-gradient-to-r from-primary/30 via-emerald-400/20 to-teal-400/30 blur-2xl -z-10"
+                animate={{
+                  opacity: [0.4, 0.7, 0.4],
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.span
+                className="absolute -inset-x-6 -inset-y-3 rounded-3xl bg-gradient-to-r from-emerald-500/15 via-primary/20 to-teal-500/15 blur-3xl -z-20"
+                animate={{
+                  opacity: [0.2, 0.5, 0.2],
+                  scale: [1.05, 1, 1.05],
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+              />
             </span>
           </motion.h1>
 
