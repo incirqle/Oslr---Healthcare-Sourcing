@@ -3,7 +3,6 @@ import {
   Search,
   FolderKanban,
   Mail,
-  Building2,
   Settings,
   LogOut,
   Stethoscope,
