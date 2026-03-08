@@ -31,7 +31,7 @@ const App = () => (
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/companies" element={<CompanyDirectory />} />
+          
           <Route path="/news" element={<News />} />
           <Route path="/settings" element={<TeamSettings />} />
           <Route path="*" element={<NotFound />} />

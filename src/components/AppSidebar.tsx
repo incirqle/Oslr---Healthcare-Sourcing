@@ -32,7 +32,7 @@ const mainNav = [
   { title: "Search", url: "/search", icon: Search },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Campaigns", url: "/campaigns", icon: Mail },
-  { title: "Companies", url: "/companies", icon: Building2 },
+  
   { title: "News", url: "/news", icon: Newspaper },
 ];
 
