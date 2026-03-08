@@ -10,7 +10,7 @@ import SearchPage from "./pages/SearchPage";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Campaigns from "./pages/Campaigns";
-import CompanyDirectory from "./pages/CompanyDirectory";
+
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import NotFound from "./pages/NotFound";
@@ -31,7 +31,7 @@ const App = () => (
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/companies" element={<CompanyDirectory />} />
+          
           <Route path="/news" element={<News />} />
           <Route path="/settings" element={<TeamSettings />} />
           <Route path="*" element={<NotFound />} />
