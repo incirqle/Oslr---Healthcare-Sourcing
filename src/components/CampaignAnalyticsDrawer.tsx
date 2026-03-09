@@ -100,11 +100,16 @@ export function CampaignAnalyticsDrawer({ campaign, open, onOpenChange }: Campai
     return grouped;
   }, [events]);
 
-  // Count by event type
+  // Count unique candidates per event type (not raw event count)
   const eventCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const seen: Record<string, Set<string>> = {};
     for (const ev of events) {
-      counts[ev.event_type] = (counts[ev.event_type] || 0) + 1;
+      if (!seen[ev.event_type]) seen[ev.event_type] = new Set();
+      seen[ev.event_type].add(ev.candidate_id);
+    }
+    const counts: Record<string, number> = {};
+    for (const [type, ids] of Object.entries(seen)) {
+      counts[type] = ids.size;
     }
     return counts;
   }, [events]);
@@ -128,7 +133,7 @@ export function CampaignAnalyticsDrawer({ campaign, open, onOpenChange }: Campai
   const sentCount = campaign.sent_count || 0;
   const openCount = campaign.open_count || 0;
   const clickCount = campaign.click_count || 0;
-  const bounceCount = (campaign as any).bounce_count || 0;
+  const bounceCount = campaign.bounce_count || 0;
   const openRate = sentCount > 0 ? (openCount / sentCount) * 100 : 0;
   const clickRate = sentCount > 0 ? (clickCount / sentCount) * 100 : 0;
   const bounceRate = sentCount > 0 ? (bounceCount / sentCount) * 100 : 0;

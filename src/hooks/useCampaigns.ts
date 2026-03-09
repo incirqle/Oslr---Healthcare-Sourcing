@@ -15,6 +15,8 @@ export type CampaignRow = {
   sent_count: number;
   open_count: number;
   click_count: number;
+  bounce_count: number;
+  delivered_count: number;
   sent_at: string | null;
   created_at: string;
   updated_at: string;
@@ -195,7 +197,7 @@ export function useSendCampaign() {
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to send campaign");
-      return json as { success: boolean; sent: number; total: number; mock?: boolean; errors?: string[] };
+      return json as { success: boolean; sent: number; total: number; skipped_due_to_limit?: number; mock?: boolean; errors?: string[] };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["email_campaigns"] }),
   });
