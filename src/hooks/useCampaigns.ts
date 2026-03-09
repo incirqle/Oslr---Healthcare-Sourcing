@@ -15,6 +15,8 @@ export type CampaignRow = {
   sent_count: number;
   open_count: number;
   click_count: number;
+  bounce_count: number;
+  delivered_count: number;
   sent_at: string | null;
   created_at: string;
   updated_at: string;

@@ -133,7 +133,7 @@ export function CampaignAnalyticsDrawer({ campaign, open, onOpenChange }: Campai
   const sentCount = campaign.sent_count || 0;
   const openCount = campaign.open_count || 0;
   const clickCount = campaign.click_count || 0;
-  const bounceCount = (campaign as any).bounce_count || 0;
+  const bounceCount = campaign.bounce_count || 0;
   const openRate = sentCount > 0 ? (openCount / sentCount) * 100 : 0;
   const clickRate = sentCount > 0 ? (clickCount / sentCount) * 100 : 0;
   const bounceRate = sentCount > 0 ? (bounceCount / sentCount) * 100 : 0;

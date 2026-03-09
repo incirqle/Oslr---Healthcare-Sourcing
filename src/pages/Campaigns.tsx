@@ -111,12 +111,13 @@ export default function Campaigns() {
     setSendingId(campaign.id);
     try {
       const result = await sendCampaign.mutateAsync(campaign.id);
+      const skipped = (result as any).skipped_due_to_limit || 0;
       if (result.mock) {
-        toast.success(`Campaign queued (mock mode) — ${result.sent} emails simulated. Add your Resend API key to go live.`, {
+        toast.success(`Campaign queued (mock mode) — ${result.sent} emails simulated.${skipped > 0 ? ` ${skipped} skipped (daily limit).` : ""} Add your Resend API key to go live.`, {
           duration: 6000,
         });
       } else {
-        toast.success(`Campaign sent to ${result.sent} of ${result.total} recipients!`);
+        toast.success(`Campaign sent to ${result.sent} of ${result.total} recipients!${skipped > 0 ? ` ${skipped} skipped due to daily limit.` : ""}`);
       }
       if (result.errors?.length) {
         toast.warning(`${result.errors.length} failed: ${result.errors[0]}`);
