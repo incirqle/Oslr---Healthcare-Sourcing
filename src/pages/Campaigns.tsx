@@ -76,6 +76,8 @@ export default function Campaigns() {
   const [analyticsDrawerOpen, setAnalyticsDrawerOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignRow | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+  const [campaignToSend, setCampaignToSend] = useState<CampaignRow | null>(null);
 
   const handleEditTemplate = (template: any) => {
     setEditingTemplate(template);
