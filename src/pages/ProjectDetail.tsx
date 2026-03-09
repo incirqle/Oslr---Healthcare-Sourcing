@@ -37,6 +37,7 @@ import {
   Users,
   Loader2,
   Pencil,
+  Search,
 } from "lucide-react";
 import { useProject, useProjectCandidates, useUpdateCandidateStatus, useRemoveCandidate, useUpdateProject } from "@/hooks/useProjects";
 import { STATUS_CONFIG, CandidateStatus } from "@/types/project";
@@ -157,6 +158,11 @@ export default function ProjectDetail() {
                 <Pencil className="h-4 w-4" />
               </button>
             </div>
+            {/* Source Candidates button — always visible in the header */}
+            <Button onClick={() => navigate(`/projects/${id}/search`)}>
+              <Search className="h-4 w-4 mr-2" />
+              Source Candidates
+            </Button>
           </div>
         </div>
 
@@ -181,7 +187,7 @@ export default function ProjectDetail() {
 
         {/* Candidates table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base font-display">
               Candidates ({candidates.length})
             </CardTitle>
@@ -194,10 +200,15 @@ export default function ProjectDetail() {
                 </div>
                 <p className="text-sm font-medium">No candidates yet</p>
                 <p className="text-xs mt-1 opacity-60">
-                  Search for candidates and save them to this project
+                  Use the sourcing tool to find and add candidates to this project
                 </p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate("/search")}>
-                  Go to Search
+                <Button
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => navigate(`/projects/${id}/search`)}
+                >
+                  <Search className="h-3.5 w-3.5 mr-1.5" />
+                  Source Candidates
                 </Button>
               </div>
             ) : (

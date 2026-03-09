@@ -1,19 +1,34 @@
 import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { SaveToProjectDialog } from "@/components/SaveToProjectDialog";
 import { CandidateDrawer } from "@/components/CandidateDrawer";
 import { SearchHero } from "@/components/search/SearchHero";
 import { FilterReview, type ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate } from "@/components/search/SearchResults";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
+import { useProject, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
 
 type SearchStep = "hero" | "parsing" | "review" | "searching" | "results";
 
 export default function SearchPage() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+
+  // Redirect if no projectId (shouldn't happen with routing, but defensive)
+  if (!projectId) {
+    navigate("/projects");
+    return null;
+  }
+
+  const { data: project } = useProject(projectId);
+  const { data: existingCandidates = [] } = useProjectCandidates(projectId);
+  const addCandidates = useAddCandidates();
+
   const { history, addEntry, clearHistory } = useSearchHistory();
   const [step, setStep] = useState<SearchStep>("hero");
   const [query, setQuery] = useState("");
@@ -26,10 +41,14 @@ export default function SearchPage() {
   const [page, setPage] = useState(1);
   const pageSize = 15;
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [saveDialogCandidates, setSaveDialogCandidates] = useState<Candidate[]>([]);
   const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
   const [filterEditorOpen, setFilterEditorOpen] = useState(false);
+
+  // Track which PDL IDs are already saved to this project
+  const savedPdlIds = new Set(existingCandidates.map((c) => c.pdl_id).filter(Boolean));
+  const savedIds = new Set(
+    candidates.filter((c) => savedPdlIds.has(c.id)).map((c) => c.id)
+  );
 
   const handleInitialSearch = async (q: string) => {
     setQuery(q);
@@ -84,6 +103,31 @@ export default function SearchPage() {
     }
   };
 
+  const handleSaveCandidates = async (toSave: Candidate[]) => {
+    if (toSave.length === 0) return;
+    try {
+      const count = await addCandidates.mutateAsync({
+        projectId,
+        candidates: toSave.map((c) => ({
+          full_name: c.full_name,
+          title: c.title,
+          current_employer: c.current_employer,
+          location: c.location,
+          linkedin_url: c.linkedin_url,
+          email: c.email,
+          phone: c.phone,
+          skills: c.skills,
+          avg_tenure_months: c.avg_tenure_months,
+          pdl_id: c.id,
+        })),
+      });
+      toast.success(`${count} candidate${count === 1 ? "" : "s"} saved to "${project?.name}"`);
+      setSelected(new Set());
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save candidates");
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     handleRunSearch(newPage);
   };
@@ -116,6 +160,23 @@ export default function SearchPage() {
   return (
     <AppLayout>
       <div className="space-y-6">
+        {/* Project context header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/projects/${projectId}`)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {project?.name ?? "Back to Project"}
+          </button>
+          {project && (
+            <>
+              <span className="text-muted-foreground/40">/</span>
+              <span className="text-sm font-medium text-foreground">Source Candidates</span>
+            </>
+          )}
+        </div>
+
         {step === "hero" && (
           <SearchHero onSearch={handleInitialSearch} loading={false} history={history} onClearHistory={clearHistory} />
         )}
@@ -149,21 +210,24 @@ export default function SearchPage() {
         )}
 
         {step === "results" && (
-            <SearchResults
-              candidates={candidates}
-              total={total}
-              selected={selected}
-              onToggleSelect={toggleSelect}
-              onToggleSelectAll={toggleSelectAll}
-              onOpenCandidate={setDrawerCandidate}
-              onSaveSingle={(c) => { setSaveDialogCandidates([c]); setSaveDialogOpen(true); }}
-              onSaveBulk={() => { setSaveDialogCandidates(selectedCandidates); setSaveDialogOpen(true); }}
-              onEditFilters={() => setStep("review")}
-              onNewSearch={handleReset}
-              page={page}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-            />
+          <SearchResults
+            candidates={candidates}
+            total={total}
+            selected={selected}
+            savedIds={savedIds}
+            projectName={project?.name}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            onOpenCandidate={setDrawerCandidate}
+            onSaveSingle={(c) => handleSaveCandidates([c])}
+            onSaveBulk={() => handleSaveCandidates(selectedCandidates)}
+            onEditFilters={() => setStep("review")}
+            onNewSearch={handleReset}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            isSaving={addCandidates.isPending}
+          />
         )}
       </div>
 
@@ -173,12 +237,6 @@ export default function SearchPage() {
         filters={filters}
         onFiltersChange={setFilters}
         total={filterTotal}
-      />
-
-      <SaveToProjectDialog
-        open={saveDialogOpen}
-        onOpenChange={setSaveDialogOpen}
-        candidates={saveDialogCandidates}
       />
 
       <CandidateDrawer

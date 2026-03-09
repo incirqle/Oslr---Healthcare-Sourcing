@@ -1,12 +1,12 @@
 import {
   LayoutDashboard,
-  Search,
   FolderKanban,
   Mail,
   Settings,
   LogOut,
   Stethoscope,
   Command,
+  Search,
   Newspaper,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -28,10 +28,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Search", url: "/search", icon: Search },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Campaigns", url: "/campaigns", icon: Mail },
-  
   { title: "News", url: "/news", icon: Newspaper },
 ];
 
