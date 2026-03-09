@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -19,6 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   Building2,
   MapPin,
@@ -27,11 +36,11 @@ import {
   Trash2,
   Users,
   Loader2,
+  Pencil,
 } from "lucide-react";
-import { useProject, useProjectCandidates, useUpdateCandidateStatus, useRemoveCandidate } from "@/hooks/useProjects";
+import { useProject, useProjectCandidates, useUpdateCandidateStatus, useRemoveCandidate, useUpdateProject } from "@/hooks/useProjects";
 import { STATUS_CONFIG, CandidateStatus } from "@/types/project";
 import { toast } from "sonner";
-import { useState } from "react";
 import { CandidateDrawer } from "@/components/CandidateDrawer";
 
 export default function ProjectDetail() {
@@ -41,9 +50,30 @@ export default function ProjectDetail() {
   const { data: candidates = [], isLoading: candidatesLoading } = useProjectCandidates(id!);
   const updateStatus = useUpdateCandidateStatus();
   const removeCandidate = useRemoveCandidate();
+  const updateProject = useUpdateProject();
   const [drawerCandidate, setDrawerCandidate] = useState<any>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
 
   const isLoading = projectLoading || candidatesLoading;
+
+  const openEditDialog = () => {
+    setEditName(project?.name || "");
+    setEditDesc(project?.description || "");
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) return;
+    try {
+      await updateProject.mutateAsync({ id: id!, name: editName.trim(), description: editDesc.trim() || null });
+      toast.success("Project updated");
+      setEditOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update project");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -113,11 +143,19 @@ export default function ProjectDetail() {
             Back to Projects
           </button>
           <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold font-display text-foreground">{project.name}</h1>
-              {project.description && (
-                <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
-              )}
+            <div className="flex items-center gap-2">
+              <div>
+                <h1 className="text-2xl font-bold font-display text-foreground">{project.name}</h1>
+                {project.description && (
+                  <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
+                )}
+              </div>
+              <button
+                onClick={openEditDialog}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -269,7 +307,41 @@ export default function ProjectDetail() {
         open={!!drawerCandidate}
         onOpenChange={(open) => !open && setDrawerCandidate(null)}
         candidate={drawerCandidate}
+        projectId={id}
       />
+
+      {/* Edit Project Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Project name</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveEdit()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Description (optional)</label>
+              <Textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={!editName.trim() || updateProject.isPending}>
+              {updateProject.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

@@ -73,6 +73,23 @@ export function useCreateProject() {
   });
 }
 
+export function useUpdateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name, description }: { id: string; name: string; description?: string | null }) => {
+      const { error } = await supabase
+        .from("projects")
+        .update({ name, description: description || null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project", vars.id] });
+    },
+  });
+}
+
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({
@@ -138,6 +155,20 @@ export function useUpdateCandidateStatus() {
   return useMutation({
     mutationFn: async ({ id, status, projectId }: { id: string; status: CandidateStatus; projectId: string }) => {
       const { error } = await supabase.from("candidates").update({ status }).eq("id", id);
+      if (error) throw error;
+      return projectId;
+    },
+    onSuccess: (projectId) => {
+      qc.invalidateQueries({ queryKey: ["candidates", projectId] });
+    },
+  });
+}
+
+export function useUpdateCandidateNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, notes, projectId }: { id: string; notes: string; projectId: string }) => {
+      const { error } = await supabase.from("candidates").update({ notes }).eq("id", id);
       if (error) throw error;
       return projectId;
     },
