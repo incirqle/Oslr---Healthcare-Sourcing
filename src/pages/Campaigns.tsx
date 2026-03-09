@@ -303,7 +303,7 @@ export default function Campaigns() {
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {c.status === "draft" && (
                                     <button
-                                      onClick={(e) => handleSendCampaign(e, c)}
+                                      onClick={(e) => handleSendClick(e, c)}
                                       disabled={isSending}
                                       title="Send campaign"
                                       className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
