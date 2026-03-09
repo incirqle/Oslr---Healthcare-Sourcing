@@ -107,6 +107,7 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          daily_email_limit: number
           from_email: string | null
           from_name: string | null
           id: string
@@ -116,6 +117,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          daily_email_limit?: number
           from_email?: string | null
           from_name?: string | null
           id?: string
@@ -125,6 +127,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          daily_email_limit?: number
           from_email?: string | null
           from_name?: string | null
           id?: string
@@ -136,10 +139,12 @@ export type Database = {
       }
       email_campaigns: {
         Row: {
+          bounce_count: number | null
           click_count: number | null
           company_id: string
           created_at: string
           created_by: string | null
+          delivered_count: number | null
           id: string
           name: string
           open_count: number | null
@@ -152,10 +157,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bounce_count?: number | null
           click_count?: number | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          delivered_count?: number | null
           id?: string
           name: string
           open_count?: number | null
@@ -168,10 +175,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bounce_count?: number | null
           click_count?: number | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          delivered_count?: number | null
           id?: string
           name?: string
           open_count?: number | null
