@@ -38,6 +38,11 @@ export default function SearchPage() {
   const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
   const [filterEditorOpen, setFilterEditorOpen] = useState(false);
 
+  // Guard: must be in a project context (all hooks already called above)
+  if (!projectId) {
+    return null;
+  }
+
   // Track which PDL IDs are already saved to this project
   const savedPdlIds = new Set(existingCandidates.map((c) => c.pdl_id).filter(Boolean));
   const savedIds = new Set(
