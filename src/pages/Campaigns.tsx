@@ -38,6 +38,7 @@ import {
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { CampaignBuilder } from "@/components/CampaignBuilder";
 import { CampaignAnalyticsDrawer } from "@/components/CampaignAnalyticsDrawer";
+import { SendCampaignConfirmDialog } from "@/components/SendCampaignConfirmDialog";
 import { toast } from "sonner";
 
 function statusBadge(status: string) {
@@ -75,6 +76,8 @@ export default function Campaigns() {
   const [analyticsDrawerOpen, setAnalyticsDrawerOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignRow | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+  const [campaignToSend, setCampaignToSend] = useState<CampaignRow | null>(null);
 
   const handleEditTemplate = (template: any) => {
     setEditingTemplate(template);
@@ -106,12 +109,20 @@ export default function Campaigns() {
     }
   };
 
-  const handleSendCampaign = async (e: React.MouseEvent, campaign: CampaignRow) => {
+  const handleSendClick = (e: React.MouseEvent, campaign: CampaignRow) => {
     e.stopPropagation();
-    setSendingId(campaign.id);
+    setCampaignToSend(campaign);
+    setSendConfirmOpen(true);
+  };
+
+  const handleConfirmSend = async () => {
+    if (!campaignToSend) return;
+    setSendingId(campaignToSend.id);
     try {
-      const result = await sendCampaign.mutateAsync(campaign.id);
+      const result = await sendCampaign.mutateAsync(campaignToSend.id);
       const skipped = result.skipped_due_to_limit || 0;
+      setSendConfirmOpen(false);
+      setCampaignToSend(null);
       if (result.mock) {
         toast.success(`Campaign queued (mock mode) — ${result.sent} emails simulated.${skipped > 0 ? ` ${skipped} skipped (daily limit).` : ""} Add your Resend API key to go live.`, {
           duration: 6000,
@@ -292,7 +303,7 @@ export default function Campaigns() {
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {c.status === "draft" && (
                                     <button
-                                      onClick={(e) => handleSendCampaign(e, c)}
+                                      onClick={(e) => handleSendClick(e, c)}
                                       disabled={isSending}
                                       title="Send campaign"
                                       className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
@@ -423,6 +434,14 @@ export default function Campaigns() {
         campaign={selectedCampaign}
         open={analyticsDrawerOpen}
         onOpenChange={setAnalyticsDrawerOpen}
+      />
+
+      <SendCampaignConfirmDialog
+        campaign={campaignToSend}
+        open={sendConfirmOpen}
+        onOpenChange={setSendConfirmOpen}
+        onConfirm={handleConfirmSend}
+        isSending={sendingId !== null}
       />
     </AppLayout>
   );
