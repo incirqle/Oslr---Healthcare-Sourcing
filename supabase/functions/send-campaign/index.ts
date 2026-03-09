@@ -16,6 +16,12 @@ function resolveMergeFields(text: string, candidate: Record<string, string | nul
     .replace(/\{\{email\}\}/g, candidate.email || "");
 }
 
+function getStartOfDayUTC(): string {
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+  return now.toISOString();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -81,16 +87,28 @@ serve(async (req) => {
 
     const companyId = campaign.company_id;
 
-    // Fetch company sender settings
+    // Fetch company settings (including daily limit)
     const { data: company } = await adminClient
       .from("companies")
-      .select("name, from_name, from_email, reply_to_email")
+      .select("name, from_name, from_email, reply_to_email, daily_email_limit")
       .eq("id", companyId)
       .single();
 
+    const dailyLimit = company?.daily_email_limit ?? 200;
     const fromName = company?.from_name || company?.name || "Recruiting Team";
     const fromEmail = company?.from_email || "noreply@example.com";
     const replyTo = company?.reply_to_email;
+
+    // ─── CHECK DAILY SENDING LIMIT ─────────────────────────────────────────────
+    const startOfDay = getStartOfDayUTC();
+    const { count: sentToday } = await adminClient
+      .from("email_events")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("event_type", "sent")
+      .gte("created_at", startOfDay);
+
+    const currentSentToday = sentToday || 0;
 
     // Fetch candidates in the project
     const { data: candidates, error: candidatesError } = await adminClient
@@ -106,6 +124,29 @@ serve(async (req) => {
       });
     }
 
+    // Check if sending this campaign would exceed daily limit
+    const wouldExceed = currentSentToday + candidates.length > dailyLimit;
+    const remainingToday = Math.max(0, dailyLimit - currentSentToday);
+
+    if (remainingToday === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Daily sending limit reached",
+          daily_limit: dailyLimit,
+          sent_today: currentSentToday,
+          remaining: 0,
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Limit recipients to remaining daily quota
+    const recipientsToSend = wouldExceed ? candidates.slice(0, remainingToday) : candidates;
+    const skippedCount = candidates.length - recipientsToSend.length;
+
     const template = campaign.email_templates;
     if (!template) {
       return new Response(JSON.stringify({ error: "Template not found" }), {
@@ -120,11 +161,9 @@ serve(async (req) => {
 
     if (!resendApiKey) {
       // ─── MOCK MODE ─────────────────────────────────────────────────────────
-      // Resend API key not configured yet — simulate sends for demo purposes
-      console.log(`[MOCK] Would send ${candidates.length} emails for campaign ${campaign_id}`);
+      console.log(`[MOCK] Would send ${recipientsToSend.length} emails for campaign ${campaign_id}`);
       
-      // Record mock "sent" events
-      const eventInserts = candidates.map((c) => ({
+      const eventInserts = recipientsToSend.map((c) => ({
         campaign_id,
         candidate_id: c.id,
         company_id: companyId,
@@ -135,14 +174,13 @@ serve(async (req) => {
       if (eventInserts.length > 0) {
         await adminClient.from("email_events").insert(eventInserts);
       }
-      sentCount = candidates.length;
+      sentCount = recipientsToSend.length;
     } else {
       // ─── LIVE MODE via Resend ───────────────────────────────────────────────
-      for (const candidate of candidates) {
+      for (const candidate of recipientsToSend) {
         const personalizedSubject = resolveMergeFields(template.subject, candidate);
         const personalizedBody = resolveMergeFields(template.body, candidate);
 
-        // Build HTML email (simple wrapper for now)
         const htmlBody = personalizedBody.replace(/\n/g, "<br />");
 
         const emailPayload: Record<string, unknown> = {
@@ -189,7 +227,7 @@ serve(async (req) => {
     await adminClient
       .from("email_campaigns")
       .update({
-        status: "sent",
+        status: skippedCount > 0 ? "partial" : "sent",
         sent_at: now,
         sent_count: sentCount,
         recipient_count: candidates.length,
@@ -201,6 +239,10 @@ serve(async (req) => {
         success: true,
         sent: sentCount,
         total: candidates.length,
+        skipped_due_to_limit: skippedCount,
+        daily_limit: dailyLimit,
+        sent_today: currentSentToday + sentCount,
+        remaining_today: Math.max(0, dailyLimit - currentSentToday - sentCount),
         errors: errors.length > 0 ? errors : undefined,
         mock: !resendApiKey,
       }),
