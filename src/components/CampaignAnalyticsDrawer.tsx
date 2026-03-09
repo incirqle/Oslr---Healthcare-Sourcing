@@ -7,11 +7,9 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Mail,
   MousePointerClick,
@@ -88,20 +86,19 @@ function RateBar({ label, rate, colorClass }: { label: string; rate: number; col
 }
 
 export function CampaignAnalyticsDrawer({ campaign, open, onOpenChange }: CampaignAnalyticsDrawerProps) {
-  const { data: events = [], isLoading } = useCampaignEvents(open && campaign ? campaign.id : null);
   const [filter, setFilter] = useState<EventFilter>("all");
+  const { data: events = [], isLoading } = useCampaignEvents(open && campaign ? campaign.id : null);
 
-  if (!campaign) return null;
-
-  const sentCount = campaign.sent_count || 0;
-  const openCount = campaign.open_count || 0;
-  const clickCount = campaign.click_count || 0;
-  const bounceCount = (campaign as any).bounce_count || 0;
-  const deliveredCount = (campaign as any).delivered_count || 0;
-  const openRate = sentCount > 0 ? (openCount / sentCount) * 100 : 0;
-  const clickRate = sentCount > 0 ? (clickCount / sentCount) * 100 : 0;
-  const bounceRate = sentCount > 0 ? (bounceCount / sentCount) * 100 : 0;
-  const clickToOpenRate = openCount > 0 ? (clickCount / openCount) * 100 : 0;
+  // Group events by candidate - always compute, even if campaign is null
+  const byCandidate = useMemo(() => {
+    const grouped: Record<string, typeof events> = {};
+    for (const ev of events) {
+      const key = ev.candidate_id;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(ev);
+    }
+    return grouped;
+  }, [events]);
 
   // Count by event type
   const eventCounts = useMemo(() => {
@@ -111,14 +108,6 @@ export function CampaignAnalyticsDrawer({ campaign, open, onOpenChange }: Campai
     }
     return counts;
   }, [events]);
-
-  // Group events by candidate
-  const byCandidate: Record<string, typeof events> = {};
-  for (const ev of events) {
-    const key = ev.candidate_id;
-    if (!byCandidate[key]) byCandidate[key] = [];
-    byCandidate[key].push(ev);
-  }
 
   const candidateRows = useMemo(() => {
     return Object.entries(byCandidate)
@@ -132,6 +121,18 @@ export function CampaignAnalyticsDrawer({ campaign, open, onOpenChange }: Campai
         return row.eventTypes.has(filter);
       });
   }, [byCandidate, filter]);
+
+  // Early return after all hooks
+  if (!campaign) return null;
+
+  const sentCount = campaign.sent_count || 0;
+  const openCount = campaign.open_count || 0;
+  const clickCount = campaign.click_count || 0;
+  const bounceCount = (campaign as any).bounce_count || 0;
+  const openRate = sentCount > 0 ? (openCount / sentCount) * 100 : 0;
+  const clickRate = sentCount > 0 ? (clickCount / sentCount) * 100 : 0;
+  const bounceRate = sentCount > 0 ? (bounceCount / sentCount) * 100 : 0;
+  const clickToOpenRate = openCount > 0 ? (clickCount / openCount) * 100 : 0;
 
   // Alerts for bounces and complaints
   const bouncedRecipients = Object.values(byCandidate).filter((evs) =>

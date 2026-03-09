@@ -228,7 +228,7 @@ export function useCompanyEmailSettings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, name, from_name, from_email, reply_to_email")
+        .select("id, name, from_name, from_email, reply_to_email, daily_email_limit")
         .eq("id", companyId!)
         .single();
       if (error) throw error;
@@ -238,6 +238,7 @@ export function useCompanyEmailSettings() {
         from_name: string | null;
         from_email: string | null;
         reply_to_email: string | null;
+        daily_email_limit: number;
       };
     },
     enabled: !!companyId,
@@ -248,17 +249,53 @@ export function useUpdateCompanyEmailSettings() {
   const qc = useQueryClient();
   const { companyId } = useCompany();
   return useMutation({
-    mutationFn: async ({ from_name, from_email, reply_to_email }: {
+    mutationFn: async ({ from_name, from_email, reply_to_email, daily_email_limit }: {
       from_name: string;
       from_email: string;
       reply_to_email?: string;
+      daily_email_limit?: number;
     }) => {
+      const updateData: Record<string, unknown> = {
+        from_name,
+        from_email,
+        reply_to_email: reply_to_email || null,
+      };
+      if (daily_email_limit !== undefined) {
+        updateData.daily_email_limit = daily_email_limit;
+      }
       const { error } = await supabase
         .from("companies")
-        .update({ from_name, from_email, reply_to_email: reply_to_email || null })
+        .update(updateData)
         .eq("id", companyId!);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["company_email_settings"] }),
+  });
+}
+
+// ─── Daily sending usage ─────────────────────────────────────────────────────
+
+export function useDailySendUsage() {
+  const { companyId } = useCompany();
+  
+  return useQuery({
+    queryKey: ["daily_send_usage", companyId],
+    queryFn: async () => {
+      const now = new Date();
+      now.setUTCHours(0, 0, 0, 0);
+      const startOfDay = now.toISOString();
+
+      const { count, error } = await supabase
+        .from("email_events")
+        .select("*", { count: "exact", head: true })
+        .eq("company_id", companyId!)
+        .eq("event_type", "sent")
+        .gte("created_at", startOfDay);
+
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!companyId,
+    refetchInterval: 60000, // Refresh every minute
   });
 }
