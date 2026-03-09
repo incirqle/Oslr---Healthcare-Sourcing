@@ -109,12 +109,20 @@ export default function Campaigns() {
     }
   };
 
-  const handleSendCampaign = async (e: React.MouseEvent, campaign: CampaignRow) => {
+  const handleSendClick = (e: React.MouseEvent, campaign: CampaignRow) => {
     e.stopPropagation();
-    setSendingId(campaign.id);
+    setCampaignToSend(campaign);
+    setSendConfirmOpen(true);
+  };
+
+  const handleConfirmSend = async () => {
+    if (!campaignToSend) return;
+    setSendingId(campaignToSend.id);
     try {
-      const result = await sendCampaign.mutateAsync(campaign.id);
+      const result = await sendCampaign.mutateAsync(campaignToSend.id);
       const skipped = result.skipped_due_to_limit || 0;
+      setSendConfirmOpen(false);
+      setCampaignToSend(null);
       if (result.mock) {
         toast.success(`Campaign queued (mock mode) — ${result.sent} emails simulated.${skipped > 0 ? ` ${skipped} skipped (daily limit).` : ""} Add your Resend API key to go live.`, {
           duration: 6000,
