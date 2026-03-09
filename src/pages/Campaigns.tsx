@@ -435,6 +435,14 @@ export default function Campaigns() {
         open={analyticsDrawerOpen}
         onOpenChange={setAnalyticsDrawerOpen}
       />
+
+      <SendCampaignConfirmDialog
+        campaign={campaignToSend}
+        open={sendConfirmOpen}
+        onOpenChange={setSendConfirmOpen}
+        onConfirm={handleConfirmSend}
+        isSending={sendingId !== null}
+      />
     </AppLayout>
   );
 }
