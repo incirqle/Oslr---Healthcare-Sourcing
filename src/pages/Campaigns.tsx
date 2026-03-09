@@ -38,6 +38,7 @@ import {
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { CampaignBuilder } from "@/components/CampaignBuilder";
 import { CampaignAnalyticsDrawer } from "@/components/CampaignAnalyticsDrawer";
+import { SendCampaignConfirmDialog } from "@/components/SendCampaignConfirmDialog";
 import { toast } from "sonner";
 
 function statusBadge(status: string) {
