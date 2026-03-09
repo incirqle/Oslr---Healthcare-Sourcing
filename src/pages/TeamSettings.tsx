@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   UserPlus,
   Mail,
@@ -14,17 +15,21 @@ import {
   Loader2,
   AlertTriangle,
   Key,
+  Gauge,
+  Shield,
 } from "lucide-react";
-import { useCompanyEmailSettings, useUpdateCompanyEmailSettings } from "@/hooks/useCampaigns";
+import { useCompanyEmailSettings, useUpdateCompanyEmailSettings, useDailySendUsage } from "@/hooks/useCampaigns";
 import { toast } from "sonner";
 
 export default function TeamSettings() {
   const { data: emailSettings, isLoading: settingsLoading } = useCompanyEmailSettings();
+  const { data: sentToday = 0 } = useDailySendUsage();
   const updateSettings = useUpdateCompanyEmailSettings();
 
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [replyTo, setReplyTo] = useState("");
+  const [dailyLimit, setDailyLimit] = useState(200);
   const [dirty, setDirty] = useState(false);
 
   // Populate form when settings load
@@ -33,6 +38,7 @@ export default function TeamSettings() {
       setFromName(emailSettings.from_name || "");
       setFromEmail(emailSettings.from_email || "");
       setReplyTo(emailSettings.reply_to_email || "");
+      setDailyLimit(emailSettings.daily_email_limit ?? 200);
       setDirty(false);
     }
   }, [emailSettings]);
@@ -40,6 +46,14 @@ export default function TeamSettings() {
   const handleChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setter(e.target.value);
     setDirty(true);
+  };
+
+  const handleLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val) && val >= 0) {
+      setDailyLimit(val);
+      setDirty(true);
+    }
   };
 
   const handleSaveEmailSettings = async () => {
@@ -52,6 +66,7 @@ export default function TeamSettings() {
         from_name: fromName.trim(),
         from_email: fromEmail.trim(),
         reply_to_email: replyTo.trim() || undefined,
+        daily_email_limit: dailyLimit,
       });
       toast.success("Email settings saved");
       setDirty(false);
@@ -59,6 +74,9 @@ export default function TeamSettings() {
       toast.error(err.message || "Failed to save settings");
     }
   };
+
+  const usagePercent = dailyLimit > 0 ? Math.min((sentToday / dailyLimit) * 100, 100) : 0;
+  const remaining = Math.max(0, dailyLimit - sentToday);
 
   return (
     <AppLayout>
@@ -201,6 +219,102 @@ export default function TeamSettings() {
                     )}
                   </Button>
                 </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Daily Sending Limits */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10 flex-shrink-0 mt-0.5">
+                <Shield className="h-4 w-4 text-success" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-display flex items-center gap-2">
+                  Deliverability Controls
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Protect your sender reputation with daily sending limits
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {settingsLoading ? (
+              <div className="flex items-center justify-center h-24">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Usage Meter */}
+                <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Gauge className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Today's Usage</span>
+                    </div>
+                    <Badge
+                      variant={usagePercent >= 90 ? "destructive" : usagePercent >= 70 ? "secondary" : "outline"}
+                      className="text-[10px]"
+                    >
+                      {sentToday.toLocaleString()} / {dailyLimit.toLocaleString()}
+                    </Badge>
+                  </div>
+                  <Progress
+                    value={usagePercent}
+                    className={`h-2 ${usagePercent >= 90 ? "[&>div]:bg-destructive" : usagePercent >= 70 ? "[&>div]:bg-warning" : ""}`}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {remaining.toLocaleString()} emails remaining today. Resets at midnight UTC.
+                  </p>
+                </div>
+
+                {/* Daily Limit Config */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Daily Email Limit</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={10000}
+                      value={dailyLimit}
+                      onChange={handleLimitChange}
+                      className="w-32"
+                    />
+                    <span className="text-sm text-muted-foreground">emails per day</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Campaigns that exceed this limit will be partially sent. Lower limits improve deliverability for new domains.
+                  </p>
+                </div>
+
+                {/* Recommendations */}
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-xs space-y-1.5">
+                  <p className="font-medium text-foreground">Deliverability tips:</p>
+                  <ul className="text-muted-foreground space-y-1 ml-3 list-disc">
+                    <li>New domains: Start with 50-100 emails/day, increase by 50 each week</li>
+                    <li>Established domains: 200-500 emails/day is typically safe</li>
+                    <li>Keep bounce rate below 2% and spam complaints below 0.1%</li>
+                  </ul>
+                </div>
+
+                {dirty && (
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSaveEmailSettings}
+                      disabled={updateSettings.isPending}
+                      size="sm"
+                    >
+                      {updateSettings.isPending ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Saving…</>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </CardContent>

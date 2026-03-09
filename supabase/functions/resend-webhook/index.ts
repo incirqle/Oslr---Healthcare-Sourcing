@@ -12,9 +12,11 @@ const TRACKED_EVENTS: Record<string, string> = {
 };
 
 // Counters that trigger campaign aggregate updates
-const COUNTER_EVENTS: Record<string, string> = {
+const COUNTER_COLUMNS: Record<string, string> = {
   opened: "open_count",
   clicked: "click_count",
+  bounced: "bounce_count",
+  delivered: "delivered_count",
 };
 
 serve(async (req) => {
@@ -41,7 +43,6 @@ serve(async (req) => {
       }
 
       // TODO: Add svix signature verification once webhook secret is configured
-      // For now we log and continue
       console.log("Webhook signature headers present, verification pending svix library setup");
     }
 
@@ -86,19 +87,41 @@ serve(async (req) => {
       });
     }
 
+    // Build event_data with useful info
+    const eventData: Record<string, unknown> = {
+      resend_event: type,
+      timestamp: data.created_at || new Date().toISOString(),
+    };
+
+    // Add bounce-specific info
+    if (eventType === "bounced" && data.bounce) {
+      eventData.bounce_type = data.bounce.type; // hard/soft
+      eventData.bounce_message = data.bounce.message;
+    }
+
+    // Add complaint-specific info
+    if (eventType === "complained") {
+      eventData.complaint_type = data.complaint?.type;
+    }
+
+    // Add click-specific info
+    if (eventType === "clicked" && data.click) {
+      eventData.clicked_url = data.click.link;
+      eventData.user_agent = data.click.userAgent;
+    }
+
     // Insert the individual event
     await adminClient.from("email_events").insert({
       campaign_id: campaignId,
       candidate_id: candidateId,
       company_id: campaign.company_id,
       event_type: eventType,
-      event_data: data,
+      event_data: eventData,
     });
 
     // Increment aggregate counter on campaign if applicable
-    const counterColumn = COUNTER_EVENTS[eventType];
+    const counterColumn = COUNTER_COLUMNS[eventType];
     if (counterColumn) {
-      // Use RPC-style increment (Postgres raw sql via rpc isn't available, so we fetch + update)
       const { data: current } = await adminClient
         .from("email_campaigns")
         .select(counterColumn)
@@ -114,7 +137,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ received: true, processed: true }), {
+    return new Response(JSON.stringify({ received: true, processed: true, event_type: eventType }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
