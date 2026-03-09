@@ -107,57 +107,78 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          from_email: string | null
+          from_name: string | null
           id: string
           name: string
+          reply_to_email: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          from_email?: string | null
+          from_name?: string | null
           id?: string
           name: string
+          reply_to_email?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          from_email?: string | null
+          from_name?: string | null
           id?: string
           name?: string
+          reply_to_email?: string | null
           updated_at?: string
         }
         Relationships: []
       }
       email_campaigns: {
         Row: {
+          click_count: number | null
           company_id: string
           created_at: string
           created_by: string | null
           id: string
           name: string
+          open_count: number | null
           project_id: string | null
           recipient_count: number
+          sent_at: string | null
+          sent_count: number | null
           status: string
           template_id: string | null
           updated_at: string
         }
         Insert: {
+          click_count?: number | null
           company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
           name: string
+          open_count?: number | null
           project_id?: string | null
           recipient_count?: number
+          sent_at?: string | null
+          sent_count?: number | null
           status?: string
           template_id?: string | null
           updated_at?: string
         }
         Update: {
+          click_count?: number | null
           company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
           name?: string
+          open_count?: number | null
           project_id?: string | null
           recipient_count?: number
+          sent_at?: string | null
+          sent_count?: number | null
           status?: string
           template_id?: string | null
           updated_at?: string
@@ -182,6 +203,58 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_events: {
+        Row: {
+          campaign_id: string
+          candidate_id: string
+          company_id: string
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+        }
+        Insert: {
+          campaign_id: string
+          candidate_id: string
+          company_id: string
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+        }
+        Update: {
+          campaign_id?: string
+          candidate_id?: string
+          company_id?: string
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_events_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
