@@ -428,6 +428,7 @@ export default function Campaigns() {
       <CampaignBuilder
         open={campaignBuilderOpen}
         onOpenChange={setCampaignBuilderOpen}
+        onOpenTemplateEditor={handleNewTemplate}
       />
 
       <CampaignAnalyticsDrawer
