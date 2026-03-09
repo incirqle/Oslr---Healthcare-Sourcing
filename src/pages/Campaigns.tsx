@@ -111,7 +111,7 @@ export default function Campaigns() {
     setSendingId(campaign.id);
     try {
       const result = await sendCampaign.mutateAsync(campaign.id);
-      const skipped = (result as any).skipped_due_to_limit || 0;
+      const skipped = result.skipped_due_to_limit || 0;
       if (result.mock) {
         toast.success(`Campaign queued (mock mode) — ${result.sent} emails simulated.${skipped > 0 ? ` ${skipped} skipped (daily limit).` : ""} Add your Resend API key to go live.`, {
           duration: 6000,
