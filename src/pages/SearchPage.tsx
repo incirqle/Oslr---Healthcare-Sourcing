@@ -19,14 +19,8 @@ export default function SearchPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  // Redirect if no projectId (shouldn't happen with routing, but defensive)
-  if (!projectId) {
-    navigate("/projects");
-    return null;
-  }
-
-  const { data: project } = useProject(projectId);
-  const { data: existingCandidates = [] } = useProjectCandidates(projectId);
+  const { data: project } = useProject(projectId ?? "");
+  const { data: existingCandidates = [] } = useProjectCandidates(projectId ?? "");
   const addCandidates = useAddCandidates();
 
   const { history, addEntry, clearHistory } = useSearchHistory();
