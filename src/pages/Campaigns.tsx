@@ -232,7 +232,21 @@ export default function Campaigns() {
                         <Mail className="h-6 w-6 opacity-30" />
                       </div>
                       <p className="text-sm font-medium">No campaigns yet</p>
-                      <p className="text-xs mt-1 opacity-60">Create a template first, then build a campaign</p>
+                      <p className="text-xs mt-1 opacity-60">
+                        {templates.length === 0
+                          ? "Start by creating an email template, then build your first campaign"
+                          : "You have templates ready — create your first campaign now"}
+                      </p>
+                      <div className="flex gap-2 mt-3">
+                        {templates.length === 0 && (
+                          <Button variant="outline" size="sm" onClick={handleNewTemplate} className="gap-1.5">
+                            <FileText className="h-3.5 w-3.5" /> Create Template
+                          </Button>
+                        )}
+                        <Button size="sm" onClick={() => setCampaignBuilderOpen(true)} className="gap-1.5">
+                          <Plus className="h-3.5 w-3.5" /> New Campaign
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -428,6 +442,7 @@ export default function Campaigns() {
       <CampaignBuilder
         open={campaignBuilderOpen}
         onOpenChange={setCampaignBuilderOpen}
+        onOpenTemplateEditor={handleNewTemplate}
       />
 
       <CampaignAnalyticsDrawer
