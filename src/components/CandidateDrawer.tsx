@@ -9,6 +9,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   MapPin,
   Building2,
@@ -21,12 +23,16 @@ import {
   Loader2,
   Globe,
   Users,
+  StickyNote,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useUpdateCandidateNotes } from "@/hooks/useProjects";
+import { toast } from "sonner";
 
 interface CandidateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId?: string;
   candidate: {
     id: string;
     full_name: string;
@@ -36,10 +42,9 @@ interface CandidateDrawerProps {
     linkedin_url: string | null;
     email: string | null;
     phone?: string | null;
-    skills: string[];
+    skills: string[] | null;
     avg_tenure_months: number | null;
-    industry: string | null;
-    company_size: string | null;
+    notes?: string | null;
   } | null;
 }
 
@@ -107,10 +112,13 @@ function InfoRow({ icon: Icon, label, value, href }: { icon: any; label: string;
   );
 }
 
-export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDrawerProps) {
+export function CandidateDrawer({ open, onOpenChange, candidate, projectId }: CandidateDrawerProps) {
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const updateNotes = useUpdateCandidateNotes();
 
   useEffect(() => {
     if (!open || !candidate) {
@@ -118,6 +126,7 @@ export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDraw
       setError(null);
       return;
     }
+    setNotes(candidate.notes || "");
 
     const fetchEnriched = async () => {
       setLoading(true);
@@ -152,6 +161,19 @@ export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDraw
     fetchEnriched();
   }, [open, candidate?.id]);
 
+  const handleSaveNotes = async () => {
+    if (!candidate || !projectId) return;
+    setNotesSaving(true);
+    try {
+      await updateNotes.mutateAsync({ id: candidate.id, notes, projectId });
+      toast.success("Notes saved");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save notes");
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
   if (!candidate) return null;
 
   const formatTenure = (months: number | null) => {
@@ -169,6 +191,7 @@ export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDraw
   };
 
   const source = enriched || candidate;
+  const skills = enriched?.skills || candidate.skills || [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -196,6 +219,35 @@ export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDraw
 
             {!loading && (
               <div className="space-y-5">
+                {/* Notes Section */}
+                {projectId && (
+                  <>
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <StickyNote className="h-3.5 w-3.5" />
+                        Notes
+                      </h3>
+                      <Textarea
+                        placeholder="Add private notes about this candidate..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        rows={3}
+                        className="text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        onClick={handleSaveNotes}
+                        disabled={notesSaving || notes === (candidate.notes || "")}
+                      >
+                        {notesSaving ? "Saving..." : "Save Notes"}
+                      </Button>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
                 {/* Contact Info */}
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Contact</h3>
@@ -237,8 +289,8 @@ export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDraw
                   <div className="space-y-0.5">
                     <InfoRow icon={Briefcase} label="Title" value={enriched?.job_title || candidate.title} />
                     <InfoRow icon={Building2} label="Company" value={enriched?.job_company_name || candidate.current_employer} />
-                    <InfoRow icon={Globe} label="Industry" value={enriched?.job_company_industry || enriched?.industry || candidate.industry} />
-                    <InfoRow icon={Users} label="Company Size" value={enriched?.job_company_size || candidate.company_size} />
+                    <InfoRow icon={Globe} label="Industry" value={enriched?.job_company_industry || enriched?.industry} />
+                    <InfoRow icon={Users} label="Company Size" value={enriched?.job_company_size} />
                     {candidate.avg_tenure_months && (
                       <InfoRow icon={Clock} label="Avg Tenure" value={formatTenure(candidate.avg_tenure_months)} />
                     )}
@@ -246,13 +298,13 @@ export function CandidateDrawer({ open, onOpenChange, candidate }: CandidateDraw
                 </div>
 
                 {/* Skills */}
-                {((enriched?.skills && enriched.skills.length > 0) || candidate.skills.length > 0) && (
+                {skills.length > 0 && (
                   <>
                     <Separator />
                     <div>
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Skills</h3>
                       <div className="flex flex-wrap gap-1.5">
-                        {(enriched?.skills || candidate.skills).slice(0, 20).map((skill) => (
+                        {skills.slice(0, 20).map((skill) => (
                           <Badge key={skill} variant="secondary" className="text-xs">
                             {skill}
                           </Badge>

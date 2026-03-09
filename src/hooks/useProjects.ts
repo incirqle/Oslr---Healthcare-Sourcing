@@ -164,6 +164,20 @@ export function useUpdateCandidateStatus() {
   });
 }
 
+export function useUpdateCandidateNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, notes, projectId }: { id: string; notes: string; projectId: string }) => {
+      const { error } = await supabase.from("candidates").update({ notes }).eq("id", id);
+      if (error) throw error;
+      return projectId;
+    },
+    onSuccess: (projectId) => {
+      qc.invalidateQueries({ queryKey: ["candidates", projectId] });
+    },
+  });
+}
+
 export function useRemoveCandidate() {
   const qc = useQueryClient();
   return useMutation({
