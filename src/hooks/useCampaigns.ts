@@ -3,6 +3,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { useAuth } from "@/hooks/useAuth";
 
+// ─── Extended type for campaigns with analytics columns ──────────────────────
+export type CampaignRow = {
+  id: string;
+  name: string;
+  status: string;
+  company_id: string;
+  project_id: string | null;
+  template_id: string | null;
+  recipient_count: number;
+  sent_count: number;
+  open_count: number;
+  click_count: number;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  email_templates: { name: string; subject: string } | null;
+  projects: { name: string } | null;
+};
+
+export type EmailEvent = {
+  id: string;
+  campaign_id: string;
+  candidate_id: string;
+  company_id: string;
+  event_type: "sent" | "delivered" | "opened" | "clicked" | "bounced" | "complained";
+  event_data: Record<string, unknown> | null;
+  created_at: string;
+};
+
+// ─── Templates ───────────────────────────────────────────────────────────────
+
 export function useTemplates() {
   const { companyId } = useCompany();
   return useQuery({
@@ -82,6 +114,8 @@ export function useDeleteTemplate() {
   });
 }
 
+// ─── Campaigns ───────────────────────────────────────────────────────────────
+
 export function useCampaigns() {
   const { companyId } = useCompany();
   return useQuery({
@@ -93,7 +127,7 @@ export function useCampaigns() {
         .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as unknown as CampaignRow[];
     },
     enabled: !!companyId,
   });
@@ -137,5 +171,94 @@ export function useDeleteCampaign() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["email_campaigns"] }),
+  });
+}
+
+// ─── Send campaign via edge function ─────────────────────────────────────────
+
+export function useSendCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (campaignId: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-campaign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ campaign_id: campaignId }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to send campaign");
+      return json as { success: boolean; sent: number; total: number; mock?: boolean; errors?: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["email_campaigns"] }),
+  });
+}
+
+// ─── Campaign events (analytics) ─────────────────────────────────────────────
+
+export function useCampaignEvents(campaignId: string | null) {
+  return useQuery({
+    queryKey: ["email_events", campaignId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_events")
+        .select("*, candidates(full_name, email, title)")
+        .eq("campaign_id", campaignId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as (EmailEvent & { candidates: { full_name: string; email: string | null; title: string | null } | null })[];
+    },
+    enabled: !!campaignId,
+  });
+}
+
+// ─── Company email sender config ──────────────────────────────────────────────
+
+export function useCompanyEmailSettings() {
+  const { companyId } = useCompany();
+  return useQuery({
+    queryKey: ["company_email_settings", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name, from_name, from_email, reply_to_email")
+        .eq("id", companyId!)
+        .single();
+      if (error) throw error;
+      return data as {
+        id: string;
+        name: string;
+        from_name: string | null;
+        from_email: string | null;
+        reply_to_email: string | null;
+      };
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useUpdateCompanyEmailSettings() {
+  const qc = useQueryClient();
+  const { companyId } = useCompany();
+  return useMutation({
+    mutationFn: async ({ from_name, from_email, reply_to_email }: {
+      from_name: string;
+      from_email: string;
+      reply_to_email?: string;
+    }) => {
+      const { error } = await supabase
+        .from("companies")
+        .update({ from_name, from_email, reply_to_email: reply_to_email || null })
+        .eq("id", companyId!);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["company_email_settings"] }),
   });
 }
