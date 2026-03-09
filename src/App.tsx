@@ -10,7 +10,6 @@ import SearchPage from "./pages/SearchPage";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Campaigns from "./pages/Campaigns";
-
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import NotFound from "./pages/NotFound";
@@ -27,11 +26,13 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/search" element={<SearchPage />} />
+          {/* Standalone /search redirects to projects — search must be done inside a project */}
+          <Route path="/search" element={<Navigate to="/projects" replace />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
+          {/* Scoped search — always tied to a project */}
+          <Route path="/projects/:projectId/search" element={<SearchPage />} />
           <Route path="/campaigns" element={<Campaigns />} />
-          
           <Route path="/news" element={<News />} />
           <Route path="/settings" element={<TeamSettings />} />
           <Route path="*" element={<NotFound />} />
@@ -42,4 +43,3 @@ const App = () => (
 );
 
 export default App;
-

@@ -25,6 +25,7 @@ import {
   RotateCcw,
   Sparkles,
   Signal,
+  Loader2,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -53,6 +54,8 @@ interface SearchResultsProps {
   candidates: Candidate[];
   total: number;
   selected: Set<string>;
+  savedIds?: Set<string>;
+  projectName?: string;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   onOpenCandidate: (candidate: Candidate) => void;
@@ -63,6 +66,7 @@ interface SearchResultsProps {
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
+  isSaving?: boolean;
 }
 
 function formatTenure(months: number | null) {
@@ -120,6 +124,8 @@ export function SearchResults({
   candidates,
   total,
   selected,
+  savedIds = new Set(),
+  projectName,
   onToggleSelect,
   onToggleSelectAll,
   onOpenCandidate,
@@ -130,6 +136,7 @@ export function SearchResults({
   page = 1,
   pageSize = 15,
   onPageChange,
+  isSaving = false,
 }: SearchResultsProps) {
   const totalPages = Math.ceil(total / pageSize);
 
@@ -154,6 +161,7 @@ export function SearchResults({
   }
 
   const isPreviewMode = candidates.some((c) => c.preview);
+  const unsavedSelected = [...selected].filter((id) => !savedIds.has(id));
 
   return (
     <div className="space-y-0">
@@ -176,10 +184,14 @@ export function SearchResults({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {selected.size > 0 && (
-            <Button size="sm" onClick={onSaveBulk} className="h-8">
-              <FolderPlus className="h-3.5 w-3.5 mr-1.5" />
-              Save {selected.size} to Project
+          {unsavedSelected.length > 0 && (
+            <Button size="sm" onClick={onSaveBulk} className="h-8" disabled={isSaving}>
+              {isSaving ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <FolderPlus className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Save {unsavedSelected.length} to {projectName ? `"${projectName}"` : "Project"}
             </Button>
           )}
           {onEditFilters && (
@@ -221,98 +233,121 @@ export function SearchResults({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {candidates.map((c, i) => (
-              <TableRow
-                key={c.id}
-                className={`group cursor-pointer transition-colors hover:bg-primary/5 ${i % 2 === 0 ? "bg-card" : "bg-muted/10"}`}
-                onClick={() => onOpenCandidate(c)}
-              >
-                <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={selected.has(c.id)} onCheckedChange={() => onToggleSelect(c.id)} />
-                </TableCell>
-                <TableCell>
-                  <MatchScoreIndicator score={c.match_score ?? 50} />
-                </TableCell>
-                <TableCell>
-                  <div className="min-w-[140px]">
-                    <p className="text-sm font-medium text-foreground">{c.full_name}</p>
-                    {c.preview ? (
-                      c.has_email && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-primary font-medium mt-0.5">
-                          <Mail className="h-2.5 w-2.5" /> Email available
-                        </span>
-                      )
+            {candidates.map((c, i) => {
+              const isSaved = savedIds.has(c.id);
+              return (
+                <TableRow
+                  key={c.id}
+                  className={`group cursor-pointer transition-colors hover:bg-primary/5 ${i % 2 === 0 ? "bg-card" : "bg-muted/10"}`}
+                  onClick={() => onOpenCandidate(c)}
+                >
+                  <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                    {isSaved ? (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex h-4 w-4 items-center justify-center rounded-sm bg-primary/10">
+                              <Check className="h-3 w-3 text-primary" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="text-xs">Already in project</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ) : (
-                      c.email && <p className="text-[11px] text-muted-foreground truncate max-w-[180px] mt-0.5">{c.email}</p>
+                      <Checkbox checked={selected.has(c.id)} onCheckedChange={() => onToggleSelect(c.id)} />
                     )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm text-foreground/80 leading-snug line-clamp-2">{c.title || "—"}</span>
-                </TableCell>
-                <TableCell>
-                  {c.current_employer ? (
-                    <div className="flex items-center gap-1.5">
-                      <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate max-w-[160px]">{c.current_employer}</span>
-                    </div>
-                  ) : <span className="text-sm text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell>
-                  {c.location ? (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm">{c.location}</span>
-                    </div>
-                  ) : <span className="text-sm text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell>
-                  {c.preview ? (
-                    <AvailabilityIndicator available={!!c.has_experience} />
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm">{formatTenure(c.avg_tenure_months)}</span>
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {c.preview ? (
-                    <AvailabilityIndicator available={!!c.has_skills} />
-                  ) : (
-                    <div className="flex flex-wrap gap-1 max-w-[200px]">
-                      {c.skills.slice(0, 2).map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">{skill}</Badge>
-                      ))}
-                      {c.skills.length > 2 && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">+{c.skills.length - 2}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <MatchScoreIndicator score={c.match_score ?? 50} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="min-w-[140px]">
+                      <p className="text-sm font-medium text-foreground">{c.full_name}</p>
+                      {c.preview ? (
+                        c.has_email && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-primary font-medium mt-0.5">
+                            <Mail className="h-2.5 w-2.5" /> Email available
+                          </span>
+                        )
+                      ) : (
+                        c.email && <p className="text-[11px] text-muted-foreground truncate max-w-[180px] mt-0.5">{c.email}</p>
                       )}
                     </div>
-                  )}
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      onClick={() => onSaveSingle(c)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Save to project"
-                    >
-                      <FolderPlus className="h-3.5 w-3.5" />
-                    </button>
-                    {c.linkedin_url && (
-                      <a
-                        href={c.linkedin_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-foreground/80 leading-snug line-clamp-2">{c.title || "—"}</span>
+                  </TableCell>
+                  <TableCell>
+                    {c.current_employer ? (
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm truncate max-w-[160px]">{c.current_employer}</span>
+                      </div>
+                    ) : <span className="text-sm text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    {c.location ? (
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm">{c.location}</span>
+                      </div>
+                    ) : <span className="text-sm text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    {c.preview ? (
+                      <AvailabilityIndicator available={!!c.has_experience} />
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm">{formatTenure(c.avg_tenure_months)}</span>
+                      </div>
                     )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell>
+                    {c.preview ? (
+                      <AvailabilityIndicator available={!!c.has_skills} />
+                    ) : (
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {c.skills.slice(0, 2).map((skill) => (
+                          <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">{skill}</Badge>
+                        ))}
+                        {c.skills.length > 2 && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">+{c.skills.length - 2}</Badge>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-0.5">
+                      {isSaved ? (
+                        <span className="flex items-center gap-1 text-[10px] text-primary font-medium px-1.5">
+                          <Check className="h-3 w-3" /> Saved
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => onSaveSingle(c)}
+                          disabled={isSaving}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Save to project"
+                        >
+                          <FolderPlus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {c.linkedin_url && (
+                        <a
+                          href={c.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -334,7 +369,6 @@ export function SearchResults({
               <ChevronLeft className="h-3.5 w-3.5 mr-1" />
               Previous
             </Button>
-            {/* Page number pills */}
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               let pageNum: number;
               if (totalPages <= 5) {
