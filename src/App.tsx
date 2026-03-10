@@ -37,6 +37,8 @@ const App = () => (
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/news" element={<News />} />
           <Route path="/settings" element={<TeamSettings />} />
+          <Route path="/docs" element={<DocsIndex />} />
+          <Route path="/docs/:slug" element={<DocsPageRouter />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
