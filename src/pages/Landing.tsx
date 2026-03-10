@@ -654,7 +654,8 @@ export default function Landing() {
       </Section>
 
       {/* ---- STATS BAR ---- */}
-      <section className="py-14 md:py-16 px-4 bg-[hsl(222,47%,13%)] border-y border-white/[0.04]">
+      <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {STATS.map((s) => (
             <div key={s.label} className="space-y-1">
