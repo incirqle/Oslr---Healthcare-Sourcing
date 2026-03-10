@@ -516,7 +516,7 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.5 }}
-              className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] backdrop-blur-sm p-8 space-y-4 hover:border-white/[0.18] hover:bg-white/[0.07] shadow-xl shadow-black/20 transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.10] bg-[hsl(222,47%,13%)] p-8 space-y-4 hover:border-white/[0.18] hover:bg-[hsl(222,47%,15%)] shadow-xl shadow-black/20 transition-all group overflow-hidden"
             >
               {/* Top edge highlight */}
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
