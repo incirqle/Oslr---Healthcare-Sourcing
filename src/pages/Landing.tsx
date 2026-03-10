@@ -536,12 +536,12 @@ export default function Landing() {
               transition={{ delay: i * 0.15, duration: 0.5 }}
               className="relative space-y-4"
             >
-              <span className="font-display text-5xl font-bold text-primary/15">{s.num}</span>
-              <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <s.icon className="h-6 w-6 text-primary" />
+              <span className="font-display text-6xl font-bold text-primary/15">{s.num}</span>
+              <div className="h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <s.icon className="h-7 w-7 text-primary" />
               </div>
-              <h3 className="font-display text-xl font-semibold text-white">{s.title}</h3>
-              <p className="text-white/60 text-sm leading-relaxed">{s.desc}</p>
+              <h3 className="font-display text-2xl font-semibold text-white">{s.title}</h3>
+              <p className="text-white/60 text-base leading-relaxed">{s.desc}</p>
               {/* Connector line */}
               {i < STEPS.length - 1 && (
                 <div className="hidden md:block absolute top-16 -right-5 w-10 border-t border-dashed border-primary/20" />
