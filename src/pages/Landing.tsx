@@ -490,7 +490,7 @@ export default function Landing() {
             ))}
             <div className="flex flex-wrap gap-2 pt-1">
               {NEWS_CATEGORIES.map((c) => (
-                <span key={c} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 text-xs font-medium">
+                <span key={c} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs font-medium">
                   {c}
                 </span>
               ))}
