@@ -122,9 +122,9 @@ function ProductMockup() {
       <div className="absolute -inset-4 rounded-3xl bg-gradient-to-b from-primary/20 via-emerald-500/10 to-transparent blur-2xl -z-10" />
 
       {/* Browser chrome */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-md overflow-hidden shadow-2xl shadow-black/40">
+      <div className="rounded-2xl border border-white/[0.12] bg-white/[0.05] backdrop-blur-md overflow-hidden shadow-2xl shadow-black/50">
         {/* Title bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.08] bg-white/[0.03]">
           <div className="flex gap-1.5">
             <div className="w-3 h-3 rounded-full bg-white/10" />
             <div className="w-3 h-3 rounded-full bg-white/10" />
