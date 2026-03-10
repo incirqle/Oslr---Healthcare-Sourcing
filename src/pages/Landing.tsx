@@ -390,9 +390,9 @@ export default function Landing() {
       {/* ---- HERO ---- */}
       <section className="relative pt-36 pb-8 md:pt-48 md:pb-12 px-4 overflow-hidden">
         {/* bg blobs */}
-        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-primary/8 blur-[120px] animate-gradient-float pointer-events-none" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-emerald-500/6 blur-[100px] animate-gradient-float-reverse pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-teal-400/4 blur-[80px] pointer-events-none" />
+        <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-primary/12 blur-[140px] animate-gradient-float pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-500/10 blur-[120px] animate-gradient-float-reverse pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-teal-400/8 blur-[100px] pointer-events-none" />
 
         {/* subtle grid */}
         <div
