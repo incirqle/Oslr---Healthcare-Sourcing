@@ -65,7 +65,7 @@ function TypingSearch() {
 
   return (
     <div className="relative w-full max-w-2xl mx-auto">
-      <div className="flex items-center rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-2xl shadow-primary/5 px-5 py-4 gap-3">
+      <div className="flex items-center rounded-2xl border border-white/[0.12] bg-white/[0.06] backdrop-blur-md shadow-2xl shadow-black/30 px-6 py-5 gap-3">
         <Search className="h-5 w-5 text-white/40 shrink-0" />
         <span className="text-base md:text-lg text-white/90 truncate">
           {displayed}
@@ -122,9 +122,9 @@ function ProductMockup() {
       <div className="absolute -inset-4 rounded-3xl bg-gradient-to-b from-primary/20 via-emerald-500/10 to-transparent blur-2xl -z-10" />
 
       {/* Browser chrome */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-md overflow-hidden shadow-2xl shadow-black/40">
+      <div className="rounded-2xl border border-white/[0.12] bg-white/[0.05] backdrop-blur-md overflow-hidden shadow-2xl shadow-black/50">
         {/* Title bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.08] bg-white/[0.03]">
           <div className="flex gap-1.5">
             <div className="w-3 h-3 rounded-full bg-white/10" />
             <div className="w-3 h-3 rounded-full bg-white/10" />
@@ -247,8 +247,10 @@ function Section({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className={`py-20 md:py-28 px-4 ${elevated ? "bg-[hsl(222,47%,13%)]" : "bg-sidebar"} text-sidebar-foreground ${className}`}
+      className={`relative py-24 md:py-32 px-4 ${elevated ? "bg-[hsl(222,47%,11%)]" : "bg-sidebar"} text-sidebar-foreground ${className}`}
     >
+      {/* Subtle top edge highlight for elevated sections */}
+      {elevated && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />}
       <div className="max-w-6xl mx-auto">{children}</div>
     </motion.section>
   );
@@ -362,25 +364,37 @@ export default function Landing() {
     <div className="min-h-screen bg-sidebar text-sidebar-foreground">
       {/* ---- NAV ---- */}
       <nav
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          navScrolled ? "bg-sidebar/95 backdrop-blur-md shadow-lg shadow-black/20 border-b border-white/5" : "bg-transparent"
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
+          navScrolled
+            ? "bg-[hsl(222,47%,9%)]/90 backdrop-blur-xl shadow-2xl shadow-black/40 border-b border-white/[0.08]"
+            : "bg-[hsl(222,47%,9%)]/60 backdrop-blur-md border-b border-white/[0.04]"
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg" />
+            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg shadow-lg shadow-primary/20" />
             <span className="font-display text-xl font-bold tracking-tight text-white">oslr</span>
           </Link>
-          <div className="hidden md:flex items-center gap-8 text-base font-medium text-white/60">
-            <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#intelligence" className="hover:text-white transition-colors">Intelligence</a>
+          <div className="hidden md:flex items-center gap-1 text-base font-medium">
+            {[
+              { label: "How It Works", href: "#how-it-works" },
+              { label: "Features", href: "#features" },
+              { label: "Intelligence", href: "#intelligence" },
+            ].map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="px-4 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/[0.06] transition-all"
+              >
+                {link.label}
+              </a>
+            ))}
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10 text-base" asChild>
               <Link to="/auth">Log In</Link>
             </Button>
-            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5" asChild>
+            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5 shadow-lg shadow-primary/20" asChild>
               <Link to="/auth">Get Started Free</Link>
             </Button>
           </div>
@@ -396,10 +410,10 @@ export default function Landing() {
 
         {/* subtle grid */}
         <div
-          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
           style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
-            backgroundSize: '40px 40px',
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)`,
+            backgroundSize: '32px 32px',
           }}
         />
 
@@ -502,8 +516,10 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.5 }}
-              className="relative rounded-2xl border border-white/[0.08] p-8 space-y-4 hover:border-white/[0.15] transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] backdrop-blur-sm p-8 space-y-4 hover:border-white/[0.18] hover:bg-white/[0.07] shadow-xl shadow-black/20 transition-all group overflow-hidden"
             >
+              {/* Top edge highlight */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
               {/* Gradient background */}
               <div className={`absolute inset-0 bg-gradient-to-br ${p.color} opacity-50 group-hover:opacity-80 transition-opacity`} />
               <div className="relative">
@@ -569,8 +585,10 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.06, duration: 0.4 }}
-              className="relative rounded-2xl border border-white/[0.08] p-6 space-y-3 hover:border-primary/30 transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] backdrop-blur-sm p-6 space-y-3 hover:border-primary/30 shadow-xl shadow-black/20 transition-all group overflow-hidden"
             >
+              {/* Top edge highlight */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
               {/* Unique gradient accent per card */}
               <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
               <div className="relative">
@@ -617,7 +635,7 @@ export default function Landing() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12, duration: 0.5 }}
-                className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-4 space-y-2 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
+                className="rounded-xl border border-white/[0.10] bg-white/[0.05] backdrop-blur-sm p-5 space-y-2.5 hover:bg-white/[0.08] hover:border-white/[0.15] shadow-lg shadow-black/15 transition-all"
               >
                 <div className="flex items-center gap-2">
                   <Newspaper className="h-4 w-4 text-primary" />
@@ -640,7 +658,8 @@ export default function Landing() {
       </Section>
 
       {/* ---- STATS BAR ---- */}
-      <section className="py-14 md:py-16 px-4 bg-[hsl(222,47%,13%)] border-y border-white/[0.04]">
+      <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {STATS.map((s) => (
             <div key={s.label} className="space-y-1">
@@ -678,7 +697,7 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
-              className="flex items-start gap-5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
+              className="flex items-start gap-5 rounded-2xl border border-white/[0.10] bg-white/[0.05] backdrop-blur-sm p-6 hover:bg-white/[0.08] hover:border-white/[0.15] shadow-xl shadow-black/20 transition-all"
             >
               <div className={`h-12 w-12 rounded-xl ${p.iconBg} border flex items-center justify-center shrink-0`}>
                 <p.icon className={`h-6 w-6 ${p.iconColor}`} />
