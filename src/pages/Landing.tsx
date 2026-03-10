@@ -366,21 +366,21 @@ export default function Landing() {
           navScrolled ? "bg-sidebar/95 backdrop-blur-md shadow-lg shadow-black/20 border-b border-white/5" : "bg-transparent"
         }`}
       >
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={oslrLogo} alt="Oslr" className="h-8 w-8 rounded-lg" />
-            <span className="font-display text-lg font-bold tracking-tight text-white">oslr</span>
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg" />
+            <span className="font-display text-xl font-bold tracking-tight text-white">oslr</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm font-medium text-white/50">
+          <div className="hidden md:flex items-center gap-8 text-base font-medium text-white/60">
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#intelligence" className="hover:text-white transition-colors">Intelligence</a>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10" asChild>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10 text-base" asChild>
               <Link to="/auth">Log In</Link>
             </Button>
-            <Button size="sm" className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90" asChild>
+            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5" asChild>
               <Link to="/auth">Get Started Free</Link>
             </Button>
           </div>
@@ -388,11 +388,11 @@ export default function Landing() {
       </nav>
 
       {/* ---- HERO ---- */}
-      <section className="relative pt-32 pb-8 md:pt-44 md:pb-12 px-4 overflow-hidden">
+      <section className="relative pt-36 pb-8 md:pt-48 md:pb-12 px-4 overflow-hidden">
         {/* bg blobs */}
-        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-primary/8 blur-[120px] animate-gradient-float pointer-events-none" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-emerald-500/6 blur-[100px] animate-gradient-float-reverse pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-teal-400/4 blur-[80px] pointer-events-none" />
+        <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-primary/12 blur-[140px] animate-gradient-float pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-500/10 blur-[120px] animate-gradient-float-reverse pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-teal-400/8 blur-[100px] pointer-events-none" />
 
         {/* subtle grid */}
         <div
@@ -403,12 +403,12 @@ export default function Landing() {
           }}
         />
 
-        <div className="relative max-w-4xl mx-auto text-center space-y-8">
+        <div className="relative max-w-5xl mx-auto text-center space-y-10">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
-            className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] text-white"
+            className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] text-white"
           >
             The New Way to Source{" "}
             <span className="relative inline-block">
@@ -432,7 +432,7 @@ export default function Landing() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.7 }}
-            className="text-white/70 text-lg md:text-xl max-w-2xl mx-auto"
+            className="text-white/70 text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed"
           >
             Real-time data. Natural language AI. Verified contact info. Email sequences. Market intelligence. All in one platform built for healthcare recruiting.
           </motion.p>
@@ -487,10 +487,10 @@ export default function Landing() {
       {/* ---- PROBLEM ---- */}
       <Section elevated>
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">
             Recruiting technology hasn't kept up with healthcare
           </h2>
-          <p className="text-white/60 max-w-xl mx-auto">
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
             The tools most teams rely on were built for a different era. Here's what's holding you back.
           </p>
         </div>
@@ -502,16 +502,16 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.5 }}
-              className="relative rounded-xl border border-white/[0.08] p-6 space-y-3 hover:border-white/[0.15] transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.08] p-8 space-y-4 hover:border-white/[0.15] transition-all group overflow-hidden"
             >
               {/* Gradient background */}
               <div className={`absolute inset-0 bg-gradient-to-br ${p.color} opacity-50 group-hover:opacity-80 transition-opacity`} />
               <div className="relative">
-                <div className={`h-10 w-10 rounded-lg ${p.iconBg} border flex items-center justify-center`}>
-                  <p.icon className={`h-5 w-5 ${p.iconColor}`} />
+                <div className={`h-12 w-12 rounded-xl ${p.iconBg} border flex items-center justify-center`}>
+                  <p.icon className={`h-6 w-6 ${p.iconColor}`} />
                 </div>
-                <h3 className="font-display text-lg font-semibold text-white mt-3">{p.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed mt-2">{p.desc}</p>
+                <h3 className="font-display text-xl font-semibold text-white mt-4">{p.title}</h3>
+                <p className="text-white/60 text-base leading-relaxed mt-2">{p.desc}</p>
               </div>
             </motion.div>
           ))}
@@ -521,8 +521,8 @@ export default function Landing() {
       {/* ---- HOW IT WORKS ---- */}
       <Section id="how-it-works">
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">How It Works</h2>
-          <p className="text-white/60 max-w-xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">How It Works</h2>
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
             From search to outreach in three simple steps.
           </p>
         </div>
@@ -536,12 +536,12 @@ export default function Landing() {
               transition={{ delay: i * 0.15, duration: 0.5 }}
               className="relative space-y-4"
             >
-              <span className="font-display text-5xl font-bold text-primary/15">{s.num}</span>
-              <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <s.icon className="h-6 w-6 text-primary" />
+              <span className="font-display text-6xl font-bold text-primary/15">{s.num}</span>
+              <div className="h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <s.icon className="h-7 w-7 text-primary" />
               </div>
-              <h3 className="font-display text-xl font-semibold text-white">{s.title}</h3>
-              <p className="text-white/60 text-sm leading-relaxed">{s.desc}</p>
+              <h3 className="font-display text-2xl font-semibold text-white">{s.title}</h3>
+              <p className="text-white/60 text-base leading-relaxed">{s.desc}</p>
               {/* Connector line */}
               {i < STEPS.length - 1 && (
                 <div className="hidden md:block absolute top-16 -right-5 w-10 border-t border-dashed border-primary/20" />
@@ -554,10 +554,10 @@ export default function Landing() {
       {/* ---- FEATURES ---- */}
       <Section elevated id="features">
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">
             Everything you need, nothing you don't
           </h2>
-          <p className="text-white/60 max-w-xl mx-auto">
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
             One platform that replaces six tabs.
           </p>
         </div>
@@ -569,16 +569,16 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.06, duration: 0.4 }}
-              className="relative rounded-xl border border-white/[0.08] p-5 space-y-3 hover:border-primary/30 transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.08] p-6 space-y-3 hover:border-primary/30 transition-all group overflow-hidden"
             >
               {/* Unique gradient accent per card */}
               <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
               <div className="relative">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/25 group-hover:border-primary/40 transition-all duration-300">
-                  <f.icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-300" />
+                <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/25 group-hover:border-primary/40 transition-all duration-300">
+                  <f.icon className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
                 </div>
-                <h3 className="font-display font-semibold text-sm text-white mt-3">{f.title}</h3>
-                <p className="text-white/55 text-xs leading-relaxed mt-1.5">{f.desc}</p>
+                <h3 className="font-display font-semibold text-base text-white mt-4">{f.title}</h3>
+                <p className="text-white/55 text-sm leading-relaxed mt-2">{f.desc}</p>
               </div>
             </motion.div>
           ))}
@@ -625,7 +625,7 @@ export default function Landing() {
                     {article.cat}
                   </span>
                 </div>
-                <p className="text-sm font-medium leading-snug text-white/90">{article.title}</p>
+                <p className="text-base font-medium leading-snug text-white/90">{article.title}</p>
               </motion.div>
             ))}
             <div className="flex flex-wrap gap-2 pt-1">
@@ -644,10 +644,10 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {STATS.map((s) => (
             <div key={s.label} className="space-y-1">
-              <p className="font-display text-3xl md:text-4xl font-bold text-primary">
+              <p className="font-display text-4xl md:text-5xl font-bold text-primary">
                 <CountUp target={s.value} suffix={s.suffix} />
               </p>
-              <p className="text-white/55 text-sm">{s.label}</p>
+              <p className="text-white/60 text-base">{s.label}</p>
             </div>
           ))}
         </div>
@@ -656,14 +656,14 @@ export default function Landing() {
       {/* ---- FOR RECRUITERS ---- */}
       <Section>
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">
             Built to make great recruiters{" "}
             <span className="bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
               unstoppable
             </span>
           </h2>
-          <p className="text-white/65 max-w-2xl mx-auto">
-            Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner. This isn't about replacing your expertise — it's about amplifying it.
+          <p className="text-white/65 text-lg max-w-2xl mx-auto">
+            Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -678,12 +678,12 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
-              className="flex items-start gap-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
+              className="flex items-start gap-5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
             >
-              <div className={`h-10 w-10 rounded-lg ${p.iconBg} border flex items-center justify-center shrink-0`}>
-                <p.icon className={`h-5 w-5 ${p.iconColor}`} />
+              <div className={`h-12 w-12 rounded-xl ${p.iconBg} border flex items-center justify-center shrink-0`}>
+                <p.icon className={`h-6 w-6 ${p.iconColor}`} />
               </div>
-              <p className="font-medium text-sm text-white/90">{p.text}</p>
+              <p className="font-medium text-base text-white/90">{p.text}</p>
             </motion.div>
           ))}
         </div>
@@ -691,9 +691,9 @@ export default function Landing() {
 
       {/* ---- CTA ---- */}
       <Section elevated>
-        <div className="text-center space-y-6 max-w-xl mx-auto">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Stop sourcing the old way.</h2>
-          <p className="text-white/65">
+        <div className="text-center space-y-8 max-w-2xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-white">Stop sourcing the old way.</h2>
+          <p className="text-white/65 text-lg">
             Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
