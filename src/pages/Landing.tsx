@@ -458,7 +458,7 @@ export default function Landing() {
             <p className="text-white/65 leading-relaxed">
               Stay ahead with curated news from Becker's, Healthcare Dive, Modern Healthcare, and more. Track private equity moves, M&A activity, system expansions, and policy changes. Build your daily digest so you're always the most informed recruiter in the room.
             </p>
-            <Button asChild>
+            <Button className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
               <Link to="/auth">
                 Explore the News Feed <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
