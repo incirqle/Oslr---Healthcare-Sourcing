@@ -439,7 +439,7 @@ export default function Landing() {
                 <f.icon className="h-4 w-4 text-primary" />
               </div>
               <h3 className="font-display font-semibold text-sm text-white">{f.title}</h3>
-              <p className="text-white/40 text-xs leading-relaxed">{f.desc}</p>
+              <p className="text-white/55 text-xs leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
         </div>
