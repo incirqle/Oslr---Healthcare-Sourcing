@@ -553,11 +553,11 @@ export default function Landing() {
       <Section elevated>
         <div className="text-center space-y-6 max-w-xl mx-auto">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Stop sourcing the old way.</h2>
-          <p className="text-white/50">
+          <p className="text-white/65">
             Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" asChild>
+            <Button size="lg" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
               <Link to="/auth">
                 Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
