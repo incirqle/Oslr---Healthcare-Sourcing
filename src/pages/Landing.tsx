@@ -644,10 +644,10 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {STATS.map((s) => (
             <div key={s.label} className="space-y-1">
-              <p className="font-display text-3xl md:text-4xl font-bold text-primary">
+              <p className="font-display text-4xl md:text-5xl font-bold text-primary">
                 <CountUp target={s.value} suffix={s.suffix} />
               </p>
-              <p className="text-white/55 text-sm">{s.label}</p>
+              <p className="text-white/60 text-base">{s.label}</p>
             </div>
           ))}
         </div>
