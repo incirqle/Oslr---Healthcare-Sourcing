@@ -409,7 +409,7 @@ export default function Landing() {
                 <s.icon className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-display text-xl font-semibold text-white">{s.title}</h3>
-              <p className="text-white/50 text-sm leading-relaxed">{s.desc}</p>
+              <p className="text-white/60 text-sm leading-relaxed">{s.desc}</p>
             </motion.div>
           ))}
         </div>
