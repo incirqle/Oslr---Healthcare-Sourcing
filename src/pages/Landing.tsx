@@ -390,7 +390,7 @@ export default function Landing() {
       <Section id="how-it-works">
         <div className="text-center mb-14">
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">How It Works</h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-white/60 max-w-xl mx-auto">
             From search to outreach in three simple steps.
           </p>
         </div>
