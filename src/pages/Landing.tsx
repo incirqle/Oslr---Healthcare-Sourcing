@@ -333,12 +333,12 @@ export default function Landing() {
             transition={{ delay: 0.45, duration: 0.7 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3"
           >
-            <Button size="lg" asChild>
+            <Button size="lg" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
               <Link to="/auth">
                 Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-white/15 text-white/80 hover:bg-white/5 hover:text-white" asChild>
+            <Button size="lg" variant="outline" className="border-white/25 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 hover:text-white backdrop-blur-sm" asChild>
               <a href="#how-it-works">See How It Works</a>
             </Button>
           </motion.div>
