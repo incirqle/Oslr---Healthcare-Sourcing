@@ -403,7 +403,7 @@ export default function Landing() {
           }}
         />
 
-        <div className="relative max-w-4xl mx-auto text-center space-y-8">
+        <div className="relative max-w-5xl mx-auto text-center space-y-10">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
