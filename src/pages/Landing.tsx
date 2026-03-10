@@ -625,7 +625,7 @@ export default function Landing() {
                     {article.cat}
                   </span>
                 </div>
-                <p className="text-sm font-medium leading-snug text-white/90">{article.title}</p>
+                <p className="text-base font-medium leading-snug text-white/90">{article.title}</p>
               </motion.div>
             ))}
             <div className="flex flex-wrap gap-2 pt-1">
