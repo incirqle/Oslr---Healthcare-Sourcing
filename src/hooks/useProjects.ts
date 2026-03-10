@@ -22,6 +22,29 @@ export function useProjects() {
   });
 }
 
+/** Fetch candidate counts per project for the current company */
+export function useProjectCandidateCounts() {
+  const { companyId } = useCompany();
+
+  return useQuery({
+    queryKey: ["project_candidate_counts", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("candidates")
+        .select("project_id")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+
+      const counts: Record<string, number> = {};
+      for (const row of data || []) {
+        counts[row.project_id] = (counts[row.project_id] || 0) + 1;
+      }
+      return counts;
+    },
+    enabled: !!companyId,
+  });
+}
+
 export function useProject(id: string) {
   return useQuery({
     queryKey: ["project", id],
@@ -45,6 +68,23 @@ export function useProjectCandidates(projectId: string) {
       const { data, error } = await supabase
         .from("candidates")
         .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+}
+
+/** Fetch campaigns linked to a specific project */
+export function useProjectCampaigns(projectId: string) {
+  return useQuery({
+    queryKey: ["project_campaigns", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_campaigns")
+        .select("id, name, status, recipient_count, sent_count, open_count, sent_at, created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -146,6 +186,7 @@ export function useAddCandidates() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["candidates", vars.projectId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project_candidate_counts"] });
     },
   });
 }
@@ -160,6 +201,41 @@ export function useUpdateCandidateStatus() {
     },
     onSuccess: (projectId) => {
       qc.invalidateQueries({ queryKey: ["candidates", projectId] });
+    },
+  });
+}
+
+/** Bulk update status for multiple candidates */
+export function useBulkUpdateCandidateStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, status, projectId }: { ids: string[]; status: CandidateStatus; projectId: string }) => {
+      const { error } = await supabase
+        .from("candidates")
+        .update({ status })
+        .in("id", ids);
+      if (error) throw error;
+      return projectId;
+    },
+    onSuccess: (projectId) => {
+      qc.invalidateQueries({ queryKey: ["candidates", projectId] });
+    },
+  });
+}
+
+/** Bulk remove multiple candidates */
+export function useBulkRemoveCandidates() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, projectId }: { ids: string[]; projectId: string }) => {
+      const { error } = await supabase.from("candidates").delete().in("id", ids);
+      if (error) throw error;
+      return projectId;
+    },
+    onSuccess: (projectId) => {
+      qc.invalidateQueries({ queryKey: ["candidates", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project_candidate_counts"] });
     },
   });
 }
@@ -189,6 +265,7 @@ export function useRemoveCandidate() {
     onSuccess: (projectId) => {
       qc.invalidateQueries({ queryKey: ["candidates", projectId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project_candidate_counts"] });
     },
   });
 }
