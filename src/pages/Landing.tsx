@@ -569,16 +569,16 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.06, duration: 0.4 }}
-              className="relative rounded-xl border border-white/[0.08] p-5 space-y-3 hover:border-primary/30 transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.08] p-6 space-y-3 hover:border-primary/30 transition-all group overflow-hidden"
             >
               {/* Unique gradient accent per card */}
               <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
               <div className="relative">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/25 group-hover:border-primary/40 transition-all duration-300">
-                  <f.icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-300" />
+                <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/25 group-hover:border-primary/40 transition-all duration-300">
+                  <f.icon className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
                 </div>
-                <h3 className="font-display font-semibold text-sm text-white mt-3">{f.title}</h3>
-                <p className="text-white/55 text-xs leading-relaxed mt-1.5">{f.desc}</p>
+                <h3 className="font-display font-semibold text-base text-white mt-4">{f.title}</h3>
+                <p className="text-white/55 text-sm leading-relaxed mt-2">{f.desc}</p>
               </div>
             </motion.div>
           ))}
