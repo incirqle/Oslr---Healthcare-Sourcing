@@ -631,7 +631,7 @@ export default function Landing() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12, duration: 0.5 }}
-                className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-4 space-y-2 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
+                className="rounded-xl border border-white/[0.10] bg-white/[0.05] backdrop-blur-sm p-5 space-y-2.5 hover:bg-white/[0.08] hover:border-white/[0.15] shadow-lg shadow-black/15 transition-all"
               >
                 <div className="flex items-center gap-2">
                   <Newspaper className="h-4 w-4 text-primary" />
