@@ -247,8 +247,10 @@ function Section({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className={`py-20 md:py-28 px-4 ${elevated ? "bg-[hsl(222,47%,13%)]" : "bg-sidebar"} text-sidebar-foreground ${className}`}
+      className={`relative py-24 md:py-32 px-4 ${elevated ? "bg-[hsl(222,47%,11%)]" : "bg-sidebar"} text-sidebar-foreground ${className}`}
     >
+      {/* Subtle top edge highlight for elevated sections */}
+      {elevated && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />}
       <div className="max-w-6xl mx-auto">{children}</div>
     </motion.section>
   );
