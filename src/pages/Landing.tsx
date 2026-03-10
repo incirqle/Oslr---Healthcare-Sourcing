@@ -587,6 +587,8 @@ export default function Landing() {
               transition={{ delay: i * 0.06, duration: 0.4 }}
               className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] backdrop-blur-sm p-6 space-y-3 hover:border-primary/30 shadow-xl shadow-black/20 transition-all group overflow-hidden"
             >
+              {/* Top edge highlight */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
               {/* Unique gradient accent per card */}
               <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
               <div className="relative">
