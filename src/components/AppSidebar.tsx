@@ -4,11 +4,11 @@ import {
   Mail,
   Settings,
   LogOut,
-  Stethoscope,
   Command,
   Search,
   Newspaper,
 } from "lucide-react";
+import oslrLogo from "@/assets/oslr-logo.svg";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import {
