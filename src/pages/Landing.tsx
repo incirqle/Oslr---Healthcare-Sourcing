@@ -522,7 +522,7 @@ export default function Landing() {
               unstoppable
             </span>
           </h2>
-          <p className="text-white/50 max-w-2xl mx-auto">
+          <p className="text-white/65 max-w-2xl mx-auto">
             Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner. This isn't about replacing your expertise — it's about amplifying it.
           </p>
         </div>
