@@ -13,6 +13,8 @@ import Campaigns from "./pages/Campaigns";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import NotFound from "./pages/NotFound";
+import DocsIndex from "./pages/docs/DocsIndex";
+import DocsPageRouter from "./pages/docs/DocsPageRouter";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +37,8 @@ const App = () => (
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/news" element={<News />} />
           <Route path="/settings" element={<TeamSettings />} />
+          <Route path="/docs" element={<DocsIndex />} />
+          <Route path="/docs/:slug" element={<DocsPageRouter />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
