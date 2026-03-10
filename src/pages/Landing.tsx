@@ -366,21 +366,21 @@ export default function Landing() {
           navScrolled ? "bg-sidebar/95 backdrop-blur-md shadow-lg shadow-black/20 border-b border-white/5" : "bg-transparent"
         }`}
       >
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={oslrLogo} alt="Oslr" className="h-8 w-8 rounded-lg" />
-            <span className="font-display text-lg font-bold tracking-tight text-white">oslr</span>
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg" />
+            <span className="font-display text-xl font-bold tracking-tight text-white">oslr</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm font-medium text-white/50">
+          <div className="hidden md:flex items-center gap-8 text-base font-medium text-white/60">
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#intelligence" className="hover:text-white transition-colors">Intelligence</a>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10" asChild>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10 text-base" asChild>
               <Link to="/auth">Log In</Link>
             </Button>
-            <Button size="sm" className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90" asChild>
+            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5" asChild>
               <Link to="/auth">Get Started Free</Link>
             </Button>
           </div>
