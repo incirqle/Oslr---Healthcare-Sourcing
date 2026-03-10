@@ -554,10 +554,10 @@ export default function Landing() {
       {/* ---- FEATURES ---- */}
       <Section elevated id="features">
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">
             Everything you need, nothing you don't
           </h2>
-          <p className="text-white/60 max-w-xl mx-auto">
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
             One platform that replaces six tabs.
           </p>
         </div>
