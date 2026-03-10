@@ -507,7 +507,7 @@ export default function Landing() {
               <p className="font-display text-3xl md:text-4xl font-bold text-primary">
                 <CountUp target={s.value} suffix={s.suffix} />
               </p>
-              <p className="text-white/40 text-sm">{s.label}</p>
+              <p className="text-white/55 text-sm">{s.label}</p>
             </div>
           ))}
         </div>
