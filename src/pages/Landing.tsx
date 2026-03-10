@@ -373,7 +373,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 relative">
           <Link to="/" className="flex items-center gap-2.5">
             <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg shadow-lg shadow-primary/20" />
-            <span className="font-display text-xl font-bold tracking-tight text-white">oslr</span>
+            <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-xl font-bold tracking-tight text-white">Oslr</span>
           </Link>
           <div className="hidden md:flex items-center gap-1 text-base font-medium absolute left-1/2 -translate-x-1/2">
             {[
@@ -734,7 +734,7 @@ export default function Landing() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <img src={oslrLogo} alt="Oslr" className="h-7 w-7 rounded-md" />
-              <span className="font-display text-lg font-bold text-white">oslr</span>
+              <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-lg font-bold text-white">Oslr</span>
             </div>
             <p className="text-white/50 text-sm">The modern healthcare sourcing platform.</p>
           </div>
