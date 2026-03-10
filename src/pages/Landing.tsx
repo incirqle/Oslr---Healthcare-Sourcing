@@ -372,7 +372,7 @@ export default function Landing() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 relative">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg shadow-lg shadow-primary/20" />
+            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-full shadow-lg shadow-primary/20" />
             <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-xl font-bold tracking-tight text-white">Oslr</span>
           </Link>
           <div className="hidden md:flex items-center gap-1 text-base font-medium absolute left-1/2 -translate-x-1/2">
