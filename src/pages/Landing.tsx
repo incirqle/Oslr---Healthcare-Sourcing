@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import oslrLogo from "@/assets/oslr-logo.svg";
 import {
   Search,
   MessageSquareText,
@@ -10,20 +11,20 @@ import {
   BarChart3,
   FolderKanban,
   Users,
-  Activity,
   Zap,
   Clock,
   Layers,
   ArrowRight,
   CheckCircle2,
   Newspaper,
-  TrendingUp,
-  Building2,
   Shield,
   Sparkles,
   Target,
   Phone,
   Globe,
+  MapPin,
+  Star,
+  TrendingUp,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -100,6 +101,101 @@ function TypingSearch() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Product mockup component                                           */
+/* ------------------------------------------------------------------ */
+function ProductMockup() {
+  const mockCandidates = [
+    { name: "Dr. Sarah Chen", title: "Orthopedic Surgeon", location: "Miami, FL", score: 97, status: "New" },
+    { name: "Dr. James Rivera", title: "Orthopedic Surgeon", location: "Fort Lauderdale, FL", score: 94, status: "New" },
+    { name: "Dr. Michelle Park", title: "Sports Medicine", location: "Miami, FL", score: 91, status: "Contacted" },
+    { name: "Dr. David Okafor", title: "Orthopedic Surgeon", location: "West Palm Beach, FL", score: 88, status: "New" },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
+      className="relative w-full max-w-4xl mx-auto mt-16"
+    >
+      {/* Glow behind mockup */}
+      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-b from-primary/20 via-emerald-500/10 to-transparent blur-2xl -z-10" />
+
+      {/* Browser chrome */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-md overflow-hidden shadow-2xl shadow-black/40">
+        {/* Title bar */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-white/10" />
+            <div className="w-3 h-3 rounded-full bg-white/10" />
+            <div className="w-3 h-3 rounded-full bg-white/10" />
+          </div>
+          <div className="flex-1 flex justify-center">
+            <div className="flex items-center gap-2 px-4 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-xs text-white/40">
+              <Search className="h-3 w-3" />
+              app.oslr.io/search
+            </div>
+          </div>
+        </div>
+
+        {/* App content */}
+        <div className="p-4 md:p-6">
+          {/* Search bar in app */}
+          <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 mb-5">
+            <Search className="h-4 w-4 text-primary" />
+            <span className="text-sm text-white/80">Orthopedic surgeons in South Florida</span>
+            <span className="ml-auto text-xs text-primary font-medium bg-primary/15 px-2 py-0.5 rounded-full">247 results</span>
+          </div>
+
+          {/* Results table */}
+          <div className="space-y-0 rounded-lg border border-white/[0.06] overflow-hidden">
+            {/* Header */}
+            <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-white/[0.03] text-xs text-white/40 font-medium">
+              <div className="col-span-4">Candidate</div>
+              <div className="col-span-3 hidden md:block">Title</div>
+              <div className="col-span-2 hidden md:block">Location</div>
+              <div className="col-span-1 hidden md:block text-center">Score</div>
+              <div className="col-span-2 text-right">Status</div>
+            </div>
+            {/* Rows */}
+            {mockCandidates.map((c, i) => (
+              <motion.div
+                key={c.name}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 1.0 + i * 0.12, duration: 0.4 }}
+                className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-white/[0.04] hover:bg-white/[0.02] items-center"
+              >
+                <div className="col-span-4 flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/30 to-emerald-500/20 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
+                    {c.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </div>
+                  <span className="text-sm font-medium text-white/90 truncate">{c.name}</span>
+                </div>
+                <div className="col-span-3 hidden md:block text-sm text-white/60 truncate">{c.title}</div>
+                <div className="col-span-2 hidden md:flex items-center gap-1 text-sm text-white/50">
+                  <MapPin className="h-3 w-3 shrink-0" />{c.location}
+                </div>
+                <div className="col-span-1 hidden md:flex justify-center">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.score >= 95 ? 'text-emerald-400 bg-emerald-400/10' : c.score >= 90 ? 'text-primary bg-primary/10' : 'text-white/60 bg-white/5'}`}>
+                    {c.score}
+                  </span>
+                </div>
+                <div className="col-span-2 flex justify-end">
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.status === 'Contacted' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'bg-primary/15 text-primary border border-primary/20'}`}>
+                    {c.status}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Count-up number                                                    */
 /* ------------------------------------------------------------------ */
 function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -167,16 +263,25 @@ const PAIN_POINTS = [
     icon: Clock,
     title: "Stale Data",
     desc: "Most sourcing tools rely on databases that are months or years out of date. You need to know where a physician is training right now, not where they were two years ago.",
+    color: "from-red-500/20 to-orange-500/10",
+    iconColor: "text-red-400",
+    iconBg: "bg-red-500/15 border-red-500/20",
   },
   {
     icon: Layers,
     title: "Manual Workflows",
     desc: "Copy-pasting between tabs, building spreadsheets, hand-writing outreach emails. Your time should be spent recruiting, not doing data entry.",
+    color: "from-amber-500/20 to-yellow-500/10",
+    iconColor: "text-amber-400",
+    iconBg: "bg-amber-500/15 border-amber-500/20",
   },
   {
     icon: Zap,
     title: "Fragmented Tools",
     desc: "One tool to search, another to find emails, another to send campaigns, another to read industry news. Context-switching kills productivity.",
+    color: "from-violet-500/20 to-purple-500/10",
+    iconColor: "text-violet-400",
+    iconBg: "bg-violet-500/15 border-violet-500/20",
   },
 ];
 
@@ -202,14 +307,14 @@ const STEPS = [
 ];
 
 const FEATURES = [
-  { icon: MessageSquareText, title: "Natural Language Search", desc: "Just describe who you're looking for. No Boolean strings, no complex filters." },
-  { icon: Database, title: "Real-Time Data", desc: "Aggregated from LinkedIn, professional registries, and dozens of sources. Always current." },
-  { icon: Phone, title: "Contact Enrichment", desc: "Verified emails, direct phone numbers, and professional details in one click." },
-  { icon: Mail, title: "Email Sequences", desc: "Build personalized outreach templates with merge fields and send campaigns at scale." },
-  { icon: Target, title: "Match Scoring", desc: "Every candidate scored on title match, location, data completeness, and relevance." },
-  { icon: FolderKanban, title: "Hiring Projects", desc: "Organize candidates by role, department, or facility. Track your pipeline." },
-  { icon: Users, title: "Team Collaboration", desc: "Invite your team, share projects, and track sourcing performance together." },
-  { icon: BarChart3, title: "Analytics & Tracking", desc: "Monitor campaign performance, open rates, and recruiter activity." },
+  { icon: MessageSquareText, title: "Natural Language Search", desc: "Just describe who you're looking for. No Boolean strings, no complex filters.", accent: "from-emerald-500/20 to-teal-500/10" },
+  { icon: Database, title: "Real-Time Data", desc: "Aggregated from LinkedIn, professional registries, and dozens of sources. Always current.", accent: "from-blue-500/20 to-cyan-500/10" },
+  { icon: Phone, title: "Contact Enrichment", desc: "Verified emails, direct phone numbers, and professional details in one click.", accent: "from-violet-500/20 to-purple-500/10" },
+  { icon: Mail, title: "Email Sequences", desc: "Build personalized outreach templates with merge fields and send campaigns at scale.", accent: "from-amber-500/20 to-orange-500/10" },
+  { icon: Target, title: "Match Scoring", desc: "Every candidate scored on title match, location, data completeness, and relevance.", accent: "from-rose-500/20 to-pink-500/10" },
+  { icon: FolderKanban, title: "Hiring Projects", desc: "Organize candidates by role, department, or facility. Track your pipeline.", accent: "from-sky-500/20 to-indigo-500/10" },
+  { icon: Users, title: "Team Collaboration", desc: "Invite your team, share projects, and track sourcing performance together.", accent: "from-teal-500/20 to-green-500/10" },
+  { icon: BarChart3, title: "Analytics & Tracking", desc: "Monitor campaign performance, open rates, and recruiter activity.", accent: "from-fuchsia-500/20 to-pink-500/10" },
 ];
 
 const NEWS_CATEGORIES = ["PE / M&A", "Policy", "Workforce", "Expansion", "Digital Health"];
@@ -220,6 +325,31 @@ const STATS = [
   { value: 30, suffix: "+", label: "Real-time data sources" },
   { value: 100, suffix: "%", label: "Healthcare focused" },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Animated CTA button with glow                                      */
+/* ------------------------------------------------------------------ */
+function GlowButton({ children, size = "lg", className = "", ...props }: { children: React.ReactNode; size?: "default" | "lg"; className?: string; [key: string]: any }) {
+  return (
+    <motion.div className="relative group" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+      {/* Animated glow */}
+      <motion.div
+        className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary via-emerald-400 to-teal-500 opacity-40 blur-lg group-hover:opacity-70 transition-opacity duration-500"
+        animate={{
+          opacity: [0.3, 0.5, 0.3],
+        }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <Button
+        size={size}
+        className={`relative bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 transition-all ${className}`}
+        {...props}
+      >
+        {children}
+      </Button>
+    </motion.div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Landing Page                                                       */
@@ -243,8 +373,9 @@ export default function Landing() {
         }`}
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/" className="font-display text-xl font-bold tracking-tight text-white">
-            oslr
+          <Link to="/" className="flex items-center gap-2">
+            <img src={oslrLogo} alt="Oslr" className="h-8 w-8 rounded-lg" />
+            <span className="font-display text-lg font-bold tracking-tight text-white">oslr</span>
           </Link>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-white/50">
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
@@ -255,7 +386,7 @@ export default function Landing() {
             <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10" asChild>
               <Link to="/auth">Log In</Link>
             </Button>
-            <Button size="sm" asChild>
+            <Button size="sm" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold" asChild>
               <Link to="/auth">Get Started Free</Link>
             </Button>
           </div>
@@ -263,7 +394,7 @@ export default function Landing() {
       </nav>
 
       {/* ---- HERO ---- */}
-      <section className="relative pt-32 pb-20 md:pt-44 md:pb-32 px-4 overflow-hidden">
+      <section className="relative pt-32 pb-8 md:pt-44 md:pb-12 px-4 overflow-hidden">
         {/* bg blobs */}
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-primary/8 blur-[120px] animate-gradient-float pointer-events-none" />
         <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-emerald-500/6 blur-[100px] animate-gradient-float-reverse pointer-events-none" />
@@ -290,21 +421,14 @@ export default function Landing() {
               <span className="relative z-10 bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
                 Healthcare Talent
               </span>
-              {/* Glow effect underneath */}
               <motion.span
                 className="absolute -inset-x-4 -inset-y-2 rounded-2xl bg-gradient-to-r from-primary/30 via-emerald-400/20 to-teal-400/30 blur-2xl -z-10"
-                animate={{
-                  opacity: [0.4, 0.7, 0.4],
-                  scale: [1, 1.05, 1],
-                }}
+                animate={{ opacity: [0.4, 0.7, 0.4], scale: [1, 1.05, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               />
               <motion.span
                 className="absolute -inset-x-6 -inset-y-3 rounded-3xl bg-gradient-to-r from-emerald-500/15 via-primary/20 to-teal-500/15 blur-3xl -z-20"
-                animate={{
-                  opacity: [0.2, 0.5, 0.2],
-                  scale: [1.05, 1, 1.05],
-                }}
+                animate={{ opacity: [0.2, 0.5, 0.2], scale: [1.05, 1, 1.05] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
               />
             </span>
@@ -331,13 +455,13 @@ export default function Landing() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45, duration: 0.7 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-3"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
-            <Button size="lg" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
+            <GlowButton size="lg" asChild>
               <Link to="/auth">
                 Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
-            </Button>
+            </GlowButton>
             <Button size="lg" variant="outline" className="border-white/25 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 hover:text-white backdrop-blur-sm" asChild>
               <a href="#how-it-works">See How It Works</a>
             </Button>
@@ -361,6 +485,9 @@ export default function Landing() {
             ))}
           </motion.div>
         </div>
+
+        {/* Product mockup */}
+        <ProductMockup />
       </section>
 
       {/* ---- PROBLEM ---- */}
@@ -374,14 +501,25 @@ export default function Landing() {
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
-          {PAIN_POINTS.map((p) => (
-            <div key={p.title} className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-6 space-y-3 hover:bg-white/[0.05] transition-colors">
-              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                <p.icon className="h-5 w-5 text-primary" />
+          {PAIN_POINTS.map((p, i) => (
+            <motion.div
+              key={p.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.12, duration: 0.5 }}
+              className="relative rounded-xl border border-white/[0.08] p-6 space-y-3 hover:border-white/[0.15] transition-all group overflow-hidden"
+            >
+              {/* Gradient background */}
+              <div className={`absolute inset-0 bg-gradient-to-br ${p.color} opacity-50 group-hover:opacity-80 transition-opacity`} />
+              <div className="relative">
+                <div className={`h-10 w-10 rounded-lg ${p.iconBg} border flex items-center justify-center`}>
+                  <p.icon className={`h-5 w-5 ${p.iconColor}`} />
+                </div>
+                <h3 className="font-display text-lg font-semibold text-white mt-3">{p.title}</h3>
+                <p className="text-white/60 text-sm leading-relaxed mt-2">{p.desc}</p>
               </div>
-              <h3 className="font-display text-lg font-semibold text-white">{p.title}</h3>
-              <p className="text-white/60 text-sm leading-relaxed">{p.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </Section>
@@ -404,12 +542,16 @@ export default function Landing() {
               transition={{ delay: i * 0.15, duration: 0.5 }}
               className="relative space-y-4"
             >
-              <span className="font-display text-5xl font-bold text-primary/10">{s.num}</span>
+              <span className="font-display text-5xl font-bold text-primary/15">{s.num}</span>
               <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                 <s.icon className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-display text-xl font-semibold text-white">{s.title}</h3>
               <p className="text-white/60 text-sm leading-relaxed">{s.desc}</p>
+              {/* Connector line */}
+              {i < STEPS.length - 1 && (
+                <div className="hidden md:block absolute top-16 -right-5 w-10 border-t border-dashed border-primary/20" />
+              )}
             </motion.div>
           ))}
         </div>
@@ -433,13 +575,17 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.06, duration: 0.4 }}
-              className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-5 space-y-3 hover:bg-white/[0.06] hover:border-primary/20 transition-all group"
+              className="relative rounded-xl border border-white/[0.08] p-5 space-y-3 hover:border-primary/30 transition-all group overflow-hidden"
             >
-              <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <f.icon className="h-4 w-4 text-primary" />
+              {/* Unique gradient accent per card */}
+              <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+              <div className="relative">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/25 group-hover:border-primary/40 transition-all duration-300">
+                  <f.icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform duration-300" />
+                </div>
+                <h3 className="font-display font-semibold text-sm text-white mt-3">{f.title}</h3>
+                <p className="text-white/55 text-xs leading-relaxed mt-1.5">{f.desc}</p>
               </div>
-              <h3 className="font-display font-semibold text-sm text-white">{f.title}</h3>
-              <p className="text-white/55 text-xs leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -458,18 +604,18 @@ export default function Landing() {
             <p className="text-white/65 leading-relaxed">
               Stay ahead with curated news from Becker's, Healthcare Dive, Modern Healthcare, and more. Track private equity moves, M&A activity, system expansions, and policy changes. Build your daily digest so you're always the most informed recruiter in the room.
             </p>
-            <Button className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
+            <GlowButton asChild>
               <Link to="/auth">
                 Explore the News Feed <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
-            </Button>
+            </GlowButton>
           </div>
           {/* mock news cards */}
           <div className="space-y-3">
             {[
-              { title: "HCA Healthcare announces $2.1B expansion across Southeast", cat: "Expansion" },
-              { title: "Private equity activity in outpatient care hits record high", cat: "PE / M&A" },
-              { title: "New CMS staffing mandates: what recruiters need to know", cat: "Policy" },
+              { title: "HCA Healthcare announces $2.1B expansion across Southeast", cat: "Expansion", catColor: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+              { title: "Private equity activity in outpatient care hits record high", cat: "PE / M&A", catColor: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
+              { title: "New CMS staffing mandates: what recruiters need to know", cat: "Policy", catColor: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
             ].map((article, i) => (
               <motion.div
                 key={i}
@@ -477,11 +623,11 @@ export default function Landing() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12, duration: 0.5 }}
-                className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 hover:bg-white/[0.05] transition-colors"
+                className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-4 space-y-2 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
               >
                 <div className="flex items-center gap-2">
                   <Newspaper className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${article.catColor}`}>
                     {article.cat}
                   </span>
                 </div>
@@ -528,9 +674,9 @@ export default function Landing() {
         </div>
         <div className="grid md:grid-cols-3 gap-8">
           {[
-            { icon: Zap, text: "10x faster sourcing with natural language" },
-            { icon: CheckCircle2, text: "Verified contact info means no dead ends" },
-            { icon: Globe, text: "One platform instead of six tabs" },
+            { icon: Zap, text: "10x faster sourcing with natural language", iconColor: "text-amber-400", iconBg: "bg-amber-500/15 border-amber-500/20" },
+            { icon: CheckCircle2, text: "Verified contact info means no dead ends", iconColor: "text-emerald-400", iconBg: "bg-emerald-500/15 border-emerald-500/20" },
+            { icon: Globe, text: "One platform instead of six tabs", iconColor: "text-sky-400", iconBg: "bg-sky-500/15 border-sky-500/20" },
           ].map((p, i) => (
             <motion.div
               key={p.text}
@@ -538,10 +684,10 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
-              className="flex items-start gap-4 rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 hover:bg-white/[0.05] transition-colors"
+              className="flex items-start gap-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
             >
-              <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <p.icon className="h-5 w-5 text-primary" />
+              <div className={`h-10 w-10 rounded-lg ${p.iconBg} border flex items-center justify-center shrink-0`}>
+                <p.icon className={`h-5 w-5 ${p.iconColor}`} />
               </div>
               <p className="font-medium text-sm text-white/90">{p.text}</p>
             </motion.div>
@@ -557,11 +703,11 @@ export default function Landing() {
             Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
+            <GlowButton size="lg" asChild>
               <Link to="/auth">
                 Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
-            </Button>
+            </GlowButton>
           </div>
           <p className="text-white/30 text-xs">
             No credit card required. Start searching in under 60 seconds.
@@ -573,23 +719,26 @@ export default function Landing() {
       <footer className="bg-[hsl(222,47%,6%)] text-sidebar-foreground border-t border-white/[0.04] px-4 py-12">
         <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
           <div>
-            <p className="font-display text-lg font-bold mb-1 text-white">oslr</p>
-            <p className="text-white/40 text-sm">The modern healthcare sourcing platform.</p>
+            <div className="flex items-center gap-2 mb-2">
+              <img src={oslrLogo} alt="Oslr" className="h-7 w-7 rounded-md" />
+              <span className="font-display text-lg font-bold text-white">oslr</span>
+            </div>
+            <p className="text-white/50 text-sm">The modern healthcare sourcing platform.</p>
           </div>
           <div className="space-y-2 text-sm">
             <p className="font-semibold text-white/30 uppercase text-xs tracking-wider mb-2">Product</p>
-            <Link to="/search" className="block text-white/40 hover:text-white transition-colors">Search</Link>
-            <Link to="/projects" className="block text-white/40 hover:text-white transition-colors">Projects</Link>
-            <Link to="/campaigns" className="block text-white/40 hover:text-white transition-colors">Campaigns</Link>
-            <Link to="/news" className="block text-white/40 hover:text-white transition-colors">News</Link>
+            <Link to="/search" className="block text-white/50 hover:text-white transition-colors">Search</Link>
+            <Link to="/projects" className="block text-white/50 hover:text-white transition-colors">Projects</Link>
+            <Link to="/campaigns" className="block text-white/50 hover:text-white transition-colors">Campaigns</Link>
+            <Link to="/news" className="block text-white/50 hover:text-white transition-colors">News</Link>
           </div>
           <div className="space-y-2 text-sm">
             <p className="font-semibold text-white/30 uppercase text-xs tracking-wider mb-2">Company</p>
-            <Link to="/auth" className="block text-white/40 hover:text-white transition-colors">Log In</Link>
-            <Link to="/auth" className="block text-white/40 hover:text-white transition-colors">Sign Up</Link>
+            <Link to="/auth" className="block text-white/50 hover:text-white transition-colors">Log In</Link>
+            <Link to="/auth" className="block text-white/50 hover:text-white transition-colors">Sign Up</Link>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/[0.04] text-center text-white/20 text-xs">
+        <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/[0.04] text-center text-white/25 text-xs">
           © {new Date().getFullYear()} Oslr. All rights reserved.
         </div>
       </footer>
