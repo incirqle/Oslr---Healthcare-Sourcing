@@ -362,25 +362,37 @@ export default function Landing() {
     <div className="min-h-screen bg-sidebar text-sidebar-foreground">
       {/* ---- NAV ---- */}
       <nav
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          navScrolled ? "bg-sidebar/95 backdrop-blur-md shadow-lg shadow-black/20 border-b border-white/5" : "bg-transparent"
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
+          navScrolled
+            ? "bg-[hsl(222,47%,9%)]/90 backdrop-blur-xl shadow-2xl shadow-black/40 border-b border-white/[0.08]"
+            : "bg-[hsl(222,47%,9%)]/60 backdrop-blur-md border-b border-white/[0.04]"
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg" />
+            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg shadow-lg shadow-primary/20" />
             <span className="font-display text-xl font-bold tracking-tight text-white">oslr</span>
           </Link>
-          <div className="hidden md:flex items-center gap-8 text-base font-medium text-white/60">
-            <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#intelligence" className="hover:text-white transition-colors">Intelligence</a>
+          <div className="hidden md:flex items-center gap-1 text-base font-medium">
+            {[
+              { label: "How It Works", href: "#how-it-works" },
+              { label: "Features", href: "#features" },
+              { label: "Intelligence", href: "#intelligence" },
+            ].map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="px-4 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/[0.06] transition-all"
+              >
+                {link.label}
+              </a>
+            ))}
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10 text-base" asChild>
               <Link to="/auth">Log In</Link>
             </Button>
-            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5" asChild>
+            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5 shadow-lg shadow-primary/20" asChild>
               <Link to="/auth">Get Started Free</Link>
             </Button>
           </div>
