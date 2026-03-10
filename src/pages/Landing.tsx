@@ -692,7 +692,7 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
-              className="flex items-start gap-5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all"
+              className="flex items-start gap-5 rounded-2xl border border-white/[0.10] bg-white/[0.05] backdrop-blur-sm p-6 hover:bg-white/[0.08] hover:border-white/[0.15] shadow-xl shadow-black/20 transition-all"
             >
               <div className={`h-12 w-12 rounded-xl ${p.iconBg} border flex items-center justify-center shrink-0`}>
                 <p.icon className={`h-6 w-6 ${p.iconColor}`} />
