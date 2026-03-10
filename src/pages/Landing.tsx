@@ -314,7 +314,7 @@ export default function Landing() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.7 }}
-            className="text-white/60 text-lg md:text-xl max-w-2xl mx-auto"
+            className="text-white/70 text-lg md:text-xl max-w-2xl mx-auto"
           >
             Real-time data. Natural language AI. Verified contact info. Email sequences. Market intelligence. All in one platform built for healthcare recruiting.
           </motion.p>
@@ -333,12 +333,12 @@ export default function Landing() {
             transition={{ delay: 0.45, duration: 0.7 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3"
           >
-            <Button size="lg" asChild>
+            <Button size="lg" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
               <Link to="/auth">
                 Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-white/15 text-white/80 hover:bg-white/5 hover:text-white" asChild>
+            <Button size="lg" variant="outline" className="border-white/25 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 hover:text-white backdrop-blur-sm" asChild>
               <a href="#how-it-works">See How It Works</a>
             </Button>
           </motion.div>
@@ -369,7 +369,7 @@ export default function Landing() {
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
             Recruiting technology hasn't kept up with healthcare
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-white/60 max-w-xl mx-auto">
             The tools most teams rely on were built for a different era. Here's what's holding you back.
           </p>
         </div>
@@ -380,7 +380,7 @@ export default function Landing() {
                 <p.icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="font-display text-lg font-semibold text-white">{p.title}</h3>
-              <p className="text-white/50 text-sm leading-relaxed">{p.desc}</p>
+              <p className="text-white/60 text-sm leading-relaxed">{p.desc}</p>
             </div>
           ))}
         </div>
@@ -390,7 +390,7 @@ export default function Landing() {
       <Section id="how-it-works">
         <div className="text-center mb-14">
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">How It Works</h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-white/60 max-w-xl mx-auto">
             From search to outreach in three simple steps.
           </p>
         </div>
@@ -409,7 +409,7 @@ export default function Landing() {
                 <s.icon className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-display text-xl font-semibold text-white">{s.title}</h3>
-              <p className="text-white/50 text-sm leading-relaxed">{s.desc}</p>
+              <p className="text-white/60 text-sm leading-relaxed">{s.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -421,7 +421,7 @@ export default function Landing() {
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
             Everything you need, nothing you don't
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-white/60 max-w-xl mx-auto">
             One platform that replaces six tabs.
           </p>
         </div>
@@ -439,7 +439,7 @@ export default function Landing() {
                 <f.icon className="h-4 w-4 text-primary" />
               </div>
               <h3 className="font-display font-semibold text-sm text-white">{f.title}</h3>
-              <p className="text-white/40 text-xs leading-relaxed">{f.desc}</p>
+              <p className="text-white/55 text-xs leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -455,10 +455,10 @@ export default function Landing() {
                 Your daily healthcare intelligence briefing.
               </span>
             </h2>
-            <p className="text-white/50 leading-relaxed">
+            <p className="text-white/65 leading-relaxed">
               Stay ahead with curated news from Becker's, Healthcare Dive, Modern Healthcare, and more. Track private equity moves, M&A activity, system expansions, and policy changes. Build your daily digest so you're always the most informed recruiter in the room.
             </p>
-            <Button asChild>
+            <Button className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
               <Link to="/auth">
                 Explore the News Feed <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
@@ -485,12 +485,12 @@ export default function Landing() {
                     {article.cat}
                   </span>
                 </div>
-                <p className="text-sm font-medium leading-snug text-white/80">{article.title}</p>
+                <p className="text-sm font-medium leading-snug text-white/90">{article.title}</p>
               </motion.div>
             ))}
             <div className="flex flex-wrap gap-2 pt-1">
               {NEWS_CATEGORIES.map((c) => (
-                <span key={c} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 text-xs font-medium">
+                <span key={c} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs font-medium">
                   {c}
                 </span>
               ))}
@@ -507,7 +507,7 @@ export default function Landing() {
               <p className="font-display text-3xl md:text-4xl font-bold text-primary">
                 <CountUp target={s.value} suffix={s.suffix} />
               </p>
-              <p className="text-white/40 text-sm">{s.label}</p>
+              <p className="text-white/55 text-sm">{s.label}</p>
             </div>
           ))}
         </div>
@@ -522,7 +522,7 @@ export default function Landing() {
               unstoppable
             </span>
           </h2>
-          <p className="text-white/50 max-w-2xl mx-auto">
+          <p className="text-white/65 max-w-2xl mx-auto">
             Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner. This isn't about replacing your expertise — it's about amplifying it.
           </p>
         </div>
@@ -543,7 +543,7 @@ export default function Landing() {
               <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <p.icon className="h-5 w-5 text-primary" />
               </div>
-              <p className="font-medium text-sm text-white/80">{p.text}</p>
+              <p className="font-medium text-sm text-white/90">{p.text}</p>
             </motion.div>
           ))}
         </div>
@@ -553,11 +553,11 @@ export default function Landing() {
       <Section elevated>
         <div className="text-center space-y-6 max-w-xl mx-auto">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Stop sourcing the old way.</h2>
-          <p className="text-white/50">
+          <p className="text-white/65">
             Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" asChild>
+            <Button size="lg" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all" asChild>
               <Link to="/auth">
                 Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
