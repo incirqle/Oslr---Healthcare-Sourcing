@@ -656,14 +656,14 @@ export default function Landing() {
       {/* ---- FOR RECRUITERS ---- */}
       <Section>
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">
             Built to make great recruiters{" "}
             <span className="bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
               unstoppable
             </span>
           </h2>
-          <p className="text-white/65 max-w-2xl mx-auto">
-            Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner. This isn't about replacing your expertise — it's about amplifying it.
+          <p className="text-white/65 text-lg max-w-2xl mx-auto">
+            Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
