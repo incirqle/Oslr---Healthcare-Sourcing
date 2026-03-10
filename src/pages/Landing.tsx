@@ -521,8 +521,8 @@ export default function Landing() {
       {/* ---- HOW IT WORKS ---- */}
       <Section id="how-it-works">
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">How It Works</h2>
-          <p className="text-white/60 max-w-xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">How It Works</h2>
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
             From search to outreach in three simple steps.
           </p>
         </div>
