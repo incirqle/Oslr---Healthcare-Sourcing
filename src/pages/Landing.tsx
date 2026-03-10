@@ -331,18 +331,12 @@ const STATS = [
 /* ------------------------------------------------------------------ */
 function GlowButton({ children, size = "lg", className = "", ...props }: { children: React.ReactNode; size?: "default" | "lg"; className?: string; [key: string]: any }) {
   return (
-    <motion.div className="relative group" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-      {/* Animated glow */}
-      <motion.div
-        className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary via-emerald-400 to-teal-500 opacity-40 blur-lg group-hover:opacity-70 transition-opacity duration-500"
-        animate={{
-          opacity: [0.3, 0.5, 0.3],
-        }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-      />
+    <motion.div className="relative group inline-flex" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+      {/* Subtle glow underneath only */}
+      <div className="absolute -inset-1 rounded-xl bg-primary/30 blur-xl opacity-0 group-hover:opacity-60 transition-opacity duration-500 -z-10" />
       <Button
         size={size}
-        className={`relative bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 transition-all ${className}`}
+        className={`relative bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30 transition-all ${className}`}
         {...props}
       >
         {children}
