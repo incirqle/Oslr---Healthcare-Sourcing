@@ -370,12 +370,12 @@ export default function Landing() {
             : "bg-[hsl(222,47%,9%)]/60 backdrop-blur-md border-b border-white/[0.04]"
         }`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 relative">
           <Link to="/" className="flex items-center gap-2.5">
             <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-lg shadow-lg shadow-primary/20" />
             <span className="font-display text-xl font-bold tracking-tight text-white">oslr</span>
           </Link>
-          <div className="hidden md:flex items-center gap-1 text-base font-medium">
+          <div className="hidden md:flex items-center gap-1 text-base font-medium absolute left-1/2 -translate-x-1/2">
             {[
               { label: "How It Works", href: "#how-it-works" },
               { label: "Features", href: "#features" },
