@@ -380,7 +380,7 @@ export default function Landing() {
             <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10" asChild>
               <Link to="/auth">Log In</Link>
             </Button>
-            <Button size="sm" className="bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold" asChild>
+            <Button size="sm" className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90" asChild>
               <Link to="/auth">Get Started Free</Link>
             </Button>
           </div>
