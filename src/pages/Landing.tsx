@@ -380,7 +380,7 @@ export default function Landing() {
                 <p.icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="font-display text-lg font-semibold text-white">{p.title}</h3>
-              <p className="text-white/50 text-sm leading-relaxed">{p.desc}</p>
+              <p className="text-white/60 text-sm leading-relaxed">{p.desc}</p>
             </div>
           ))}
         </div>
