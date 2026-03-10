@@ -455,7 +455,7 @@ export default function Landing() {
                 Your daily healthcare intelligence briefing.
               </span>
             </h2>
-            <p className="text-white/50 leading-relaxed">
+            <p className="text-white/65 leading-relaxed">
               Stay ahead with curated news from Becker's, Healthcare Dive, Modern Healthcare, and more. Track private equity moves, M&A activity, system expansions, and policy changes. Build your daily digest so you're always the most informed recruiter in the room.
             </p>
             <Button asChild>
