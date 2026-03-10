@@ -691,9 +691,9 @@ export default function Landing() {
 
       {/* ---- CTA ---- */}
       <Section elevated>
-        <div className="text-center space-y-6 max-w-xl mx-auto">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Stop sourcing the old way.</h2>
-          <p className="text-white/65">
+        <div className="text-center space-y-8 max-w-2xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-white">Stop sourcing the old way.</h2>
+          <p className="text-white/65 text-lg">
             Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
