@@ -502,7 +502,7 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.5 }}
-              className="relative rounded-xl border border-white/[0.08] p-6 space-y-3 hover:border-white/[0.15] transition-all group overflow-hidden"
+              className="relative rounded-2xl border border-white/[0.08] p-8 space-y-4 hover:border-white/[0.15] transition-all group overflow-hidden"
             >
               {/* Gradient background */}
               <div className={`absolute inset-0 bg-gradient-to-br ${p.color} opacity-50 group-hover:opacity-80 transition-opacity`} />
