@@ -507,11 +507,11 @@ export default function Landing() {
               {/* Gradient background */}
               <div className={`absolute inset-0 bg-gradient-to-br ${p.color} opacity-50 group-hover:opacity-80 transition-opacity`} />
               <div className="relative">
-                <div className={`h-10 w-10 rounded-lg ${p.iconBg} border flex items-center justify-center`}>
-                  <p.icon className={`h-5 w-5 ${p.iconColor}`} />
+                <div className={`h-12 w-12 rounded-xl ${p.iconBg} border flex items-center justify-center`}>
+                  <p.icon className={`h-6 w-6 ${p.iconColor}`} />
                 </div>
-                <h3 className="font-display text-lg font-semibold text-white mt-3">{p.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed mt-2">{p.desc}</p>
+                <h3 className="font-display text-xl font-semibold text-white mt-4">{p.title}</h3>
+                <p className="text-white/60 text-base leading-relaxed mt-2">{p.desc}</p>
               </div>
             </motion.div>
           ))}
