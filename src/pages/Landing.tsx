@@ -421,7 +421,7 @@ export default function Landing() {
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
             Everything you need, nothing you don't
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-white/60 max-w-xl mx-auto">
             One platform that replaces six tabs.
           </p>
         </div>
