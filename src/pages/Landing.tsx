@@ -543,7 +543,7 @@ export default function Landing() {
               <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <p.icon className="h-5 w-5 text-primary" />
               </div>
-              <p className="font-medium text-sm text-white/80">{p.text}</p>
+              <p className="font-medium text-sm text-white/90">{p.text}</p>
             </motion.div>
           ))}
         </div>
