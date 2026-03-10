@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -17,17 +16,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FolderKanban, Plus, Users, Calendar, Trash2, Loader2 } from "lucide-react";
-import { useProjects, useCreateProject, useDeleteProject } from "@/hooks/useProjects";
+import { useProjects, useCreateProject, useDeleteProject, useProjectCandidateCounts } from "@/hooks/useProjects";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function Projects() {
   const { data: projects = [], isLoading } = useProjects();
+  const { data: candidateCounts = {} } = useProjectCandidateCounts();
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const navigate = useNavigate();
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -43,13 +47,15 @@ export default function Projects() {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteProject.mutateAsync(id);
+      await deleteProject.mutateAsync(deleteTarget.id);
       toast.success("Project deleted");
     } catch (err: any) {
       toast.error(err.message || "Failed to delete project");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -127,45 +133,65 @@ export default function Projects() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Card
-                key={project.id}
-                className="group cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
-                onClick={() => navigate(`/projects/${project.id}`)}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                        <FolderKanban className="h-4 w-4 text-primary" />
+            {projects.map((project) => {
+              const count = candidateCounts[project.id] || 0;
+              return (
+                <Card
+                  key={project.id}
+                  className="group cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                          <FolderKanban className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold font-display">{project.name}</h3>
+                          {project.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-semibold font-display">{project.name}</h3>
-                        {project.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
-                        )}
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget({ id: project.id, name: project.name });
+                        }}
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <button
-                      onClick={(e) => handleDelete(e, project.id)}
-                      className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
 
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {new Date(project.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {count} candidate{count !== 1 ? "s" : ""}
+                      </span>
+                      <span className="text-muted-foreground/30">·</span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {new Date(project.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete project?"
+        description={`This will permanently delete "${deleteTarget?.name}" and all its candidates. This action cannot be undone.`}
+        confirmLabel="Delete Project"
+        onConfirm={handleDeleteConfirm}
+      />
     </AppLayout>
   );
 }
