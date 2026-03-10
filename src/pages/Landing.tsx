@@ -369,7 +369,7 @@ export default function Landing() {
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
             Recruiting technology hasn't kept up with healthcare
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-white/60 max-w-xl mx-auto">
             The tools most teams rely on were built for a different era. Here's what's holding you back.
           </p>
         </div>
