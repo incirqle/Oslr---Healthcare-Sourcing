@@ -314,7 +314,7 @@ export default function Landing() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.7 }}
-            className="text-white/60 text-lg md:text-xl max-w-2xl mx-auto"
+            className="text-white/70 text-lg md:text-xl max-w-2xl mx-auto"
           >
             Real-time data. Natural language AI. Verified contact info. Email sequences. Market intelligence. All in one platform built for healthcare recruiting.
           </motion.p>
