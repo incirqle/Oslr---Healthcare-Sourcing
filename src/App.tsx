@@ -13,6 +13,8 @@ import Campaigns from "./pages/Campaigns";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import NotFound from "./pages/NotFound";
+import DocsIndex from "./pages/docs/DocsIndex";
+import DocsPageRouter from "./pages/docs/DocsPageRouter";
 
 const queryClient = new QueryClient();
 
