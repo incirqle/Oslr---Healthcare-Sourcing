@@ -487,10 +487,10 @@ export default function Landing() {
       {/* ---- PROBLEM ---- */}
       <Section elevated>
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">
             Recruiting technology hasn't kept up with healthcare
           </h2>
-          <p className="text-white/60 max-w-xl mx-auto">
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
             The tools most teams rely on were built for a different era. Here's what's holding you back.
           </p>
         </div>
