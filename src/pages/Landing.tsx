@@ -734,7 +734,7 @@ export default function Landing() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <img src={oslrLogo} alt="Oslr" className="h-7 w-7 rounded-md" />
-              <span className="font-display text-lg font-bold text-white">oslr</span>
+              <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-lg font-bold text-white">Oslr</span>
             </div>
             <p className="text-white/50 text-sm">The modern healthcare sourcing platform.</p>
           </div>
