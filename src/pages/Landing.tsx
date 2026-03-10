@@ -65,7 +65,7 @@ function TypingSearch() {
 
   return (
     <div className="relative w-full max-w-2xl mx-auto">
-      <div className="flex items-center rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-2xl shadow-primary/5 px-5 py-4 gap-3">
+      <div className="flex items-center rounded-2xl border border-white/[0.12] bg-white/[0.06] backdrop-blur-md shadow-2xl shadow-black/30 px-6 py-5 gap-3">
         <Search className="h-5 w-5 text-white/40 shrink-0" />
         <span className="text-base md:text-lg text-white/90 truncate">
           {displayed}
