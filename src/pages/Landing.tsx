@@ -542,7 +542,7 @@ export default function Landing() {
             From search to outreach in three simple steps.
           </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-10">
+        <div className="grid md:grid-cols-3 gap-6">
           {STEPS.map((s, i) => (
             <motion.div
               key={s.num}
@@ -550,18 +550,18 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.15, duration: 0.5 }}
-              className="relative space-y-4"
+              className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] backdrop-blur-sm p-8 space-y-4 hover:border-primary/30 shadow-xl shadow-black/20 transition-all group overflow-hidden"
             >
-              <span className="font-display text-6xl font-bold text-primary/15">{s.num}</span>
-              <div className="h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <s.icon className="h-7 w-7 text-primary" />
+              {/* Top edge highlight */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/25 group-hover:border-primary/40 transition-all duration-300">
+                  <s.icon className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-primary/60 tracking-widest uppercase">Step {s.num}</span>
               </div>
               <h3 className="font-display text-2xl font-semibold text-white">{s.title}</h3>
               <p className="text-white/60 text-base leading-relaxed">{s.desc}</p>
-              {/* Connector line */}
-              {i < STEPS.length - 1 && (
-                <div className="hidden md:block absolute top-16 -right-5 w-10 border-t border-dashed border-primary/20" />
-              )}
             </motion.div>
           ))}
         </div>
