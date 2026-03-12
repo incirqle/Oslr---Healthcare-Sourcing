@@ -20,31 +20,35 @@ import DocsPageRouter from "./pages/docs/DocsPageRouter";
 
 const queryClient = new QueryClient();
 
+const P = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>{children}</ProtectedRoute>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          {/* Standalone /search redirects to projects — search must be done inside a project */}
-          <Route path="/search" element={<Navigate to="/projects" replace />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-          {/* Scoped search — always tied to a project */}
-          <Route path="/projects/:projectId/search" element={<SearchPage />} />
-          <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/news" element={<News />} />
-          <Route path="/settings" element={<TeamSettings />} />
-          <Route path="/docs" element={<DocsIndex />} />
-          <Route path="/docs/:slug" element={<DocsPageRouter />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={<P><Dashboard /></P>} />
+            <Route path="/search" element={<Navigate to="/projects" replace />} />
+            <Route path="/projects" element={<P><Projects /></P>} />
+            <Route path="/projects/:id" element={<P><ProjectDetail /></P>} />
+            <Route path="/projects/:projectId/search" element={<P><SearchPage /></P>} />
+            <Route path="/campaigns" element={<P><Campaigns /></P>} />
+            <Route path="/news" element={<P><News /></P>} />
+            <Route path="/settings" element={<P><TeamSettings /></P>} />
+            <Route path="/docs" element={<DocsIndex />} />
+            <Route path="/docs/:slug" element={<DocsPageRouter />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
