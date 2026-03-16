@@ -309,6 +309,66 @@ export type Database = {
           },
         ]
       }
+      pdl_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          filters: Json | null
+          id: string
+          query_hash: string
+          query_text: string | null
+          response: Json
+          total_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          filters?: Json | null
+          id?: string
+          query_hash: string
+          query_text?: string | null
+          response: Json
+          total_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          filters?: Json | null
+          id?: string
+          query_hash?: string
+          query_text?: string | null
+          response?: Json
+          total_count?: number | null
+        }
+        Relationships: []
+      }
+      people_enrichments: {
+        Row: {
+          created_at: string
+          enriched_data: Json
+          id: string
+          linkedin_url: string | null
+          pdl_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enriched_data: Json
+          id?: string
+          linkedin_url?: string | null
+          pdl_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enriched_data?: Json
+          id?: string
+          linkedin_url?: string | null
+          pdl_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
