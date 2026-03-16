@@ -1,5 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
+import { PDL_BASE } from "./config.ts";
+import { parseQueryToFilters, type ParsedFilters } from "./parse-query.ts";
+import { filtersToSQL } from "./build-pdl-query.ts";
+import { transformSearchResults, generateRelevanceSummaries } from "./format-results.ts";
+import {
+  generateCacheKey,
+  getCachedSearch,
+  setCachedSearch,
+  getCachedEnrichment,
+  setCachedEnrichment,
+} from "./cache.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -9,8 +21,6 @@ const corsHeaders = {
 const PDL_API_KEY = Deno.env.get("PDL_API_KEY")!;
 const PDL_PREVIEW_API_KEY = Deno.env.get("PDL_PREVIEW_API_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-
-const PDL_BASE = "https://api.peopledatalabs.com/v5";
 
 interface SearchRequest {
   action?: "search" | "enrich_person" | "enrich_company" | "parse_filters" | "search_with_filters";
@@ -24,199 +34,13 @@ interface SearchRequest {
   company_website?: string;
 }
 
-interface ParsedFilters {
-  job_titles: string[];
-  locations: string[];
-  companies: string[];
-  keywords: string[];
-  experience_years?: number | null;
-  specialties: string[];
-}
-
-// ─── Healthcare role — always clinical ───────────────────────────────────────
-function inferRoles(_filters: ParsedFilters): string[] {
-  return ["health"];
-}
-
-// ─── Build PDL SQL from structured filters ────────────────────────────────────
-function filtersToSQL(filters: ParsedFilters): string {
-  const conditions: string[] = [];
-
-  const roles = inferRoles(filters);
-  if (roles.length === 1) {
-    conditions.push(`job_title_role='${roles[0]}'`);
-  } else {
-    conditions.push(`(${roles.map((r) => `job_title_role='${r}'`).join(" OR ")})`);
-  }
-
-  const titleTerms = [
-    ...filters.job_titles,
-    ...filters.specialties,
-  ];
-  if (titleTerms.length > 0) {
-    const titleConditions = titleTerms.map(
-      (t) => `job_title LIKE '%${t.toLowerCase()}%'`
-    );
-    conditions.push(`(${titleConditions.join(" OR ")})`);
-  }
-
-  if (filters.locations.length > 0) {
-    const locConditions = filters.locations.map((l) => {
-      const lc = l.toLowerCase().trim();
-      const stateMap: Record<string, string> = {
-        "alabama": "alabama", "alaska": "alaska", "arizona": "arizona", "arkansas": "arkansas",
-        "california": "california", "colorado": "colorado", "connecticut": "connecticut",
-        "delaware": "delaware", "florida": "florida", "georgia": "georgia", "hawaii": "hawaii",
-        "idaho": "idaho", "illinois": "illinois", "indiana": "indiana", "iowa": "iowa",
-        "kansas": "kansas", "kentucky": "kentucky", "louisiana": "louisiana", "maine": "maine",
-        "maryland": "maryland", "massachusetts": "massachusetts", "michigan": "michigan",
-        "minnesota": "minnesota", "mississippi": "mississippi", "missouri": "missouri",
-        "montana": "montana", "nebraska": "nebraska", "nevada": "nevada",
-        "new hampshire": "new hampshire", "new jersey": "new jersey", "new mexico": "new mexico",
-        "new york": "new york", "north carolina": "north carolina", "north dakota": "north dakota",
-        "ohio": "ohio", "oklahoma": "oklahoma", "oregon": "oregon", "pennsylvania": "pennsylvania",
-        "rhode island": "rhode island", "south carolina": "south carolina", "south dakota": "south dakota",
-        "tennessee": "tennessee", "texas": "texas", "utah": "utah", "vermont": "vermont",
-        "virginia": "virginia", "washington": "washington", "west virginia": "west virginia",
-        "wisconsin": "wisconsin", "wyoming": "wyoming",
-      };
-      if (stateMap[lc]) {
-        return `location_region='${lc}'`;
-      }
-      for (const state of Object.keys(stateMap)) {
-        if (lc.endsWith(` ${state}`)) {
-          const city = lc.slice(0, lc.length - state.length - 1).trim();
-          return `(location_locality='${city}' AND location_region='${state}')`;
-        }
-      }
-      return `(location_region='${lc}' OR location_locality='${lc}')`;
-    });
-    conditions.push(`(${locConditions.join(" OR ")})`);
-  }
-
-  if (filters.companies.length > 0) {
-    const compConditions = filters.companies.map(
-      (c) => `job_company_name LIKE '%${c.toLowerCase()}%'`
-    );
-    conditions.push(`(${compConditions.join(" OR ")})`);
-  }
-
-  if (filters.keywords.length > 0) {
-    const kwConditions = filters.keywords.map(
-      (k) => `skills LIKE '%${k.toLowerCase()}%'`
-    );
-    conditions.push(`(${kwConditions.join(" OR ")})`);
-  }
-
-  // Safety: if only the role filter exists (no titles, locations, companies, or keywords),
-  // the query is too broad and will return millions of results
-  if (conditions.length <= 1) {
-    throw new Error("Filters are too broad — at least a job title, location, or company is required to run a search.");
-  }
-
-  return `SELECT * FROM person WHERE ${conditions.join(" AND ")}`;
-}
-
-// ─── AI query parser ──────────────────────────────────────────────────────────
-async function parseQueryToFilters(naturalLanguage: string): Promise<ParsedFilters> {
-  const systemPrompt = `You are a search query parser for a clinical healthcare recruiting platform that finds doctors, nurses, and allied health professionals.
-
-Return ONLY valid JSON with this exact structure — no explanation, no markdown:
-{
-  "job_titles": ["registered nurse", "RN"],
-  "locations": ["Texas"],
-  "companies": [],
-  "keywords": [],
-  "experience_years": null,
-  "specialties": []
-}
-
-Rules:
-- This platform is ONLY for clinical healthcare roles: physicians, surgeons, nurses, NPs, PAs, CRNAs, therapists, technicians, pharmacists, etc.
-- IGNORE any sales, device rep, pharma rep, or commercial roles — those are not supported.
-- job_titles: Extract clinical role/title keywords. Expand abbreviations: "ER doctor" → ["emergency medicine physician", "emergency physician"]; "ICU nurse" → ["ICU nurse", "intensive care unit nurse", "critical care nurse", "registered nurse"]; "CRNA" → ["CRNA", "certified registered nurse anesthetist"].
-- locations: ALWAYS separate city and state into a SINGLE string like "Miami Florida" (city first, then state). If only a state is given, use just the state name (e.g., "Texas"). If only a city, use just the city (e.g., "Dallas"). Examples: "doctors in Miami, FL" → ["Miami Florida"]; "nurses in Texas" → ["Texas"]; "surgeons in Dallas, Texas" → ["Dallas Texas"].
-- companies: Specific hospital or health system names only (e.g., "HCA Healthcare", "Mayo Clinic").
-- keywords: Clinical skills, certifications, tools (e.g., "ACLS", "BLS", "Epic", "laparoscopic", "ventilator management").
-- experience_years: Number only if explicitly stated (e.g., "5+ years" → 5), null otherwise.
-- specialties: Medical specialties not already captured in job_titles (e.g., "cardiology", "orthopedics", "oncology").
-
-IMPORTANT: Do NOT include "health" or PDL role names. Just extract what the user said.`;
-
-  const models = ["google/gemini-2.5-flash-lite", "openai/gpt-5-mini"];
-  let lastError: Error | null = null;
-
-  for (const model of models) {
-    try {
-      const isOpenAI = model.startsWith("openai/");
-      const bodyObj: any = {
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: naturalLanguage },
-        ],
-      };
-      if (isOpenAI) {
-        bodyObj.max_completion_tokens = 2000;
-      } else {
-        bodyObj.temperature = 0.1;
-        bodyObj.max_tokens = 400;
-      }
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify(bodyObj),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.text();
-        console.error(`AI gateway ${model} failed: ${res.status} - ${errBody}`);
-        lastError = new Error(`AI gateway error: ${res.status}`);
-        continue;
-      }
-
-      const data = await res.json();
-      console.log(`AI gateway ${model} responded successfully`);
-      let content = data.choices?.[0]?.message?.content?.trim() || "";
-      content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-      if (!content) {
-        console.error(`AI gateway ${model} returned empty content, trying next`);
-        lastError = new Error("AI returned empty response");
-        continue;
-      }
-
-      try {
-        const parsed = JSON.parse(content);
-        return {
-          job_titles: parsed.job_titles ?? [],
-          locations: parsed.locations ?? [],
-          companies: parsed.companies ?? [],
-          keywords: parsed.keywords ?? [],
-          experience_years: parsed.experience_years ?? null,
-          specialties: parsed.specialties ?? [],
-        };
-      } catch {
-        console.error("Failed to parse AI response:", content);
-        lastError = new Error("Failed to parse AI response");
-        continue;
-      }
-    } catch (e) {
-      console.error(`AI gateway ${model} exception:`, e);
-      lastError = e instanceof Error ? e : new Error(String(e));
-    }
-  }
-
-  throw new Error("Failed to understand your search query after multiple attempts. Please try rephrasing it.");
-}
+// ─── PDL API calls ────────────────────────────────────────────────────────────
 
 async function searchPDL(sql: string, size: number, from: number = 0) {
   console.log("PDL SQL:", sql, "size:", size, "from:", from);
-  const body: any = { sql, size, pretty: true, dataset: "all" };
+  const body: Record<string, unknown> = { sql, size, pretty: true, dataset: "all" };
   if (from > 0) body.from = from;
+
   const res = await fetch(`${PDL_BASE}/person/search`, {
     method: "POST",
     headers: {
@@ -235,6 +59,10 @@ async function searchPDL(sql: string, size: number, from: number = 0) {
 }
 
 async function enrichPerson(params: { linkedin_url?: string; email?: string }) {
+  // Check enrichment cache first
+  const cached = await getCachedEnrichment(undefined, params.linkedin_url);
+  if (cached) return cached;
+
   const queryParams = new URLSearchParams();
   if (params.linkedin_url) queryParams.set("profile", params.linkedin_url);
   if (params.email) queryParams.set("email", params.email);
@@ -248,7 +76,17 @@ async function enrichPerson(params: { linkedin_url?: string; email?: string }) {
     const errText = await res.text();
     throw new Error(`PDL Person Enrich error (${res.status}): ${errText}`);
   }
-  return await res.json();
+
+  const result = await res.json();
+
+  // Cache the enrichment result
+  await setCachedEnrichment(
+    result.id || null,
+    params.linkedin_url || null,
+    result
+  );
+
+  return result;
 }
 
 async function enrichCompany(params: { company_name?: string; company_website?: string }) {
@@ -267,171 +105,6 @@ async function enrichCompany(params: { company_name?: string; company_website?: 
   }
   return await res.json();
 }
-
-// ─── Transform: handles both full and preview API responses ───────────────────
-function transformSearchResults(pdlData: any, filters?: ParsedFilters) {
-  if (!pdlData?.data) return [];
-
-  return pdlData.data.map((person: any) => {
-    // Detect preview mode: if skills/experience are booleans instead of arrays
-    const isPreview =
-      typeof person.skills === "boolean" ||
-      typeof person.experience === "boolean" ||
-      typeof person.work_email === "boolean";
-
-    // Skills
-    let skills: string[] = [];
-    let has_skills = false;
-    if (typeof person.skills === "boolean") {
-      has_skills = person.skills;
-    } else if (Array.isArray(person.skills)) {
-      skills = person.skills.slice(0, 10);
-      has_skills = skills.length > 0;
-    }
-
-    // Email
-    let email: string | null = null;
-    let has_email = false;
-    if (typeof person.work_email === "boolean") {
-      has_email = person.work_email;
-    } else if (typeof person.personal_emails === "boolean") {
-      has_email = person.personal_emails;
-    } else {
-      email = person.work_email || person.personal_emails?.[0] || null;
-      has_email = !!email;
-    }
-
-    // Phone
-    let phone: string | null = null;
-    let has_phone = false;
-    if (typeof person.mobile_phone === "boolean") {
-      has_phone = person.mobile_phone;
-    } else if (typeof person.phone_numbers === "boolean") {
-      has_phone = person.phone_numbers;
-    } else {
-      phone = person.mobile_phone || person.phone_numbers?.[0] || null;
-      has_phone = !!phone;
-    }
-
-    // Tenure — only computable with real experience data
-    let avgTenureMonths: number | null = null;
-    let has_experience = false;
-    if (typeof person.experience === "boolean") {
-      has_experience = person.experience;
-    } else if (Array.isArray(person.experience) && person.experience.length > 0) {
-      has_experience = true;
-      const tenures = person.experience
-        .filter((exp: any) => exp.start_date)
-        .map((exp: any) => {
-          const start = new Date(exp.start_date);
-          const end = exp.end_date ? new Date(exp.end_date) : new Date();
-          return (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        })
-        .filter((t: number) => t > 0 && t < 600);
-
-      if (tenures.length > 0) {
-        avgTenureMonths = Math.round(
-          tenures.reduce((a: number, b: number) => a + b, 0) / tenures.length
-        );
-      }
-    }
-
-    // Location — in preview mode, person location fields are booleans,
-    // but job_company_location fields have real data
-    let location: string | null = null;
-    const locCity = typeof person.location_locality === "string" ? person.location_locality : null;
-    const locRegion = typeof person.location_region === "string" ? person.location_region : null;
-    if (locCity || locRegion) {
-      location = [locCity, locRegion].filter(Boolean).join(", ");
-    } else {
-      // Fallback to company location (available in preview)
-      const compCity = typeof person.job_company_location_locality === "string" ? person.job_company_location_locality : null;
-      const compRegion = typeof person.job_company_location_region === "string" ? person.job_company_location_region : null;
-      if (compCity || compRegion) {
-        location = [compCity, compRegion].filter(Boolean).join(", ");
-      }
-    }
-
-    // Clean credential prefixes from full_name (e.g. "faaos john doe" → "john doe")
-    let fullName = person.full_name || "Unknown";
-    const credentialPrefixes = /^(faaos|caqsm|facp|facs|facep|faap|facog|md|do|rn|bsn|msn|dnp|phd|mph|dpm|dds|dmd|aprn|np|pa-c|pt|ot|slp|rd|ldn|pharmd)\s+/i;
-    fullName = fullName.replace(credentialPrefixes, "").trim();
-    // Capitalize properly
-    fullName = fullName.replace(/\b\w/g, (c: string) => c.toUpperCase());
-
-    // ── Compute match score (0-100) ──
-    let match_score = 50; // base score (they matched the SQL query)
-    const jobTitle = (person.job_title || "").toLowerCase();
-    const personLoc = location?.toLowerCase() || "";
-
-    if (filters) {
-      let signals = 0;
-      let maxSignals = 0;
-
-      // Title match quality
-      const titleTerms = [...(filters.job_titles || []), ...(filters.specialties || [])];
-      if (titleTerms.length > 0) {
-        maxSignals += 2;
-        const exactMatch = titleTerms.some(t => jobTitle === t.toLowerCase());
-        const partialMatch = titleTerms.some(t => jobTitle.includes(t.toLowerCase()));
-        if (exactMatch) signals += 2;
-        else if (partialMatch) signals += 1;
-      }
-
-      // Location match quality
-      if ((filters.locations || []).length > 0) {
-        maxSignals += 2;
-        const locMatched = filters.locations.some(l => {
-          const ll = l.toLowerCase();
-          return personLoc.includes(ll) || ll.split(" ").every(part => personLoc.includes(part));
-        });
-        if (locMatched) signals += 2;
-        else if (personLoc) signals += 1; // has location but doesn't match
-      }
-
-      // Company match
-      if ((filters.companies || []).length > 0) {
-        maxSignals += 1;
-        const employer = (person.job_company_name || "").toLowerCase();
-        if (filters.companies.some(c => employer.includes(c.toLowerCase()))) signals += 1;
-      }
-
-      // Data completeness bonus
-      maxSignals += 3;
-      if (has_email) signals += 1;
-      if (has_phone) signals += 0.5;
-      if (has_experience) signals += 0.5;
-      if (has_skills) signals += 0.5;
-      if (person.linkedin_url) signals += 0.5;
-
-      match_score = maxSignals > 0 ? Math.round((signals / maxSignals) * 100) : 50;
-      // Clamp between 20-99
-      match_score = Math.max(20, Math.min(99, match_score));
-    }
-
-    return {
-      id: person.id,
-      full_name: fullName,
-      title: person.job_title || null,
-      current_employer: person.job_company_name || null,
-      location,
-      linkedin_url: person.linkedin_url || null,
-      email,
-      phone,
-      skills,
-      avg_tenure_months: avgTenureMonths,
-      industry: person.industry || null,
-      company_size: typeof person.job_company_size === "boolean" ? null : (person.job_company_size || null),
-      preview: isPreview,
-      has_email,
-      has_phone,
-      has_skills,
-      has_experience,
-      match_score,
-    };
-  });
-}
-
 
 // ─── Request handler ──────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
@@ -481,7 +154,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const filters = await parseQueryToFilters(query);
+      const filters = await parseQueryToFilters(query, LOVABLE_API_KEY);
       console.log("Parsed filters:", JSON.stringify(filters));
 
       const sql = filtersToSQL(filters);
@@ -509,13 +182,43 @@ Deno.serve(async (req) => {
       const sql = filtersToSQL(filters);
       console.log("Search SQL:", sql);
 
-      const pdlResults = await searchPDL(sql, size, from);
-      console.log("PDL returned", pdlResults.total, "total results");
+      // Check cache first
+      const cacheKey = await generateCacheKey(filters as unknown as Record<string, unknown>, size, from);
+      const cached = await getCachedSearch(cacheKey);
 
-      const candidates = transformSearchResults(pdlResults, filters);
+      let candidates;
+      let total: number;
+
+      if (cached) {
+        console.log("Using cached results");
+        candidates = cached.response as any[];
+        total = cached.total_count;
+      } else {
+        const pdlResults = await searchPDL(sql, size, from);
+        console.log("PDL returned", pdlResults.total, "total results");
+        total = pdlResults.total || 0;
+
+        candidates = transformSearchResults(pdlResults, filters);
+
+        // Generate AI relevance summaries
+        const queryText = body.query || [
+          ...filters.job_titles,
+          ...filters.specialties,
+          ...filters.locations,
+        ].join(", ");
+
+        candidates = await generateRelevanceSummaries(
+          candidates,
+          queryText,
+          LOVABLE_API_KEY
+        );
+
+        // Cache the results
+        await setCachedSearch(cacheKey, queryText, filters as unknown as Record<string, unknown>, candidates, total);
+      }
 
       return new Response(
-        JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql }),
+        JSON.stringify({ candidates, total, sql_used: sql }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -529,7 +232,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const filters = await parseQueryToFilters(query);
+    const filters = await parseQueryToFilters(query, LOVABLE_API_KEY);
     const sql = filtersToSQL(filters);
     console.log("Legacy SQL:", sql);
 
