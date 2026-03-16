@@ -73,7 +73,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
   // Company matching
   if (filters.companies.length > 0) {
     const compConditions = filters.companies.map(
-      (c) => `job_company_name LIKE '%${c.toLowerCase()}%'`
+      (c) => `job_company_name LIKE '%${esc(c.toLowerCase())}%'`
     );
     conditions.push(`(${compConditions.join(" OR ")})`);
   }
