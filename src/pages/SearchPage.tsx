@@ -242,6 +242,7 @@ export default function SearchPage() {
         open={!!drawerCandidate}
         onOpenChange={(open) => !open && setDrawerCandidate(null)}
         candidate={drawerCandidate}
+        projectId={projectId || ""}
       />
     </AppLayout>
   );

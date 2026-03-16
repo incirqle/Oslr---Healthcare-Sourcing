@@ -81,7 +81,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
   // Skills/keyword matching
   if (filters.keywords.length > 0) {
     const kwConditions = filters.keywords.map(
-      (k) => `skills LIKE '%${k.toLowerCase()}%'`
+      (k) => `skills LIKE '%${esc(k.toLowerCase())}%'`
     );
     conditions.push(`(${kwConditions.join(" OR ")})`);
   }
