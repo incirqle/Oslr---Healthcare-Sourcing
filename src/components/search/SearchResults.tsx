@@ -48,6 +48,7 @@ export interface Candidate {
   has_skills?: boolean;
   has_experience?: boolean;
   match_score?: number;
+  relevance_summary?: string;
 }
 
 interface SearchResultsProps {
