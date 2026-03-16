@@ -3,6 +3,11 @@
 import { US_STATES, METRO_EXPANSIONS, EXCLUDED_TITLE_PATTERNS } from "./config.ts";
 import type { ParsedFilters } from "./parse-query.ts";
 
+// Escape single quotes to prevent SQL injection in PDL queries
+function esc(val: string): string {
+  return val.replace(/'/g, "''");
+}
+
 // Build PDL SQL from structured filters with metro expansion and exclusions
 export function filtersToSQL(filters: ParsedFilters): string {
   const conditions: string[] = [];
