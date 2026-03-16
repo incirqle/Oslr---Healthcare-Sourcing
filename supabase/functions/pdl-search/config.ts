@@ -176,6 +176,7 @@ export const US_STATES: Record<string, string> = {
 
 // Credential prefixes to strip from names
 export const CREDENTIAL_PREFIX_REGEX = /^(faaos|caqsm|facp|facs|facep|faap|facog|md|do|rn|bsn|msn|dnp|phd|mph|dpm|dds|dmd|aprn|np|pa-c|pt|ot|slp|rd|ldn|pharmd)\s+/i;
+export const CREDENTIAL_SUFFIX_REGEX = /[,\s]+(faaos|caqsm|facp|facs|facep|faap|facog|md|do|rn|bsn|msn|dnp|phd|mph|dpm|dds|dmd|aprn|np|pa-c|pt|ot|slp|rd|ldn|pharmd|mba|ms|bs|ba|ma|cns|crna|crnp|fnp|anp|agnp|pmhnp|whnp|acnp|cpnp|nnp|enp|cnm|cnl|lcsw|lpc|lmft|bcba|ccc-slp|ches|rrt|cma|cna|lpn|lvn|emt|aemt|nrp|ccm|chse|fache|fhfma|fhimss|ii|iii|iv|jr|sr)([,\s].*)?$/i;
 
 // Healthcare industry allowlist for PDL queries
 export const HEALTHCARE_INDUSTRIES = [

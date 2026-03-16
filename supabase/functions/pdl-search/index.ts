@@ -158,13 +158,10 @@ Deno.serve(async (req) => {
       console.log("Parsed filters:", JSON.stringify(filters));
 
       const sql = filtersToSQL(filters);
-      console.log("Count SQL:", sql);
-
-      const pdlResults = await searchPDL(sql, 1);
-      console.log("Filter count:", pdlResults.total);
+      console.log("Generated SQL:", sql);
 
       return new Response(
-        JSON.stringify({ filters, total: pdlResults.total || 0, sql_used: sql }),
+        JSON.stringify({ filters, total: null, sql_used: sql }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

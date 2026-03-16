@@ -3,6 +3,11 @@
 import { US_STATES, METRO_EXPANSIONS, EXCLUDED_TITLE_PATTERNS } from "./config.ts";
 import type { ParsedFilters } from "./parse-query.ts";
 
+// Escape single quotes to prevent SQL injection in PDL queries
+function esc(val: string): string {
+  return val.replace(/'/g, "''");
+}
+
 // Build PDL SQL from structured filters with metro expansion and exclusions
 export function filtersToSQL(filters: ParsedFilters): string {
   const conditions: string[] = [];
@@ -16,7 +21,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
     // Wildcard budget: max 35 wildcards to prevent overly broad queries
     const limitedTerms = titleTerms.slice(0, 35);
     const titleConditions = limitedTerms.map(
-      (t) => `job_title LIKE '%${t.toLowerCase()}%'`
+      (t) => `job_title LIKE '%${esc(t.toLowerCase())}%'`
     );
     conditions.push(`(${titleConditions.join(" OR ")})`);
   }
@@ -28,7 +33,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
 
       // Check if it's a state
       if (US_STATES[lc]) {
-        return [`location_region='${lc}'`];
+        return [`location_region='${esc(lc)}'`];
       }
 
       // Check for "City State" pattern
@@ -41,23 +46,23 @@ export function filtersToSQL(filters: ParsedFilters): string {
           if (METRO_EXPANSIONS[metroKey]) {
             const metroCities = METRO_EXPANSIONS[metroKey];
             const metroConditions = metroCities.map(
-              (mc) => `(location_locality='${mc}' AND location_region='${state}')`
+              (mc) => `(location_locality='${esc(mc)}' AND location_region='${esc(state)}')`
             );
             return metroConditions;
           }
 
-          return [`(location_locality='${city}' AND location_region='${state}')`];
+          return [`(location_locality='${esc(city)}' AND location_region='${esc(state)}')`];
         }
       }
 
       // Check for metro expansion by city name alone
       if (METRO_EXPANSIONS[lc]) {
         const metroCities = METRO_EXPANSIONS[lc];
-        return metroCities.map((mc) => `location_locality='${mc}'`);
+        return metroCities.map((mc) => `location_locality='${esc(mc)}'`);
       }
 
       // Fallback: try both region and locality
-      return [`(location_region='${lc}' OR location_locality='${lc}')`];
+      return [`(location_region='${esc(lc)}' OR location_locality='${esc(lc)}')`];
     });
 
     if (locConditions.length > 0) {
@@ -68,7 +73,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
   // Company matching
   if (filters.companies.length > 0) {
     const compConditions = filters.companies.map(
-      (c) => `job_company_name LIKE '%${c.toLowerCase()}%'`
+      (c) => `job_company_name LIKE '%${esc(c.toLowerCase())}%'`
     );
     conditions.push(`(${compConditions.join(" OR ")})`);
   }
@@ -76,7 +81,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
   // Skills/keyword matching
   if (filters.keywords.length > 0) {
     const kwConditions = filters.keywords.map(
-      (k) => `skills LIKE '%${k.toLowerCase()}%'`
+      (k) => `skills LIKE '%${esc(k.toLowerCase())}%'`
     );
     conditions.push(`(${kwConditions.join(" OR ")})`);
   }

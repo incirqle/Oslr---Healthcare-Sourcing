@@ -1,6 +1,6 @@
 // ─── Result Formatter + AI Relevance Summaries ───────────────────────────────
 
-import { CREDENTIAL_PREFIX_REGEX } from "./config.ts";
+import { CREDENTIAL_PREFIX_REGEX, CREDENTIAL_SUFFIX_REGEX } from "./config.ts";
 import type { ParsedFilters } from "./parse-query.ts";
 
 export interface FormattedCandidate {
@@ -111,6 +111,7 @@ export function transformSearchResults(
     // Clean name
     let fullName = person.full_name || "Unknown";
     fullName = fullName.replace(CREDENTIAL_PREFIX_REGEX, "").trim();
+    fullName = fullName.replace(CREDENTIAL_SUFFIX_REGEX, "").trim();
     fullName = fullName.replace(/\b\w/g, (c: string) => c.toUpperCase());
 
     // Match score (0-100)
