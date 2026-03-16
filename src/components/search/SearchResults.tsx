@@ -264,13 +264,16 @@ export function SearchResults({
                   <TableCell>
                     <div className="min-w-[140px]">
                       <p className="text-sm font-medium text-foreground">{c.full_name}</p>
-                      {c.preview ? (
+                      {c.relevance_summary && (
+                        <p className="text-[10px] text-muted-foreground italic mt-0.5 line-clamp-1">{c.relevance_summary}</p>
+                      )}
+                      {!c.relevance_summary && c.preview ? (
                         c.has_email && (
                           <span className="inline-flex items-center gap-1 text-[10px] text-primary font-medium mt-0.5">
                             <Mail className="h-2.5 w-2.5" /> Email available
                           </span>
                         )
-                      ) : (
+                      ) : !c.relevance_summary && (
                         c.email && <p className="text-[11px] text-muted-foreground truncate max-w-[180px] mt-0.5">{c.email}</p>
                       )}
                     </div>
