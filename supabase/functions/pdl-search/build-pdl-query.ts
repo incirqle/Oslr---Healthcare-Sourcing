@@ -33,7 +33,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
 
       // Check if it's a state
       if (US_STATES[lc]) {
-        return [`location_region='${lc}'`];
+        return [`location_region='${esc(lc)}'`];
       }
 
       // Check for "City State" pattern
