@@ -58,7 +58,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
       // Check for metro expansion by city name alone
       if (METRO_EXPANSIONS[lc]) {
         const metroCities = METRO_EXPANSIONS[lc];
-        return metroCities.map((mc) => `location_locality='${mc}'`);
+        return metroCities.map((mc) => `location_locality='${esc(mc)}'`);
       }
 
       // Fallback: try both region and locality
