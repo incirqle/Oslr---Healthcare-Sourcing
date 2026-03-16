@@ -62,7 +62,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
       }
 
       // Fallback: try both region and locality
-      return [`(location_region='${lc}' OR location_locality='${lc}')`];
+      return [`(location_region='${esc(lc)}' OR location_locality='${esc(lc)}')`];
     });
 
     if (locConditions.length > 0) {
