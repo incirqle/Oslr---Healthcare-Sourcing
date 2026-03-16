@@ -46,12 +46,12 @@ export function filtersToSQL(filters: ParsedFilters): string {
           if (METRO_EXPANSIONS[metroKey]) {
             const metroCities = METRO_EXPANSIONS[metroKey];
             const metroConditions = metroCities.map(
-              (mc) => `(location_locality='${mc}' AND location_region='${state}')`
+              (mc) => `(location_locality='${esc(mc)}' AND location_region='${esc(state)}')`
             );
             return metroConditions;
           }
 
-          return [`(location_locality='${city}' AND location_region='${state}')`];
+          return [`(location_locality='${esc(city)}' AND location_region='${esc(state)}')`];
         }
       }
 
