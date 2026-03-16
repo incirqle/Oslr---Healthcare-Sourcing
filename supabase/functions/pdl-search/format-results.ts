@@ -1,6 +1,6 @@
 // ─── Result Formatter + AI Relevance Summaries ───────────────────────────────
 
-import { CREDENTIAL_PREFIX_REGEX } from "./config.ts";
+import { CREDENTIAL_PREFIX_REGEX, CREDENTIAL_SUFFIX_REGEX } from "./config.ts";
 import type { ParsedFilters } from "./parse-query.ts";
 
 export interface FormattedCandidate {
