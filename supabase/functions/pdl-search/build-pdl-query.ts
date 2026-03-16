@@ -21,7 +21,7 @@ export function filtersToSQL(filters: ParsedFilters): string {
     // Wildcard budget: max 35 wildcards to prevent overly broad queries
     const limitedTerms = titleTerms.slice(0, 35);
     const titleConditions = limitedTerms.map(
-      (t) => `job_title LIKE '%${t.toLowerCase()}%'`
+      (t) => `job_title LIKE '%${esc(t.toLowerCase())}%'`
     );
     conditions.push(`(${titleConditions.join(" OR ")})`);
   }
