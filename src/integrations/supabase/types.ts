@@ -558,6 +558,83 @@ export type Database = {
           },
         ]
       }
+      sourcing_agents: {
+        Row: {
+          calibration_approved: number | null
+          calibration_locked: boolean | null
+          calibration_notes: string[] | null
+          created_at: string | null
+          criteria_pinned: string[] | null
+          daily_lead_quota: number | null
+          id: string
+          last_run_at: string | null
+          leads_contacted: number | null
+          leads_total: number | null
+          name: string
+          parsed_payload: Json | null
+          pdl_query: Json | null
+          review_mode: string | null
+          role_description: string
+          sequence_id: string | null
+          sequence_mode: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          calibration_approved?: number | null
+          calibration_locked?: boolean | null
+          calibration_notes?: string[] | null
+          created_at?: string | null
+          criteria_pinned?: string[] | null
+          daily_lead_quota?: number | null
+          id?: string
+          last_run_at?: string | null
+          leads_contacted?: number | null
+          leads_total?: number | null
+          name: string
+          parsed_payload?: Json | null
+          pdl_query?: Json | null
+          review_mode?: string | null
+          role_description: string
+          sequence_id?: string | null
+          sequence_mode?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          calibration_approved?: number | null
+          calibration_locked?: boolean | null
+          calibration_notes?: string[] | null
+          created_at?: string | null
+          criteria_pinned?: string[] | null
+          daily_lead_quota?: number | null
+          id?: string
+          last_run_at?: string | null
+          leads_contacted?: number | null
+          leads_total?: number | null
+          name?: string
+          parsed_payload?: Json | null
+          pdl_query?: Json | null
+          review_mode?: string | null
+          role_description?: string
+          sequence_id?: string | null
+          sequence_mode?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_agents_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "agent_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
