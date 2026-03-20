@@ -79,6 +79,84 @@ export type Database = {
           },
         ]
       }
+      agent_outreach_log: {
+        Row: {
+          agent_id: string | null
+          body: string
+          bounced: boolean | null
+          email_provider: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          lead_id: string | null
+          message_id: string | null
+          opened_at: string | null
+          replied_at: string | null
+          resend_batch_id: string | null
+          resend_email_id: string | null
+          sent_at: string | null
+          step: number
+          subject: string
+          to_email: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          body: string
+          bounced?: boolean | null
+          email_provider?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          resend_batch_id?: string | null
+          resend_email_id?: string | null
+          sent_at?: string | null
+          step: number
+          subject: string
+          to_email: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          body?: string
+          bounced?: boolean | null
+          email_provider?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          resend_batch_id?: string | null
+          resend_email_id?: string | null
+          sent_at?: string | null
+          step?: number
+          subject?: string
+          to_email?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_outreach_log_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_outreach_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "agent_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_sequences: {
         Row: {
           created_at: string | null
