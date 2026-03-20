@@ -810,6 +810,42 @@ export type Database = {
           },
         ]
       }
+      user_sending_domains: {
+        Row: {
+          created_at: string | null
+          dns_records: Json | null
+          domain: string
+          from_email: string
+          from_name: string
+          id: string
+          is_verified: boolean | null
+          resend_domain_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dns_records?: Json | null
+          domain: string
+          from_email: string
+          from_name: string
+          id?: string
+          is_verified?: boolean | null
+          resend_domain_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dns_records?: Json | null
+          domain?: string
+          from_email?: string
+          from_name?: string
+          id?: string
+          is_verified?: boolean | null
+          resend_domain_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
