@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_leads: {
+        Row: {
+          agent_id: string | null
+          ai_summary: string | null
+          created_at: string | null
+          email_opens: number | null
+          email_replies: number | null
+          id: string
+          last_contacted_at: string | null
+          match_label: string | null
+          match_reasoning: string | null
+          match_score: number | null
+          pdl_person_id: string
+          profile_snapshot: Json
+          reviewer_feedback: string | null
+          sequence_step: number | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          ai_summary?: string | null
+          created_at?: string | null
+          email_opens?: number | null
+          email_replies?: number | null
+          id?: string
+          last_contacted_at?: string | null
+          match_label?: string | null
+          match_reasoning?: string | null
+          match_score?: number | null
+          pdl_person_id: string
+          profile_snapshot: Json
+          reviewer_feedback?: string | null
+          sequence_step?: number | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          ai_summary?: string | null
+          created_at?: string | null
+          email_opens?: number | null
+          email_replies?: number | null
+          id?: string
+          last_contacted_at?: string | null
+          match_label?: string | null
+          match_reasoning?: string | null
+          match_score?: number | null
+          pdl_person_id?: string
+          profile_snapshot?: Json
+          reviewer_feedback?: string | null
+          sequence_step?: number | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_leads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_sequences: {
         Row: {
           created_at: string | null
