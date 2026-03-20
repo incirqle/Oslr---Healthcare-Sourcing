@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   FolderKanban,
+  Bot,
   Mail,
   Settings,
   LogOut,
@@ -29,6 +30,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
+  { title: "Agents", url: "/agents", icon: Bot },
   { title: "Campaigns", url: "/campaigns", icon: Mail },
   { title: "News", url: "/news", icon: Newspaper },
 ];

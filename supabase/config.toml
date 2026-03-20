@@ -8,3 +8,27 @@ verify_jwt = false
 
 [functions.news-feed]
 verify_jwt = false
+
+[functions.agent-parse]
+verify_jwt = false
+
+[functions.agent-seed]
+verify_jwt = false
+
+[functions.agent-calibrate]
+verify_jwt = false
+
+[functions.agent-runner]
+verify_jwt = false
+
+[functions.agent-sequence-sender]
+verify_jwt = false
+
+[functions.register-sending-domain]
+verify_jwt = false
+
+[functions.verify-domain]
+verify_jwt = false
+
+[functions.delete-domain]
+verify_jwt = false
