@@ -21,7 +21,7 @@ const pageTitles: Record<string, string> = {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const currentPage = pageTitles[pathname] ?? (pathname.startsWith("/projects/") ? "Project" : "Page");
+  const currentPage = pageTitles[pathname] ?? (pathname.startsWith("/projects/") ? "Project" : pathname.startsWith("/agents/") ? "Agent" : "Page");
 
   return (
     <SidebarProvider>
