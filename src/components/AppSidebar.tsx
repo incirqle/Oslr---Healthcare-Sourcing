@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   FolderKanban,
+  Bot,
   Mail,
   Settings,
   LogOut,
