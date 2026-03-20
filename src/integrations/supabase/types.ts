@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_sequences: {
+        Row: {
+          created_at: string | null
+          from_name: string | null
+          id: string
+          name: string
+          reply_to_email: string | null
+          steps: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          from_name?: string | null
+          id?: string
+          name: string
+          reply_to_email?: string | null
+          steps: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          from_name?: string | null
+          id?: string
+          name?: string
+          reply_to_email?: string | null
+          steps?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
           added_by: string | null
