@@ -14,6 +14,179 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_leads: {
+        Row: {
+          agent_id: string | null
+          ai_summary: string | null
+          created_at: string | null
+          email_opens: number | null
+          email_replies: number | null
+          id: string
+          last_contacted_at: string | null
+          match_label: string | null
+          match_reasoning: string | null
+          match_score: number | null
+          pdl_person_id: string
+          profile_snapshot: Json
+          reviewer_feedback: string | null
+          sequence_step: number | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          ai_summary?: string | null
+          created_at?: string | null
+          email_opens?: number | null
+          email_replies?: number | null
+          id?: string
+          last_contacted_at?: string | null
+          match_label?: string | null
+          match_reasoning?: string | null
+          match_score?: number | null
+          pdl_person_id: string
+          profile_snapshot: Json
+          reviewer_feedback?: string | null
+          sequence_step?: number | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          ai_summary?: string | null
+          created_at?: string | null
+          email_opens?: number | null
+          email_replies?: number | null
+          id?: string
+          last_contacted_at?: string | null
+          match_label?: string | null
+          match_reasoning?: string | null
+          match_score?: number | null
+          pdl_person_id?: string
+          profile_snapshot?: Json
+          reviewer_feedback?: string | null
+          sequence_step?: number | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_leads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_outreach_log: {
+        Row: {
+          agent_id: string | null
+          body: string
+          bounced: boolean | null
+          email_provider: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          lead_id: string | null
+          message_id: string | null
+          opened_at: string | null
+          replied_at: string | null
+          resend_batch_id: string | null
+          resend_email_id: string | null
+          sent_at: string | null
+          step: number
+          subject: string
+          to_email: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          body: string
+          bounced?: boolean | null
+          email_provider?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          resend_batch_id?: string | null
+          resend_email_id?: string | null
+          sent_at?: string | null
+          step: number
+          subject: string
+          to_email: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          body?: string
+          bounced?: boolean | null
+          email_provider?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          resend_batch_id?: string | null
+          resend_email_id?: string | null
+          sent_at?: string | null
+          step?: number
+          subject?: string
+          to_email?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_outreach_log_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_outreach_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "agent_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_sequences: {
+        Row: {
+          created_at: string | null
+          from_name: string | null
+          id: string
+          name: string
+          reply_to_email: string | null
+          steps: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          from_name?: string | null
+          id?: string
+          name: string
+          reply_to_email?: string | null
+          steps: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          from_name?: string | null
+          id?: string
+          name?: string
+          reply_to_email?: string | null
+          steps?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
           added_by: string | null
@@ -528,6 +701,83 @@ export type Database = {
           },
         ]
       }
+      sourcing_agents: {
+        Row: {
+          calibration_approved: number | null
+          calibration_locked: boolean | null
+          calibration_notes: string[] | null
+          created_at: string | null
+          criteria_pinned: string[] | null
+          daily_lead_quota: number | null
+          id: string
+          last_run_at: string | null
+          leads_contacted: number | null
+          leads_total: number | null
+          name: string
+          parsed_payload: Json | null
+          pdl_query: Json | null
+          review_mode: string | null
+          role_description: string
+          sequence_id: string | null
+          sequence_mode: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          calibration_approved?: number | null
+          calibration_locked?: boolean | null
+          calibration_notes?: string[] | null
+          created_at?: string | null
+          criteria_pinned?: string[] | null
+          daily_lead_quota?: number | null
+          id?: string
+          last_run_at?: string | null
+          leads_contacted?: number | null
+          leads_total?: number | null
+          name: string
+          parsed_payload?: Json | null
+          pdl_query?: Json | null
+          review_mode?: string | null
+          role_description: string
+          sequence_id?: string | null
+          sequence_mode?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          calibration_approved?: number | null
+          calibration_locked?: boolean | null
+          calibration_notes?: string[] | null
+          created_at?: string | null
+          criteria_pinned?: string[] | null
+          daily_lead_quota?: number | null
+          id?: string
+          last_run_at?: string | null
+          leads_contacted?: number | null
+          leads_total?: number | null
+          name?: string
+          parsed_payload?: Json | null
+          pdl_query?: Json | null
+          review_mode?: string | null
+          role_description?: string
+          sequence_id?: string | null
+          sequence_mode?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_agents_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "agent_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -559,6 +809,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_sending_domains: {
+        Row: {
+          created_at: string | null
+          dns_records: Json | null
+          domain: string
+          from_email: string
+          from_name: string
+          id: string
+          is_verified: boolean | null
+          resend_domain_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dns_records?: Json | null
+          domain: string
+          from_email: string
+          from_name: string
+          id?: string
+          is_verified?: boolean | null
+          resend_domain_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dns_records?: Json | null
+          domain?: string
+          from_email?: string
+          from_name?: string
+          id?: string
+          is_verified?: boolean | null
+          resend_domain_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
