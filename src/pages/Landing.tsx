@@ -732,8 +732,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <img src={oslrLogo} alt="Oslr" className="h-7 w-7 rounded-full" />
-              <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-lg font-bold text-white">Oslr</span>
+              <img src={oslrWordmark} alt="Oslr" className="h-5" />
             </div>
             <p className="text-white/50 text-sm">The modern healthcare sourcing platform.</p>
           </div>
