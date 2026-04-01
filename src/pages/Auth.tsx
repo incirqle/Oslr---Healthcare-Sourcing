@@ -100,10 +100,7 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-              <Stethoscope className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold font-display text-foreground">Oslr</span>
+            <img src={oslrWordmark} alt="Oslr" className="h-6 brightness-0 dark:brightness-100" />
           </div>
 
           <Card className="shadow-lg border-border/60">
