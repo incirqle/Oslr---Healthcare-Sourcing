@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Stethoscope, Search, Users, FolderKanban, TrendingUp } from "lucide-react";
+import { Search, Users, FolderKanban, TrendingUp } from "lucide-react";
+import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { toast } from "sonner";
 
 const features = [
@@ -68,10 +69,7 @@ export default function Auth() {
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16">
           <div className="flex items-center gap-3 mb-10">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary">
-              <Stethoscope className="h-5.5 w-5.5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold font-display text-white">Oslr</span>
+            <img src={oslrWordmark} alt="Oslr" className="h-7" />
           </div>
 
           <h2 className="text-3xl xl:text-4xl font-bold font-display text-white leading-tight mb-3">
@@ -102,10 +100,7 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-              <Stethoscope className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold font-display text-foreground">Oslr</span>
+            <img src={oslrWordmark} alt="Oslr" className="h-6 brightness-0 dark:brightness-100" />
           </div>
 
           <Card className="shadow-lg border-border/60">

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import oslrLogo from "@/assets/oslr-logo.svg";
+import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import {
   Search,
   MessageSquareText,
@@ -372,8 +372,7 @@ export default function Landing() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 relative">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src={oslrLogo} alt="Oslr" className="h-9 w-9 rounded-full" />
-            <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-xl font-bold tracking-tight text-white">Oslr</span>
+            <img src={oslrWordmark} alt="Oslr" className="h-6" />
           </Link>
           <div className="hidden md:flex items-center gap-1 text-base font-medium absolute left-1/2 -translate-x-1/2">
             {[
@@ -733,8 +732,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <img src={oslrLogo} alt="Oslr" className="h-7 w-7 rounded-full" />
-              <span style={{ fontFamily: "'Comfortaa', cursive" }} className="text-lg font-bold text-white">Oslr</span>
+              <img src={oslrWordmark} alt="Oslr" className="h-5" />
             </div>
             <p className="text-white/50 text-sm">The modern healthcare sourcing platform.</p>
           </div>

@@ -9,7 +9,7 @@ import {
   Search,
   Newspaper,
 } from "lucide-react";
-import oslrLogo from "@/assets/oslr-logo.svg";
+import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -47,13 +47,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden">
-            <img src={oslrLogo} alt="Oslr" className="h-8 w-8" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-sidebar-foreground font-display">Oslr</span>
-            <span className="text-[11px] text-sidebar-foreground/50">Healthcare Recruiting</span>
-          </div>
+          <img src={oslrWordmark} alt="Oslr" className="h-5" />
+          <span className="text-[11px] text-sidebar-foreground/50">Healthcare Recruiting</span>
         </div>
       </SidebarHeader>
 
