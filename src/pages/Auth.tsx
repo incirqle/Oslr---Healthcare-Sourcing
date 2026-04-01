@@ -101,9 +101,8 @@ export default function Auth() {
       {/* Right panel - Auth form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-sm">
-          <div className="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
-            <img src={oslrLogo} alt="Oslr" className="h-10 w-10 rounded-xl" />
-            
+          <div className="flex items-center justify-center mb-8 lg:hidden">
+            <img src={oslrLogo} alt="Oslr" className="h-16 w-16 rounded-2xl" />
           </div>
 
           <Card className="shadow-lg border-border/60">
