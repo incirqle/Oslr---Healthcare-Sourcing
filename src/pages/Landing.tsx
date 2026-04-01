@@ -322,7 +322,7 @@ const FEATURES = [
 const NEWS_CATEGORIES = ["PE / M&A", "Policy", "Workforce", "Expansion", "Digital Health"];
 
 const STATS = [
-  { value: 150, suffix: "M+", label: "Professional profiles indexed" },
+  { value: 800, suffix: "M+", label: "Professional profiles indexed" },
   { value: 95, suffix: "%", label: "Email deliverability rate" },
   { value: 50, suffix: "+", label: "Data attributes per profile" },
   { value: 100, suffix: "%", label: "Healthcare focused" },
