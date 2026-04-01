@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { DocsSidebar } from "./DocsSidebar";
 import { Search, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import OslrLogo from "@/assets/oslr-logo.svg";
+import OslrWordmark from "@/assets/oslr-wordmark.svg";
 
 function MobileSidebar() {
   return (
