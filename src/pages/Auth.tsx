@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Users, FolderKanban, TrendingUp } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
+import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
 
 const features = [
@@ -69,7 +70,8 @@ export default function Auth() {
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16">
           <div className="flex items-center gap-3 mb-10">
-            <img src={oslrWordmark} alt="Oslr" className="h-7" />
+            <img src={oslrLogo} alt="Oslr" className="h-11 w-11 rounded-xl" />
+            <span className="text-2xl font-bold font-display text-white">Oslr</span>
           </div>
 
           <h2 className="text-3xl xl:text-4xl font-bold font-display text-white leading-tight mb-3">
@@ -100,7 +102,8 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
-            <img src={oslrWordmark} alt="Oslr" className="h-6 brightness-0 dark:brightness-100" />
+            <img src={oslrLogo} alt="Oslr" className="h-10 w-10 rounded-xl" />
+            <span className="text-2xl font-bold font-display text-foreground">Oslr</span>
           </div>
 
           <Card className="shadow-lg border-border/60">
