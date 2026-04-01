@@ -103,7 +103,7 @@ export default function Auth() {
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
             <img src={oslrLogo} alt="Oslr" className="h-10 w-10 rounded-xl" />
-            <span className="text-2xl font-bold font-display text-foreground">Oslr</span>
+            
           </div>
 
           <Card className="shadow-lg border-border/60">
