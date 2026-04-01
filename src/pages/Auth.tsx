@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Users, FolderKanban, TrendingUp } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
+import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
 
 const features = [
