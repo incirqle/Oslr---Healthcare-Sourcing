@@ -71,7 +71,7 @@ export default function Auth() {
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16">
           <div className="flex items-center gap-3 mb-10">
             <img src={oslrLogo} alt="Oslr" className="h-11 w-11 rounded-xl" />
-            <span className="text-2xl font-bold font-display text-white">Oslr</span>
+            <img src={oslrWordmark} alt="Oslr" className="h-6" />
           </div>
 
           <h2 className="text-3xl xl:text-4xl font-bold font-display text-white leading-tight mb-3">
