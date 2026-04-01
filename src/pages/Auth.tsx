@@ -69,10 +69,7 @@ export default function Auth() {
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16">
           <div className="flex items-center gap-3 mb-10">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary">
-              <Stethoscope className="h-5.5 w-5.5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold font-display text-white">Oslr</span>
+            <img src={oslrWordmark} alt="Oslr" className="h-7" />
           </div>
 
           <h2 className="text-3xl xl:text-4xl font-bold font-display text-white leading-tight mb-3">
