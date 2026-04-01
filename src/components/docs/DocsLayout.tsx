@@ -30,8 +30,7 @@ export function DocsLayout({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3">
           <MobileSidebar />
           <Link to="/docs" className="flex items-center gap-2.5">
-            <img src={OslrLogo} alt="Oslr" className="h-6 w-6" />
-            <span className="font-display font-bold text-lg text-foreground">Oslr</span>
+            <img src={OslrWordmark} alt="Oslr" className="h-5" />
           </Link>
           <span className="text-muted-foreground text-sm hidden sm:inline">Docs</span>
         </div>

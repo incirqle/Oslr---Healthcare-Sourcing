@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import oslrLogo from "@/assets/oslr-logo.svg";
+import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import {
   Search,
   MessageSquareText,
