@@ -38,6 +38,7 @@ export default function SearchPage() {
   const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
   const [filterEditorOpen, setFilterEditorOpen] = useState(false);
   const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
+  const [scrollToken, setScrollToken] = useState<string | null>(null);
 
   // Guard: must be in a project context (all hooks already called above)
   if (!projectId) {
