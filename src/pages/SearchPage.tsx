@@ -37,6 +37,7 @@ export default function SearchPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
   const [filterEditorOpen, setFilterEditorOpen] = useState(false);
+  const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
 
   // Guard: must be in a project context (all hooks already called above)
   if (!projectId) {
@@ -48,9 +49,6 @@ export default function SearchPage() {
   const savedIds = new Set(
     candidates.filter((c) => savedPdlIds.has(c.id)).map((c) => c.id)
   );
-
-  // Store the parsed payload from the preview call so we can send it back on full search
-  const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
 
   const handleInitialSearch = async (q: string) => {
     setQuery(q);
