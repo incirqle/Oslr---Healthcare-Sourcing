@@ -38,6 +38,7 @@ export default function SearchPage() {
   const [drawerCandidate, setDrawerCandidate] = useState<Candidate | null>(null);
   const [filterEditorOpen, setFilterEditorOpen] = useState(false);
   const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
+  const [scrollToken, setScrollToken] = useState<string | null>(null);
 
   // Guard: must be in a project context (all hooks already called above)
   if (!projectId) {
@@ -107,6 +108,7 @@ export default function SearchPage() {
           parsed: parsedPayload,
           page: searchPage - 1,
           size: pageSize,
+          scroll_token: searchPage > 1 ? scrollToken : null,
         },
       });
 
@@ -137,6 +139,7 @@ export default function SearchPage() {
 
       setCandidates(mappedCandidates);
       setTotal(data.total || 0);
+      setScrollToken(data.scroll_token || null);
       setPage(searchPage);
       setStep("results");
 
