@@ -252,12 +252,15 @@ Deno.serve(async (req: Request) => {
       const cached = await getDBCache(adminClient, cacheKey);
 
       let total: number;
-      if (cached) {
+      if (cached && cached.total > 0) {
         total = cached.total;
         console.log(`[PREVIEW] Cache hit: ${total} results`);
       } else {
         total = await runPreview(pdlQuery);
-        setDBCache(adminClient, cacheKey, total, [], null);
+        // Only cache positive results to avoid poisoning cache with transient failures
+        if (total > 0) {
+          setDBCache(adminClient, cacheKey, total, [], null);
+        }
         console.log(`[PREVIEW] PDL returned: ${total} results`);
       }
 
