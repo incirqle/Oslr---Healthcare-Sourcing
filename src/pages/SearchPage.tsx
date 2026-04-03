@@ -139,6 +139,7 @@ export default function SearchPage() {
 
       setCandidates(mappedCandidates);
       setTotal(data.total || 0);
+      setScrollToken(data.scroll_token || null);
       setPage(searchPage);
       setStep("results");
 
