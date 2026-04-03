@@ -482,36 +482,54 @@ export type Database = {
           },
         ]
       }
-      pdl_cache: {
+      oslr_searches: {
         Row: {
-          created_at: string
-          expires_at: string
+          created_at: string | null
           filters: Json | null
           id: string
-          query_hash: string
-          query_text: string | null
-          response: Json
-          total_count: number | null
+          query: string | null
+          result_count: number | null
+          user_id: string
         }
         Insert: {
-          created_at?: string
-          expires_at?: string
+          created_at?: string | null
           filters?: Json | null
           id?: string
-          query_hash: string
-          query_text?: string | null
-          response: Json
-          total_count?: number | null
+          query?: string | null
+          result_count?: number | null
+          user_id: string
         }
         Update: {
-          created_at?: string
-          expires_at?: string
+          created_at?: string | null
           filters?: Json | null
           id?: string
-          query_hash?: string
-          query_text?: string | null
-          response?: Json
-          total_count?: number | null
+          query?: string | null
+          result_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pdl_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          data: Json | null
+          scroll_token: string | null
+          total: number | null
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          data?: Json | null
+          scroll_token?: string | null
+          total?: number | null
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          data?: Json | null
+          scroll_token?: string | null
+          total?: number | null
         }
         Relationships: []
       }
