@@ -40,13 +40,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </Breadcrumb>
             </div>
             <div className="flex items-center gap-1.5">
-              <button className="hidden sm:flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
-                <Search className="h-3.5 w-3.5" />
-                <span>Search…</span>
-                <kbd className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono">
-                  <Command className="h-2.5 w-2.5" />K
-                </kbd>
-              </button>
               <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors relative">
                 <Bell className="h-4 w-4" />
               </button>
