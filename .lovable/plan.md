@@ -1,107 +1,108 @@
 
 
-# Oslr Marketing Landing Page -- Revised Messaging
+# Surgical Rewrite: `pdl-search` Edge Function
 
-## Overview
-
-Build a conversion-focused marketing landing page at `/` that positions Oslr as **the modern way to source healthcare talent** -- powered by real-time data, natural language AI, and an all-in-one recruiting workflow. The messaging shifts away from criticizing any specific platform and instead frames the narrative as **old methods vs. the new way**.
+This plan implements the uploaded spec — replacing the current broken SQL-based PDL search with a proven Elasticsearch DSL architecture adapted from RepGPT.
 
 ---
 
-## Messaging Pillars
+## What Changes
 
-1. **Real-time data, not stale databases** -- Source from live, aggregated data across LinkedIn, professional registries, and dozens of other sources. Know where physicians are doing their residency or fellowship right now.
-2. **Natural language search** -- Stop writing Boolean strings. Just type what you need in plain English.
-3. **Enrich, sequence, and track** -- Go from a name to verified contact info, personalized email sequences, and campaign analytics without leaving the platform.
-4. **Enhance your sourcing, don't replace it** -- Oslr makes recruiters faster and better. It's a force multiplier, not a replacement.
-5. **Market intelligence built in** -- Daily digest of healthcare news, PE activity, and industry trends so you're always the most informed person in the room.
+The entire `supabase/functions/pdl-search/` directory gets rewritten with 8 files. The frontend `SearchPage.tsx` gets updated to match the new API contract (single endpoint, `preview` flag, different response shape). A new `oslr_searches` table is created for rate limiting, and the existing `pdl_cache` table is replaced with the simpler schema the new code expects. An `ANTHROPIC_API_KEY` secret is required.
 
 ---
 
-## Page Sections
+## Step 1: Database Migration
 
-### 1. Sticky Navigation Bar
-- Oslr logo (left)
-- Anchored links: How It Works, Features, Intelligence, Pricing (scroll targets)
-- "Log In" (ghost) and "Get Started Free" (primary button) on the right, both link to `/auth`
+Create `oslr_searches` table and update `pdl_cache` to match the new schema:
 
-### 2. Hero Section
-- **Headline:** "The New Way to Source Healthcare Talent"
-- **Subheadline:** "Real-time data. Natural language AI. Verified contact info. Email sequences. Market intelligence. All in one platform built for healthcare recruiting."
-- Animated mock search bar showing a query like "Orthopedic surgeons completing fellowship in Miami" morphing into structured filter chips (job title, location, training stage)
-- Two CTAs: "Get Started Free" (primary) | "See How It Works" (ghost, scrolls down)
-- Floating proof badges: "1.5B+ professional profiles" / "Real-time data aggregation" / "AI-powered matching"
+```sql
+-- New cache table (replaces old pdl_cache)
+DROP TABLE IF EXISTS pdl_cache;
+CREATE TABLE pdl_cache (
+  cache_key TEXT PRIMARY KEY,
+  total INTEGER DEFAULT 0,
+  data JSONB DEFAULT '[]',
+  scroll_token TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 
-### 3. The Problem (Old Way vs. New Way) -- no villain, just progress
-- **Section title:** "Recruiting technology hasn't kept up with healthcare"
-- Three-column layout:
-  - **Stale Data** -- Most sourcing tools rely on databases that are months or years out of date. You need to know where a physician is training right now, not where they were two years ago.
-  - **Manual Workflows** -- Copy-pasting between tabs, building spreadsheets, hand-writing outreach emails. Your time should be spent recruiting, not doing data entry.
-  - **Fragmented Tools** -- One tool to search, another to find emails, another to send campaigns, another to read industry news. Context-switching kills productivity.
+-- Search logging for rate limiting
+CREATE TABLE IF NOT EXISTS oslr_searches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  query TEXT,
+  filters JSONB DEFAULT '{}',
+  result_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
 
-### 4. How It Works (3 steps)
-- **Step 1: Search in plain English** -- Type "ICU nurses in Dallas with CCRN certification" and Oslr's AI instantly translates it into structured filters across real-time data sources.
-- **Step 2: Enrich and verify** -- One click gives you verified emails, phone numbers, work history, education, residency and fellowship details, and certifications.
-- **Step 3: Sequence, track, and recruit** -- Save candidates to hiring projects, build personalized email sequences with merge fields, and track open rates and responses.
-
-### 5. Key Features Grid (2x4 cards with icons)
-- **Natural Language Search** -- Just describe who you're looking for. No Boolean strings, no complex filters.
-- **Real-Time Data** -- Aggregated from LinkedIn, professional registries, and dozens of sources. Always current.
-- **Contact Enrichment** -- Verified emails, direct phone numbers, and professional details in one click.
-- **Email Sequences** -- Build personalized outreach templates with merge fields and send campaigns at scale.
-- **Match Scoring** -- Every candidate scored on title match, location, data completeness, and relevance.
-- **Hiring Projects** -- Organize candidates by role, department, or facility. Track your pipeline.
-- **Team Collaboration** -- Invite your team, share projects, and track sourcing performance together.
-- **Analytics and Tracking** -- Monitor campaign performance, open rates, and recruiter activity.
-
-### 6. Market Intelligence Section (dedicated, not just a feature bullet)
-- **Section title:** "More than sourcing. Your daily healthcare intelligence briefing."
-- **Description:** Stay ahead with curated news from Becker's, Healthcare Dive, Modern Healthcare, and more. Track private equity moves, M&A activity, system expansions, and policy changes. Build your daily digest so you're always the most informed recruiter in the room.
-- Visual mockup: stacked news cards with category pills (PE/M&A, Policy, Workforce, etc.)
-- CTA: "Explore the News Feed" linking to `/auth`
-
-### 7. Social Proof / Stats Bar
-- Horizontal strip with animated count-up numbers:
-  - "1.5B+ professional profiles"
-  - "200M+ verified contact records"
-  - "Real-time data from 30+ sources"
-  - "Built exclusively for healthcare"
-
-### 8. For Recruiters Section (approachable, not adversarial)
-- **Headline:** "Built to make great recruiters unstoppable"
-- **Copy:** Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner. This isn't about replacing your expertise -- it's about amplifying it.
-- Three proof points with icons:
-  - "10x faster sourcing with natural language"
-  - "Verified contact info means no dead ends"
-  - "One platform instead of six tabs"
-
-### 9. CTA / Closing Section
-- **Headline:** "Stop sourcing the old way."
-- **Subtext:** "Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start."
-- Email input + "Get Started Free" button
-- "No credit card required. Start searching in under 60 seconds."
-
-### 10. Footer
-- Oslr logo + tagline: "The modern healthcare sourcing platform"
-- Link groups: Product (Search, Projects, Campaigns, News), Company (Pricing, Login, Sign Up)
-- Copyright line
+RLS: `oslr_searches` needs insert policy for authenticated users and select for own rows.
 
 ---
 
-## Technical Details
+## Step 2: Add `ANTHROPIC_API_KEY` Secret
 
-### New Files
-- `src/pages/Landing.tsx` -- The complete landing page component with all sections above
+The new architecture uses Claude Haiku as the primary AI parser. Will prompt user to add their Anthropic API key.
 
-### Modified Files
-- `src/App.tsx` -- Change the `/` route from `<Navigate to="/dashboard">` to `<Landing />`
+Note: The existing secret is named `PDL_PREVIEW_KEY` but the spec references `PDL_PREVIEW_API_KEY`. The code will use whichever name is configured.
 
-### Design and Animation
-- Framer Motion `whileInView` animations for scroll-triggered fade-in and slide-up on each section
-- Alternating dark (sidebar palette) and light (background) sections for visual rhythm
-- Animated gradient text on key headlines
-- Mock search bar animation using Framer Motion `AnimatePresence` to cycle through example queries
-- Count-up animation on stats bar numbers using Framer Motion
-- All existing Tailwind theme tokens, Lucide icons, and fonts (DM Sans / Inter)
-- Fully responsive with mobile-first breakpoints
-- No new dependencies required
+---
+
+## Step 3: Rewrite Edge Function Files (8 files)
+
+All under `supabase/functions/pdl-search/`:
+
+| File | Description |
+|------|-------------|
+| `ai-router.ts` | Direct Anthropic API helper for Claude Haiku/Sonnet |
+| `cache.ts` | Simplified SHA-256 cache key generation |
+| `fetch-pdl-results.ts` | Two-key routing, retry with backoff, DB cache, advisory locks |
+| `config.ts` | Clinical keyword expansions, health system divisions, metro maps, title expansions |
+| `parse-query.ts` | Claude L2 parser with confidence scores, Gemini fallback, deterministic last resort |
+| `build-pdl-query.ts` | Elasticsearch DSL builder with cascade support |
+| `format-results.ts` | PDL record → FormattedCandidate mapping |
+| `index.ts` | Orchestrator: auth → parse → build → preview/fetch → cascade → respond |
+
+Key architectural changes:
+- **SQL → Elasticsearch DSL**: PDL queries use `bool` with `filter/must/should/must_not`
+- **Two-key routing**: Preview key for counts (0 credits), live key for profiles
+- **Cascade planner**: Claude L5 decides filter relaxation when results are sparse
+- **Advisory locks**: Prevents thundering herd on identical queries
+- **JWT auth + role checks**: Validates user has admin/recruiter role
+- **Retry logic**: Exponential backoff on 429 (rate limit) responses
+
+Note: `CITY_TO_METRO` and `NEARBY_CITIES` maps are stubbed in the spec with "copy from RepGPT" comments. Will populate with the major city entries shown plus reasonable defaults.
+
+---
+
+## Step 4: Update Frontend (`SearchPage.tsx`)
+
+The new API has a different contract:
+- Single endpoint with `preview: true/false` flag (replaces `action: "parse_filters"` / `action: "search_with_filters"`)
+- Response shape: `{ results, total, parsed, parsed_categories, parsed_keywords, scroll_token, hasMore }`
+- No separate `parse_filters` step — preview mode returns `{ preview: true, total, parsed }`
+
+Changes needed in `SearchPage.tsx`:
+- `handleInitialSearch`: Call with `{ query, preview: true }` → get back parsed filters + total count
+- `handleRunSearch`: Call with `{ query, filters, page, size }` → get back results
+- Map `FormattedCandidate` fields to the existing `Candidate` interface
+
+Also update `FilterReview.tsx` and `FilterEditor.tsx` to work with the new parsed payload shape (confidence scores, `location` object vs flat `locations` array).
+
+---
+
+## Step 5: Deploy and Test
+
+Deploy the edge function and run a test query to verify end-to-end.
+
+---
+
+## Technical Notes
+
+- The spec references `ANTHROPIC_API_KEY` for Claude calls. If this is not available, the system falls back to Gemini via Lovable AI Gateway, then to deterministic parsing.
+- The `pdl_cache` table schema change is breaking — existing cached data will be lost (acceptable since the query format changed entirely).
+- The `user_roles` table already exists with `admin` and `recruiter` roles, which the new auth check uses.
+- Secret `PDL_PREVIEW_KEY` (current name) will be read as `PDL_PREVIEW_API_KEY` in code — will adapt the code to check both names.
+
