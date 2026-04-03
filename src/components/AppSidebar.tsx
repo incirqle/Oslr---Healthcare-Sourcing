@@ -5,8 +5,6 @@ import {
   Mail,
   Settings,
   LogOut,
-  Command,
-  Search,
   Newspaper,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
@@ -54,16 +52,6 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
-      {/* Command palette hint */}
-      <div className="px-4 py-2.5">
-        <button className="flex items-center gap-2 w-full rounded-lg border border-sidebar-border bg-sidebar-accent/50 px-3 py-1.5 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent transition-colors">
-          <Search className="h-3.5 w-3.5" />
-          <span className="flex-1 text-left">Search…</span>
-          <kbd className="inline-flex items-center gap-0.5 rounded border border-sidebar-border bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-mono text-sidebar-foreground/40">
-            <Command className="h-2.5 w-2.5" />K
-          </kbd>
-        </button>
-      </div>
 
       <SidebarContent>
         <SidebarGroup>
