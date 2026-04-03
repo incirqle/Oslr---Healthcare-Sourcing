@@ -123,7 +123,11 @@ export async function runPreview(
   );
 
   if (!result.ok) {
-    console.error("[PREVIEW] Failed:", result.error);
+    console.error("[PREVIEW] Failed:", JSON.stringify(result.error));
+    // Throw on non-retryable errors so they surface to the user
+    if (result.error?.error_code === "PDL_CREDITS_EXHAUSTED") {
+      throw new Error("PDL credits exhausted. Contact your administrator.");
+    }
     return 0;
   }
 

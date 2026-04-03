@@ -1,0 +1,1 @@
+DELETE FROM pdl_cache WHERE total = 0 OR total IS NULL;

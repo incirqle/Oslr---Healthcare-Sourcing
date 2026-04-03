@@ -317,11 +317,14 @@ export function buildPDLQuery(
   // ═══════════════════════════════════════════
   const filterJobTitles = (filters.job_titles as string[]) || [];
   const parsedJobTitles = (parsed.job_titles as string[]) || [];
-  const jobTitles = strictFilterMode
-    ? [...new Set(filterJobTitles.map(t => t.toLowerCase()))]
+  const titleSynonyms = (parsed.title_synonyms as string[]) || [];
+  // Use filter titles first, then parsed job_titles, then fall back to title_synonyms
+  const rawJobTitles = strictFilterMode
+    ? filterJobTitles
     : (filterJobTitles.length > 0
-      ? [...new Set(filterJobTitles.map(t => t.toLowerCase()))]
-      : [...new Set(parsedJobTitles.map(t => t.toLowerCase()))]);
+      ? filterJobTitles
+      : (parsedJobTitles.length > 0 ? parsedJobTitles : titleSynonyms));
+  const jobTitles = [...new Set(rawJobTitles.map(t => t.toLowerCase()))];
 
   const hasSpecialtyKeywords = allKeywordTerms.length > 0;
   const isSpecialtyOnlyQuery = jobTitles.length === 0 && hasSpecialtyKeywords;
