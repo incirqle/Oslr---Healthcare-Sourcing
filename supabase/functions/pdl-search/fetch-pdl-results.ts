@@ -108,7 +108,7 @@ export async function runPreview(
   pdlQuery: Record<string, unknown>,
   pdlBaseUrl = "https://api.peopledatalabs.com"
 ): Promise<number> {
-  const previewKey = Deno.env.get("PDL_PREVIEW_API_KEY") || Deno.env.get("PDL_PREVIEW_KEY");
+  const previewKey = Deno.env.get("PDL_PREVIEW_API_KEY") || Deno.env.get("PDL_API_KEY");
   if (!previewKey) throw new Error("PDL_PREVIEW_API_KEY not configured");
 
   const body = { query: pdlQuery, dataset: "all", size: 1 };
@@ -126,7 +126,8 @@ export async function runPreview(
     console.error("[PREVIEW] Failed:", JSON.stringify(result.error));
     // Throw on non-retryable errors so they surface to the user
     if (result.error?.error_code === "PDL_CREDITS_EXHAUSTED") {
-      throw new Error("PDL credits exhausted. Contact your administrator.");
+      console.error("PDL credits exhausted");
+      return 0;
     }
     return 0;
   }
