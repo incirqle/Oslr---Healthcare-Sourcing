@@ -193,6 +193,7 @@ export default function SearchPage() {
     setTotal(0);
     setPage(1);
     setSelected(new Set());
+    setScrollToken(null);
   };
 
   const toggleSelect = (id: string) => {
