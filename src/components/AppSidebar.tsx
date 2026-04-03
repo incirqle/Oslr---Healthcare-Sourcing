@@ -5,8 +5,6 @@ import {
   Mail,
   Settings,
   LogOut,
-  Command,
-  Search,
   Newspaper,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
