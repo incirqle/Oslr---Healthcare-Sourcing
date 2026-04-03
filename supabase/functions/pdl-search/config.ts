@@ -1,223 +1,413 @@
-// ─── Clinical Healthcare Search Configuration ────────────────────────────────
+/**
+ * config.ts — Clinical healthcare constants, keyword expansions, metro maps.
+ * Adapted from RepGPT's medical device config for clinical healthcare professionals.
+ */
 
-export const PDL_BASE = "https://api.peopledatalabs.com/v5";
+/* ------------------------------------------------------------------ */
+/* Clinical Specialty Keyword Expansions                                */
+/* ------------------------------------------------------------------ */
+export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keywords: string[] }> = {
+  // Cardiology
+  "cardio": { specialties: ["cardiology"], keywords: ["cardiology", "cardiac", "cardiovascular"] },
+  "cardiac": { specialties: ["cardiology"], keywords: ["cardiology", "cardiac"] },
+  "cardiology": { specialties: ["cardiology"], keywords: ["cardiology", "cardiac", "cardiovascular"] },
+  "cardiovascular": { specialties: ["cardiology"], keywords: ["cardiovascular", "cardiac"] },
+  "heart": { specialties: ["cardiology"], keywords: ["cardiac", "cardiology"] },
+  "interventional cardiology": { specialties: ["interventional cardiology"], keywords: ["interventional", "cardiac catheterization"] },
 
-// Healthcare keyword expansions — maps shorthand/specialty to full PDL-searchable terms
-export const CLINICAL_KEYWORD_EXPANSIONS: Record<string, string[]> = {
-  // Nursing
-  "rn": ["registered nurse", "RN"],
-  "lpn": ["licensed practical nurse", "LPN"],
-  "lvn": ["licensed vocational nurse", "LVN"],
-  "np": ["nurse practitioner", "NP", "APRN"],
-  "crna": ["certified registered nurse anesthetist", "CRNA", "nurse anesthetist"],
-  "cns": ["clinical nurse specialist", "CNS"],
-  "icu nurse": ["ICU nurse", "intensive care unit nurse", "critical care nurse"],
-  "er nurse": ["emergency room nurse", "ER nurse", "emergency nurse"],
-  "or nurse": ["operating room nurse", "OR nurse", "perioperative nurse", "surgical nurse"],
-  "nicu nurse": ["NICU nurse", "neonatal intensive care nurse", "neonatal nurse"],
-  "l&d nurse": ["labor and delivery nurse", "L&D nurse", "obstetric nurse"],
-  "pacu nurse": ["PACU nurse", "post-anesthesia care nurse", "recovery room nurse"],
-  "med-surg nurse": ["med-surg nurse", "medical-surgical nurse", "medical surgical nurse"],
-  "travel nurse": ["travel nurse", "traveling nurse", "agency nurse"],
-  "charge nurse": ["charge nurse", "nurse manager", "unit charge nurse"],
-  "nurse educator": ["nurse educator", "nursing instructor", "clinical educator"],
-  "home health nurse": ["home health nurse", "home care nurse", "visiting nurse"],
-  "hospice nurse": ["hospice nurse", "palliative care nurse"],
-  "school nurse": ["school nurse"],
-  "psych nurse": ["psychiatric nurse", "psych nurse", "mental health nurse"],
-  "wound care nurse": ["wound care nurse", "wound ostomy continence nurse", "WOCN"],
+  // Orthopedics
+  "ortho": { specialties: ["orthopedics"], keywords: ["orthopedic", "orthopedics"] },
+  "orthopedic": { specialties: ["orthopedics"], keywords: ["orthopedic", "orthopedics"] },
+  "orthopedics": { specialties: ["orthopedics"], keywords: ["orthopedic", "musculoskeletal"] },
+  "orthopaedic": { specialties: ["orthopedics"], keywords: ["orthopedic", "orthopaedic"] },
 
-  // Physicians / Doctors
-  "doctor": ["physician", "doctor", "MD", "DO"],
-  "md": ["physician", "MD", "medical doctor"],
-  "do": ["physician", "DO", "doctor of osteopathy", "osteopathic physician"],
-  "surgeon": ["surgeon", "surgical"],
-  "hospitalist": ["hospitalist", "hospital medicine physician"],
-  "intensivist": ["intensivist", "critical care physician"],
-  "attending": ["attending physician"],
-  "resident": ["resident physician", "medical resident"],
-  "fellow": ["fellow", "clinical fellow"],
-  "er doctor": ["emergency medicine physician", "emergency physician", "ER physician"],
-  "primary care": ["primary care physician", "family medicine", "internal medicine", "general practitioner"],
-  "family medicine": ["family medicine physician", "family practice", "family doctor"],
-  "internal medicine": ["internal medicine physician", "internist"],
-  "pediatrician": ["pediatrician", "pediatric physician"],
+  // Oncology
+  "oncology": { specialties: ["oncology"], keywords: ["oncology", "cancer"] },
+  "cancer": { specialties: ["oncology"], keywords: ["oncology", "cancer", "tumor"] },
+  "hematology": { specialties: ["hematology/oncology"], keywords: ["hematology", "oncology"] },
+  "hem onc": { specialties: ["hematology/oncology"], keywords: ["hematology", "oncology"] },
 
-  // Allied Health
-  "pa": ["physician assistant", "PA", "PA-C"],
-  "pa-c": ["physician assistant", "PA-C", "certified physician assistant"],
-  "pt": ["physical therapist", "PT", "physiotherapist"],
-  "ot": ["occupational therapist", "OT"],
-  "slp": ["speech-language pathologist", "SLP", "speech therapist"],
-  "rt": ["respiratory therapist", "RT"],
-  "rrt": ["registered respiratory therapist", "RRT"],
-  "cna": ["certified nursing assistant", "CNA", "nurse aide"],
-  "ma": ["medical assistant", "MA"],
-  "emt": ["emergency medical technician", "EMT"],
-  "paramedic": ["paramedic", "advanced EMT"],
-  "rad tech": ["radiologic technologist", "radiology technician", "X-ray technologist"],
-  "mri tech": ["MRI technologist", "MRI technician"],
-  "ct tech": ["CT technologist", "CT technician"],
-  "ultrasound tech": ["ultrasound technologist", "sonographer", "diagnostic medical sonographer"],
-  "surgical tech": ["surgical technologist", "surgical technician", "scrub tech"],
-  "phlebotomist": ["phlebotomist", "phlebotomy technician"],
-  "lab tech": ["laboratory technician", "medical laboratory technician", "MLT"],
-  "pharmacist": ["pharmacist", "PharmD", "clinical pharmacist"],
-  "pharmacy tech": ["pharmacy technician"],
-  "dietitian": ["dietitian", "registered dietitian", "RD", "RDN", "clinical dietitian"],
-  "social worker": ["social worker", "MSW", "LCSW", "licensed clinical social worker", "medical social worker"],
-  "psychologist": ["psychologist", "clinical psychologist"],
-  "counselor": ["counselor", "mental health counselor", "licensed professional counselor", "LPC"],
+  // Neurology / Neurosurgery
+  "neuro": { specialties: ["neurology"], keywords: ["neurology", "neurological"] },
+  "neurology": { specialties: ["neurology"], keywords: ["neurology", "neurological"] },
+  "neurosurgery": { specialties: ["neurosurgery"], keywords: ["neurosurgery", "neurological"] },
 
-  // Specialties
-  "cardiology": ["cardiologist", "cardiology", "cardiac", "cardiovascular"],
-  "orthopedics": ["orthopedic surgeon", "orthopedics", "orthopedic", "orthopaedic"],
-  "oncology": ["oncologist", "oncology", "cancer", "hematology-oncology"],
-  "neurology": ["neurologist", "neurology", "neuro"],
-  "neurosurgery": ["neurosurgeon", "neurosurgery"],
-  "gastroenterology": ["gastroenterologist", "gastroenterology", "GI"],
-  "pulmonology": ["pulmonologist", "pulmonology", "pulmonary"],
-  "nephrology": ["nephrologist", "nephrology", "renal"],
-  "endocrinology": ["endocrinologist", "endocrinology"],
-  "rheumatology": ["rheumatologist", "rheumatology"],
-  "dermatology": ["dermatologist", "dermatology"],
-  "urology": ["urologist", "urology"],
-  "psychiatry": ["psychiatrist", "psychiatry"],
-  "anesthesiology": ["anesthesiologist", "anesthesiology", "anesthesia"],
-  "radiology": ["radiologist", "radiology", "diagnostic radiology"],
-  "pathology": ["pathologist", "pathology"],
-  "obstetrics": ["obstetrician", "OB/GYN", "obstetrics", "gynecology"],
-  "ophthalmology": ["ophthalmologist", "ophthalmology", "eye"],
-  "ent": ["otolaryngologist", "ENT", "ear nose throat"],
-  "plastic surgery": ["plastic surgeon", "plastic surgery", "reconstructive surgery"],
-  "vascular surgery": ["vascular surgeon", "vascular surgery"],
-  "thoracic surgery": ["thoracic surgeon", "cardiothoracic", "thoracic surgery"],
-  "emergency medicine": ["emergency medicine physician", "emergency physician", "ER doctor"],
-  "critical care": ["critical care physician", "intensivist", "critical care"],
-  "infectious disease": ["infectious disease physician", "infectious disease specialist"],
-  "geriatrics": ["geriatrician", "geriatrics", "geriatric medicine"],
-  "neonatology": ["neonatologist", "neonatology"],
-  "pain management": ["pain management physician", "pain medicine", "pain specialist"],
-  "sports medicine": ["sports medicine physician", "sports medicine"],
-  "palliative care": ["palliative care physician", "palliative medicine", "hospice and palliative"],
-  "wound care": ["wound care specialist", "wound management"],
-  "telehealth": ["telehealth", "telemedicine", "virtual care"],
+  // Emergency / Critical Care
+  "er": { specialties: ["emergency medicine"], keywords: ["emergency", "emergency medicine"] },
+  "emergency": { specialties: ["emergency medicine"], keywords: ["emergency medicine", "emergency department"] },
+  "emergency medicine": { specialties: ["emergency medicine"], keywords: ["emergency medicine", "emergency department", "ED"] },
+  "icu": { specialties: ["critical care"], keywords: ["intensive care", "critical care", "ICU"] },
+  "critical care": { specialties: ["critical care"], keywords: ["critical care", "intensive care"] },
+
+  // Surgery
+  "surgery": { specialties: ["surgery"], keywords: ["surgery", "surgical"] },
+  "surgical": { specialties: ["surgery"], keywords: ["surgery", "surgical"] },
+  "general surgery": { specialties: ["general surgery"], keywords: ["general surgery", "surgeon"] },
+
+  // Primary Care / Internal Medicine
+  "primary care": { specialties: ["primary care"], keywords: ["primary care", "family medicine", "internal medicine"] },
+  "family medicine": { specialties: ["family medicine"], keywords: ["family medicine", "family practice", "primary care"] },
+  "family practice": { specialties: ["family medicine"], keywords: ["family medicine", "family practice"] },
+  "internal medicine": { specialties: ["internal medicine"], keywords: ["internal medicine", "internist"] },
+  "im": { specialties: ["internal medicine"], keywords: ["internal medicine"] },
+
+  // Pediatrics
+  "peds": { specialties: ["pediatrics"], keywords: ["pediatrics", "pediatric"] },
+  "pediatrics": { specialties: ["pediatrics"], keywords: ["pediatrics", "pediatric", "children"] },
+  "pediatric": { specialties: ["pediatrics"], keywords: ["pediatrics", "pediatric"] },
+  "nicu": { specialties: ["neonatology"], keywords: ["neonatal", "NICU", "neonatology"] },
+
+  // OB/GYN
+  "obgyn": { specialties: ["obstetrics/gynecology"], keywords: ["obstetrics", "gynecology", "OB/GYN"] },
+  "ob/gyn": { specialties: ["obstetrics/gynecology"], keywords: ["obstetrics", "gynecology"] },
+  "obstetrics": { specialties: ["obstetrics/gynecology"], keywords: ["obstetrics", "OB/GYN"] },
+  "gynecology": { specialties: ["obstetrics/gynecology"], keywords: ["gynecology", "OB/GYN"] },
+  "labor and delivery": { specialties: ["obstetrics/gynecology"], keywords: ["labor and delivery", "L&D", "obstetrics"] },
+
+  // Psychiatry / Behavioral Health
+  "psychiatry": { specialties: ["psychiatry"], keywords: ["psychiatry", "psychiatric", "behavioral health"] },
+  "behavioral health": { specialties: ["behavioral health"], keywords: ["behavioral health", "mental health", "psychiatry"] },
+
+  // Radiology
+  "radiology": { specialties: ["radiology"], keywords: ["radiology", "radiologist", "imaging"] },
+
+  // Anesthesiology
+  "anesthesia": { specialties: ["anesthesiology"], keywords: ["anesthesiology", "anesthesia"] },
+  "anesthesiology": { specialties: ["anesthesiology"], keywords: ["anesthesiology", "anesthesia"] },
+  "crna": { specialties: ["nurse anesthesia"], keywords: ["nurse anesthetist", "CRNA", "anesthesia"] },
+
+  // Dermatology
+  "dermatology": { specialties: ["dermatology"], keywords: ["dermatology", "dermatologist"] },
+
+  // Gastroenterology
+  "gi": { specialties: ["gastroenterology"], keywords: ["gastroenterology", "GI"] },
+  "gastro": { specialties: ["gastroenterology"], keywords: ["gastroenterology", "GI"] },
+  "gastroenterology": { specialties: ["gastroenterology"], keywords: ["gastroenterology", "GI"] },
+
+  // Pulmonology
+  "pulmonology": { specialties: ["pulmonology"], keywords: ["pulmonology", "pulmonary", "respiratory"] },
+
+  // Nephrology
+  "nephrology": { specialties: ["nephrology"], keywords: ["nephrology", "renal", "kidney"] },
+  "renal": { specialties: ["nephrology"], keywords: ["nephrology", "renal"] },
+  "dialysis": { specialties: ["nephrology"], keywords: ["dialysis", "nephrology", "renal"] },
+
+  // Endocrinology
+  "endocrinology": { specialties: ["endocrinology"], keywords: ["endocrinology", "endocrine"] },
+  "endocrine": { specialties: ["endocrinology"], keywords: ["endocrinology", "diabetes", "endocrine"] },
+  "diabetes": { specialties: ["endocrinology"], keywords: ["diabetes", "endocrinology"] },
+
+  // Urology
+  "urology": { specialties: ["urology"], keywords: ["urology", "urologist"] },
+
+  // ENT
+  "ent": { specialties: ["otolaryngology"], keywords: ["ENT", "otolaryngology", "ear nose throat"] },
+  "otolaryngology": { specialties: ["otolaryngology"], keywords: ["otolaryngology", "ENT"] },
+
+  // Ophthalmology
+  "ophthalmology": { specialties: ["ophthalmology"], keywords: ["ophthalmology", "eye"] },
+  "optometry": { specialties: ["ophthalmology"], keywords: ["ophthalmology", "optometry"] },
+
+  // Pain Management
+  "pain management": { specialties: ["pain management"], keywords: ["pain management", "pain medicine"] },
+
+  // Physical Therapy / Rehab
+  "physical therapy": { specialties: ["physical therapy"], keywords: ["physical therapy", "physical therapist", "rehabilitation"] },
+  "physiotherapy": { specialties: ["physical therapy"], keywords: ["physical therapy", "physiotherapy", "rehabilitation"] },
+  "rehabilitation": { specialties: ["rehabilitation"], keywords: ["rehabilitation", "physical therapy", "occupational therapy"] },
+  "occupational therapy": { specialties: ["occupational therapy"], keywords: ["occupational therapy", "OT"] },
+  "ot": { specialties: ["occupational therapy"], keywords: ["occupational therapy"] },
+  "speech therapy": { specialties: ["speech therapy"], keywords: ["speech therapy", "speech-language pathology", "SLP"] },
+
+  // Pharmacy
+  "pharmacy": { specialties: ["pharmacy"], keywords: ["pharmacy", "pharmacist"] },
+  "pharmacist": { specialties: ["pharmacy"], keywords: ["pharmacist", "pharmacy"] },
+
+  // Infectious Disease
+  "infectious disease": { specialties: ["infectious disease"], keywords: ["infectious disease", "infection control"] },
+
+  // Geriatrics
+  "geriatrics": { specialties: ["geriatrics"], keywords: ["geriatrics", "geriatric", "elderly care"] },
+
+  // Hospice / Palliative
+  "hospice": { specialties: ["hospice/palliative"], keywords: ["hospice", "palliative care", "end of life"] },
+  "palliative": { specialties: ["hospice/palliative"], keywords: ["palliative care", "hospice"] },
+
+  // Home Health
+  "home health": { specialties: ["home health"], keywords: ["home health", "home care", "visiting nurse"] },
+
+  // Wound Care
+  "wound care": { specialties: ["wound care"], keywords: ["wound care", "wound management"] },
+
+  // Spine
+  "spine": { specialties: ["spine"], keywords: ["spine", "spinal"] },
+
+  // Trauma
+  "trauma": { specialties: ["trauma"], keywords: ["trauma", "trauma surgery"] },
 };
 
-// City → metro area expansions (top 105+ US metro areas)
-export const METRO_EXPANSIONS: Record<string, string[]> = {
-  "new york": ["new york", "manhattan", "brooklyn", "queens", "bronx", "staten island", "jersey city", "newark", "yonkers"],
-  "los angeles": ["los angeles", "long beach", "anaheim", "santa monica", "pasadena", "glendale", "burbank"],
-  "chicago": ["chicago", "naperville", "evanston", "schaumburg", "aurora", "joliet"],
-  "houston": ["houston", "sugar land", "the woodlands", "katy", "pearland", "pasadena"],
-  "dallas": ["dallas", "fort worth", "arlington", "plano", "irving", "frisco", "mckinney"],
-  "phoenix": ["phoenix", "scottsdale", "mesa", "tempe", "chandler", "gilbert", "glendale"],
-  "philadelphia": ["philadelphia", "camden", "wilmington", "cherry hill"],
-  "san antonio": ["san antonio", "new braunfels"],
-  "san diego": ["san diego", "chula vista", "carlsbad", "oceanside"],
-  "san francisco": ["san francisco", "oakland", "san jose", "berkeley", "fremont", "palo alto", "mountain view"],
-  "austin": ["austin", "round rock", "cedar park", "georgetown"],
-  "seattle": ["seattle", "tacoma", "bellevue", "kirkland", "redmond", "everett"],
-  "denver": ["denver", "aurora", "lakewood", "boulder", "colorado springs"],
-  "boston": ["boston", "cambridge", "somerville", "quincy", "brookline", "worcester"],
-  "atlanta": ["atlanta", "marietta", "sandy springs", "roswell", "alpharetta", "decatur"],
-  "miami": ["miami", "fort lauderdale", "west palm beach", "hialeah", "coral gables", "boca raton"],
-  "nashville": ["nashville", "murfreesboro", "franklin"],
-  "minneapolis": ["minneapolis", "saint paul", "st paul", "bloomington", "eden prairie"],
-  "detroit": ["detroit", "warren", "dearborn", "ann arbor", "sterling heights"],
-  "portland": ["portland", "beaverton", "hillsboro", "gresham"],
-  "charlotte": ["charlotte", "concord", "gastonia"],
-  "tampa": ["tampa", "st petersburg", "clearwater", "brandon"],
-  "orlando": ["orlando", "kissimmee", "sanford"],
-  "pittsburgh": ["pittsburgh", "cranberry township"],
-  "sacramento": ["sacramento", "roseville", "elk grove"],
-  "las vegas": ["las vegas", "henderson", "north las vegas"],
-  "baltimore": ["baltimore", "towson", "columbia"],
-  "milwaukee": ["milwaukee", "waukesha", "west allis"],
-  "indianapolis": ["indianapolis", "carmel", "fishers"],
-  "columbus": ["columbus", "dublin", "westerville"],
-  "kansas city": ["kansas city", "overland park", "olathe"],
-  "cleveland": ["cleveland", "akron", "parma"],
-  "cincinnati": ["cincinnati", "covington", "newport"],
-  "raleigh": ["raleigh", "durham", "chapel hill", "cary"],
-  "st louis": ["st louis", "saint louis", "o'fallon", "st charles"],
-  "salt lake city": ["salt lake city", "west valley city", "provo", "orem"],
-  "richmond": ["richmond", "henrico", "chesterfield"],
-  "jacksonville": ["jacksonville", "st augustine"],
-  "memphis": ["memphis", "germantown", "bartlett"],
-  "louisville": ["louisville", "jeffersontown"],
-  "oklahoma city": ["oklahoma city", "norman", "edmond"],
-  "new orleans": ["new orleans", "metairie", "kenner"],
-  "birmingham": ["birmingham", "hoover", "vestavia hills"],
-  "buffalo": ["buffalo", "cheektowaga", "niagara falls"],
-  "rochester": ["rochester", "greece", "irondequoit"],
-  "hartford": ["hartford", "west hartford", "new haven"],
-  "providence": ["providence", "warwick", "cranston"],
+/* ------------------------------------------------------------------ */
+/* Health System Divisions / Subsidiaries                               */
+/* ------------------------------------------------------------------ */
+export const HEALTH_SYSTEM_DIVISIONS: Record<string, string[]> = {
+  "hca healthcare": ["hca", "hospital corporation of america", "hca hospitals", "hca healthcare inc", "hca inc", "healthtrust", "parallon"],
+  "commonspirit health": ["commonspirit", "dignity health", "catholic health initiatives", "chi", "chi health", "virginia mason franciscan health"],
+  "ascension": ["ascension health", "ascension st. vincent", "ascension seton", "ascension providence", "ascension via christi"],
+  "kaiser permanente": ["kaiser", "kaiser foundation", "the permanente medical group", "southern california permanente"],
+  "providence": ["providence health", "providence st. joseph", "providence health & services", "swedish health services"],
+  "tenet healthcare": ["tenet", "tenet health", "uspi", "united surgical partners"],
+  "universal health services": ["uhs", "universal health"],
+  "trinity health": ["trinity health corporation", "mercy health", "saint alphonsus"],
+  "advocate health": ["advocate aurora", "advocate health care", "aurora health care", "atrium health", "advocate aurora health"],
+  "banner health": ["banner"],
 };
 
-// US state name mapping for location parsing
-export const US_STATES: Record<string, string> = {
-  "alabama": "alabama", "alaska": "alaska", "arizona": "arizona", "arkansas": "arkansas",
-  "california": "california", "colorado": "colorado", "connecticut": "connecticut",
-  "delaware": "delaware", "florida": "florida", "georgia": "georgia", "hawaii": "hawaii",
-  "idaho": "idaho", "illinois": "illinois", "indiana": "indiana", "iowa": "iowa",
-  "kansas": "kansas", "kentucky": "kentucky", "louisiana": "louisiana", "maine": "maine",
-  "maryland": "maryland", "massachusetts": "massachusetts", "michigan": "michigan",
-  "minnesota": "minnesota", "mississippi": "mississippi", "missouri": "missouri",
-  "montana": "montana", "nebraska": "nebraska", "nevada": "nevada",
-  "new hampshire": "new hampshire", "new jersey": "new jersey", "new mexico": "new mexico",
-  "new york": "new york", "north carolina": "north carolina", "north dakota": "north dakota",
-  "ohio": "ohio", "oklahoma": "oklahoma", "oregon": "oregon", "pennsylvania": "pennsylvania",
-  "rhode island": "rhode island", "south carolina": "south carolina", "south dakota": "south dakota",
-  "tennessee": "tennessee", "texas": "texas", "utah": "utah", "vermont": "vermont",
-  "virginia": "virginia", "washington": "washington", "west virginia": "west virginia",
-  "wisconsin": "wisconsin", "wyoming": "wyoming",
+/* ------------------------------------------------------------------ */
+/* Company Aliases — shorthand → canonical name                        */
+/* ------------------------------------------------------------------ */
+export const COMPANY_ALIASES: Record<string, string> = {
+  "hca": "hca healthcare",
+  "kaiser": "kaiser permanente",
+  "mayo": "mayo clinic",
+  "cleveland clinic": "cleveland clinic",
+  "johns hopkins": "johns hopkins",
+  "mass general": "mass general brigham",
+  "partners": "mass general brigham",
+  "mount sinai": "mount sinai",
+  "nyp": "newyork-presbyterian",
 };
 
-// Credential prefixes to strip from names
-export const CREDENTIAL_PREFIX_REGEX = /^(faaos|caqsm|facp|facs|facep|faap|facog|md|do|rn|bsn|msn|dnp|phd|mph|dpm|dds|dmd|aprn|np|pa-c|pt|ot|slp|rd|ldn|pharmd)\s+/i;
-export const CREDENTIAL_SUFFIX_REGEX = /[,\s]+(faaos|caqsm|facp|facs|facep|faap|facog|md|do|rn|bsn|msn|dnp|phd|mph|dpm|dds|dmd|aprn|np|pa-c|pt|ot|slp|rd|ldn|pharmd|mba|ms|bs|ba|ma|cns|crna|crnp|fnp|anp|agnp|pmhnp|whnp|acnp|cpnp|nnp|enp|cnm|cnl|lcsw|lpc|lmft|bcba|ccc-slp|ches|rrt|cma|cna|lpn|lvn|emt|aemt|nrp|ccm|chse|fache|fhfma|fhimss|ii|iii|iv|jr|sr)([,\s].*)?$/i;
+/* ------------------------------------------------------------------ */
+/* Known Specialty Employers (boost, not filter)                        */
+/* ------------------------------------------------------------------ */
+export const SPECIALTY_EMPLOYERS: Record<string, string[]> = {
+  "cardiology": ["cleveland clinic", "mayo clinic", "cedars-sinai", "mount sinai", "mass general brigham", "johns hopkins"],
+  "oncology": ["md anderson", "memorial sloan kettering", "mayo clinic", "johns hopkins", "dana-farber", "moffitt cancer center"],
+  "orthopedics": ["hss", "hospital for special surgery", "mayo clinic", "cleveland clinic", "rush university medical center"],
+  "neurology": ["mayo clinic", "johns hopkins", "cleveland clinic", "mass general brigham", "ucsf"],
+  "pediatrics": ["children's hospital of philadelphia", "boston children's hospital", "texas children's hospital", "cincinnati children's", "nationwide children's"],
+  "emergency medicine": ["hca healthcare", "tenet healthcare", "universal health services", "envision healthcare", "teamhealth"],
+};
 
-// Healthcare industry allowlist for PDL queries
-export const HEALTHCARE_INDUSTRIES = [
-  "hospitals and health care",
-  "medical practices",
-  "hospitals",
-  "health care",
+/* ------------------------------------------------------------------ */
+/* Healthcare Industries for PDL filtering                              */
+/* ------------------------------------------------------------------ */
+export const HEALTHCARE_INDUSTRIES: string[] = [
+  "hospital & health care",
+  "medical practice",
+  "health, wellness & fitness",
   "mental health care",
-  "individual and family services",
-  "nursing",
-  "pharmaceutical manufacturing",
-  "biotechnology research",
-  "medical equipment manufacturing",
-  "ambulance services",
-  "outpatient care centers",
-  "home health care services",
-  "rehabilitation",
-  "chiropractors",
-  "optometrists",
-  "dentists",
-  "physical therapy",
-  "veterinary services",
+  "pharmaceuticals",
+  "biotechnology",
+  "medical devices",
+  "alternative medicine",
+  "individual & family services",
 ];
 
-// Non-clinical roles to exclude from results
-export const EXCLUDED_TITLE_PATTERNS = [
-  "sales representative",
-  "medical device sales",
-  "pharmaceutical sales",
-  "account executive",
-  "business development",
-  "medical device rep",
-  "pharma rep",
-  "territory manager",
-  "regional sales",
-  "commercial",
+/* ------------------------------------------------------------------ */
+/* Excluded Industries (not healthcare)                                 */
+/* ------------------------------------------------------------------ */
+export const EXCLUDED_INDUSTRIES: string[] = [
+  "staffing and recruiting", "food & beverages", "wine and spirits", "food production",
+  "restaurants", "hospitality", "retail", "apparel & fashion", "consumer goods",
+  "leisure, travel & tourism", "automotive", "oil & energy", "mining & metals",
+  "construction", "real estate", "insurance", "banking", "financial services",
+  "information technology and services", "computer software", "cosmetics",
+  "consumer services", "renewables & environment", "utilities", "telecommunications",
+  "media production", "entertainment", "gambling & casinos", "sporting goods",
+  "farming", "primary/secondary education", "higher education", "government administration",
+  "military", "law enforcement", "legal services", "accounting",
+  "logistics and supply chain", "warehousing", "airlines/aviation",
 ];
 
-// Rate limits
-export const RATE_LIMIT_SEARCHES_PER_HOUR = 100;
-export const CACHE_TTL_HOURS = 4;
-export const MAX_QUERY_LENGTH = 500;
-export const PDL_BATCH_SIZE = 100;
-export const UI_PAGE_SIZE = 15;
+/* ------------------------------------------------------------------ */
+/* Clinical Title Expansions                                            */
+/* ------------------------------------------------------------------ */
+export const TITLE_EXPANSIONS: Record<string, string[]> = {
+  "physician": ["physician", "doctor", "attending physician", "staff physician", "hospitalist", "medical doctor", "md"],
+  "surgeon": ["surgeon", "general surgeon", "attending surgeon", "surgical"],
+  "nurse practitioner": ["nurse practitioner", "np", "aprn", "advanced practice registered nurse", "family nurse practitioner", "fnp", "adult-gerontology nurse practitioner", "acute care nurse practitioner", "psychiatric nurse practitioner"],
+  "physician assistant": ["physician assistant", "pa-c", "pa", "certified physician assistant", "surgical physician assistant", "physician associate"],
+  "registered nurse": ["registered nurse", "rn", "staff nurse", "charge nurse", "clinical nurse", "bedside nurse", "floor nurse"],
+  "nurse manager": ["nurse manager", "nursing manager", "unit manager", "clinical nurse manager", "assistant nurse manager"],
+  "director of nursing": ["director of nursing", "don", "nursing director", "chief nursing officer", "cno", "vp of nursing"],
+  "clinical nurse specialist": ["clinical nurse specialist", "cns", "nurse specialist"],
+  "crna": ["crna", "certified registered nurse anesthetist", "nurse anesthetist", "nurse anesthesiologist"],
+  "licensed practical nurse": ["licensed practical nurse", "lpn", "licensed vocational nurse", "lvn"],
+  "certified nursing assistant": ["certified nursing assistant", "cna", "nursing assistant", "patient care technician", "pct", "nurse aide"],
+  "physical therapist": ["physical therapist", "pt", "dpt", "physiotherapist", "staff physical therapist", "senior physical therapist"],
+  "occupational therapist": ["occupational therapist", "ot", "otr", "otr/l", "certified occupational therapy assistant", "cota"],
+  "speech language pathologist": ["speech language pathologist", "slp", "speech therapist", "ccc-slp"],
+  "respiratory therapist": ["respiratory therapist", "rt", "rrt", "certified respiratory therapist"],
+  "pharmacist": ["pharmacist", "clinical pharmacist", "staff pharmacist", "pharmacy manager", "pharmd"],
+  "medical assistant": ["medical assistant", "ma", "certified medical assistant", "cma", "clinical medical assistant"],
+  "medical director": ["medical director", "chief medical officer", "cmo", "associate medical director", "regional medical director"],
+  "chief nursing officer": ["chief nursing officer", "cno", "vp nursing", "senior vp nursing", "svp nursing"],
+  "hospitalist": ["hospitalist", "hospital medicine", "attending hospitalist", "nocturnist"],
+  "nurse educator": ["nurse educator", "clinical educator", "nursing instructor", "staff development", "clinical nurse educator"],
+  "case manager": ["case manager", "rn case manager", "nurse case manager", "care coordinator", "care manager", "utilization review nurse"],
+  "infection control": ["infection control", "infection preventionist", "cic", "infection control nurse", "epidemiologist"],
+  "wound care nurse": ["wound care nurse", "wound specialist", "cwocn", "wound ostomy continence nurse", "woc nurse"],
+  "dialysis nurse": ["dialysis nurse", "dialysis rn", "hemodialysis nurse", "peritoneal dialysis nurse", "nephrology nurse"],
+  "home health nurse": ["home health nurse", "home health rn", "visiting nurse", "home care nurse", "field nurse"],
+  "travel nurse": ["travel nurse", "travel rn", "agency nurse", "locum tenens", "locums"],
+  "dentist": ["dentist", "dds", "dmd", "dental surgeon", "general dentist"],
+  "dental hygienist": ["dental hygienist", "rdh", "registered dental hygienist"],
+};
+
+/* ------------------------------------------------------------------ */
+/* US States                                                            */
+/* ------------------------------------------------------------------ */
+export const US_STATES: Record<string, string> = {
+  "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+  "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+  "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+  "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+  "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+  "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS",
+  "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+  "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+  "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK",
+  "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+  "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+  "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV",
+  "wisconsin": "WI", "wyoming": "WY", "district of columbia": "DC",
+};
+
+/* ------------------------------------------------------------------ */
+/* City → Metro mapping                                                 */
+/* ------------------------------------------------------------------ */
+export const CITY_TO_METRO: Record<string, string[]> = {
+  "denver": ["denver, colorado"],
+  "dallas": ["dallas, texas", "dallas-fort worth, texas"],
+  "houston": ["houston, texas"],
+  "austin": ["austin, texas"],
+  "san antonio": ["san antonio, texas"],
+  "los angeles": ["los angeles, california"],
+  "san francisco": ["san francisco, california", "san francisco bay area"],
+  "san jose": ["san jose, california", "san francisco bay area"],
+  "san diego": ["san diego, california"],
+  "miami": ["miami, florida"],
+  "tampa": ["tampa, florida", "tampa bay area"],
+  "orlando": ["orlando, florida"],
+  "jacksonville": ["jacksonville, florida"],
+  "atlanta": ["atlanta, georgia"],
+  "nashville": ["nashville, tennessee"],
+  "chicago": ["chicago, illinois"],
+  "boston": ["boston, massachusetts"],
+  "phoenix": ["phoenix, arizona"],
+  "seattle": ["seattle, washington"],
+  "portland": ["portland, oregon"],
+  "philadelphia": ["philadelphia, pennsylvania"],
+  "pittsburgh": ["pittsburgh, pennsylvania"],
+  "new york": ["new york, new york", "new york city metropolitan area"],
+  "charlotte": ["charlotte, north carolina"],
+  "raleigh": ["raleigh, north carolina", "raleigh-durham, north carolina"],
+  "detroit": ["detroit, michigan"],
+  "minneapolis": ["minneapolis, minnesota", "minneapolis-saint paul, minnesota"],
+  "salt lake city": ["salt lake city, utah"],
+  "baltimore": ["baltimore, maryland"],
+  "las vegas": ["las vegas, nevada"],
+  "indianapolis": ["indianapolis, indiana"],
+  "columbus": ["columbus, ohio"],
+  "cleveland": ["cleveland, ohio"],
+  "kansas city": ["kansas city, missouri"],
+  "richmond": ["richmond, virginia"],
+  "washington": ["washington, district of columbia"],
+  "st. louis": ["st. louis, missouri"],
+  "saint louis": ["st. louis, missouri"],
+  "milwaukee": ["milwaukee, wisconsin"],
+  "memphis": ["memphis, tennessee"],
+  "sacramento": ["sacramento, california"],
+  "louisville": ["louisville, kentucky"],
+  "oklahoma city": ["oklahoma city, oklahoma"],
+  "new orleans": ["new orleans, louisiana"],
+  "birmingham": ["birmingham, alabama"],
+  "tucson": ["tucson, arizona"],
+  "omaha": ["omaha, nebraska"],
+  "albuquerque": ["albuquerque, new mexico"],
+  "honolulu": ["honolulu, hawaii"],
+  "anchorage": ["anchorage, alaska"],
+};
+
+/* ------------------------------------------------------------------ */
+/* Nearby Cities Map                                                    */
+/* ------------------------------------------------------------------ */
+export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[]> = {
+  "denver": [
+    { radius: 10, cities: ["aurora", "lakewood", "arvada", "westminster", "englewood", "littleton"] },
+    { radius: 25, cities: ["thornton", "centennial", "broomfield", "commerce city", "brighton", "golden", "parker"] },
+    { radius: 50, cities: ["boulder", "longmont", "loveland", "castle rock"] },
+    { radius: 100, cities: ["fort collins", "greeley", "colorado springs", "pueblo"] },
+  ],
+  "dallas": [
+    { radius: 10, cities: ["irving", "garland", "mesquite", "richardson", "grand prairie"] },
+    { radius: 25, cities: ["plano", "arlington", "fort worth", "frisco", "mckinney", "carrollton", "denton"] },
+    { radius: 50, cities: ["waco", "tyler", "wichita falls"] },
+  ],
+  "houston": [
+    { radius: 10, cities: ["pasadena", "sugar land", "baytown", "pearland"] },
+    { radius: 25, cities: ["the woodlands", "league city", "missouri city", "conroe", "katy"] },
+    { radius: 50, cities: ["galveston", "beaumont", "college station"] },
+  ],
+  "atlanta": [
+    { radius: 10, cities: ["decatur", "sandy springs", "roswell", "east point"] },
+    { radius: 25, cities: ["marietta", "alpharetta", "lawrenceville", "smyrna", "kennesaw", "duluth"] },
+    { radius: 50, cities: ["athens", "macon", "gainesville"] },
+  ],
+  "chicago": [
+    { radius: 10, cities: ["evanston", "cicero", "oak park", "berwyn", "skokie"] },
+    { radius: 25, cities: ["naperville", "aurora", "joliet", "elgin", "schaumburg", "arlington heights"] },
+    { radius: 50, cities: ["rockford", "waukegan", "dekalb"] },
+  ],
+  "los angeles": [
+    { radius: 10, cities: ["glendale", "burbank", "pasadena", "inglewood", "santa monica"] },
+    { radius: 25, cities: ["long beach", "anaheim", "irvine", "torrance", "pomona", "el monte"] },
+    { radius: 50, cities: ["riverside", "san bernardino", "ontario", "oxnard", "ventura"] },
+  ],
+  "miami": [
+    { radius: 10, cities: ["miami beach", "hialeah", "coral gables", "north miami"] },
+    { radius: 25, cities: ["fort lauderdale", "hollywood", "pembroke pines", "davie", "boca raton"] },
+    { radius: 50, cities: ["west palm beach", "palm beach gardens", "delray beach"] },
+  ],
+  "new york": [
+    { radius: 10, cities: ["jersey city", "newark", "yonkers", "hoboken"] },
+    { radius: 25, cities: ["white plains", "stamford", "new rochelle", "paterson", "elizabeth"] },
+    { radius: 50, cities: ["bridgeport", "new haven", "trenton"] },
+  ],
+  "phoenix": [
+    { radius: 10, cities: ["scottsdale", "tempe", "mesa", "glendale", "chandler"] },
+    { radius: 25, cities: ["gilbert", "peoria", "surprise", "avondale", "goodyear"] },
+    { radius: 50, cities: ["prescott", "flagstaff", "tucson"] },
+  ],
+  "seattle": [
+    { radius: 10, cities: ["bellevue", "renton", "kent", "redmond", "kirkland"] },
+    { radius: 25, cities: ["tacoma", "everett", "federal way", "lakewood", "auburn"] },
+    { radius: 50, cities: ["olympia", "bellingham"] },
+  ],
+  "boston": [
+    { radius: 10, cities: ["cambridge", "somerville", "brookline", "quincy"] },
+    { radius: 25, cities: ["worcester", "lowell", "brockton", "newton", "framingham"] },
+    { radius: 50, cities: ["providence", "springfield", "manchester"] },
+  ],
+  "nashville": [
+    { radius: 10, cities: ["brentwood", "franklin", "hendersonville", "murfreesboro"] },
+    { radius: 25, cities: ["clarksville", "gallatin", "lebanon", "smyrna"] },
+    { radius: 50, cities: ["bowling green", "chattanooga", "huntsville"] },
+  ],
+  "philadelphia": [
+    { radius: 10, cities: ["camden", "chester", "norristown", "wilmington"] },
+    { radius: 25, cities: ["trenton", "cherry hill", "king of prussia", "media"] },
+    { radius: 50, cities: ["reading", "allentown", "atlantic city"] },
+  ],
+  "san francisco": [
+    { radius: 10, cities: ["oakland", "berkeley", "daly city", "south san francisco"] },
+    { radius: 25, cities: ["san jose", "fremont", "hayward", "palo alto", "sunnyvale", "mountain view"] },
+    { radius: 50, cities: ["santa cruz", "santa rosa", "napa", "vallejo"] },
+  ],
+  "washington": [
+    { radius: 10, cities: ["arlington", "alexandria", "bethesda", "silver spring"] },
+    { radius: 25, cities: ["fairfax", "reston", "rockville", "columbia", "frederick"] },
+    { radius: 50, cities: ["baltimore", "annapolis", "richmond"] },
+  ],
+};
