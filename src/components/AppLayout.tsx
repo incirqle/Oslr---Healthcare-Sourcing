@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Search, Bell, Command } from "lucide-react";
+import { Bell } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
