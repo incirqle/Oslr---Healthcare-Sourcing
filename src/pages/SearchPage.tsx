@@ -108,6 +108,7 @@ export default function SearchPage() {
           parsed: parsedPayload,
           page: searchPage - 1,
           size: pageSize,
+          scroll_token: searchPage > 1 ? scrollToken : null,
         },
       });
 
