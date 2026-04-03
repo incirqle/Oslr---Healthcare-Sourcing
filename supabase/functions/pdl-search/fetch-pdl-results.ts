@@ -108,7 +108,7 @@ export async function runPreview(
   pdlQuery: Record<string, unknown>,
   pdlBaseUrl = "https://api.peopledatalabs.com"
 ): Promise<number> {
-  const previewKey = Deno.env.get("PDL_PREVIEW_API_KEY") || Deno.env.get("PDL_PREVIEW_KEY");
+  const previewKey = Deno.env.get("PDL_PREVIEW_API_KEY") || Deno.env.get("PDL_API_KEY");
   if (!previewKey) throw new Error("PDL_PREVIEW_API_KEY not configured");
 
   const body = { query: pdlQuery, dataset: "all", size: 1 };
