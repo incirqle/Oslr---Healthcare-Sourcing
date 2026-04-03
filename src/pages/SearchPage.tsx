@@ -49,20 +49,41 @@ export default function SearchPage() {
     candidates.filter((c) => savedPdlIds.has(c.id)).map((c) => c.id)
   );
 
+  // Store the parsed payload from the preview call so we can send it back on full search
+  const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
+
   const handleInitialSearch = async (q: string) => {
     setQuery(q);
     setStep("parsing");
 
     try {
       const { data, error } = await supabase.functions.invoke("pdl-search", {
-        body: { action: "parse_filters", query: q },
+        body: { query: q, preview: true },
       });
 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setFilters(data.filters);
+      // Map new parsed payload to the existing ParsedFilters shape for FilterReview
+      const parsed = data.parsed || {};
+      const loc = parsed.location || {};
+      const locations: string[] = [];
+      if (loc.city && loc.state) locations.push(`${loc.city} ${loc.state}`);
+      else if (loc.state) locations.push(loc.state);
+      else if (loc.city) locations.push(loc.city);
+
+      const mappedFilters: ParsedFilters = {
+        job_titles: parsed.job_titles || [],
+        locations,
+        companies: parsed.current_companies || parsed.companies || [],
+        keywords: parsed.required_keywords || parsed.keywords || [],
+        experience_years: parsed.min_years_experience || null,
+        specialties: parsed.specialties || (parsed.specialty ? [parsed.specialty] : []),
+      };
+
+      setFilters(mappedFilters);
       setFilterTotal(data.total || 0);
+      setParsedPayload(parsed);
       setStep("review");
     } catch (err: any) {
       console.error("Parse error:", err);
@@ -76,21 +97,53 @@ export default function SearchPage() {
     setSelected(new Set());
 
     try {
-      const from = (searchPage - 1) * pageSize;
       const { data, error } = await supabase.functions.invoke("pdl-search", {
-        body: { action: "search_with_filters", filters, size: pageSize, from },
+        body: {
+          query,
+          filters: {
+            job_titles: filters.job_titles,
+            companies: filters.companies,
+            keywords: filters.keywords,
+            specialties: filters.specialties,
+          },
+          parsed: parsedPayload,
+          page: searchPage - 1,
+          size: pageSize,
+        },
       });
 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setCandidates(data.candidates || []);
+      // Map FormattedCandidate from new API to existing Candidate interface
+      const mappedCandidates: Candidate[] = (data.results || []).map((r: any) => ({
+        id: r.id,
+        full_name: r.full_name || "",
+        title: r.job_title || null,
+        current_employer: r.job_company_name || null,
+        location: [r.location_locality, r.location_region].filter(Boolean).join(", ") || null,
+        linkedin_url: r.linkedin_url || null,
+        email: r.emails?.[0] || null,
+        phone: r.phone_numbers?.[0] || null,
+        skills: r.skills || [],
+        avg_tenure_months: null,
+        industry: r.job_company_industry || null,
+        company_size: null,
+        preview: false,
+        has_email: (r.emails?.length || 0) > 0,
+        has_phone: (r.phone_numbers?.length || 0) > 0,
+        has_skills: (r.skills?.length || 0) > 0,
+        has_experience: (r.experience?.length || 0) > 0,
+        match_score: 75,
+      }));
+
+      setCandidates(mappedCandidates);
       setTotal(data.total || 0);
       setPage(searchPage);
       setStep("results");
 
-      if (data.candidates?.length > 0) {
-        toast.success(`Found ${data.total.toLocaleString()} matching professionals`);
+      if (mappedCandidates.length > 0) {
+        toast.success(`Found ${(data.total || 0).toLocaleString()} matching professionals`);
       } else {
         toast.info("No results found. Try adjusting your filters.");
       }
