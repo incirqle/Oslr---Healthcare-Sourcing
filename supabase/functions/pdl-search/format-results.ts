@@ -1,257 +1,89 @@
-// ─── Result Formatter + AI Relevance Summaries ───────────────────────────────
-
-import { CREDENTIAL_PREFIX_REGEX, CREDENTIAL_SUFFIX_REGEX } from "./config.ts";
-import type { ParsedFilters } from "./parse-query.ts";
+/**
+ * format-results.ts — PDL record → formatted clinical candidate mapping.
+ */
 
 export interface FormattedCandidate {
   id: string;
   full_name: string;
-  title: string | null;
-  current_employer: string | null;
-  location: string | null;
+  first_name: string;
+  last_name: string;
+  job_title: string;
+  job_company_name: string;
+  job_company_industry: string;
   linkedin_url: string | null;
-  email: string | null;
-  phone: string | null;
+  location_name: string;
+  location_locality: string;
+  location_region: string;
+  location_country: string;
+  headline: string;
+  summary: string;
   skills: string[];
-  avg_tenure_months: number | null;
-  industry: string | null;
-  company_size: string | null;
-  preview: boolean;
-  has_email: boolean;
-  has_phone: boolean;
-  has_skills: boolean;
-  has_experience: boolean;
-  match_score: number;
-  relevance_summary?: string;
+  experience: Record<string, unknown>[];
+  education: Record<string, unknown>[];
+  certifications: string[];
+  inferred_years_experience: number | null;
+  gender: string | null;
+  emails: string[];
+  phone_numbers: string[];
+  profiles: Record<string, unknown>[];
 }
 
-export function transformSearchResults(
-  pdlData: any,
-  filters?: ParsedFilters
-): FormattedCandidate[] {
-  if (!pdlData?.data) return [];
-
-  return pdlData.data.map((person: any) => {
-    const isPreview =
-      typeof person.skills === "boolean" ||
-      typeof person.experience === "boolean" ||
-      typeof person.work_email === "boolean";
-
-    // Skills
-    let skills: string[] = [];
-    let has_skills = false;
-    if (typeof person.skills === "boolean") {
-      has_skills = person.skills;
-    } else if (Array.isArray(person.skills)) {
-      skills = person.skills.slice(0, 10);
-      has_skills = skills.length > 0;
-    }
-
-    // Email
-    let email: string | null = null;
-    let has_email = false;
-    if (typeof person.work_email === "boolean") {
-      has_email = person.work_email;
-    } else if (typeof person.personal_emails === "boolean") {
-      has_email = person.personal_emails;
-    } else {
-      email = person.work_email || person.personal_emails?.[0] || null;
-      has_email = !!email;
-    }
-
-    // Phone
-    let phone: string | null = null;
-    let has_phone = false;
-    if (typeof person.mobile_phone === "boolean") {
-      has_phone = person.mobile_phone;
-    } else if (typeof person.phone_numbers === "boolean") {
-      has_phone = person.phone_numbers;
-    } else {
-      phone = person.mobile_phone || person.phone_numbers?.[0] || null;
-      has_phone = !!phone;
-    }
-
-    // Tenure
-    let avgTenureMonths: number | null = null;
-    let has_experience = false;
-    if (typeof person.experience === "boolean") {
-      has_experience = person.experience;
-    } else if (Array.isArray(person.experience) && person.experience.length > 0) {
-      has_experience = true;
-      const tenures = person.experience
-        .filter((exp: any) => exp.start_date)
-        .map((exp: any) => {
-          const start = new Date(exp.start_date);
-          const end = exp.end_date ? new Date(exp.end_date) : new Date();
-          return (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        })
-        .filter((t: number) => t > 0 && t < 600);
-
-      if (tenures.length > 0) {
-        avgTenureMonths = Math.round(
-          tenures.reduce((a: number, b: number) => a + b, 0) / tenures.length
-        );
-      }
-    }
-
-    // Location
-    let location: string | null = null;
-    const locCity = typeof person.location_locality === "string" ? person.location_locality : null;
-    const locRegion = typeof person.location_region === "string" ? person.location_region : null;
-    if (locCity || locRegion) {
-      location = [locCity, locRegion].filter(Boolean).join(", ");
-    } else {
-      const compCity = typeof person.job_company_location_locality === "string" ? person.job_company_location_locality : null;
-      const compRegion = typeof person.job_company_location_region === "string" ? person.job_company_location_region : null;
-      if (compCity || compRegion) {
-        location = [compCity, compRegion].filter(Boolean).join(", ");
-      }
-    }
-
-    // Clean name
-    let fullName = person.full_name || "Unknown";
-    fullName = fullName.replace(CREDENTIAL_PREFIX_REGEX, "").trim();
-    fullName = fullName.replace(CREDENTIAL_SUFFIX_REGEX, "").trim();
-    fullName = fullName.replace(/\b\w/g, (c: string) => c.toUpperCase());
-
-    // Match score (0-100)
-    const match_score = computeMatchScore(person, filters, {
-      has_email, has_phone, has_skills, has_experience,
-      location,
-    });
-
-    return {
-      id: person.id,
-      full_name: fullName,
-      title: person.job_title || null,
-      current_employer: person.job_company_name || null,
-      location,
-      linkedin_url: person.linkedin_url || null,
-      email,
-      phone,
-      skills,
-      avg_tenure_months: avgTenureMonths,
-      industry: person.industry || null,
-      company_size: typeof person.job_company_size === "boolean" ? null : (person.job_company_size || null),
-      preview: isPreview,
-      has_email,
-      has_phone,
-      has_skills,
-      has_experience,
-      match_score,
-    };
-  });
+export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
+  return {
+    id: (raw.id as string) || crypto.randomUUID(),
+    full_name: (raw.full_name as string) || "",
+    first_name: (raw.first_name as string) || "",
+    last_name: (raw.last_name as string) || "",
+    job_title: (raw.job_title as string) || "",
+    job_company_name: (raw.job_company_name as string) || "",
+    job_company_industry: (raw.job_company_industry as string) || "",
+    linkedin_url: (raw.linkedin_url as string) || null,
+    location_name: (raw.location_name as string) || "",
+    location_locality: (raw.location_locality as string) || "",
+    location_region: (raw.location_region as string) || "",
+    location_country: (raw.location_country as string) || "",
+    headline: (raw.headline as string) || "",
+    summary: (raw.summary as string) || "",
+    skills: Array.isArray(raw.skills) ? raw.skills.map((s: unknown) => typeof s === "string" ? s : String(s)) : [],
+    experience: Array.isArray(raw.experience) ? raw.experience as Record<string, unknown>[] : [],
+    education: Array.isArray(raw.education) ? raw.education as Record<string, unknown>[] : [],
+    certifications: Array.isArray(raw.certifications) ? raw.certifications.map((c: unknown) => typeof c === "string" ? c : String(c)) : [],
+    inferred_years_experience: typeof raw.inferred_years_experience === "number" ? raw.inferred_years_experience : null,
+    gender: (raw.gender as string) || null,
+    emails: Array.isArray(raw.emails) ? raw.emails.filter((e: unknown) => typeof e === "string") as string[] : [],
+    phone_numbers: Array.isArray(raw.phone_numbers) ? raw.phone_numbers.filter((p: unknown) => typeof p === "string") as string[] : [],
+    profiles: Array.isArray(raw.profiles) ? raw.profiles as Record<string, unknown>[] : [],
+  };
 }
 
-function computeMatchScore(
-  person: any,
-  filters: ParsedFilters | undefined,
-  meta: { has_email: boolean; has_phone: boolean; has_skills: boolean; has_experience: boolean; location: string | null }
-): number {
-  let match_score = 50;
-  const jobTitle = (person.job_title || "").toLowerCase();
-  const personLoc = meta.location?.toLowerCase() || "";
+export function deriveParsedCategories(
+  parsed: Record<string, unknown>,
+  filters: Record<string, unknown>
+): string[] {
+  const cats: string[] = [];
+  const titles = (parsed.job_titles as string[]) || (filters.job_titles as string[]) || [];
+  const specs = (parsed.specialties as string[]) || (filters.specialties as string[]) || [];
+  const locations = (parsed.locations as { state?: string; city?: string }[]) || [];
+  const l2Loc = parsed.location as { state?: string | null; city?: string | null } | undefined;
 
-  if (filters) {
-    let signals = 0;
-    let maxSignals = 0;
+  if (titles.length > 0) cats.push("role");
+  if (specs.length > 0) cats.push("specialty");
+  if (locations.length > 0 || l2Loc?.state || l2Loc?.city) cats.push("location");
+  if ((parsed.current_companies as string[])?.length > 0 || (filters.companies as string[])?.length > 0) cats.push("employer");
+  if ((parsed.credentials as string[])?.length > 0) cats.push("credentials");
 
-    // Title match quality
-    const titleTerms = [...(filters.job_titles || []), ...(filters.specialties || [])];
-    if (titleTerms.length > 0) {
-      maxSignals += 2;
-      const exactMatch = titleTerms.some(t => jobTitle === t.toLowerCase());
-      const partialMatch = titleTerms.some(t => jobTitle.includes(t.toLowerCase()));
-      if (exactMatch) signals += 2;
-      else if (partialMatch) signals += 1;
-    }
-
-    // Location match quality
-    if ((filters.locations || []).length > 0) {
-      maxSignals += 2;
-      const locMatched = filters.locations.some(l => {
-        const ll = l.toLowerCase();
-        return personLoc.includes(ll) || ll.split(" ").every(part => personLoc.includes(part));
-      });
-      if (locMatched) signals += 2;
-      else if (personLoc) signals += 1;
-    }
-
-    // Company match
-    if ((filters.companies || []).length > 0) {
-      maxSignals += 1;
-      const employer = (person.job_company_name || "").toLowerCase();
-      if (filters.companies.some(c => employer.includes(c.toLowerCase()))) signals += 1;
-    }
-
-    // Data completeness bonus
-    maxSignals += 3;
-    if (meta.has_email) signals += 1;
-    if (meta.has_phone) signals += 0.5;
-    if (meta.has_experience) signals += 0.5;
-    if (meta.has_skills) signals += 0.5;
-    if (person.linkedin_url) signals += 0.5;
-
-    match_score = maxSignals > 0 ? Math.round((signals / maxSignals) * 100) : 50;
-    match_score = Math.max(20, Math.min(99, match_score));
-  }
-
-  return match_score;
+  return cats;
 }
 
-// Generate AI relevance summaries for a batch of candidates
-export async function generateRelevanceSummaries(
-  candidates: FormattedCandidate[],
-  query: string,
-  lovableApiKey: string
-): Promise<FormattedCandidate[]> {
-  if (candidates.length === 0) return candidates;
-
-  try {
-    const candidateSummaries = candidates.map((c, i) => 
-      `${i + 1}. ${c.full_name} — ${c.title || "Unknown title"} at ${c.current_employer || "Unknown"} in ${c.location || "Unknown"}`
-    ).join("\n");
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        temperature: 0.2,
-        max_tokens: 1500,
-        messages: [
-          {
-            role: "system",
-            content: `You generate one-sentence relevance summaries (max 15 words each) explaining why each candidate matches a healthcare recruiting search. Return ONLY a JSON array of strings, one per candidate, in order. No markdown, no explanation.`,
-          },
-          {
-            role: "user",
-            content: `Search query: "${query}"\n\nCandidates:\n${candidateSummaries}`,
-          },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("AI summary generation failed:", res.status);
-      return candidates;
-    }
-
-    const data = await res.json();
-    let content = data.choices?.[0]?.message?.content?.trim() || "";
-    content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-    const summaries: string[] = JSON.parse(content);
-
-    return candidates.map((c, i) => ({
-      ...c,
-      relevance_summary: summaries[i] || undefined,
-    }));
-  } catch (e) {
-    console.error("Failed to generate relevance summaries:", e);
-    return candidates; // Return without summaries on failure
-  }
+export function deriveParsedKeywords(
+  parsed: Record<string, unknown>,
+  filters: Record<string, unknown>
+): Record<string, string[]> {
+  return {
+    titles: (parsed.job_titles as string[]) || [],
+    specialties: (parsed.specialties as string[]) || (filters.specialties as string[]) || [],
+    keywords: (parsed.required_keywords as string[]) || [],
+    credentials: (parsed.credentials as string[]) || [],
+    employers: (parsed.current_companies as string[]) || [],
+  };
 }

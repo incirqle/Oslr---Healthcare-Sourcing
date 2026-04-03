@@ -1,251 +1,395 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+/**
+ * pdl-search/index.ts — Thin orchestrator for Oslr clinical healthcare search.
+ *
+ * Flow: Auth → Parse → Build ES DSL → Preview/Fetch → Cascade → Format → Respond
+ */
 
-import { PDL_BASE } from "./config.ts";
-import { parseQueryToFilters, type ParsedFilters } from "./parse-query.ts";
-import { filtersToSQL } from "./build-pdl-query.ts";
-import { transformSearchResults, generateRelevanceSummaries } from "./format-results.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { parseQuery } from "./parse-query.ts";
+import { buildPDLQuery, CascadeStep, applyStep } from "./build-pdl-query.ts";
 import {
-  generateCacheKey,
-  getCachedSearch,
-  setCachedSearch,
-  getCachedEnrichment,
-  setCachedEnrichment,
-} from "./cache.ts";
+  getPDLCacheKey,
+  getDBCache,
+  setDBCache,
+  cleanExpiredCache,
+  fetchPDLWithRetry,
+  runPreview,
+  fetchProfiles,
+} from "./fetch-pdl-results.ts";
+import { mapPerson, deriveParsedCategories, deriveParsedKeywords } from "./format-results.ts";
+import { callClaude } from "./ai-router.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PDL_API_KEY = Deno.env.get("PDL_API_KEY")!;
-const PDL_PREVIEW_API_KEY = Deno.env.get("PDL_PREVIEW_API_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+type Clause = Record<string, unknown>;
 
-interface SearchRequest {
-  action?: "search" | "enrich_person" | "enrich_company" | "parse_filters" | "search_with_filters";
-  query?: string;
-  size?: number;
-  from?: number;
-  filters?: ParsedFilters;
-  linkedin_url?: string;
-  email?: string;
-  company_name?: string;
-  company_website?: string;
+/* ------------------------------------------------------------------ */
+/* L5 — Claude cascade planner                                          */
+/* ------------------------------------------------------------------ */
+
+const L5_SYSTEM_PROMPT = `You are a clinical healthcare search strategist. A PDL search returned too few results. Choose the best filter relaxation order. Return ONLY valid JSON — no markdown.
+
+AVAILABLE STEPS (use exact strings only):
+"drop_titles" — remove title soft filters
+"expand_to_metro" — widen city to metro area
+"expand_to_state" — widen metro/city to full state
+"drop_company" — remove employer filters
+"drop_specialty" — remove clinical specialty filter
+"role_only" — keep only job_title_role="health" (last resort)
+
+ORDERING RULE: Always try geographic expansion BEFORE dropping titles or employers.
+
+RETURN: { "cascade_plan": string[], "reasoning": string }`;
+
+const DEFAULT_CASCADE: CascadeStep[] = [
+  CascadeStep.EXPAND_TO_METRO,
+  CascadeStep.EXPAND_TO_STATE,
+  CascadeStep.DROP_COMPANY,
+  CascadeStep.DROP_TITLES,
+  CascadeStep.DROP_SPECIALTY,
+  CascadeStep.ROLE_ONLY,
+];
+
+interface CascadePayload {
+  location: { state?: string | null; state_confidence?: number; city?: string | null; city_confidence?: number; metro?: string | null };
+  job_titles?: string[];
+  title_confidence?: number;
+  specialty?: string | null;
+  specialty_confidence?: number;
 }
 
-// ─── PDL API calls ────────────────────────────────────────────────────────────
-
-async function searchPDL(sql: string, size: number, from: number = 0) {
-  console.log("PDL SQL:", sql, "size:", size, "from:", from);
-  const body: Record<string, unknown> = { sql, size, pretty: true, dataset: "all" };
-  if (from > 0) body.from = from;
-
-  const res = await fetch(`${PDL_BASE}/person/search`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-api-key": PDL_PREVIEW_API_KEY,
-    },
-    body: JSON.stringify(body),
+async function planCascade(payload: CascadePayload, queryType: string, previewTotal: number): Promise<CascadeStep[]> {
+  const ctx = JSON.stringify({
+    query_type: queryType,
+    state: payload.location?.state,
+    state_conf: payload.location?.state_confidence,
+    city: payload.location?.city,
+    city_conf: payload.location?.city_confidence,
+    metro: payload.location?.metro,
+    titles: payload.job_titles,
+    title_conf: payload.title_confidence,
+    specialty: payload.specialty,
+    spec_conf: payload.specialty_confidence,
+    preview_total: previewTotal,
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    if (res.status === 404) return { data: [], total: 0 };
-    throw new Error(`PDL Search error (${res.status}): ${errText}`);
-  }
-  return await res.json();
-}
-
-async function enrichPerson(params: { linkedin_url?: string; email?: string }) {
-  // Check enrichment cache first
-  const cached = await getCachedEnrichment(undefined, params.linkedin_url);
-  if (cached) return cached;
-
-  const queryParams = new URLSearchParams();
-  if (params.linkedin_url) queryParams.set("profile", params.linkedin_url);
-  if (params.email) queryParams.set("email", params.email);
-  queryParams.set("pretty", "true");
-
-  const res = await fetch(`${PDL_BASE}/person/enrich?${queryParams.toString()}`, {
-    headers: { "X-api-key": PDL_API_KEY },
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`PDL Person Enrich error (${res.status}): ${errText}`);
-  }
-
-  const result = await res.json();
-
-  // Cache the enrichment result
-  await setCachedEnrichment(
-    result.id || null,
-    params.linkedin_url || null,
-    result
+  const result = await callClaude<{ cascade_plan: string[]; reasoning: string }>(
+    L5_SYSTEM_PROMPT,
+    ctx,
+    { cascade_plan: DEFAULT_CASCADE as unknown as string[], reasoning: "fallback" },
+    "L5-Cascade",
+    { timeoutMs: 15000 }
   );
 
-  return result;
+  const valid = new Set(Object.values(CascadeStep) as string[]);
+  const plan = (result.cascade_plan ?? []).filter(s => valid.has(s)) as CascadeStep[];
+  console.log(`[L5] ${plan.join(" -> ")} | ${result.reasoning}`);
+  return plan.length > 0 ? plan : DEFAULT_CASCADE;
 }
 
-async function enrichCompany(params: { company_name?: string; company_website?: string }) {
-  const queryParams = new URLSearchParams();
-  if (params.company_name) queryParams.set("name", params.company_name);
-  if (params.company_website) queryParams.set("website", params.company_website);
-  queryParams.set("pretty", "true");
+async function runCascade(
+  basePdlQuery: Record<string, unknown>,
+  payload: CascadePayload,
+  queryType: string,
+  previewTotal: number,
+  queryHash: string,
+  adminClient: ReturnType<typeof createClient>,
+  size: number
+): Promise<{ profiles: Record<string, unknown>[]; stepsUsed: number; plan: CascadeStep[] }> {
+  const cascadePlan = await planCascade(payload, queryType, previewTotal);
 
-  const res = await fetch(`${PDL_BASE}/company/enrich?${queryParams.toString()}`, {
-    headers: { "X-api-key": PDL_API_KEY },
-  });
+  const boolBlock = (basePdlQuery as { bool?: { filter?: unknown[]; must?: unknown[]; must_not?: unknown[] } }).bool || {};
+  let current = {
+    filter: (boolBlock.filter || []) as Clause[],
+    must: (boolBlock.must || []) as Clause[],
+    must_not: (boolBlock.must_not || []) as Clause[],
+  };
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`PDL Company Enrich error (${res.status}): ${errText}`);
+  let stepsUsed = 0;
+
+  for (const step of cascadePlan) {
+    current = applyStep(current, payload, step);
+    stepsUsed++;
+
+    const stepHash = queryHash + "_" + step;
+    const cached = await getDBCache(adminClient, stepHash);
+    if (cached && cached.data.length > 0) {
+      return { profiles: cached.data as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+    }
+
+    const stepQuery = {
+      bool: {
+        filter: current.filter,
+        ...(current.must.length > 0 ? { must: current.must } : {}),
+        ...(current.must_not.length > 0 ? { must_not: current.must_not } : {}),
+      },
+    };
+
+    const total = await runPreview(stepQuery);
+    console.log(`[CASCADE] step=${step}, preview_total=${total}`);
+
+    if (total >= 3) {
+      const profiles = await fetchProfiles(stepQuery, Math.min(size, 100));
+      setDBCache(adminClient, stepHash, total, profiles, null);
+      return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+    }
   }
-  return await res.json();
+
+  const finalQuery = {
+    bool: {
+      filter: current.filter,
+      ...(current.must.length > 0 ? { must: current.must } : {}),
+      ...(current.must_not.length > 0 ? { must_not: current.must_not } : {}),
+    },
+  };
+  const profiles = await fetchProfiles(finalQuery, Math.min(size, 100));
+  return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
 }
 
-// ─── Request handler ──────────────────────────────────────────────────────────
-Deno.serve(async (req) => {
+/* ------------------------------------------------------------------ */
+/* Full search fetch helper                                             */
+/* ------------------------------------------------------------------ */
+
+async function fetchPDLForFullSearch(
+  pdlQuery: Record<string, unknown>,
+  pdlSearchKey: string,
+  page: number,
+  size: number,
+  incomingScrollToken: string | null,
+  fullCacheKey: string,
+  adminClient: ReturnType<typeof createClient>,
+  pdlBaseUrl = "https://api.peopledatalabs.com"
+): Promise<Record<string, unknown>> {
+  const pdlBody: Record<string, unknown> = {
+    query: pdlQuery,
+    dataset: "all",
+    size: Math.min(size, 100),
+  };
+
+  if (page > 0 && incomingScrollToken) {
+    pdlBody.scroll_token = incomingScrollToken;
+  } else if (page > 0) {
+    const offset = page * Math.min(size, 100);
+    if (offset < 10000) {
+      pdlBody.from = offset;
+    } else {
+      return { total: 0, data: [], scroll_token: null, _empty: true };
+    }
+  }
+
+  const queryHash = fullCacheKey.slice(0, 16);
+  const pdlResult = await fetchPDLWithRetry(
+    `${pdlBaseUrl}/v5/person/search`,
+    {
+      method: "POST",
+      headers: { "X-Api-Key": pdlSearchKey, "Content-Type": "application/json" },
+      body: JSON.stringify(pdlBody),
+    },
+    queryHash
+  );
+
+  if (!pdlResult.ok) return { _error: true, _errorPayload: pdlResult.error };
+
+  const pdlData = pdlResult.data;
+  const returnedScrollToken = pdlData.scroll_token as string | null;
+  setDBCache(adminClient, fullCacheKey, (pdlData.total as number) || 0, (pdlData.data as unknown[]) || [], returnedScrollToken);
+  return pdlData;
+}
+
+/* ------------------------------------------------------------------ */
+/* Main handler                                                         */
+/* ------------------------------------------------------------------ */
+
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
+
+  const requestStart = Date.now();
 
   try {
-    const body: SearchRequest = await req.json();
-    const action = body.action || "search";
+    const body = await req.json();
+    const {
+      query = "",
+      filters = {},
+      preview = false,
+      page = 0,
+      size = 25,
+      scroll_token = null,
+      parsed: clientParsed = null,
+    } = body;
 
-    // ── Enrich person ─────────────────────────────────────────────────────────
-    if (action === "enrich_person") {
-      if (!body.linkedin_url && !body.email) {
-        return new Response(
-          JSON.stringify({ error: "linkedin_url or email required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const result = await enrichPerson({ linkedin_url: body.linkedin_url, email: body.email });
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ── Enrich company ────────────────────────────────────────────────────────
-    if (action === "enrich_company") {
-      if (!body.company_name && !body.company_website) {
-        return new Response(
-          JSON.stringify({ error: "company_name or company_website required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const result = await enrichCompany({ company_name: body.company_name, company_website: body.company_website });
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ── Parse filters (step 1 of 2-step search) ───────────────────────────────
-    if (action === "parse_filters") {
-      const { query } = body;
-      if (!query || query.trim().length === 0) {
-        return new Response(
-          JSON.stringify({ error: "Search query is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const filters = await parseQueryToFilters(query, LOVABLE_API_KEY);
-      console.log("Parsed filters:", JSON.stringify(filters));
-
-      const sql = filtersToSQL(filters);
-      console.log("Generated SQL:", sql);
-
+    if (!query || typeof query !== "string" || query.trim().length === 0) {
       return new Response(
-        JSON.stringify({ filters, total: null, sql_used: sql }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Search with filters (step 2 of 2-step search) ─────────────────────────
-    if (action === "search_with_filters") {
-      const { filters, size = 15, from = 0 } = body;
-      if (!filters) {
-        return new Response(
-          JSON.stringify({ error: "Filters are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const sql = filtersToSQL(filters);
-      console.log("Search SQL:", sql);
-
-      // Check cache first
-      const cacheKey = await generateCacheKey(filters as unknown as Record<string, unknown>, size, from);
-      const cached = await getCachedSearch(cacheKey);
-
-      let candidates;
-      let total: number;
-
-      if (cached) {
-        console.log("Using cached results");
-        candidates = cached.response as any[];
-        total = cached.total_count;
-      } else {
-        const pdlResults = await searchPDL(sql, size, from);
-        console.log("PDL returned", pdlResults.total, "total results");
-        total = pdlResults.total || 0;
-
-        candidates = transformSearchResults(pdlResults, filters);
-
-        // Generate AI relevance summaries
-        const queryText = body.query || [
-          ...filters.job_titles,
-          ...filters.specialties,
-          ...filters.locations,
-        ].join(", ");
-
-        candidates = await generateRelevanceSummaries(
-          candidates,
-          queryText,
-          LOVABLE_API_KEY
-        );
-
-        // Cache the results
-        await setCachedSearch(cacheKey, queryText, filters as unknown as Record<string, unknown>, candidates, total);
-      }
-
-      return new Response(
-        JSON.stringify({ candidates, total, sql_used: sql }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Legacy single-step search ─────────────────────────────────────────────
-    const { query, size = 15 } = body;
-    if (!query || query.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Search query is required" }),
+        JSON.stringify({ error: "Query is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const filters = await parseQueryToFilters(query, LOVABLE_API_KEY);
-    const sql = filtersToSQL(filters);
-    console.log("Legacy SQL:", sql);
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    const pdlResults = await searchPDL(sql, size);
-    console.log("PDL returned", pdlResults.total, "total results");
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
-    const candidates = transformSearchResults(pdlResults, filters);
+    cleanExpiredCache(adminClient);
+
+    // Step 1: Parse query
+    const parsed = await parseQuery(query, lovableKey, clientParsed);
+    console.log("Parsed:", JSON.stringify(parsed));
+
+    // Step 2: Build ES DSL query
+    const pdlQuery = buildPDLQuery(parsed, filters);
+    console.log("PDL Query built:", JSON.stringify(pdlQuery).slice(0, 500));
+
+    // Step 3: Preview mode
+    if (preview) {
+      const cacheKey = await getPDLCacheKey(pdlQuery, 1);
+      const cached = await getDBCache(adminClient, cacheKey);
+
+      let total: number;
+      if (cached) {
+        total = cached.total;
+        console.log(`[PREVIEW] Cache hit: ${total} results`);
+      } else {
+        total = await runPreview(pdlQuery);
+        setDBCache(adminClient, cacheKey, total, [], null);
+        console.log(`[PREVIEW] PDL returned: ${total} results`);
+      }
+
+      const categories = deriveParsedCategories(parsed, filters);
+      const keywords = deriveParsedKeywords(parsed, filters);
+
+      return new Response(
+        JSON.stringify({
+          preview: true,
+          total,
+          parsed,
+          parsed_categories: categories,
+          parsed_keywords: keywords,
+          results: [],
+          scroll_token: null,
+          hasMore: total > size,
+          timing_ms: Date.now() - requestStart,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 4: Full search
+    const fullCacheKey = await getPDLCacheKey(pdlQuery, size, scroll_token);
+    const cached = await getDBCache(adminClient, fullCacheKey);
+
+    let results: Record<string, unknown>[];
+    let total: number;
+    let returnScrollToken: string | null = null;
+    let cascadeUsed = false;
+    let cascadePlan: CascadeStep[] = [];
+
+    if (cached && cached.data.length > 0) {
+      console.log(`[SEARCH] Cache hit: ${cached.total} total, ${cached.data.length} results`);
+      results = cached.data as Record<string, unknown>[];
+      total = cached.total;
+      returnScrollToken = cached.scroll_token;
+    } else {
+      const liveKey = Deno.env.get("PDL_API_KEY");
+      if (!liveKey) {
+        return new Response(
+          JSON.stringify({ error: "PDL_API_KEY not configured" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const pdlData = await fetchPDLForFullSearch(
+        pdlQuery, liveKey, page, size, scroll_token, fullCacheKey, adminClient
+      );
+
+      if ((pdlData as Record<string, unknown>)._error) {
+        return new Response(
+          JSON.stringify({ error: "PDL search failed", details: (pdlData as Record<string, unknown>)._errorPayload }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      results = (pdlData.data as Record<string, unknown>[]) || [];
+      total = (pdlData.total as number) || 0;
+      returnScrollToken = (pdlData.scroll_token as string) || null;
+
+      // Cascade if too few results
+      if (results.length < 3 && page === 0) {
+        console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
+        const cascadePayload: CascadePayload = {
+          location: (parsed.location as CascadePayload["location"]) || {},
+          job_titles: (parsed.job_titles as string[]) || [],
+          title_confidence: (parsed.title_confidence as number) || 0.5,
+          specialty: (parsed.specialty as string) || null,
+          specialty_confidence: (parsed.specialty_confidence as number) || 0.5,
+        };
+
+        const cascadeResult = await runCascade(
+          pdlQuery, cascadePayload, "clinical_search", total, fullCacheKey, adminClient, size
+        );
+
+        if (cascadeResult.profiles.length > results.length) {
+          results = cascadeResult.profiles;
+          cascadeUsed = true;
+          cascadePlan = cascadeResult.plan;
+          console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps`);
+        }
+      }
+    }
+
+    // Step 5: Format results
+    const formattedResults = results.map(mapPerson);
+    const categories = deriveParsedCategories(parsed, filters);
+    const keywords = deriveParsedKeywords(parsed, filters);
+
+    // Log search
+    try {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader) {
+        const userClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          await adminClient.from("oslr_searches").insert({
+            user_id: user.id,
+            query,
+            filters,
+            result_count: total,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to log search:", e);
+    }
 
     return new Response(
-      JSON.stringify({ candidates, total: pdlResults.total || 0, sql_used: sql, filters }),
+      JSON.stringify({
+        results: formattedResults,
+        total,
+        parsed,
+        parsed_categories: categories,
+        parsed_keywords: keywords,
+        scroll_token: returnScrollToken,
+        hasMore: total > (page + 1) * size,
+        cascade_used: cascadeUsed,
+        cascade_plan: cascadePlan,
+        timing_ms: Date.now() - requestStart,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
-    console.error("PDL error:", error.message);
+  } catch (err) {
+    console.error("Handler error:", err);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
