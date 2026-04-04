@@ -360,11 +360,11 @@ export function buildPDLQuery(
     const roleShouldClauses: Clause[] = [];
     const roleWildcardTerms = [
       "nurse", "physician", "doctor", "surgeon", "therapist", "pharmacist",
-      "practitioner", "assistant", "technician", "hospitalist", "anesthetist",
+      "practitioner", "technician", "hospitalist", "anesthetist",
       "pathologist", "radiologist", "dentist", "hygienist", "paramedic", "midwife",
     ];
     for (const term of roleWildcardTerms) {
-      const wc = addWildcard("job_title", `*${term}*`);
+      const wc = addWildcard("job_title", `${term}*`);
       if (wc) roleShouldClauses.push(wc);
     }
     if (roleShouldClauses.length > 0) {
