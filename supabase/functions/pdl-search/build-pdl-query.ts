@@ -331,6 +331,11 @@ export function buildPDLQuery(
   const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(jobTitles);
   const currentRoleOnly = parsed.current_role_only !== false;
 
+  // Titles that should NOT match via prefix wildcard (e.g. "physician" should not match "physician assistant")
+  const ASSISTANT_TITLES = ["physician assistant", "medical assistant", "dental assistant", "pharmacy assistant"];
+  const searchedTitlesLower = new Set(expandedTitles.map(t => t.toLowerCase()));
+  const hasExplicitAssistant = ASSISTANT_TITLES.some(at => searchedTitlesLower.has(at));
+
   if (expandedTitles.length > 0) {
     const titleClauses: Clause[] = [];
     for (const t of expandedTitles.slice(0, 20)) {
@@ -345,6 +350,13 @@ export function buildPDLQuery(
     }
     if (titleClauses.length > 0) {
       should.push({ bool: { should: titleClauses } });
+    }
+
+    // Exclude assistant-level titles unless explicitly searched
+    if (!hasExplicitAssistant) {
+      for (const at of ASSISTANT_TITLES) {
+        mustNot.push({ match_phrase: { job_title: at } });
+      }
     }
   }
 
