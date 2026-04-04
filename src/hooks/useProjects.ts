@@ -101,9 +101,10 @@ export function useCreateProject() {
 
   return useMutation({
     mutationFn: async ({ name, description }: { name: string; description?: string }) => {
+      if (!companyId || !user) throw new Error("Not ready – please wait a moment and try again");
       const { data, error } = await supabase
         .from("projects")
-        .insert({ name, description: description || null, company_id: companyId!, created_by: user!.id })
+        .insert({ name, description: description || null, company_id: companyId, created_by: user.id })
         .select("id")
         .single();
       if (error) throw error;
