@@ -343,9 +343,12 @@ export function buildPDLQuery(
       if (wordCount >= 2) {
         titleClauses.push({ match_phrase: { job_title: t } });
         if (!currentRoleOnly) titleClauses.push({ match_phrase: { "experience.title.name": t } });
-      } else {
+      } else if (t.length >= 4) {
         const wc = addWildcard("job_title", `${t}*`);
         if (wc) titleClauses.push(wc);
+      } else {
+        // Short terms like "md", "do" — use exact match, not wildcard
+        titleClauses.push({ match: { job_title: t } });
       }
     }
     if (titleClauses.length > 0) {
