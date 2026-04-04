@@ -234,7 +234,7 @@ export function buildPDLQuery(
         companyClauses.push({ match_phrase: { job_company_name: v } });
       }
     }
-    softShould.push({ bool: { should: companyClauses } });
+    softShould.push({ bool: { should: companyClauses, boost: 100 } });
   }
 
   if (pastCompanies.length > 0) {
@@ -332,9 +332,26 @@ export function buildPDLQuery(
   const currentRoleOnly = parsed.current_role_only !== false;
 
   // Titles that should NOT match via prefix wildcard (e.g. "physician" should not match "physician assistant")
-  const ASSISTANT_TITLES = ["physician assistant", "medical assistant", "dental assistant", "pharmacy assistant"];
+  const EXCLUDED_TITLE_PHRASES = [
+    "physician assistant", "physician associate", "pa-c",
+    "medical assistant", "certified medical assistant",
+    "dental assistant", "pharmacy assistant",
+    "certified nursing assistant", "nursing assistant",
+    "physician liaison", "physician recruiter", "physician relations",
+    "physician advisor", "physician billing", "physician coder",
+    "physician scheduler", "physician services", "physician sales",
+    "surgical technologist", "certified surgical technologist",
+    "surgical technician", "surgical tech",
+    "surgical coordinator", "surgical scheduler",
+    "surgical neurophysiologist", "neurophysiologist",
+    "neuromonitoring technologist", "neuromonitoring tech",
+    "doctor of physical therapy", "doctor of chiropractic",
+    "medical receptionist", "medical biller", "medical coder",
+    "medical secretary", "medical records", "medical transcriptionist",
+    "nurse recruiter", "nurse staffing",
+  ];
   const searchedTitlesLower = new Set(expandedTitles.map(t => t.toLowerCase()));
-  const hasExplicitAssistant = ASSISTANT_TITLES.some(at => searchedTitlesLower.has(at));
+  const hasExplicitExcluded = EXCLUDED_TITLE_PHRASES.some(et => searchedTitlesLower.has(et));
 
   if (expandedTitles.length > 0) {
     const titleClauses: Clause[] = [];
@@ -356,9 +373,9 @@ export function buildPDLQuery(
     }
 
     // Exclude assistant-level titles unless explicitly searched
-    if (!hasExplicitAssistant) {
-      for (const at of ASSISTANT_TITLES) {
-        mustNot.push({ match_phrase: { job_title: at } });
+    if (!hasExplicitExcluded) {
+      for (const et of EXCLUDED_TITLE_PHRASES) {
+        mustNot.push({ match_phrase: { job_title: et } });
       }
     }
   }
