@@ -200,6 +200,55 @@ async function fetchPDLForFullSearch(
 }
 
 /* ------------------------------------------------------------------ */
+/* Company name resolution via PDL Company API                          */
+/* ------------------------------------------------------------------ */
+
+async function resolveCompanyNames(
+  companyNames: string[],
+  pdlApiKey: string,
+  pdlBaseUrl: string
+): Promise<Array<{ original: string; pdl_name: string | null; pdl_id: string | null }>> {
+  const results: Array<{ original: string; pdl_name: string | null; pdl_id: string | null }> = [];
+  for (const name of companyNames.slice(0, 5)) {
+    try {
+      const cleanUrl = `${pdlBaseUrl}/v5/company/clean?name=${encodeURIComponent(name)}&pretty=false`;
+      const resp = await fetch(cleanUrl, {
+        method: "GET",
+        headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === 200 && data.name) {
+          console.log(`[COMPANY RESOLVE] "${name}" -> PDL name: "${data.name}", ID: ${data.id || "none"}`);
+          results.push({ original: name, pdl_name: data.name?.toLowerCase() || null, pdl_id: data.id || null });
+          continue;
+        }
+      }
+      const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
+        method: "POST",
+        headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ query: { bool: { must: [{ match: { name: name.toLowerCase() } }] } }, size: 1 }),
+      });
+      if (searchResp.ok) {
+        const searchData = await searchResp.json();
+        if (searchData.data && searchData.data.length > 0) {
+          const co = searchData.data[0];
+          console.log(`[COMPANY RESOLVE] "${name}" -> PDL search: "${co.name}", ID: ${co.id || "none"}`);
+          results.push({ original: name, pdl_name: co.name?.toLowerCase() || null, pdl_id: co.id || null });
+          continue;
+        }
+      }
+      console.log(`[COMPANY RESOLVE] "${name}" -> not resolved, using original`);
+      results.push({ original: name, pdl_name: null, pdl_id: null });
+    } catch (err) {
+      console.error(`[COMPANY RESOLVE] Error resolving "${name}":`, err);
+      results.push({ original: name, pdl_name: null, pdl_id: null });
+    }
+  }
+  return results;
+}
+
+/* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
 
