@@ -339,7 +339,7 @@ export function buildPDLQuery(
         titleClauses.push({ match_phrase: { job_title: t } });
         if (!currentRoleOnly) titleClauses.push({ match_phrase: { "experience.title.name": t } });
       } else {
-        const wc = addWildcard("job_title", `*${t}*`);
+        const wc = addWildcard("job_title", `${t}*`);
         if (wc) titleClauses.push(wc);
       }
     }
