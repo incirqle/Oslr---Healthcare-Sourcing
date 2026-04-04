@@ -284,7 +284,7 @@ export function buildPDLQuery(
     for (const emp of SPECIALTY_EMPLOYERS[specialtyStr]) {
       empClauses.push({ match_phrase: { job_company_name: emp } });
     }
-    softShould.push({ bool: { should: empClauses, minimum_should_match: 1 } });
+    softShould.push({ bool: { should: empClauses } });
   }
 
   // ═══════════════════════════════════════════
