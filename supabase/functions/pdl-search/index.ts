@@ -200,6 +200,55 @@ async function fetchPDLForFullSearch(
 }
 
 /* ------------------------------------------------------------------ */
+/* Company name resolution via PDL Company API                          */
+/* ------------------------------------------------------------------ */
+
+async function resolveCompanyNames(
+  companyNames: string[],
+  pdlApiKey: string,
+  pdlBaseUrl: string
+): Promise<Array<{ original: string; pdl_name: string | null; pdl_id: string | null }>> {
+  const results: Array<{ original: string; pdl_name: string | null; pdl_id: string | null }> = [];
+  for (const name of companyNames.slice(0, 5)) {
+    try {
+      const cleanUrl = `${pdlBaseUrl}/v5/company/clean?name=${encodeURIComponent(name)}&pretty=false`;
+      const resp = await fetch(cleanUrl, {
+        method: "GET",
+        headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === 200 && data.name) {
+          console.log(`[COMPANY RESOLVE] "${name}" -> PDL name: "${data.name}", ID: ${data.id || "none"}`);
+          results.push({ original: name, pdl_name: data.name?.toLowerCase() || null, pdl_id: data.id || null });
+          continue;
+        }
+      }
+      const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
+        method: "POST",
+        headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ query: { bool: { must: [{ match: { name: name.toLowerCase() } }] } }, size: 1 }),
+      });
+      if (searchResp.ok) {
+        const searchData = await searchResp.json();
+        if (searchData.data && searchData.data.length > 0) {
+          const co = searchData.data[0];
+          console.log(`[COMPANY RESOLVE] "${name}" -> PDL search: "${co.name}", ID: ${co.id || "none"}`);
+          results.push({ original: name, pdl_name: co.name?.toLowerCase() || null, pdl_id: co.id || null });
+          continue;
+        }
+      }
+      console.log(`[COMPANY RESOLVE] "${name}" -> not resolved, using original`);
+      results.push({ original: name, pdl_name: null, pdl_id: null });
+    } catch (err) {
+      console.error(`[COMPANY RESOLVE] Error resolving "${name}":`, err);
+      results.push({ original: name, pdl_name: null, pdl_id: null });
+    }
+  }
+  return results;
+}
+
+/* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -241,6 +290,30 @@ Deno.serve(async (req: Request) => {
     // Step 1: Parse query
     const parsed = await parseQuery(query, lovableKey, clientParsed);
     console.log("Parsed:", JSON.stringify(parsed));
+
+    // Step 1.5: Resolve company names via PDL Company API
+    const pdlApiKey = Deno.env.get("PDL_API_KEY");
+    const pdlBaseUrl = "https://api.peopledatalabs.com";
+    const rawCompanies: string[] = (() => {
+      const co = parsed.companies || parsed.company || parsed.current_company || parsed.current_companies || [];
+      return Array.isArray(co)
+        ? co.map((c: string) => c.trim()).filter(Boolean)
+        : typeof co === "string" && co
+          ? co.split(",").map((c: string) => c.trim()).filter(Boolean)
+          : [];
+    })();
+    if (rawCompanies.length > 0 && pdlApiKey) {
+      const resolved = await resolveCompanyNames(rawCompanies, pdlApiKey, pdlBaseUrl);
+      const resolvedIds = resolved.filter(r => r.pdl_id).map(r => r.pdl_id!);
+      const resolvedNames = resolved.filter(r => r.pdl_name).map(r => r.pdl_name!);
+      if (resolvedIds.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_ids = resolvedIds;
+      }
+      if (resolvedNames.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_names = resolvedNames;
+      }
+      console.log("[COMPANY] Resolved IDs:", resolvedIds, "Names:", resolvedNames);
+    }
 
     // Step 2: Build ES DSL query
     const pdlQuery = buildPDLQuery(parsed, filters);
