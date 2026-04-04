@@ -234,7 +234,7 @@ export function buildPDLQuery(
         companyClauses.push({ match_phrase: { job_company_name: v } });
       }
     }
-    must.push({ bool: { should: companyClauses } });
+    softShould.push({ bool: { should: companyClauses } });
   }
 
   if (pastCompanies.length > 0) {
@@ -245,7 +245,7 @@ export function buildPDLQuery(
         pastClauses.push({ match_phrase: { "experience.company.name": v } });
       }
     }
-    must.push({ bool: { should: pastClauses, minimum_should_match: 1 } });
+    must.push({ bool: { should: pastClauses } });
   }
 
   if (anyCompanies.length > 0) {
@@ -284,7 +284,7 @@ export function buildPDLQuery(
     for (const emp of SPECIALTY_EMPLOYERS[specialtyStr]) {
       empClauses.push({ match_phrase: { job_company_name: emp } });
     }
-    softShould.push({ bool: { should: empClauses, minimum_should_match: 1 } });
+    softShould.push({ bool: { should: empClauses } });
   }
 
   // ═══════════════════════════════════════════
@@ -331,6 +331,11 @@ export function buildPDLQuery(
   const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(jobTitles);
   const currentRoleOnly = parsed.current_role_only !== false;
 
+  // Titles that should NOT match via prefix wildcard (e.g. "physician" should not match "physician assistant")
+  const ASSISTANT_TITLES = ["physician assistant", "medical assistant", "dental assistant", "pharmacy assistant"];
+  const searchedTitlesLower = new Set(expandedTitles.map(t => t.toLowerCase()));
+  const hasExplicitAssistant = ASSISTANT_TITLES.some(at => searchedTitlesLower.has(at));
+
   if (expandedTitles.length > 0) {
     const titleClauses: Clause[] = [];
     for (const t of expandedTitles.slice(0, 20)) {
@@ -338,13 +343,23 @@ export function buildPDLQuery(
       if (wordCount >= 2) {
         titleClauses.push({ match_phrase: { job_title: t } });
         if (!currentRoleOnly) titleClauses.push({ match_phrase: { "experience.title.name": t } });
-      } else {
+      } else if (t.length >= 4) {
         const wc = addWildcard("job_title", `${t}*`);
         if (wc) titleClauses.push(wc);
+      } else {
+        // Short terms like "md", "do" — use exact match, not wildcard
+        titleClauses.push({ match: { job_title: t } });
       }
     }
     if (titleClauses.length > 0) {
       should.push({ bool: { should: titleClauses } });
+    }
+
+    // Exclude assistant-level titles unless explicitly searched
+    if (!hasExplicitAssistant) {
+      for (const at of ASSISTANT_TITLES) {
+        mustNot.push({ match_phrase: { job_title: at } });
+      }
     }
   }
 
