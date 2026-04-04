@@ -245,7 +245,7 @@ export function buildPDLQuery(
         pastClauses.push({ match_phrase: { "experience.company.name": v } });
       }
     }
-    must.push({ bool: { should: pastClauses, minimum_should_match: 1 } });
+    must.push({ bool: { should: pastClauses } });
   }
 
   if (anyCompanies.length > 0) {
