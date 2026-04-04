@@ -160,6 +160,7 @@ export const HEALTH_SYSTEM_DIVISIONS: Record<string, string[]> = {
   "trinity health": ["trinity health corporation", "mercy health", "saint alphonsus"],
   "advocate health": ["advocate aurora", "advocate health care", "aurora health care", "atrium health", "advocate aurora health"],
   "banner health": ["banner"],
+  "uc health": ["uchealth", "uc health", "university of colorado health"],
 };
 
 /* ------------------------------------------------------------------ */
