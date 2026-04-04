@@ -351,7 +351,7 @@ export function buildPDLQuery(
     "nurse recruiter", "nurse staffing",
   ];
   const searchedTitlesLower = new Set(expandedTitles.map(t => t.toLowerCase()));
-  const hasExplicitAssistant = ASSISTANT_TITLES.some(at => searchedTitlesLower.has(at));
+  const hasExplicitExcluded = EXCLUDED_TITLE_PHRASES.some(et => searchedTitlesLower.has(et));
 
   if (expandedTitles.length > 0) {
     const titleClauses: Clause[] = [];
