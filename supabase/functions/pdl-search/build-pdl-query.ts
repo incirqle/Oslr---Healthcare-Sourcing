@@ -228,13 +228,30 @@ export function buildPDLQuery(
 
   if (currentCompanies.length > 0) {
     const companyClauses: Clause[] = [];
-    for (const co of currentCompanies) {
-      const variants = getCompanyVariants(co);
-      for (const v of variants.slice(0, 5)) {
-        companyClauses.push({ match_phrase: { job_company_name: v } });
-      }
+    const resolvedIds = (parsed._resolved_company_ids as string[]) || [];
+    const resolvedNames = (parsed._resolved_company_names as string[]) || [];
+    for (const id of resolvedIds) {
+      companyClauses.push({ term: { job_company_id: id } });
     }
-    softShould.push({ bool: { should: companyClauses, boost: 100 } });
+    for (const name of resolvedNames) {
+      companyClauses.push({ term: { job_company_name: name } });
+    }
+    for (const co of currentCompanies) {
+      const allVariants = getCompanyVariants(normalizeCompany(co));
+      for (const variant of allVariants) {
+        companyClauses.push({ term: { job_company_name: variant } });
+      }
+      const lower = normalizeCompany(co);
+      const wcCurrent = addWildcard("job_company_name", `*${lower}*`);
+      if (wcCurrent) companyClauses.push(wcCurrent);
+    }
+    if (resolvedIds.length > 0) {
+      must.push({ bool: { should: companyClauses } });
+      console.log("Company MUST clause (PDL-resolved IDs + names + variants):", resolvedIds, resolvedNames);
+    } else {
+      softShould.push({ bool: { should: companyClauses, boost: 50 } });
+      console.log("Company SOFT clause (no resolved IDs, boost=50):", currentCompanies);
+    }
   }
 
   if (pastCompanies.length > 0) {
