@@ -176,6 +176,9 @@ export const COMPANY_ALIASES: Record<string, string> = {
   "partners": "mass general brigham",
   "mount sinai": "mount sinai",
   "nyp": "newyork-presbyterian",
+  "uc health": "uchealth",
+  "uchealth": "uchealth",
+  "university of colorado health": "uchealth",
 };
 
 /* ------------------------------------------------------------------ */

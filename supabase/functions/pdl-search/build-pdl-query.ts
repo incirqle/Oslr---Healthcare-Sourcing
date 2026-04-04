@@ -404,6 +404,42 @@ export function buildPDLQuery(
     filterClauses.push({ term: { job_title_role: "health" } });
   }
 
+  // Doctor-specific title exclusions
+  const doctorTerms = ["physician", "doctor", "md", "surgeon", "attending"];
+  const isDoctorSearch = jobTitles.some(t => doctorTerms.some(dt => t.includes(dt)));
+  const isExplicitAssistantSearch = jobTitles.some(t =>
+    t.includes("assistant") || t.includes("liaison") || t.includes("recruiter") ||
+    t.includes("technologist") || t.includes("technician") || t.includes("coordinator") ||
+    t.includes("pa-c") || t.includes("physician associate")
+  );
+  if (isDoctorSearch && !isExplicitAssistantSearch) {
+    const nonDoctorExclusions = [
+      "physician assistant", "physician associate", "pa-c",
+      "medical assistant", "certified medical assistant",
+      "dental assistant", "pharmacy assistant",
+      "certified nursing assistant", "nursing assistant",
+      "physician liaison", "physician recruiter", "physician relations",
+      "physician advisor", "physician billing", "physician coder",
+      "physician scheduler", "physician services", "physician sales",
+      "surgical technologist", "certified surgical technologist",
+      "surgical technician", "surgical tech",
+      "surgical coordinator", "surgical scheduler",
+      "surgical neurophysiologist", "neurophysiologist",
+      "neuromonitoring technologist", "neuromonitoring tech",
+      "doctor of physical therapy", "doctor of chiropractic",
+      "doctor of optometry", "doctor of naturopathic",
+      "doctor of podiatric",
+      "medical receptionist", "medical biller", "medical coder",
+      "medical secretary", "medical records", "medical transcriptionist",
+      "nurse recruiter", "nurse staffing",
+      "doctor's assistant",
+    ];
+    for (const phrase of nonDoctorExclusions) {
+      mustNot.push({ match_phrase: { "job_title.text": phrase } });
+    }
+    console.log("Doctor-specific exclusions applied:", nonDoctorExclusions.length, "phrases excluded");
+  }
+
   // ROLE FOCUS FALLBACK
   if (jobTitles.length === 0 && personNames.length === 0 && !isSpecialtyOnlyQuery) {
     const roleShouldClauses: Clause[] = [];

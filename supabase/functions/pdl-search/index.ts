@@ -291,6 +291,30 @@ Deno.serve(async (req: Request) => {
     const parsed = await parseQuery(query, lovableKey, clientParsed);
     console.log("Parsed:", JSON.stringify(parsed));
 
+    // Step 1.5: Resolve company names via PDL Company API
+    const pdlApiKey = Deno.env.get("PDL_API_KEY");
+    const pdlBaseUrl = "https://api.peopledatalabs.com";
+    const rawCompanies: string[] = (() => {
+      const co = parsed.companies || parsed.company || parsed.current_company || parsed.current_companies || [];
+      return Array.isArray(co)
+        ? co.map((c: string) => c.trim()).filter(Boolean)
+        : typeof co === "string" && co
+          ? co.split(",").map((c: string) => c.trim()).filter(Boolean)
+          : [];
+    })();
+    if (rawCompanies.length > 0 && pdlApiKey) {
+      const resolved = await resolveCompanyNames(rawCompanies, pdlApiKey, pdlBaseUrl);
+      const resolvedIds = resolved.filter(r => r.pdl_id).map(r => r.pdl_id!);
+      const resolvedNames = resolved.filter(r => r.pdl_name).map(r => r.pdl_name!);
+      if (resolvedIds.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_ids = resolvedIds;
+      }
+      if (resolvedNames.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_names = resolvedNames;
+      }
+      console.log("[COMPANY] Resolved IDs:", resolvedIds, "Names:", resolvedNames);
+    }
+
     // Step 2: Build ES DSL query
     const pdlQuery = buildPDLQuery(parsed, filters);
     console.log("PDL Query built:", JSON.stringify(pdlQuery).slice(0, 500));
