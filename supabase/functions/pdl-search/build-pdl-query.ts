@@ -234,7 +234,7 @@ export function buildPDLQuery(
         companyClauses.push({ match_phrase: { job_company_name: v } });
       }
     }
-    should.push({ bool: { should: companyClauses, minimum_should_match: 1 } });
+    softShould.push({ bool: { should: companyClauses, minimum_should_match: 1 } });
   }
 
   if (pastCompanies.length > 0) {
