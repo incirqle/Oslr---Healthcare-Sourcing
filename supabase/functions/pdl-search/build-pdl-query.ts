@@ -373,9 +373,9 @@ export function buildPDLQuery(
     }
 
     // Exclude assistant-level titles unless explicitly searched
-    if (!hasExplicitAssistant) {
-      for (const at of ASSISTANT_TITLES) {
-        mustNot.push({ match_phrase: { job_title: at } });
+    if (!hasExplicitExcluded) {
+      for (const et of EXCLUDED_TITLE_PHRASES) {
+        mustNot.push({ match_phrase: { job_title: et } });
       }
     }
   }
