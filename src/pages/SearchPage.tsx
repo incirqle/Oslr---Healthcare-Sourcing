@@ -104,6 +104,8 @@ export default function SearchPage() {
             companies: filters.companies,
             keywords: filters.keywords,
             specialties: filters.specialties,
+            city: filters.locations[0]?.split(/,|\s+/)[0] || undefined,
+            states: filters.locations.length > 0 ? filters.locations.map((loc) => loc.toLowerCase()).filter(Boolean) : undefined,
           },
           parsed: parsedPayload,
           page: searchPage - 1,
