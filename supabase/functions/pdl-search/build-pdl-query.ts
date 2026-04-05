@@ -393,13 +393,6 @@ export function buildPDLQuery(
     if (titleClauses.length > 0) {
       should.push({ bool: { should: titleClauses } });
     }
-
-    // Exclude assistant-level titles unless explicitly searched
-    if (!hasExplicitExcluded) {
-      for (const et of EXCLUDED_TITLE_PHRASES) {
-        mustNot.push({ match_phrase: { job_title: et } });
-      }
-    }
   }
 
   // ═══════════════════════════════════════════
