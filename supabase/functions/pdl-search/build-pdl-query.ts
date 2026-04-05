@@ -280,7 +280,12 @@ export function buildPDLQuery(
   // ═══════════════════════════════════════════
   // SPECIALTY + KEYWORD SCORING
   // ═══════════════════════════════════════════
-  const specialties = (parsed.specialties as string[]) || (filters.specialties as string[]) || [];
+  const specialties = [
+    ...new Set([
+      ...(((parsed.specialties as string[]) || (filters.specialties as string[]) || []).map(s => s.toLowerCase())),
+      ...((((parsed.specialty ? [parsed.specialty] : []) as string[]) || []).map(s => s.toLowerCase())),
+    ]),
+  ];
   const requiredKeywords = (parsed.required_keywords as string[]) || (filters.keywords as string[]) || [];
   const allKeywordTerms = [...new Set([...specialties, ...requiredKeywords])];
 
@@ -295,7 +300,7 @@ export function buildPDLQuery(
   }
 
   // Specialty employer boost
-  const specialtyStr = (parsed.specialty as string) || (specialties.length > 0 ? specialties[0] : null);
+  const specialtyStr = specialties.length > 0 ? specialties[0] : ((parsed.specialty as string) || null);
   if (specialtyStr && SPECIALTY_EMPLOYERS[specialtyStr]) {
     const empClauses: Clause[] = [];
     for (const emp of SPECIALTY_EMPLOYERS[specialtyStr]) {
