@@ -311,7 +311,9 @@ export function buildPDLQuery(
       const wc = addWildcard("skills", `*${kw}*`);
       if (wc) kwClauses.push(wc);
     }
-    should.push({ bool: { should: kwClauses } });
+    if (kwClauses.length > 0) {
+      must.push({ bool: { should: kwClauses } });
+    }
   }
 
   // Specialty employer boost
