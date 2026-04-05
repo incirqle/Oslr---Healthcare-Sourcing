@@ -172,7 +172,7 @@ export function buildPDLQuery(
   const allStates = strictFilterMode
     ? filterStates
     : (hasStateFilter ? filterStates : aiLocations.filter(l => l.state).map(l => l.state as string));
-  const uniqueStates = [...new Set(allStates.map(s => s.toLowerCase()))];
+  const uniqueStates = [...new Set(allStates.map(s => normalizeState(s)))];
 
   if (uniqueCities.length > 0) {
     const locationClauses: Clause[] = [];
