@@ -444,14 +444,15 @@ export function buildPDLQuery(
   // ═══════════════════════════════════════════
   // ASSEMBLE FINAL QUERY
   // ═══════════════════════════════════════════
-  const finalMust = [...must, ...should];
+  // should = scoring boosts (titles, keywords), must = hard requirements (company)
+  const allShould = [...should, ...softShould];
 
   const query: Clause = {
     bool: {
       filter: filterClauses,
-      ...(finalMust.length > 0 ? { must: finalMust } : {}),
+      ...(must.length > 0 ? { must } : {}),
       ...(mustNot.length > 0 ? { must_not: mustNot } : {}),
-      ...(softShould.length > 0 ? { should: softShould } : {}),
+      ...(allShould.length > 0 ? { should: allShould } : {}),
     },
   };
 
