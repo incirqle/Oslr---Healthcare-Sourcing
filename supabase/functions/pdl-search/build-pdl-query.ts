@@ -20,7 +20,22 @@ import {
   TITLE_EXPANSIONS,
   CITY_TO_METRO,
   NEARBY_CITIES,
+  US_STATES,
 } from "./config.ts";
+
+/* ------------------------------------------------------------------ */
+/* State abbreviation → full name reverse lookup                       */
+/* ------------------------------------------------------------------ */
+const ABBREV_TO_STATE: Record<string, string> = {};
+for (const [full, abbr] of Object.entries(US_STATES)) {
+  ABBREV_TO_STATE[abbr.toLowerCase()] = full;
+}
+
+function normalizeState(s: string): string {
+  const lower = s.toLowerCase().trim();
+  // If it's a 2-letter abbreviation, expand to full name
+  return ABBREV_TO_STATE[lower] ?? lower;
+}
 
 /* ------------------------------------------------------------------ */
 /* Nearby cities helper                                                 */
