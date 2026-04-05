@@ -456,7 +456,7 @@ export function buildPDLQuery(
     },
   };
 
-  console.log("Final query — filter:", filterClauses.length, "| must:", finalMust.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
+  console.log("Final query — filter:", filterClauses.length, "| must:", must.length, "| should:", allShould.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
   return query;
 }
 
