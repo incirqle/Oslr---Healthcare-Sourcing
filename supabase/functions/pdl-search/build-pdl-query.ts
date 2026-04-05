@@ -413,27 +413,13 @@ export function buildPDLQuery(
   if (isDoctorSearch && !isExplicitAssistantSearch) {
     const nonDoctorExclusions = [
       "physician assistant", "physician associate", "pa-c",
-      "medical assistant", "certified medical assistant",
-      "dental assistant", "pharmacy assistant",
-      "certified nursing assistant", "nursing assistant",
-      "physician liaison", "physician recruiter", "physician relations",
-      "physician advisor", "physician billing", "physician coder",
-      "physician scheduler", "physician services", "physician sales",
-      "surgical technologist", "certified surgical technologist",
-      "surgical technician", "surgical tech",
-      "surgical coordinator", "surgical scheduler",
-      "surgical neurophysiologist", "neurophysiologist",
-      "neuromonitoring technologist", "neuromonitoring tech",
+      "medical assistant", "dental assistant", "pharmacy assistant",
+      "nursing assistant", "physician liaison", "physician recruiter",
+      "surgical technologist", "surgical technician",
       "doctor of physical therapy", "doctor of chiropractic",
-      "doctor of optometry", "doctor of naturopathic",
-      "doctor of podiatric",
-      "medical receptionist", "medical biller", "medical coder",
-      "medical secretary", "medical records", "medical transcriptionist",
-      "nurse recruiter", "nurse staffing",
-      "doctor's assistant",
     ];
     for (const phrase of nonDoctorExclusions) {
-      mustNot.push({ match_phrase: { "job_title.text": phrase } });
+      mustNot.push({ match_phrase: { job_title: phrase } });
     }
     console.log("Doctor-specific exclusions applied:", nonDoctorExclusions.length, "phrases excluded");
   }
