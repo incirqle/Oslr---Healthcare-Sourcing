@@ -353,28 +353,6 @@ export function buildPDLQuery(
   const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(jobTitles);
   const currentRoleOnly = parsed.current_role_only !== false;
 
-  // Titles that should NOT match via prefix wildcard (e.g. "physician" should not match "physician assistant")
-  const EXCLUDED_TITLE_PHRASES = [
-    "physician assistant", "physician associate", "pa-c",
-    "medical assistant", "certified medical assistant",
-    "dental assistant", "pharmacy assistant",
-    "certified nursing assistant", "nursing assistant",
-    "physician liaison", "physician recruiter", "physician relations",
-    "physician advisor", "physician billing", "physician coder",
-    "physician scheduler", "physician services", "physician sales",
-    "surgical technologist", "certified surgical technologist",
-    "surgical technician", "surgical tech",
-    "surgical coordinator", "surgical scheduler",
-    "surgical neurophysiologist", "neurophysiologist",
-    "neuromonitoring technologist", "neuromonitoring tech",
-    "doctor of physical therapy", "doctor of chiropractic",
-    "medical receptionist", "medical biller", "medical coder",
-    "medical secretary", "medical records", "medical transcriptionist",
-    "nurse recruiter", "nurse staffing",
-  ];
-  const searchedTitlesLower = new Set(expandedTitles.map(t => t.toLowerCase()));
-  const hasExplicitExcluded = EXCLUDED_TITLE_PHRASES.some(et => searchedTitlesLower.has(et));
-
   if (expandedTitles.length > 0) {
     const titleClauses: Clause[] = [];
     for (const t of expandedTitles.slice(0, 20)) {
@@ -386,7 +364,6 @@ export function buildPDLQuery(
         const wc = addWildcard("job_title", `${t}*`);
         if (wc) titleClauses.push(wc);
       } else {
-        // Short terms like "md", "do" — use exact match, not wildcard
         titleClauses.push({ match: { job_title: t } });
       }
     }
