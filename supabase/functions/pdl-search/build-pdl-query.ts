@@ -20,7 +20,22 @@ import {
   TITLE_EXPANSIONS,
   CITY_TO_METRO,
   NEARBY_CITIES,
+  US_STATES,
 } from "./config.ts";
+
+/* ------------------------------------------------------------------ */
+/* State abbreviation → full name reverse lookup                       */
+/* ------------------------------------------------------------------ */
+const ABBREV_TO_STATE: Record<string, string> = {};
+for (const [full, abbr] of Object.entries(US_STATES)) {
+  ABBREV_TO_STATE[abbr.toLowerCase()] = full;
+}
+
+function normalizeState(s: string): string {
+  const lower = s.toLowerCase().trim();
+  // If it's a 2-letter abbreviation, expand to full name
+  return ABBREV_TO_STATE[lower] ?? lower;
+}
 
 /* ------------------------------------------------------------------ */
 /* Nearby cities helper                                                 */
@@ -157,7 +172,7 @@ export function buildPDLQuery(
   const allStates = strictFilterMode
     ? filterStates
     : (hasStateFilter ? filterStates : aiLocations.filter(l => l.state).map(l => l.state as string));
-  const uniqueStates = [...new Set(allStates.map(s => s.toLowerCase()))];
+  const uniqueStates = [...new Set(allStates.map(s => normalizeState(s)))];
 
   if (uniqueCities.length > 0) {
     const locationClauses: Clause[] = [];
@@ -353,28 +368,6 @@ export function buildPDLQuery(
   const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(jobTitles);
   const currentRoleOnly = parsed.current_role_only !== false;
 
-  // Titles that should NOT match via prefix wildcard (e.g. "physician" should not match "physician assistant")
-  const EXCLUDED_TITLE_PHRASES = [
-    "physician assistant", "physician associate", "pa-c",
-    "medical assistant", "certified medical assistant",
-    "dental assistant", "pharmacy assistant",
-    "certified nursing assistant", "nursing assistant",
-    "physician liaison", "physician recruiter", "physician relations",
-    "physician advisor", "physician billing", "physician coder",
-    "physician scheduler", "physician services", "physician sales",
-    "surgical technologist", "certified surgical technologist",
-    "surgical technician", "surgical tech",
-    "surgical coordinator", "surgical scheduler",
-    "surgical neurophysiologist", "neurophysiologist",
-    "neuromonitoring technologist", "neuromonitoring tech",
-    "doctor of physical therapy", "doctor of chiropractic",
-    "medical receptionist", "medical biller", "medical coder",
-    "medical secretary", "medical records", "medical transcriptionist",
-    "nurse recruiter", "nurse staffing",
-  ];
-  const searchedTitlesLower = new Set(expandedTitles.map(t => t.toLowerCase()));
-  const hasExplicitExcluded = EXCLUDED_TITLE_PHRASES.some(et => searchedTitlesLower.has(et));
-
   if (expandedTitles.length > 0) {
     const titleClauses: Clause[] = [];
     for (const t of expandedTitles.slice(0, 20)) {
@@ -386,19 +379,11 @@ export function buildPDLQuery(
         const wc = addWildcard("job_title", `${t}*`);
         if (wc) titleClauses.push(wc);
       } else {
-        // Short terms like "md", "do" — use exact match, not wildcard
         titleClauses.push({ match: { job_title: t } });
       }
     }
     if (titleClauses.length > 0) {
       should.push({ bool: { should: titleClauses } });
-    }
-
-    // Exclude assistant-level titles unless explicitly searched
-    if (!hasExplicitExcluded) {
-      for (const et of EXCLUDED_TITLE_PHRASES) {
-        mustNot.push({ match_phrase: { job_title: et } });
-      }
     }
   }
 
@@ -420,27 +405,13 @@ export function buildPDLQuery(
   if (isDoctorSearch && !isExplicitAssistantSearch) {
     const nonDoctorExclusions = [
       "physician assistant", "physician associate", "pa-c",
-      "medical assistant", "certified medical assistant",
-      "dental assistant", "pharmacy assistant",
-      "certified nursing assistant", "nursing assistant",
-      "physician liaison", "physician recruiter", "physician relations",
-      "physician advisor", "physician billing", "physician coder",
-      "physician scheduler", "physician services", "physician sales",
-      "surgical technologist", "certified surgical technologist",
-      "surgical technician", "surgical tech",
-      "surgical coordinator", "surgical scheduler",
-      "surgical neurophysiologist", "neurophysiologist",
-      "neuromonitoring technologist", "neuromonitoring tech",
+      "medical assistant", "dental assistant", "pharmacy assistant",
+      "nursing assistant", "physician liaison", "physician recruiter",
+      "surgical technologist", "surgical technician",
       "doctor of physical therapy", "doctor of chiropractic",
-      "doctor of optometry", "doctor of naturopathic",
-      "doctor of podiatric",
-      "medical receptionist", "medical biller", "medical coder",
-      "medical secretary", "medical records", "medical transcriptionist",
-      "nurse recruiter", "nurse staffing",
-      "doctor's assistant",
     ];
     for (const phrase of nonDoctorExclusions) {
-      mustNot.push({ match_phrase: { "job_title.text": phrase } });
+      mustNot.push({ match_phrase: { job_title: phrase } });
     }
     console.log("Doctor-specific exclusions applied:", nonDoctorExclusions.length, "phrases excluded");
   }
@@ -465,18 +436,19 @@ export function buildPDLQuery(
   // ═══════════════════════════════════════════
   // ASSEMBLE FINAL QUERY
   // ═══════════════════════════════════════════
-  const finalMust = [...must, ...should];
+  // should = scoring boosts (titles, keywords), must = hard requirements (company)
+  const allShould = [...should, ...softShould];
 
   const query: Clause = {
     bool: {
       filter: filterClauses,
-      ...(finalMust.length > 0 ? { must: finalMust } : {}),
+      ...(must.length > 0 ? { must } : {}),
       ...(mustNot.length > 0 ? { must_not: mustNot } : {}),
-      ...(softShould.length > 0 ? { should: softShould } : {}),
+      ...(allShould.length > 0 ? { should: allShould } : {}),
     },
   };
 
-  console.log("Final query — filter:", filterClauses.length, "| must:", finalMust.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
+  console.log("Final query — filter:", filterClauses.length, "| must:", must.length, "| should:", allShould.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
   return query;
 }
 
