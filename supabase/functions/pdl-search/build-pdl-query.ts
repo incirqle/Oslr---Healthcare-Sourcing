@@ -385,7 +385,7 @@ export function buildPDLQuery(
       }
     }
     if (titleClauses.length > 0) {
-      should.push({ bool: { should: titleClauses } });
+      must.push({ bool: { should: titleClauses } });
     }
   }
 
