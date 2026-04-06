@@ -213,8 +213,10 @@ export default function SearchPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === candidates.length) setSelected(new Set());
-    else setSelected(new Set(candidates.map((c) => c.id)));
+    const selectableIds = candidates.filter((c) => !savedIds.has(c.id)).map((c) => c.id);
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(selectableIds));
   };
 
   const selectedCandidates = candidates.filter((c) => selected.has(c.id));
@@ -273,6 +275,7 @@ export default function SearchPage() {
 
         {step === "results" && (
           <SearchResults
+            query={query}
             candidates={candidates}
             total={total}
             selected={selected}
@@ -281,10 +284,10 @@ export default function SearchPage() {
             onToggleSelect={toggleSelect}
             onToggleSelectAll={toggleSelectAll}
             onOpenCandidate={setDrawerCandidate}
-            onSaveSingle={(c) => handleSaveCandidates([c])}
             onSaveBulk={() => handleSaveCandidates(selectedCandidates)}
             onEditFilters={() => setStep("review")}
             onNewSearch={handleReset}
+            onSubmitQuery={handleInitialSearch}
             page={page}
             pageSize={pageSize}
             onPageChange={handlePageChange}
@@ -305,7 +308,10 @@ export default function SearchPage() {
         open={!!drawerCandidate}
         onOpenChange={(open) => !open && setDrawerCandidate(null)}
         candidate={drawerCandidate}
-        projectId={projectId || ""}
+        projectId={projectId}
+        isSaved={drawerCandidate ? savedIds.has(drawerCandidate.id) : false}
+        isSavingCandidate={addCandidates.isPending}
+        onSaveCandidate={drawerCandidate ? () => handleSaveCandidates([drawerCandidate]) : undefined}
       />
     </AppLayout>
   );
