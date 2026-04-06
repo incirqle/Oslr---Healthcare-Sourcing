@@ -201,6 +201,8 @@ async function fetchPDLForFullSearch(
 
 /* ------------------------------------------------------------------ */
 /* Company name resolution via PDL Company API                          */
+/* ENHANCED: Cleaner → Enrichment → Autocomplete → Root Extraction     */
+/* Discovers affiliated entities to solve health system fragmentation   */
 /* ------------------------------------------------------------------ */
 
 interface ResolvedCompany {
@@ -209,6 +211,40 @@ interface ResolvedCompany {
   pdl_id: string | null;
   website: string | null;
   linkedin_url: string | null;
+  alt_names: string[];
+  affiliated_ids: string[];
+  affiliated_names: string[];
+  wildcards: string[];
+}
+
+/** Health-related keywords for filtering Autocomplete results */
+const HEALTH_NAME_KEYWORDS = [
+  "medical", "medicine", "hospital", "health", "clinic", "anschutz",
+  "surgery", "surgical", "nursing", "physician", "doctor", "dental",
+  "pharma", "rehab", "rehabilitation", "cancer", "heart", "children",
+  "memorial", "mercy", "presbyterian", "baptist", "methodist", "lutheran",
+  "saint", "st.", "mount sinai", "cedars", "kaiser", "mayo",
+];
+
+function nameIsHealthRelated(name: string): boolean {
+  const lower = name.toLowerCase();
+  return HEALTH_NAME_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+/** Extract root organizational name from alternative names. */
+function extractRootNames(altNames: string[], canonicalName: string): string[] {
+  const roots = new Set<string>();
+  const uniPattern = /^(university of [a-z]+)/i;
+  for (const name of altNames) {
+    const uniMatch = name.match(uniPattern);
+    if (uniMatch) {
+      roots.add(uniMatch[1].toLowerCase());
+    }
+  }
+  if (canonicalName) {
+    roots.add(canonicalName.toLowerCase());
+  }
+  return [...roots];
 }
 
 async function resolveCompanyNames(
@@ -217,8 +253,19 @@ async function resolveCompanyNames(
   pdlBaseUrl: string
 ): Promise<ResolvedCompany[]> {
   const results: ResolvedCompany[] = [];
+
   for (const name of companyNames.slice(0, 5)) {
+    let pdlName: string | null = null;
+    let pdlId: string | null = null;
+    let website: string | null = null;
+    let linkedinUrl: string | null = null;
+    const altNames: string[] = [];
+    const affiliatedIds: string[] = [];
+    const affiliatedNames: string[] = [];
+    const wildcards: string[] = [];
+
     try {
+      // ── Step 1: Company Cleaner (free) ──
       const cleanUrl = `${pdlBaseUrl}/v5/company/clean?name=${encodeURIComponent(name)}&pretty=false`;
       const resp = await fetch(cleanUrl, {
         method: "GET",
@@ -227,43 +274,158 @@ async function resolveCompanyNames(
       if (resp.ok) {
         const data = await resp.json();
         if (data.status === 200 && data.name) {
-          console.log(`[COMPANY RESOLVE] "${name}" -> PDL name: "${data.name}", ID: ${data.id || "none"}, website: ${data.website || "none"}`);
-          results.push({
-            original: name,
-            pdl_name: data.name?.toLowerCase() || null,
-            pdl_id: data.id || null,
-            website: data.website || null,
-            linkedin_url: data.linkedin_url || null,
-          });
-          continue;
+          pdlName = data.name?.toLowerCase() || null;
+          pdlId = data.id || null;
+          website = data.website || null;
+          linkedinUrl = data.linkedin_url || null;
+          console.log(`[COMPANY RESOLVE] Step 1 Cleaner: "${name}" -> "${pdlName}", ID: ${pdlId}`);
         }
       }
-      // Fallback: Company Search API
-      const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
-        method: "POST",
-        headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ query: { bool: { must: [{ match: { name: name.toLowerCase() } }] } }, size: 1 }),
+
+      // If Cleaner failed, try Company Search as fallback
+      if (!pdlName) {
+        const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
+          method: "POST",
+          headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: { bool: { must: [{ match: { name: name.toLowerCase() } }] } },
+            size: 1,
+          }),
+        });
+        if (searchResp.ok) {
+          const searchData = await searchResp.json();
+          if (searchData.data && searchData.data.length > 0) {
+            const co = searchData.data[0];
+            pdlName = co.name?.toLowerCase() || null;
+            pdlId = co.id || null;
+            website = co.website || null;
+            linkedinUrl = co.linkedin_url || null;
+            console.log(`[COMPANY RESOLVE] Step 1 Search fallback: "${name}" -> "${pdlName}"`);
+          }
+        }
+      }
+
+      if (!pdlName) {
+        console.log(`[COMPANY RESOLVE] "${name}" -> not resolved, using original`);
+        results.push({
+          original: name, pdl_name: null, pdl_id: null, website: null,
+          linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
+        });
+        continue;
+      }
+
+      // ── Step 2: Company Enrichment by name (1 credit) ──
+      try {
+        const enrichUrl = `${pdlBaseUrl}/v5/company/enrich?name=${encodeURIComponent(pdlName)}&pretty=false`;
+        const enrichResp = await fetch(enrichUrl, {
+          method: "GET",
+          headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+        });
+        if (enrichResp.ok) {
+          const enrichData = await enrichResp.json();
+          if (Array.isArray(enrichData.alternative_names)) {
+            for (const altName of enrichData.alternative_names) {
+              if (typeof altName === "string" && altName.length > 0) {
+                altNames.push(altName.toLowerCase());
+              }
+            }
+          }
+          if (Array.isArray(enrichData.affiliated_profiles)) {
+            for (const affId of enrichData.affiliated_profiles) {
+              if (typeof affId === "string" && affId.length > 0) {
+                affiliatedIds.push(affId);
+              }
+            }
+          }
+          console.log(`[COMPANY RESOLVE] Step 2 Enrich: ${altNames.length} alt names, ${affiliatedIds.length} affiliated IDs`);
+        }
+      } catch (enrichErr) {
+        console.error(`[COMPANY RESOLVE] Enrichment error for "${pdlName}":`, enrichErr);
+      }
+
+      // ── Step 3: Autocomplete discovery (free) ──
+      const rootNames = extractRootNames(altNames, pdlName);
+      for (const rootName of rootNames.slice(0, 3)) {
+        try {
+          const autoUrl = `${pdlBaseUrl}/v5/autocomplete?field=company&text=${encodeURIComponent(rootName)}&size=20&pretty=false`;
+          const autoResp = await fetch(autoUrl, {
+            method: "GET",
+            headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+          });
+          if (autoResp.ok) {
+            const autoData = await autoResp.json();
+            if (Array.isArray(autoData.data)) {
+              for (const item of autoData.data) {
+                const itemName = (item.name || "").toLowerCase();
+                if (itemName && nameIsHealthRelated(itemName)) {
+                  if (!altNames.includes(itemName) && itemName !== pdlName) {
+                    altNames.push(itemName);
+                  }
+                }
+              }
+            }
+          }
+        } catch (autoErr) {
+          console.error(`[COMPANY RESOLVE] Autocomplete error for "${rootName}":`, autoErr);
+        }
+      }
+      console.log(`[COMPANY RESOLVE] Step 3 Autocomplete: total ${altNames.length} alt names after discovery`);
+
+      // ── Step 4: Resolve affiliated company IDs to names ──
+      for (const affId of affiliatedIds.slice(0, 5)) {
+        try {
+          const affSearchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
+            method: "POST",
+            headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: { bool: { must: [{ term: { id: affId } }] } },
+              size: 1,
+            }),
+          });
+          if (affSearchResp.ok) {
+            const affData = await affSearchResp.json();
+            if (affData.data && affData.data.length > 0) {
+              const affName = affData.data[0].name?.toLowerCase();
+              if (affName) {
+                affiliatedNames.push(affName);
+                if (!altNames.includes(affName)) {
+                  altNames.push(affName);
+                }
+              }
+            }
+          }
+        } catch (affErr) {
+          console.error(`[COMPANY RESOLVE] Affiliated resolve error for ID "${affId}":`, affErr);
+        }
+      }
+
+      // ── Step 5: Generate wildcards from root names ──
+      for (const rootName of rootNames) {
+        wildcards.push(`*${rootName}*`);
+      }
+      if (pdlName && !rootNames.includes(pdlName)) {
+        wildcards.push(`*${pdlName}*`);
+      }
+
+      console.log(`[COMPANY RESOLVE] Final: "${name}" -> name="${pdlName}", ${altNames.length} alt names, ${affiliatedIds.length} affiliates, ${wildcards.length} wildcards`);
+
+      results.push({
+        original: name,
+        pdl_name: pdlName,
+        pdl_id: pdlId,
+        website,
+        linkedin_url: linkedinUrl,
+        alt_names: [...new Set(altNames)],
+        affiliated_ids: [...new Set(affiliatedIds)],
+        affiliated_names: [...new Set(affiliatedNames)],
+        wildcards: [...new Set(wildcards)],
       });
-      if (searchResp.ok) {
-        const searchData = await searchResp.json();
-        if (searchData.data && searchData.data.length > 0) {
-          const co = searchData.data[0];
-          console.log(`[COMPANY RESOLVE] "${name}" -> PDL search: "${co.name}", ID: ${co.id || "none"}`);
-          results.push({
-            original: name,
-            pdl_name: co.name?.toLowerCase() || null,
-            pdl_id: co.id || null,
-            website: co.website || null,
-            linkedin_url: co.linkedin_url || null,
-          });
-          continue;
-        }
-      }
-      console.log(`[COMPANY RESOLVE] "${name}" -> not resolved, using original`);
-      results.push({ original: name, pdl_name: null, pdl_id: null, website: null, linkedin_url: null });
     } catch (err) {
       console.error(`[COMPANY RESOLVE] Error resolving "${name}":`, err);
-      results.push({ original: name, pdl_name: null, pdl_id: null, website: null, linkedin_url: null });
+      results.push({
+        original: name, pdl_name: null, pdl_id: null, website: null,
+        linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
+      });
     }
   }
   return results;
