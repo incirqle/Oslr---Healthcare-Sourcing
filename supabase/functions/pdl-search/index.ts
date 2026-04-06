@@ -217,6 +217,72 @@ interface ResolvedCompany {
   wildcards: string[];
 }
 
+/** Strip trailing city/state names that the parser may have accidentally merged
+ *  e.g. "uc health denver" → "uc health", "hca dallas texas" → "hca"
+ */
+const US_CITIES_COMMON = new Set([
+  "denver", "aurora", "boulder", "colorado springs", "fort collins",
+  "dallas", "houston", "austin", "san antonio", "fort worth",
+  "phoenix", "tucson", "scottsdale", "mesa",
+  "atlanta", "savannah", "marietta",
+  "miami", "orlando", "tampa", "jacksonville",
+  "chicago", "springfield", "naperville",
+  "new york", "brooklyn", "manhattan",
+  "los angeles", "san francisco", "san diego", "san jose", "sacramento",
+  "seattle", "portland", "boston", "philadelphia", "pittsburgh",
+  "rochester", "minneapolis", "st. louis", "nashville", "memphis",
+  "charlotte", "raleigh", "durham", "chapel hill",
+  "detroit", "cleveland", "columbus", "cincinnati",
+  "baltimore", "indianapolis", "milwaukee", "kansas city",
+  "salt lake city", "las vegas", "richmond", "norfolk",
+]);
+
+const US_STATES_COMMON = new Set([
+  "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
+  "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho",
+  "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana",
+  "maine", "maryland", "massachusetts", "michigan", "minnesota",
+  "mississippi", "missouri", "montana", "nebraska", "nevada",
+  "new hampshire", "new jersey", "new mexico", "new york", "north carolina",
+  "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania",
+  "rhode island", "south carolina", "south dakota", "tennessee", "texas",
+  "utah", "vermont", "virginia", "washington", "west virginia",
+  "wisconsin", "wyoming",
+  "al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga",
+  "hi", "id", "il", "in", "ia", "ks", "ky", "la", "me", "md",
+  "ma", "mi", "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj",
+  "nm", "ny", "nc", "nd", "oh", "ok", "or", "pa", "ri", "sc",
+  "sd", "tn", "tx", "ut", "vt", "va", "wa", "wv", "wi", "wy",
+]);
+
+function stripLocationFromCompanyName(name: string): string {
+  const lower = name.toLowerCase().trim();
+  const words = lower.split(/\s+/);
+
+  let stripped = words.slice();
+  for (let i = words.length - 1; i >= 1; i--) {
+    if (US_CITIES_COMMON.has(stripped[i]) || US_STATES_COMMON.has(stripped[i])) {
+      stripped = stripped.slice(0, i);
+      continue;
+    }
+    if (i >= 2) {
+      const twoWord = `${stripped[i - 1]} ${stripped[i]}`;
+      if (US_CITIES_COMMON.has(twoWord) || US_STATES_COMMON.has(twoWord)) {
+        stripped = stripped.slice(0, i - 1);
+        continue;
+      }
+    }
+    break;
+  }
+
+  const result = stripped.join(" ").trim();
+  if (result.length > 0 && result !== lower) {
+    console.log(`[COMPANY RESOLVE] Stripped location: "${lower}" → "${result}"`);
+    return result;
+  }
+  return lower;
+}
+
 /** Health-related keywords for filtering Autocomplete results */
 const HEALTH_NAME_KEYWORDS = [
   "medical", "medicine", "hospital", "health", "clinic", "anschutz",
@@ -266,47 +332,57 @@ async function resolveCompanyNames(
 
     try {
       // ── Step 1: Company Cleaner (free) ──
-      const cleanUrl = `${pdlBaseUrl}/v5/company/clean?name=${encodeURIComponent(name)}&pretty=false`;
-      const resp = await fetch(cleanUrl, {
-        method: "GET",
-        headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.status === 200 && data.name) {
-          pdlName = data.name?.toLowerCase() || null;
-          pdlId = data.id || null;
-          website = data.website || null;
-          linkedinUrl = data.linkedin_url || null;
-          console.log(`[COMPANY RESOLVE] Step 1 Cleaner: "${name}" -> "${pdlName}", ID: ${pdlId}`);
-        }
+      // Try the raw name first, then try with location words stripped
+      const namesToTry = [name];
+      const strippedName = stripLocationFromCompanyName(name);
+      if (strippedName !== name.toLowerCase().trim()) {
+        namesToTry.push(strippedName);
       }
 
-      // If Cleaner failed, try Company Search as fallback
-      if (!pdlName) {
-        const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
-          method: "POST",
+      for (const tryName of namesToTry) {
+        if (pdlName) break;
+
+        const cleanUrl = `${pdlBaseUrl}/v5/company/clean?name=${encodeURIComponent(tryName)}&pretty=false`;
+        const resp = await fetch(cleanUrl, {
+          method: "GET",
           headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: { bool: { must: [{ match: { name: name.toLowerCase() } }] } },
-            size: 1,
-          }),
         });
-        if (searchResp.ok) {
-          const searchData = await searchResp.json();
-          if (searchData.data && searchData.data.length > 0) {
-            const co = searchData.data[0];
-            pdlName = co.name?.toLowerCase() || null;
-            pdlId = co.id || null;
-            website = co.website || null;
-            linkedinUrl = co.linkedin_url || null;
-            console.log(`[COMPANY RESOLVE] Step 1 Search fallback: "${name}" -> "${pdlName}"`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.status === 200 && data.name) {
+            pdlName = data.name?.toLowerCase() || null;
+            pdlId = data.id || null;
+            website = data.website || null;
+            linkedinUrl = data.linkedin_url || null;
+            console.log(`[COMPANY RESOLVE] Step 1 Cleaner: "${tryName}" -> "${pdlName}", ID: ${pdlId}`);
+          }
+        }
+
+        if (!pdlName) {
+          const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
+            method: "POST",
+            headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: { bool: { must: [{ match: { name: tryName.toLowerCase() } }] } },
+              size: 1,
+            }),
+          });
+          if (searchResp.ok) {
+            const searchData = await searchResp.json();
+            if (searchData.data && searchData.data.length > 0) {
+              const co = searchData.data[0];
+              pdlName = co.name?.toLowerCase() || null;
+              pdlId = co.id || null;
+              website = co.website || null;
+              linkedinUrl = co.linkedin_url || null;
+              console.log(`[COMPANY RESOLVE] Step 1 Search fallback: "${tryName}" -> "${pdlName}"`);
+            }
           }
         }
       }
 
       if (!pdlName) {
-        console.log(`[COMPANY RESOLVE] "${name}" -> not resolved, using original`);
+        console.log(`[COMPANY RESOLVE] "${name}" -> not resolved after ${namesToTry.length} attempts, using original`);
         results.push({
           original: name, pdl_name: null, pdl_id: null, website: null,
           linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
