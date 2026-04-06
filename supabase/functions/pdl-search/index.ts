@@ -203,12 +203,20 @@ async function fetchPDLForFullSearch(
 /* Company name resolution via PDL Company API                          */
 /* ------------------------------------------------------------------ */
 
+interface ResolvedCompany {
+  original: string;
+  pdl_name: string | null;
+  pdl_id: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+}
+
 async function resolveCompanyNames(
   companyNames: string[],
   pdlApiKey: string,
   pdlBaseUrl: string
-): Promise<Array<{ original: string; pdl_name: string | null; pdl_id: string | null }>> {
-  const results: Array<{ original: string; pdl_name: string | null; pdl_id: string | null }> = [];
+): Promise<ResolvedCompany[]> {
+  const results: ResolvedCompany[] = [];
   for (const name of companyNames.slice(0, 5)) {
     try {
       const cleanUrl = `${pdlBaseUrl}/v5/company/clean?name=${encodeURIComponent(name)}&pretty=false`;
@@ -219,11 +227,18 @@ async function resolveCompanyNames(
       if (resp.ok) {
         const data = await resp.json();
         if (data.status === 200 && data.name) {
-          console.log(`[COMPANY RESOLVE] "${name}" -> PDL name: "${data.name}", ID: ${data.id || "none"}`);
-          results.push({ original: name, pdl_name: data.name?.toLowerCase() || null, pdl_id: data.id || null });
+          console.log(`[COMPANY RESOLVE] "${name}" -> PDL name: "${data.name}", ID: ${data.id || "none"}, website: ${data.website || "none"}`);
+          results.push({
+            original: name,
+            pdl_name: data.name?.toLowerCase() || null,
+            pdl_id: data.id || null,
+            website: data.website || null,
+            linkedin_url: data.linkedin_url || null,
+          });
           continue;
         }
       }
+      // Fallback: Company Search API
       const searchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
         method: "POST",
         headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
@@ -234,15 +249,21 @@ async function resolveCompanyNames(
         if (searchData.data && searchData.data.length > 0) {
           const co = searchData.data[0];
           console.log(`[COMPANY RESOLVE] "${name}" -> PDL search: "${co.name}", ID: ${co.id || "none"}`);
-          results.push({ original: name, pdl_name: co.name?.toLowerCase() || null, pdl_id: co.id || null });
+          results.push({
+            original: name,
+            pdl_name: co.name?.toLowerCase() || null,
+            pdl_id: co.id || null,
+            website: co.website || null,
+            linkedin_url: co.linkedin_url || null,
+          });
           continue;
         }
       }
       console.log(`[COMPANY RESOLVE] "${name}" -> not resolved, using original`);
-      results.push({ original: name, pdl_name: null, pdl_id: null });
+      results.push({ original: name, pdl_name: null, pdl_id: null, website: null, linkedin_url: null });
     } catch (err) {
       console.error(`[COMPANY RESOLVE] Error resolving "${name}":`, err);
-      results.push({ original: name, pdl_name: null, pdl_id: null });
+      results.push({ original: name, pdl_name: null, pdl_id: null, website: null, linkedin_url: null });
     }
   }
   return results;
