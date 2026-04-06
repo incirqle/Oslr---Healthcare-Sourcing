@@ -46,7 +46,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2.5">
           <img src={oslrWordmark} alt="Oslr" className="h-5" />
-          <span className="text-[11px] text-sidebar-foreground/50">Healthcare Recruiting</span>
+          <span className="text-[13px] text-sidebar-foreground/55">Healthcare Recruiting</span>
         </div>
       </SidebarHeader>
 
@@ -55,7 +55,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[11px] uppercase tracking-wider font-medium">
+          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[12px] uppercase tracking-wider font-medium">
             Main
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -65,8 +65,8 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/70 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
+                      className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] font-medium text-sidebar-foreground/75 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -79,7 +79,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[11px] uppercase tracking-wider font-medium">
+          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[12px] uppercase tracking-wider font-medium">
             Settings
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -89,8 +89,8 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/70 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
+                      className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] font-medium text-sidebar-foreground/75 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -108,12 +108,12 @@ export function AppSidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-xs">
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-sm">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-sidebar-foreground truncate max-w-[120px]">
+                <span className="text-sm font-medium text-sidebar-foreground truncate max-w-[120px]">
                 {user?.email}
               </span>
             </div>
