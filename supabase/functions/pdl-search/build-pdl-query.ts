@@ -490,7 +490,7 @@ export function buildPDLQuery(
       filter: filterClauses,
       ...(must.length > 0 ? { must } : {}),
       ...(mustNot.length > 0 ? { must_not: mustNot } : {}),
-      ...(should.length > 0 ? { should, minimum_should_match: 0 } : {}),
+      ...(should.length > 0 ? { should } : {}),
     },
   };
 
