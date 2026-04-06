@@ -491,6 +491,9 @@ Deno.serve(async (req: Request) => {
       const resolvedNames = resolved.filter(r => r.pdl_name).map(r => r.pdl_name!);
       const resolvedWebsites = resolved.filter(r => r.website).map(r => r.website!);
       const resolvedLinkedinUrls = resolved.filter(r => r.linkedin_url).map(r => r.linkedin_url!);
+      const resolvedAltNames = resolved.flatMap(r => r.alt_names);
+      const resolvedAffiliatedIds = resolved.flatMap(r => r.affiliated_ids);
+      const resolvedWildcards = resolved.flatMap(r => r.wildcards);
 
       if (resolvedIds.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_ids = resolvedIds;
@@ -504,7 +507,22 @@ Deno.serve(async (req: Request) => {
       if (resolvedLinkedinUrls.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_linkedin_urls = resolvedLinkedinUrls;
       }
-      console.log("[COMPANY] Resolved IDs:", resolvedIds, "Names:", resolvedNames, "Websites:", resolvedWebsites);
+      if (resolvedAltNames.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_alt_names = resolvedAltNames;
+      }
+      if (resolvedAffiliatedIds.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_affiliated_ids = resolvedAffiliatedIds;
+      }
+      if (resolvedWildcards.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_wildcards = resolvedWildcards;
+      }
+      console.log("[COMPANY] Enhanced resolution:", {
+        ids: resolvedIds,
+        names: resolvedNames,
+        altNames: resolvedAltNames.length,
+        affiliatedIds: resolvedAffiliatedIds,
+        wildcards: resolvedWildcards,
+      });
     }
 
     // Step 2: Build ES DSL query
