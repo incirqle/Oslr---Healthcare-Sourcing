@@ -52,6 +52,55 @@
     --warning-foreground: 0 0% 100%;
 
     --primary-glow: 153 50% 55%;
+
+    --ui-text-primary: 222 47% 11%;
+    --ui-text-secondary: 215 16% 47%;
+    --ui-text-tertiary: 215 20% 45%;
+    --ui-text-muted: 215 16% 65%;
+    --ui-border-light: 210 40% 96%;
+    --ui-border-medium: 214 32% 91%;
+    --ui-surface-subtle: 210 40% 98%;
+    --ui-surface-hover: 210 20% 99%;
+    --ui-surface-selected: 210 40% 98%;
+    --ui-info: 217 91% 60%;
+
+    --salary-bg: 138 76% 97%;
+    --salary-foreground: 142 76% 24%;
+    --linkedin-bg: 214 100% 97%;
+    --linkedin-foreground: 210 90% 40%;
+    --ai-bg: 240 67% 99%;
+    --ai-border: 245 100% 95%;
+    --ai-foreground: 262 83% 58%;
+    --locked-bg: 210 20% 99%;
+    --locked-border: 214 32% 91%;
+    --tag-bg: 210 40% 96%;
+    --tag-foreground: 215 16% 47%;
+    --contact-bg: 210 40% 98%;
+    --contact-foreground: 217 91% 60%;
+    --timeline-current: 217 91% 60%;
+    --timeline-ring: 214 95% 93%;
+    --timeline-past: 214 20% 78%;
+    --timeline-line: 214 32% 91%;
+    --current-badge-bg: 138 76% 93%;
+    --current-badge-foreground: 142 76% 24%;
+    --panel-shadow: 222 47% 11%;
+
+    --avatar-0-bg: 231 100% 97%;
+    --avatar-0-text: 243 75% 41%;
+    --avatar-1-bg: 138 76% 97%;
+    --avatar-1-text: 142 76% 24%;
+    --avatar-2-bg: 28 100% 96%;
+    --avatar-2-text: 21 90% 32%;
+    --avatar-3-bg: 327 73% 97%;
+    --avatar-3-text: 330 81% 31%;
+    --avatar-4-bg: 204 100% 97%;
+    --avatar-4-text: 199 89% 27%;
+    --avatar-5-bg: 55 92% 95%;
+    --avatar-5-text: 38 92% 28%;
+    --avatar-6-bg: 270 100% 98%;
+    --avatar-6-text: 271 81% 41%;
+    --avatar-7-bg: 351 100% 97%;
+    --avatar-7-text: 345 83% 41%;
   }
 
   .dark {
@@ -94,6 +143,55 @@
     --sidebar-muted: 222 20% 25%;
 
     --primary-glow: 153 50% 55%;
+
+    --ui-text-primary: 213 31% 91%;
+    --ui-text-secondary: 215 20% 78%;
+    --ui-text-tertiary: 215 16% 68%;
+    --ui-text-muted: 215 14% 60%;
+    --ui-border-light: 222 30% 18%;
+    --ui-border-medium: 222 24% 24%;
+    --ui-surface-subtle: 222 26% 14%;
+    --ui-surface-hover: 222 24% 16%;
+    --ui-surface-selected: 222 24% 16%;
+    --ui-info: 217 91% 65%;
+
+    --salary-bg: 142 35% 16%;
+    --salary-foreground: 138 62% 82%;
+    --linkedin-bg: 214 52% 17%;
+    --linkedin-foreground: 214 100% 79%;
+    --ai-bg: 256 28% 16%;
+    --ai-border: 256 28% 24%;
+    --ai-foreground: 262 95% 80%;
+    --locked-bg: 222 22% 15%;
+    --locked-border: 222 24% 24%;
+    --tag-bg: 222 24% 18%;
+    --tag-foreground: 213 20% 82%;
+    --contact-bg: 222 26% 14%;
+    --contact-foreground: 214 100% 79%;
+    --timeline-current: 217 91% 65%;
+    --timeline-ring: 217 60% 28%;
+    --timeline-past: 222 12% 46%;
+    --timeline-line: 222 24% 24%;
+    --current-badge-bg: 142 35% 18%;
+    --current-badge-foreground: 138 62% 82%;
+    --panel-shadow: 222 47% 3%;
+
+    --avatar-0-bg: 243 36% 20%;
+    --avatar-0-text: 236 100% 90%;
+    --avatar-1-bg: 142 32% 18%;
+    --avatar-1-text: 138 62% 82%;
+    --avatar-2-bg: 24 42% 19%;
+    --avatar-2-text: 28 100% 86%;
+    --avatar-3-bg: 328 34% 19%;
+    --avatar-3-text: 327 83% 89%;
+    --avatar-4-bg: 204 52% 18%;
+    --avatar-4-text: 204 100% 87%;
+    --avatar-5-bg: 48 45% 18%;
+    --avatar-5-text: 55 92% 87%;
+    --avatar-6-bg: 270 35% 19%;
+    --avatar-6-text: 269 100% 90%;
+    --avatar-7-bg: 348 36% 19%;
+    --avatar-7-text: 350 100% 90%;
   }
 }
 
@@ -105,10 +203,102 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.6;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'DM Sans', sans-serif;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  h3, h4, h5, h6 {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  button,
+  [role="button"] {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: inherit;
+  }
+
+  small,
+  .text-xs,
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 0.8125rem !important;
+    line-height: 1.125rem !important;
+  }
+}
+
+@layer components {
+  .avatar-tone-0 {
+    background-color: hsl(var(--avatar-0-bg));
+    color: hsl(var(--avatar-0-text));
+  }
+
+  .avatar-tone-1 {
+    background-color: hsl(var(--avatar-1-bg));
+    color: hsl(var(--avatar-1-text));
+  }
+
+  .avatar-tone-2 {
+    background-color: hsl(var(--avatar-2-bg));
+    color: hsl(var(--avatar-2-text));
+  }
+
+  .avatar-tone-3 {
+    background-color: hsl(var(--avatar-3-bg));
+    color: hsl(var(--avatar-3-text));
+  }
+
+  .avatar-tone-4 {
+    background-color: hsl(var(--avatar-4-bg));
+    color: hsl(var(--avatar-4-text));
+  }
+
+  .avatar-tone-5 {
+    background-color: hsl(var(--avatar-5-bg));
+    color: hsl(var(--avatar-5-text));
+  }
+
+  .avatar-tone-6 {
+    background-color: hsl(var(--avatar-6-bg));
+    color: hsl(var(--avatar-6-text));
+  }
+
+  .avatar-tone-7 {
+    background-color: hsl(var(--avatar-7-bg));
+    color: hsl(var(--avatar-7-text));
+  }
+
+  .shadow-panel {
+    box-shadow: -4px 0 24px hsl(var(--panel-shadow) / 0.06);
   }
 }
 

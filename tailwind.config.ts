@@ -71,6 +71,59 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
           muted: "hsl(var(--sidebar-muted))",
         },
+        ui: {
+          info: "hsl(var(--ui-info))",
+          text: {
+            primary: "hsl(var(--ui-text-primary))",
+            secondary: "hsl(var(--ui-text-secondary))",
+            tertiary: "hsl(var(--ui-text-tertiary))",
+            muted: "hsl(var(--ui-text-muted))",
+          },
+          border: {
+            light: "hsl(var(--ui-border-light))",
+            medium: "hsl(var(--ui-border-medium))",
+          },
+          surface: {
+            subtle: "hsl(var(--ui-surface-subtle))",
+            hover: "hsl(var(--ui-surface-hover))",
+            selected: "hsl(var(--ui-surface-selected))",
+          },
+        },
+        salary: {
+          DEFAULT: "hsl(var(--salary-bg))",
+          foreground: "hsl(var(--salary-foreground))",
+        },
+        linkedin: {
+          DEFAULT: "hsl(var(--linkedin-bg))",
+          foreground: "hsl(var(--linkedin-foreground))",
+        },
+        ai: {
+          DEFAULT: "hsl(var(--ai-bg))",
+          foreground: "hsl(var(--ai-foreground))",
+          border: "hsl(var(--ai-border))",
+        },
+        locked: {
+          DEFAULT: "hsl(var(--locked-bg))",
+          border: "hsl(var(--locked-border))",
+        },
+        tag: {
+          DEFAULT: "hsl(var(--tag-bg))",
+          foreground: "hsl(var(--tag-foreground))",
+        },
+        contact: {
+          DEFAULT: "hsl(var(--contact-bg))",
+          foreground: "hsl(var(--contact-foreground))",
+        },
+        timeline: {
+          current: "hsl(var(--timeline-current))",
+          ring: "hsl(var(--timeline-ring))",
+          past: "hsl(var(--timeline-past))",
+          line: "hsl(var(--timeline-line))",
+        },
+        "current-badge": {
+          DEFAULT: "hsl(var(--current-badge-bg))",
+          foreground: "hsl(var(--current-badge-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
