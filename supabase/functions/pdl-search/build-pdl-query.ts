@@ -301,14 +301,21 @@ export function buildPDLQuery(
     const resolvedNames = (parsed._resolved_company_names as string[]) || [];
     const resolvedWebsites = (parsed._resolved_company_websites as string[]) || [];
     const resolvedLinkedinUrls = (parsed._resolved_company_linkedin_urls as string[]) || [];
+    const resolvedAltNames = (parsed._resolved_company_alt_names as string[]) || [];
+    const resolvedAffiliatedIds = (parsed._resolved_company_affiliated_ids as string[]) || [];
+    const resolvedWildcards = (parsed._resolved_company_wildcards as string[]) || [];
 
+    // 1. Exact match on Cleaner-resolved company ID
     for (const id of resolvedIds) {
       companyClauses.push({ term: { job_company_id: id } });
     }
+
+    // 2. Exact match on Cleaner-resolved canonical name
     for (const name of resolvedNames) {
       companyClauses.push({ term: { job_company_name: name } });
     }
-    // Additional match surface from Cleaner response
+
+    // 3. Website and LinkedIn matches from Cleaner
     for (const website of resolvedWebsites) {
       companyClauses.push({ term: { job_company_website: website } });
     }
@@ -316,7 +323,23 @@ export function buildPDLQuery(
       companyClauses.push({ term: { job_company_linkedin_url: linkedinUrl } });
     }
 
-    // Also try original + variant names as term matches (keyword field)
+    // 4. All alternative names discovered via Enrichment + Autocomplete
+    for (const altName of resolvedAltNames.slice(0, 30)) {
+      companyClauses.push({ term: { job_company_name: altName } });
+    }
+
+    // 5. Affiliated company IDs (from Company Enrichment affiliated_profiles)
+    for (const affId of resolvedAffiliatedIds) {
+      companyClauses.push({ term: { job_company_id: affId } });
+    }
+
+    // 6. Wildcard patterns for root name expansion
+    for (const pattern of resolvedWildcards.slice(0, 5)) {
+      const wc = addWildcard("job_company_name", pattern);
+      if (wc) companyClauses.push(wc);
+    }
+
+    // 7. Original + static variant names as fallback
     for (const co of currentCompanies) {
       const allVariants = getCompanyVariants(normalizeCompany(co));
       for (const variant of allVariants) {
@@ -324,10 +347,21 @@ export function buildPDLQuery(
       }
     }
 
+    // Deduplicate clauses by serializing
+    const seen = new Set<string>();
+    const dedupedClauses: Clause[] = [];
+    for (const clause of companyClauses) {
+      const key = JSON.stringify(clause);
+      if (!seen.has(key)) {
+        seen.add(key);
+        dedupedClauses.push(clause);
+      }
+    }
+
     // ALWAYS use must — company is a hard requirement when specified
-    if (companyClauses.length > 0) {
-      must.push({ bool: { should: companyClauses } });
-      console.log("Company MUST clause (hard filter):", resolvedIds, resolvedNames, currentCompanies);
+    if (dedupedClauses.length > 0) {
+      must.push({ bool: { should: dedupedClauses } });
+      console.log(`Company MUST clause (hard filter): ${dedupedClauses.length} clauses (IDs: ${resolvedIds}, names: ${resolvedNames}, altNames: ${resolvedAltNames.length}, wildcards: ${resolvedWildcards})`);
     }
   }
 
