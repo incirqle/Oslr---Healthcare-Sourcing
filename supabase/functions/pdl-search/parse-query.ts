@@ -346,8 +346,48 @@ When a specialty is combined with a generic word:
 - "orthopedic surgeons in Dallas" → job_titles: ["surgeon", "orthopedic surgeon"], specialty: "orthopedics"
 - "ER providers in Miami" → job_titles: [], specialty: "emergency medicine"
 
-COMPANY EXTRACTION: Default to current_companies if no qualifier.
-Apply alias resolution: "Mayo" → "mayo clinic", "HCA" → "hca healthcare", "Kaiser" → "kaiser permanente"
+COMPANY EXTRACTION:
+  Extract organization references (health systems, hospitals, clinics) into one of three fields.
+  CRITICAL: Each company name must appear in EXACTLY ONE field. Never duplicate across fields.
+  Default to current_companies if no qualifier is present.
+  Field selection rules:
+   "work with [Org]" / "at [Org]" / "from [Org]" / "working at [Org]" → current_companies ONLY
+   "former [Org]" / "ex-[Org]" / "used to work at" / "left [Org]" / "was at" / "previously at" / "came from" → past_companies ONLY
+   "ever worked at" / "have worked at" / "background at" / "current or former" → any_companies ONLY
+   When in doubt, use current_companies — never duplicate across fields.
+  Cap at 5 organizations per field. If more than 5 are listed, take the first 5 and ignore the rest.
+
+  CRITICAL — NEVER include city/state/location words in the company name:
+    Company names must contain ONLY the organization name. Cities, states, regions, and location words
+    go into the location field, NOT appended to the company name.
+    "doctors at UC Health Denver" → current_companies: ["uchealth"], location.city: "denver"
+    "nurses at HCA in Dallas Texas" → current_companies: ["hca healthcare"], location.city: "dallas", location.state: "texas"
+    "surgeons at Mayo Clinic Rochester" → current_companies: ["mayo clinic"], location.city: "rochester"
+    "providers at UCHealth Aurora Colorado" → current_companies: ["uchealth"], location.city: "aurora", location.state: "colorado"
+    "PAs at Cleveland Clinic Florida" → current_companies: ["cleveland clinic"], location.state: "florida"
+    WRONG: current_companies: ["uc health denver"] ← city merged into company name
+    WRONG: current_companies: ["mayo clinic rochester"] ← city merged into company name
+    WRONG: current_companies: ["hca dallas"] ← city merged into company name
+
+  Common health system aliases (use the canonical form):
+    "UC Health" / "UCHealth" / "University of Colorado Health" → "uchealth"
+    "Mayo" / "Mayo Clinic" → "mayo clinic"
+    "HCA" / "HCA Healthcare" → "hca healthcare"
+    "Kaiser" / "Kaiser Permanente" → "kaiser permanente"
+    "Cleveland Clinic" → "cleveland clinic"
+    "Ascension" → "ascension"
+    "CommonSpirit" / "Common Spirit" → "commonspirit health"
+    "Intermountain" → "intermountain health"
+    "Providence" → "providence"
+    "Advocate Aurora" → "advocate aurora health"
+
+  Examples:
+    "Physicians at Mayo Clinic and Cleveland Clinic" → current_companies: ["mayo clinic", "cleveland clinic"]
+    "RN from Johns Hopkins" → current_companies: ["johns hopkins"]
+    "former Stanford Health nurse" → past_companies: ["stanford health"]
+    "staff with UCLA or UCSF background" → any_companies: ["ucla", "ucsf"]
+    "orthopedic doctors at uc health in denver" → current_companies: ["uchealth"], location.city: "denver"
+    "cardiologists at mayo clinic" → current_companies: ["mayo clinic"]
 
 CREDENTIAL EXTRACTION: RN, BSN, MSN, MD, DO, NP, APRN, PA-C, PT, DPT, OT, SLP, RT, RRT, CRNA, etc.
 
