@@ -327,13 +327,22 @@ Deno.serve(async (req: Request) => {
       const resolved = await resolveCompanyNames(rawCompanies, pdlApiKey, pdlBaseUrl);
       const resolvedIds = resolved.filter(r => r.pdl_id).map(r => r.pdl_id!);
       const resolvedNames = resolved.filter(r => r.pdl_name).map(r => r.pdl_name!);
+      const resolvedWebsites = resolved.filter(r => r.website).map(r => r.website!);
+      const resolvedLinkedinUrls = resolved.filter(r => r.linkedin_url).map(r => r.linkedin_url!);
+
       if (resolvedIds.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_ids = resolvedIds;
       }
       if (resolvedNames.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_names = resolvedNames;
       }
-      console.log("[COMPANY] Resolved IDs:", resolvedIds, "Names:", resolvedNames);
+      if (resolvedWebsites.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_websites = resolvedWebsites;
+      }
+      if (resolvedLinkedinUrls.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_linkedin_urls = resolvedLinkedinUrls;
+      }
+      console.log("[COMPANY] Resolved IDs:", resolvedIds, "Names:", resolvedNames, "Websites:", resolvedWebsites);
     }
 
     // Step 2: Build ES DSL query
