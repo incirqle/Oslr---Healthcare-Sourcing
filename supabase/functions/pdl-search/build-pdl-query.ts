@@ -119,7 +119,15 @@ function detectSubRoles(titles: string[], keywords: string[]): string[] {
 
   for (const [subRole, terms] of Object.entries(SUB_ROLE_TERMS)) {
     for (const searchTerm of allTerms) {
-      if (terms.some(t => searchTerm.includes(t) || t.includes(searchTerm))) {
+      if (terms.some(t => {
+        // For short terms (<=3 chars like "rn", "pt", "ot", "rt", "np", "do", "md"),
+        // require exact word match to avoid false positives (e.g. "orthopedic" matching "rt")
+        if (t.length <= 3) {
+          const words = searchTerm.split(/\s+/);
+          return words.includes(t);
+        }
+        return searchTerm.includes(t) || t.includes(searchTerm);
+      })) {
         matched.add(subRole);
         break;
       }
