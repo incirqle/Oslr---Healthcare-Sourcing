@@ -529,6 +529,63 @@ Deno.serve(async (req: Request) => {
       scroll_token = null,
       parsed: clientParsed = null,
     } = body;
+    const action = body.action ?? null;
+
+    /* ── ACTION ROUTING — enrich_person / ai_summary ──────────────── */
+    if (action === "enrich_person") {
+      const pdlKey = Deno.env.get("PDL_API_KEY");
+      if (!pdlKey) {
+        return new Response(JSON.stringify({ error: "PDL API key not configured" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const params = new URLSearchParams();
+      if (typeof body.linkedin_url === "string" && body.linkedin_url.length > 0) {
+        params.set("profile", body.linkedin_url);
+      } else if (typeof body.email === "string" && body.email.length > 0) {
+        params.set("email", body.email);
+      } else {
+        return new Response(JSON.stringify({ error: "linkedin_url or email required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      params.set("pretty", "false");
+      params.set("min_likelihood", "6");
+      const enrichResp = await fetch(
+        `https://api.peopledatalabs.com/v5/person/enrich?${params.toString()}`,
+        { headers: { "X-Api-Key": pdlKey, "Content-Type": "application/json" } }
+      );
+      if (!enrichResp.ok) {
+        const errText = await enrichResp.text();
+        console.error(`[enrich_person] PDL ${enrichResp.status}: ${errText}`);
+        return new Response(JSON.stringify({ error: `Enrichment failed (${enrichResp.status})` }), {
+          status: enrichResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const enrichJson = await enrichResp.json();
+      return new Response(JSON.stringify({ data: enrichJson.data ?? enrichJson, likelihood: enrichJson.likelihood ?? null }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "ai_summary") {
+      const prompt = typeof body.prompt === "string" ? body.prompt : "";
+      if (!prompt) {
+        return new Response(JSON.stringify({ error: "prompt required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const result = await callClaude<{ summary: string }>(
+        `You are a concise healthcare-recruiting assistant. You will receive a profile brief. Write a factual 3-4 sentence professional summary. Return ONLY valid JSON: { "summary": "..." }`,
+        prompt,
+        { summary: "" },
+        "AI-Summary",
+        { timeoutMs: 15000 }
+      );
+      return new Response(JSON.stringify({ summary: result.summary || "" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return new Response(
