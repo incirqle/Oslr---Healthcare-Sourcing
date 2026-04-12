@@ -137,11 +137,13 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
           ? entry.job_title
           : (entry.title as { name?: string } | null)?.name ?? null,
     company:
-      typeof entry.company === "string"
-        ? entry.company
-        : typeof entry.job_company_name === "string"
-          ? entry.job_company_name
-          : (entry.company as { name?: string } | null)?.name ?? null,
+      typeof entry.company_name === "string"
+        ? entry.company_name
+        : typeof entry.company === "string"
+          ? entry.company
+          : typeof entry.job_company_name === "string"
+            ? entry.job_company_name
+            : (entry.company as { name?: string } | null)?.name ?? null,
     startDate:
       typeof entry.start_date === "string"
         ? entry.start_date
@@ -304,7 +306,11 @@ export function CandidateDrawer({
         const { data, error: fnError } = await supabase.functions.invoke("pdl-search", { body: params });
         if (fnError) throw fnError;
 
-        const payload = data?.data || data;
+        // Guard against error response bodies
+        if (data && typeof data === "object" && "error" in data) {
+          throw new Error(typeof (data as { error: unknown }).error === "string" ? (data as { error: string }).error : "Enrichment failed");
+        }
+        const payload = (data as { data?: unknown } | null)?.data;
         if (payload && typeof payload === "object") {
           setEnriched(payload as EnrichedData);
         }
