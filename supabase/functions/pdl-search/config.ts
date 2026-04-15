@@ -335,6 +335,22 @@ export const CITY_TO_METRO: Record<string, string[]> = {
   "albuquerque": ["albuquerque, new mexico"],
   "honolulu": ["honolulu, hawaii"],
   "anchorage": ["anchorage, alaska"],
+  // Small/resort healthcare towns → nearest metro
+  "vail": ["denver, colorado"],
+  "edwards": ["denver, colorado"],
+  "avon": ["denver, colorado"],
+  "eagle": ["denver, colorado"],
+  "frisco": ["denver, colorado"],
+  "breckenridge": ["denver, colorado"],
+  "aspen": ["denver, colorado"],
+  "steamboat springs": ["denver, colorado"],
+  "durango": ["denver, colorado"],
+  "rochester": ["rochester, minnesota"],   // Mayo Clinic
+  "jackson": ["jackson, wyoming"],          // Jackson Hole
+  "park city": ["salt lake city, utah"],
+  "scottsdale": ["phoenix, arizona"],
+  "naples": ["naples, florida"],
+  "sarasota": ["sarasota, florida"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -416,5 +432,30 @@ export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[
     { radius: 10, cities: ["arlington", "alexandria", "bethesda", "silver spring"] },
     { radius: 25, cities: ["fairfax", "reston", "rockville", "columbia", "frederick"] },
     { radius: 50, cities: ["baltimore", "annapolis", "richmond"] },
+  ],
+  // Small/resort healthcare towns — expand to surrounding communities
+  "vail": [
+    { radius: 10, cities: ["edwards", "avon", "eagle", "minturn"] },
+    { radius: 25, cities: ["frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"] },
+    { radius: 50, cities: ["aspen", "boulder", "denver", "aurora", "lakewood"] },
+  ],
+  "aspen": [
+    { radius: 10, cities: ["basalt", "carbondale", "snowmass village"] },
+    { radius: 25, cities: ["glenwood springs", "vail", "edwards"] },
+    { radius: 50, cities: ["grand junction", "denver"] },
+  ],
+  "rochester": [
+    { radius: 10, cities: ["byron", "stewartville"] },
+    { radius: 25, cities: ["austin", "winona", "owatonna"] },
+    { radius: 50, cities: ["minneapolis", "saint paul", "la crosse"] },
+  ],
+  "jackson": [
+    { radius: 10, cities: ["wilson", "teton village"] },
+    { radius: 25, cities: ["driggs", "victor", "alpine"] },
+    { radius: 50, cities: ["idaho falls", "rexburg"] },
+  ],
+  "park city": [
+    { radius: 10, cities: ["heber city", "midway", "kamas"] },
+    { radius: 25, cities: ["salt lake city", "sandy", "provo", "orem"] },
   ],
 };

@@ -202,17 +202,24 @@ export function buildPDLQuery(
 
   const filterStates = (filters.states as string[]) || [];
   const filterCity = (filters.city as string) || "";
-  const geoRadiusMiles = (filters.geo_radius_miles as number) || 10;
+  const geoRadiusExplicit = (filters.geo_radius_miles as number) || 0;
 
   const hasCityFilter = typeof filterCity === "string" && filterCity.trim().length > 0;
   const primaryCities = strictFilterMode
     ? (hasCityFilter ? [filterCity.toLowerCase()] : [])
     : (hasCityFilter ? [filterCity.toLowerCase()] : aiLocations.filter(l => l.city).map(l => (l.city as string).toLowerCase()));
 
+  // Auto-expand radius for small towns: if the city has NEARBY_CITIES entries
+  // but is NOT a major metro, use 50mi default so we include surrounding communities.
+  const isMajorMetro = (c: string) => ["denver","dallas","houston","austin","los angeles","san francisco","chicago","miami","atlanta","phoenix","seattle","boston","new york","philadelphia","nashville","washington","portland","san diego","tampa","charlotte","raleigh","detroit","minneapolis","salt lake city","baltimore","las vegas","indianapolis","columbus","cleveland","kansas city","richmond","st. louis","milwaukee","memphis","sacramento","louisville","oklahoma city","new orleans","birmingham","tucson","omaha","albuquerque","honolulu","anchorage","orlando","jacksonville","pittsburgh","san antonio","san jose"].includes(c);
+  const effectiveRadius = geoRadiusExplicit > 0
+    ? geoRadiusExplicit
+    : (primaryCities.length > 0 && primaryCities.every(c => !isMajorMetro(c)) ? 50 : 10);
+
   const expandedCities: string[] = [...primaryCities];
-  if (geoRadiusMiles > 0) {
+  if (effectiveRadius > 0) {
     for (const city of primaryCities) {
-      expandedCities.push(...getNearbyCities(city, geoRadiusMiles));
+      expandedCities.push(...getNearbyCities(city, effectiveRadius));
     }
   }
   const uniqueCities = [...new Set(expandedCities)];
