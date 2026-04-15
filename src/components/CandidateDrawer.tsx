@@ -175,9 +175,11 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
 
   return getRawArray<Record<string, unknown>>(candidate.raw.education).map((entry) => ({
     school:
-      typeof entry.school === "string"
-        ? entry.school
-        : (entry.school as { name?: string } | null)?.name ?? null,
+      typeof entry.school_name === "string"
+        ? entry.school_name
+        : typeof entry.school === "string"
+          ? entry.school
+          : (entry.school as { name?: string } | null)?.name ?? null,
     degree: toStringArray(entry.degrees).join(", ") || null,
     major: toStringArray(entry.majors).join(", ") || null,
     startDate: typeof entry.start_date === "string" ? entry.start_date : null,
@@ -290,6 +292,8 @@ export function CandidateDrawer({
     const cached = summaryCache.current.get(candidate.id);
     setAiSummary(cached ?? null);
 
+    let cancelled = false;
+
     const fetchEnriched = async () => {
       setLoading(true);
       setError(null);
@@ -304,6 +308,7 @@ export function CandidateDrawer({
         }
 
         const { data, error: fnError } = await supabase.functions.invoke("pdl-search", { body: params });
+        if (cancelled) return;
         if (fnError) throw fnError;
 
         // Guard against error response bodies
@@ -315,15 +320,18 @@ export function CandidateDrawer({
           setEnriched(payload as EnrichedData);
         }
       } catch (fetchError) {
+        if (cancelled) return;
         console.error("Enrich error:", fetchError);
         setError("Failed to load enriched profile data.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     void fetchEnriched();
-  }, [open, candidate]);
+
+    return () => { cancelled = true; };
+  }, [open, candidate?.id]);
 
   const experienceEntries = useMemo(() => normalizeExperience(candidate, enriched), [candidate, enriched]);
   const educationEntries = useMemo(() => normalizeEducation(candidate, enriched), [candidate, enriched]);
@@ -373,7 +381,7 @@ export function CandidateDrawer({
     };
 
     void generateSummary();
-  }, [open, candidate, loading, aiSummary, enriched, experienceEntries, educationEntries, primarySkills, certifications]);
+  }, [open, candidate?.id, loading, aiSummary, enriched, experienceEntries, educationEntries, primarySkills, certifications]);
 
   if (!candidate) return null;
 

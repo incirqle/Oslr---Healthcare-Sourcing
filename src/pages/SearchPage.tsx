@@ -134,7 +134,7 @@ export default function SearchPage() {
         has_phone: !!(r.phone || (r.phone_numbers?.length || 0) > 0),
         has_skills: (r.skills?.length || 0) > 0,
         has_experience: (r.experience_history?.length || r.experience?.length || 0) > 0,
-        match_score: 75,
+        match_score: r.relevance_score ?? 75,
         // V2 enriched fields
         profile_pic_url: r.profile_pic_url || null,
         inferred_salary: r.inferred_salary || null,
