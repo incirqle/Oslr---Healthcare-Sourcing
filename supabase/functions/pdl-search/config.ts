@@ -335,16 +335,8 @@ export const CITY_TO_METRO: Record<string, string[]> = {
   "albuquerque": ["albuquerque, new mexico"],
   "honolulu": ["honolulu, hawaii"],
   "anchorage": ["anchorage, alaska"],
-  // Small/resort healthcare towns → nearest metro
-  "vail": ["denver, colorado"],
-  "edwards": ["denver, colorado"],
-  "avon": ["denver, colorado"],
-  "eagle": ["denver, colorado"],
-  "frisco": ["denver, colorado"],
-  "breckenridge": ["denver, colorado"],
-  "aspen": ["denver, colorado"],
-  "steamboat springs": ["denver, colorado"],
-  "durango": ["denver, colorado"],
+  // NOTE: Small/resort towns intentionally OMITTED from metro mapping.
+  // They should search locally first; cascade handles widening if needed.
   "rochester": ["rochester, minnesota"],   // Mayo Clinic
   "jackson": ["jackson, wyoming"],          // Jackson Hole
   "park city": ["salt lake city, utah"],
