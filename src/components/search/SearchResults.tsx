@@ -297,6 +297,12 @@ export function SearchResults({
 
   return (
     <div className="space-y-4">
+      {geoBannerText && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <MapPin className="h-4 w-4 shrink-0 text-amber-400" />
+          {geoBannerText}
+        </div>
+      )}
       <form
         className="relative"
         onSubmit={(event) => {
