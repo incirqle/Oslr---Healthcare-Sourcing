@@ -505,6 +505,32 @@ export function buildPDLQuery(
       // Precise sub_role filter — only returns the role types the user asked for
       filterClauses.push({ terms: { job_title_sub_role: targetSubRoles } });
       console.log("Sub-role filter (precise):", targetSubRoles);
+
+      // PDL mis-classifies many non-physician roles as sub_role:"doctor"
+      // Add a positive title filter requiring actual physician-level terms
+      if (targetSubRoles.includes("doctor") && !targetSubRoles.includes("nursing")) {
+        const physicianTitleTerms = [
+          "physician", "doctor", "surgeon", "md", "do",
+          "attending", "hospitalist", "fellow", "resident",
+          "cardiologist", "radiologist", "anesthesiologist", "pathologist",
+          "dermatologist", "neurologist", "urologist", "oncologist",
+          "gastroenterologist", "pulmonologist", "nephrologist",
+          "endocrinologist", "rheumatologist", "ophthalmologist",
+          "psychiatrist", "pediatrician", "internist", "intensivist",
+          "neonatologist", "obstetrician", "gynecologist", "orthopedist",
+          "chief medical officer", "medical director",
+        ];
+        const physicianClauses: Clause[] = [];
+        for (const term of physicianTitleTerms) {
+          if (term.split(/\s+/).length >= 2) {
+            physicianClauses.push({ match_phrase: { "job_title.text": term } });
+          } else {
+            physicianClauses.push({ match: { "job_title.text": term } });
+          }
+        }
+        filterClauses.push({ bool: { should: physicianClauses } });
+        console.log(`Doctor positive title filter added: ${physicianTitleTerms.length} terms`);
+      }
     } else {
       // Generic healthcare search — fall back to role-level filter
       filterClauses.push({ term: { job_title_role: "health" } });
@@ -597,19 +623,24 @@ function termMatches(clause: Clause, field: string): boolean {
 
 export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step: CascadeStep): PDLQueryShape {
   switch (step) {
-    case CascadeStep.DROP_TITLES:
+    case CascadeStep.DROP_TITLES: {
+      // Drop title/keyword must clauses but KEEP sub_role filter and must_not exclusions
+      const hasSubRole = query.filter.some(c => termMatches(c, "job_title_sub_role"));
       return {
         ...query,
+        // Keep only company clauses in must; drop title/keyword matching
         must: query.must.filter(c => isCompanyClause(c)),
         filter: [
+          // Keep everything except job_title_role (sub_role is preserved)
           ...query.filter.filter(c =>
             !termMatches(c, "job_title") &&
-            !termMatches(c, "job_title_role") &&
-            !termMatches(c, "job_title_sub_role")
+            !termMatches(c, "job_title_role")
           ),
-          { term: { job_title_role: "health" } },
+          // Only add broad role fallback if no sub_role filter exists
+          ...(hasSubRole ? [] : [{ term: { job_title_role: "health" } }]),
         ],
       };
+    }
 
     case CascadeStep.EXPAND_TO_METRO: {
       const metro = payload.location.metro;
@@ -651,12 +682,15 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
         ),
       };
 
-    case CascadeStep.ROLE_ONLY:
+    case CascadeStep.ROLE_ONLY: {
+      // Keep sub_role filter if it exists, otherwise fall back to broad role
+      const subRoleFilter = query.filter.find(c => termMatches(c, "job_title_sub_role"));
       return {
-        filter: [{ term: { job_title_role: "health" } }],
+        filter: subRoleFilter ? [subRoleFilter] : [{ term: { job_title_role: "health" } }],
         must: [],
-        must_not: query.must_not,
+        must_not: query.must_not, // ALWAYS preserve must_not exclusions
       };
+    }
 
     default:
       return query;
