@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { CandidateSalaryBadge } from "@/components/search/CandidateSalaryBadge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   cleanDisplayName,
+  formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
@@ -86,6 +86,7 @@ function CandidateRow({
   onToggleSelect: () => void;
   onOpenCandidate: () => void;
 }) {
+  const salary = formatSalary(candidate.inferred_salary);
   const previewSkills = candidate.clinical_skills?.length ? candidate.clinical_skills : candidate.skills;
   const visibleSkills = previewSkills.slice(0, 3);
   const extraSkills = Math.max(previewSkills.length - visibleSkills.length, 0);
@@ -197,10 +198,14 @@ function CandidateRow({
           </div>
 
           <div className="flex min-w-[110px] shrink-0 flex-col items-start gap-2 text-left sm:items-end sm:text-right">
-            <CandidateSalaryBadge
-              inferredSalary={candidate.inferred_salary}
-              yearsExperience={candidate.years_experience}
-            />
+            {salary && (
+              <span className="rounded-[4px] bg-salary px-2.5 py-1 text-[14px] font-medium leading-none text-salary-foreground">
+                {salary}
+              </span>
+            )}
+            {(candidate.years_experience ?? 0) > 0 && (
+              <span className="text-[13px] text-ui-text-muted">{candidate.years_experience} yrs exp</span>
+            )}
             {candidate.has_contact_info && (
               <span className="inline-flex items-center gap-1.5 text-[13px] text-contact-foreground">
                 <Mail className="h-3.5 w-3.5" />

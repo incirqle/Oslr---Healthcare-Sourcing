@@ -738,44 +738,26 @@ Deno.serve(async (req: Request) => {
       total = (pdlData.total as number) || 0;
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
-      // Location fallback: if < 2 results and we have a city, retry with nearby towns only
-      if (results.length < 2 && page === 0) {
-        const loc = parsed.location as Record<string, unknown> | undefined;
-        const city = (loc?.city as string)?.toLowerCase();
-        if (city) {
-          console.log(`[LOCATION FALLBACK] Only ${results.length} results for "${city}", expanding to nearby towns...`);
-          // Import REGIONAL_EXPANSION from config
-          const { REGIONAL_EXPANSION } = await import("./config.ts");
-          const nearbyCities = REGIONAL_EXPANSION[city];
-          if (nearbyCities && nearbyCities.length > 0) {
-            // Build a new query with expanded location
-            const expandedQuery = JSON.parse(JSON.stringify(pdlQuery));
-            // Find and replace the location filter clause
-            const filterArr = expandedQuery.bool?.filter || [];
-            for (let i = 0; i < filterArr.length; i++) {
-              const clause = filterArr[i];
-              if (clause?.term?.location_locality || clause?.bool?.should) {
-                // Replace with expanded city list
-                filterArr[i] = {
-                  bool: {
-                    should: nearbyCities.map((c: string) => ({ term: { location_locality: c } }))
-                  }
-                };
-                break;
-              }
-            }
-            const expandedData = await fetchPDLForFullSearch(
-              expandedQuery, liveKey, page, size, scroll_token, fullCacheKey + "_expanded", adminClient
-            );
-            const expandedResults = (expandedData.data as Record<string, unknown>[]) || [];
-            const expandedTotal = (expandedData.total as number) || 0;
-            if (expandedResults.length > results.length) {
-              results = expandedResults;
-              total = expandedTotal;
-              returnScrollToken = (expandedData.scroll_token as string) || null;
-              console.log(`[LOCATION FALLBACK] Expanded to ${results.length} results from nearby towns`);
-            }
-          }
+      // Cascade if too few results
+      if (results.length < 3 && page === 0) {
+        console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
+        const cascadePayload: CascadePayload = {
+          location: (parsed.location as CascadePayload["location"]) || {},
+          job_titles: (parsed.job_titles as string[]) || [],
+          title_confidence: (parsed.title_confidence as number) || 0.5,
+          specialty: (parsed.specialty as string) || null,
+          specialty_confidence: (parsed.specialty_confidence as number) || 0.5,
+        };
+
+        const cascadeResult = await runCascade(
+          pdlQuery, cascadePayload, "clinical_search", total, fullCacheKey, adminClient, size
+        );
+
+        if (cascadeResult.profiles.length > results.length) {
+          results = cascadeResult.profiles;
+          cascadeUsed = true;
+          cascadePlan = cascadeResult.plan;
+          console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps`);
         }
       }
     }

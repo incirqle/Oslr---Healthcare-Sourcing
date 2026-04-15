@@ -348,50 +348,6 @@ export const CITY_TO_METRO: Record<string, string[]> = {
 };
 
 /* ------------------------------------------------------------------ */
-/* City Clusters — small towns that should ALWAYS include their        */
-/* immediate neighbors in the base query (not as fallback).            */
-/* These are towns so small that PDL rarely tags anyone exactly there. */
-/* ------------------------------------------------------------------ */
-export const CITY_CLUSTERS: Record<string, string[]> = {
-  // Vail Valley — all within ~15 min of Vail
-  "vail": ["vail", "edwards", "avon", "eagle", "minturn"],
-  "edwards": ["vail", "edwards", "avon", "eagle", "minturn"],
-  "avon": ["vail", "edwards", "avon", "eagle", "minturn"],
-  "eagle": ["vail", "edwards", "avon", "eagle", "minturn"],
-  "minturn": ["vail", "edwards", "avon", "eagle", "minturn"],
-  // Aspen area
-  "aspen": ["aspen", "basalt", "snowmass village", "carbondale"],
-  "basalt": ["aspen", "basalt", "snowmass village", "carbondale"],
-  // Summit County
-  "frisco": ["frisco", "breckenridge", "silverthorne", "dillon"],
-  "breckenridge": ["breckenridge", "frisco", "silverthorne", "dillon"],
-  "silverthorne": ["frisco", "breckenridge", "silverthorne", "dillon"],
-  // Steamboat
-  "steamboat springs": ["steamboat springs", "hayden"],
-  // Durango
-  "durango": ["durango", "bayfield"],
-  // Wyoming resort
-  "jackson": ["jackson", "wilson", "teton village"],
-  // Minnesota medical hub
-  "rochester": ["rochester", "byron", "stewartville"],
-};
-
-/* ------------------------------------------------------------------ */
-/* Regional Expansion — ONLY used as fallback when < 2 results.        */
-/* Wider net than clusters but still geographically reasonable.        */
-/* ------------------------------------------------------------------ */
-export const REGIONAL_EXPANSION: Record<string, string[]> = {
-  "vail": ["vail", "edwards", "avon", "eagle", "minturn", "frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"],
-  "aspen": ["aspen", "basalt", "carbondale", "snowmass village", "glenwood springs"],
-  "frisco": ["frisco", "breckenridge", "silverthorne", "dillon", "vail", "edwards", "leadville"],
-  "breckenridge": ["breckenridge", "frisco", "silverthorne", "dillon", "leadville", "vail"],
-  "steamboat springs": ["steamboat springs", "craig", "hayden"],
-  "durango": ["durango", "farmington", "cortez", "pagosa springs"],
-  "jackson": ["jackson", "wilson", "teton village", "driggs", "victor", "alpine"],
-  "rochester": ["rochester", "byron", "stewartville", "austin", "winona", "owatonna"],
-};
-
-/* ------------------------------------------------------------------ */
 /* Nearby Cities Map                                                    */
 /* ------------------------------------------------------------------ */
 export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[]> = {

@@ -27,9 +27,7 @@ import {
   EXCLUDED_INDUSTRIES,
   TITLE_EXPANSIONS,
   CITY_TO_METRO,
-  CITY_CLUSTERS,
   NEARBY_CITIES,
-  REGIONAL_EXPANSION,
   US_STATES,
 } from "./config.ts";
 
@@ -211,20 +209,14 @@ export function buildPDLQuery(
     ? (hasCityFilter ? [filterCity.toLowerCase()] : [])
     : (hasCityFilter ? [filterCity.toLowerCase()] : aiLocations.filter(l => l.city).map(l => (l.city as string).toLowerCase()));
 
-  // STRICT LOCATION: Base query uses exact city only. No auto-radius expansion.
-  // EXCEPT: small towns use CITY_CLUSTERS to include immediate neighbors
-  // (e.g., "vail" → vail, edwards, avon, eagle, minturn)
-  const effectiveRadius = geoRadiusExplicit > 0 ? geoRadiusExplicit : 0;
+  // Auto-expand radius for small towns: if the city has NEARBY_CITIES entries
+  // but is NOT a major metro, use 50mi default so we include surrounding communities.
+  const isMajorMetro = (c: string) => ["denver","dallas","houston","austin","los angeles","san francisco","chicago","miami","atlanta","phoenix","seattle","boston","new york","philadelphia","nashville","washington","portland","san diego","tampa","charlotte","raleigh","detroit","minneapolis","salt lake city","baltimore","las vegas","indianapolis","columbus","cleveland","kansas city","richmond","st. louis","milwaukee","memphis","sacramento","louisville","oklahoma city","new orleans","birmingham","tucson","omaha","albuquerque","honolulu","anchorage","orlando","jacksonville","pittsburgh","san antonio","san jose"].includes(c);
+  const effectiveRadius = geoRadiusExplicit > 0
+    ? geoRadiusExplicit
+    : (primaryCities.length > 0 && primaryCities.every(c => !isMajorMetro(c)) ? 50 : 10);
 
-  const expandedCities: string[] = [];
-  for (const city of primaryCities) {
-    const cluster = CITY_CLUSTERS[city];
-    if (cluster) {
-      expandedCities.push(...cluster);
-    } else {
-      expandedCities.push(city);
-    }
-  }
+  const expandedCities: string[] = [...primaryCities];
   if (effectiveRadius > 0) {
     for (const city of primaryCities) {
       expandedCities.push(...getNearbyCities(city, effectiveRadius));
@@ -254,9 +246,8 @@ export function buildPDLQuery(
     }
     filterClauses.push({ bool: { should: locationClauses } });
 
-    // Always apply state filter when available — prevents matching cities
-    // with the same name in other states (e.g., Avon CT, Eagle ID)
-    if (uniqueStates.length > 0) {
+    const hasRadiusExpansion = uniqueCities.length > primaryCities.length;
+    if (uniqueStates.length > 0 && !hasRadiusExpansion) {
       filterClauses.push({ terms: { location_region: uniqueStates } });
     }
   } else if (uniqueStates.length > 0) {
@@ -818,28 +809,12 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
     }
 
     case CascadeStep.EXPAND_TO_METRO: {
-      // For small/resort towns, expand to regional community cluster instead of distant metro
-      const city = payload.location.city?.toLowerCase();
-      const regionalCities = city ? REGIONAL_EXPANSION[city] : null;
-      if (regionalCities) {
-        const regionClauses: Clause[] = regionalCities.map(c => ({ term: { location_locality: c } }));
-        const newFilter = query.filter
-            .filter(c => !termMatches(c, "location_locality") && !(c?.bool as Record<string, unknown>)?.should)
-            .concat([{ bool: { should: regionClauses } }]);
-        // Ensure state filter is present to prevent matching same-name cities in other states
-        const state = payload.location.state;
-        if (state && !query.filter.some(c => termMatches(c, "location_region") || (c as Record<string, unknown>)?.terms)) {
-          newFilter.push({ terms: { location_region: [normalizeState(state as string)] } });
-        }
-        return { ...query, filter: newFilter };
-      }
-      // For major metros, use the standard metro expansion
       const metro = payload.location.metro;
       if (!metro) return query;
       return {
         ...query,
         filter: query.filter
-          .filter(c => !termMatches(c, "location_locality") && !(c?.bool as Record<string, unknown>)?.should)
+          .filter(c => !termMatches(c, "location_locality"))
           .concat([{ term: { location_metro: (metro as string).toLowerCase() } }]),
       };
     }

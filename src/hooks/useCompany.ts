@@ -36,18 +36,14 @@ async function ensureCompany(userId: string, email: string | undefined) {
 }
 
 export function useCompany() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
 
-  const { data: companyId, isLoading: queryLoading } = useQuery({
+  const { data: companyId, isLoading } = useQuery({
     queryKey: ["company", user?.id],
     queryFn: () => ensureCompany(user!.id, user!.email),
     enabled: !!user,
     staleTime: Infinity,
-    retry: 2,
   });
-
-  // Consider loading if auth is still loading OR if we have a user but company hasn't resolved yet
-  const isLoading = authLoading || (!!user && queryLoading);
 
   return { companyId: companyId ?? null, isLoading };
 }
