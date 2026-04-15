@@ -493,61 +493,194 @@ export function buildPDLQuery(
   }
 
   // ═══════════════════════════════════════════
-  // HEALTHCARE ROLE FILTER — sub_role for precision
-  // FIX: Replaces broad job_title_role: "health" + fragile blacklist.
-  //      Uses PDL's canonical job_title_sub_role values:
-  //      "doctor", "nursing", "dental", "pharmacy", "therapy"
+  // ROLE-AWARE PRECISION: detect specific clinician type the user asked for
+  // Uses O*NET-SOC 2019 classification for precision filtering.
   // ═══════════════════════════════════════════
+  const softShould: Clause[] = [];
+
   if (personNames.length === 0) {
-    const targetSubRoles = detectSubRoles(jobTitles, allKeywordTerms);
+    const DOCTOR_INTENT     = /\b(doctor|physician|md|surgeon|hospitalist|attending|resident|fellow|dr\.?)\b/i;
+    const PA_INTENT         = /\b(physician assistant|pa-?c|pa\b)/i;
+    const NP_INTENT         = /\b(nurse practitioner|np\b|aprn|crna)\b/i;
+    const RN_INTENT         = /\b(nurse|rn|lpn|lvn|cna)\b/i;
+    const THERAPIST_INTENT  = /\b(therapist|pt\b|ot\b|slp|respiratory|physical therapy|occupational therapy)\b/i;
+    const PHARMACIST_INTENT = /\bpharmacist\b/i;
+    const DENTIST_INTENT    = /\b(dentist|dental hygienist|dds|dmd)\b/i;
 
-    if (targetSubRoles.length > 0) {
-      // Precise sub_role filter — only returns the role types the user asked for
-      filterClauses.push({ terms: { job_title_sub_role: targetSubRoles } });
-      console.log("Sub-role filter (precise):", targetSubRoles);
+    const jobTitlesJoined = jobTitles.join(" | ").toLowerCase();
+    const wantsPA         = PA_INTENT.test(jobTitlesJoined);
+    const wantsNP         = NP_INTENT.test(jobTitlesJoined);
+    const wantsDoctor     = !wantsPA && DOCTOR_INTENT.test(jobTitlesJoined);
+    const wantsRN         = !wantsNP && RN_INTENT.test(jobTitlesJoined);
+    const wantsTherapist  = THERAPIST_INTENT.test(jobTitlesJoined);
+    const wantsPharmacist = PHARMACIST_INTENT.test(jobTitlesJoined);
+    const wantsDentist    = DENTIST_INTENT.test(jobTitlesJoined);
 
-      // PDL mis-classifies many non-physician roles as sub_role:"doctor"
-      // Add a positive title filter requiring actual physician-level terms
-      if (targetSubRoles.includes("doctor") && !targetSubRoles.includes("nursing")) {
-        const physicianTitleTerms = [
-          "physician", "doctor", "surgeon", "md", "do",
-          "attending", "hospitalist", "fellow", "resident",
-          "cardiologist", "radiologist", "anesthesiologist", "pathologist",
-          "dermatologist", "neurologist", "urologist", "oncologist",
-          "gastroenterologist", "pulmonologist", "nephrologist",
-          "endocrinologist", "rheumatologist", "ophthalmologist",
-          "psychiatrist", "pediatrician", "internist", "intensivist",
-          "neonatologist", "obstetrician", "gynecologist", "orthopedist",
-          "chief medical officer", "medical director",
-        ];
-        const physicianClauses: Clause[] = [];
-        for (const term of physicianTitleTerms) {
-          if (term.split(/\s+/).length >= 2) {
-            physicianClauses.push({ match_phrase: { "job_title.text": term } });
-          } else {
-            physicianClauses.push({ match: { "job_title.text": term } });
-          }
-        }
-        filterClauses.push({ bool: { should: physicianClauses } });
-        console.log(`Doctor positive title filter added: ${physicianTitleTerms.length} terms`);
+    const PHYSICIAN_ONET_SPECIFIC = [
+      "Anesthesiologists", "Cardiologists", "Dermatologists", "Emergency Medicine Physicians",
+      "Family Medicine Physicians", "General Internal Medicine Physicians", "Neurologists",
+      "Obstetricians and Gynecologists", "Pathologists", "Pediatricians, General", "Psychiatrists",
+      "Radiologists", "Physicians, Pathologists", "Physicians, All Other",
+      "Physicians, All Other; and Ophthalmologists, Except Pediatric",
+      "Ophthalmologists, Except Pediatric", "Hospitalists", "Sports Medicine Physicians",
+      "Ophthalmologists", "Orthopedic Surgeons, Except Pediatric", "Pediatric Surgeons",
+      "Surgeons, All Other", "Surgeons",
+    ];
+
+    if (wantsDoctor) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { terms: { job_onet_specific_occupation: PHYSICIAN_ONET_SPECIFIC } },
+            { term:  { job_onet_specific_occupation: "Physicians" } },
+            { term:  { job_onet_broad_occupation:   "Physicians" } },
+            { term:  { job_onet_broad_occupation:   "Surgeons" } },
+            { term:  { job_title_sub_role: "doctor" } },
+            { match_phrase: { "job_title.text": "physician" } },
+            { match_phrase: { "job_title.text": "surgeon" } },
+            { match_phrase: { "job_title.text": "hospitalist" } },
+            { match_phrase: { "job_title.text": "cardiologist" } },
+            { match_phrase: { "job_title.text": "oncologist" } },
+            { match_phrase: { "job_title.text": "pediatrician" } },
+            { match_phrase: { "job_title.text": "radiologist" } },
+            { match_phrase: { "job_title.text": "anesthesiologist" } },
+            { match_phrase: { "job_title.text": "psychiatrist" } },
+            { match_phrase: { "job_title.text": "neurologist" } },
+            { match_phrase: { "job_title.text": "dermatologist" } },
+            { match_phrase: { "job_title.text": "ophthalmologist" } },
+            { match_phrase: { "job_title.text": "pathologist" } },
+            { wildcard: { job_title: "*, md" } },
+            { wildcard: { job_title: "*, md *" } },
+            { wildcard: { job_title: "*, do" } },
+            { wildcard: { job_title: "*, do *" } },
+            { wildcard: { job_title: "dr. *" } },
+            { wildcard: { job_title: "dr *" } },
+          ],
+
+        },
+      });
+
+      // Hard O*NET exclusions
+      mustNot.push({ term: { job_onet_broad_occupation:   "Physician Assistants" } });
+      mustNot.push({ term: { job_onet_specific_occupation: "Physician Assistants" } });
+      mustNot.push({ term: { job_onet_broad_occupation:   "Registered Nurses" } });
+      mustNot.push({ term: { job_onet_specific_occupation: "Registered Nurses" } });
+      mustNot.push({ term: { job_onet_specific_occupation: "Nurse Practitioners" } });
+      mustNot.push({ term: { job_onet_specific_occupation: "Nurse Anesthetists" } });
+      mustNot.push({ term: { job_onet_specific_occupation: "Nurse Midwives" } });
+
+      // Title-phrase exclusions for records missing O*NET
+      const nonDoctorTitleExclusions = [
+        "physician assistant", "physician's assistant", "physicians assistant",
+        "nurse practitioner", "registered nurse",
+        "licensed practical nurse", "licensed vocational nurse",
+        "certified nursing assistant", "medical assistant", "medical scribe",
+        "physical therapist", "occupational therapist", "respiratory therapist",
+        "speech therapist", "pharmacy technician",
+        "radiologic technologist", "surgical technologist",
+        "phlebotomist", "patient care technician", "patient care assistant",
+        "nursing assistant", "health aide", "medical aide",
+        "dental hygienist", "dental assistant",
+      ];
+      for (const exclusion of nonDoctorTitleExclusions) {
+        mustNot.push({ match_phrase: { "job_title.text": exclusion } });
       }
+      console.log("DOCTOR intent: O*NET physician filter + hard exclusion of PAs/RNs/NPs/techs/aides");
+
+      softShould.push({ term: { job_title_sub_role:        { value: "doctor",     boost: 10.0 } } });
+      softShould.push({ term: { job_onet_broad_occupation: { value: "Physicians", boost: 8.0  } } });
+      softShould.push({ term: { job_onet_broad_occupation: { value: "Surgeons",   boost: 8.0  } } });
+    } else if (wantsPA) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { term: { job_onet_broad_occupation:   "Physician Assistants" } },
+            { term: { job_onet_specific_occupation: "Physician Assistants" } },
+            { match_phrase: { "job_title.text": "physician assistant" } },
+            { wildcard: { job_title: "*, pa-c*" } },
+            { wildcard: { job_title: "*, pa-c" } },
+          ],
+
+        },
+      });
+      console.log("PA intent: O*NET physician-assistant filter");
+    } else if (wantsNP) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { term: { job_onet_specific_occupation: "Nurse Practitioners" } },
+            { term: { job_onet_specific_occupation: "Nurse Anesthetists"  } },
+            { term: { job_onet_specific_occupation: "Nurse Midwives"      } },
+            { match_phrase: { "job_title.text": "nurse practitioner" } },
+            { match_phrase: { "job_title.text": "crna" } },
+            { match_phrase: { "job_title.text": "aprn" } },
+          ],
+
+        },
+      });
+      mustNot.push({ term: { job_onet_broad_occupation: "Physician Assistants" } });
+      mustNot.push({ term: { job_onet_broad_occupation: "Physicians" } });
+      console.log("NP intent: O*NET nurse-practitioner filter + exclude MD/PA");
+    } else if (wantsRN) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { term: { job_onet_specific_occupation: "Registered Nurses" } },
+            { term: { job_onet_broad_occupation:   "Registered Nurses" } },
+            { term: { job_title_sub_role: "nursing" } },
+            { match_phrase: { "job_title.text": "registered nurse" } },
+            { match_phrase: { "job_title.text": "nurse" } },
+          ],
+
+        },
+      });
+      mustNot.push({ term: { job_onet_broad_occupation:   "Physician Assistants" } });
+      mustNot.push({ term: { job_onet_specific_occupation: "Nurse Practitioners" } });
+      mustNot.push({ term: { job_onet_broad_occupation:   "Physicians" } });
+      console.log("RN intent: O*NET RN filter + exclude NP/PA/MD");
+    } else if (wantsTherapist) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { term: { job_title_sub_role: "therapy" } },
+            { match_phrase: { "job_title.text": "therapist" } },
+          ],
+
+        },
+      });
+      console.log("Therapist intent: sub_role + title filter");
+    } else if (wantsPharmacist) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { term: { job_title_sub_role: "pharmacy" } },
+            { match_phrase: { "job_title.text": "pharmacist" } },
+          ],
+
+        },
+      });
+      mustNot.push({ match_phrase: { "job_title.text": "pharmacy technician" } });
+      console.log("Pharmacist intent: sub_role filter + exclude pharmacy technicians");
+    } else if (wantsDentist) {
+      filterClauses.push({
+        bool: {
+          should: [
+            { term: { job_title_sub_role: "dental" } },
+            { match_phrase: { "job_title.text": "dentist" } },
+            { wildcard: { job_title: "*, dds*" } },
+            { wildcard: { job_title: "*, dmd*" } },
+          ],
+
+        },
+      });
+      mustNot.push({ match_phrase: { "job_title.text": "dental assistant" } });
+      mustNot.push({ match_phrase: { "job_title.text": "dental hygienist" } });
+      console.log("Dentist intent: sub_role filter + exclude dental assistants/hygienists");
     } else {
       // Generic healthcare search — fall back to role-level filter
       filterClauses.push({ term: { job_title_role: "health" } });
       console.log("Role filter (generic healthcare): job_title_role=health");
     }
-  }
-
-  // ═══════════════════════════════════════════
-  // ROLE FOCUS FALLBACK — when no titles or specialties specified
-  // FIX: Use sub_role terms instead of expensive wildcards
-  // ═══════════════════════════════════════════
-  if (jobTitles.length === 0 && personNames.length === 0 && !isSpecialtyOnlyQuery) {
-    filterClauses.push({
-      terms: {
-        job_title_sub_role: ["doctor", "nursing", "dental", "pharmacy", "therapy"],
-      },
-    });
   }
 
   // ═══════════════════════════════════════════
@@ -558,11 +691,11 @@ export function buildPDLQuery(
       filter: filterClauses,
       ...(must.length > 0 ? { must } : {}),
       ...(mustNot.length > 0 ? { must_not: mustNot } : {}),
-      ...(should.length > 0 ? { should } : {}),
+      ...([...should, ...softShould].length > 0 ? { should: [...should, ...softShould] } : {}),
     },
   };
 
-  console.log("Final query — filter:", filterClauses.length, "| must:", must.length, "| should:", should.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
+  console.log("Final query — filter:", filterClauses.length, "| must:", must.length, "| should:", should.length + softShould.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
   return query;
 }
 
@@ -621,23 +754,44 @@ function termMatches(clause: Clause, field: string): boolean {
   );
 }
 
+/** Check if a filter clause is an O*NET or sub_role based role-intent filter */
+function isRoleIntentClause(clause: Clause): boolean {
+  // Direct sub_role / O*NET term filters
+  if (termMatches(clause, "job_title_sub_role")) return true;
+  if (termMatches(clause, "job_onet_broad_occupation")) return true;
+  if (termMatches(clause, "job_onet_specific_occupation")) return true;
+
+  // Bool.should blocks containing O*NET or sub_role terms
+  const boolShould = (clause?.bool as Record<string, unknown>)?.should;
+  if (Array.isArray(boolShould)) {
+    return boolShould.some((s: unknown) => {
+      const sc = s as Record<string, unknown>;
+      return (
+        termMatches(sc, "job_title_sub_role") ||
+        termMatches(sc, "job_onet_broad_occupation") ||
+        termMatches(sc, "job_onet_specific_occupation") ||
+        (sc?.terms as Record<string, unknown>)?.job_onet_specific_occupation !== undefined
+      );
+    });
+  }
+  return false;
+}
+
 export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step: CascadeStep): PDLQueryShape {
   switch (step) {
     case CascadeStep.DROP_TITLES: {
-      // Drop title/keyword must clauses but KEEP sub_role filter and must_not exclusions
-      const hasSubRole = query.filter.some(c => termMatches(c, "job_title_sub_role"));
+      // Drop title/keyword must clauses but KEEP O*NET/sub_role filter and must_not exclusions
+      const hasRoleIntent = query.filter.some(c => isRoleIntentClause(c));
       return {
         ...query,
-        // Keep only company clauses in must; drop title/keyword matching
         must: query.must.filter(c => isCompanyClause(c)),
         filter: [
-          // Keep everything except job_title_role (sub_role is preserved)
+          // Keep O*NET/role-intent filters, location, industry; drop title-specific filters
           ...query.filter.filter(c =>
-            !termMatches(c, "job_title") &&
-            !termMatches(c, "job_title_role")
+            isRoleIntentClause(c) ||
+            (!termMatches(c, "job_title") && !termMatches(c, "job_title_role"))
           ),
-          // Only add broad role fallback if no sub_role filter exists
-          ...(hasSubRole ? [] : [{ term: { job_title_role: "health" } }]),
+          ...(hasRoleIntent ? [] : [{ term: { job_title_role: "health" } }]),
         ],
       };
     }
@@ -683,12 +837,12 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
       };
 
     case CascadeStep.ROLE_ONLY: {
-      // Keep sub_role filter if it exists, otherwise fall back to broad role
-      const subRoleFilter = query.filter.find(c => termMatches(c, "job_title_sub_role"));
+      // Keep O*NET/sub_role filter if it exists, otherwise fall back to broad role
+      const roleFilter = query.filter.find(c => isRoleIntentClause(c));
       return {
-        filter: subRoleFilter ? [subRoleFilter] : [{ term: { job_title_role: "health" } }],
+        filter: roleFilter ? [roleFilter] : [{ term: { job_title_role: "health" } }],
         must: [],
-        must_not: query.must_not, // ALWAYS preserve must_not exclusions
+        must_not: query.must_not,
       };
     }
 

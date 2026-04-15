@@ -68,6 +68,9 @@ export interface FormattedCandidate {
   industry: string | null;
   interests: string[];
   job_title_levels: string[];
+  job_onet_broad_occupation: string | null;
+  job_onet_specific_occupation: string | null;
+  relevance_score: number;
 }
 
 function safeString(v: unknown): string | null {
@@ -189,6 +192,9 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
     industry: safeString(p.industry),
     interests: Array.isArray(p.interests) ? p.interests : [],
     job_title_levels: Array.isArray(p.job_title_levels) ? p.job_title_levels : [],
+    job_onet_broad_occupation: safeString(p.job_onet_broad_occupation),
+    job_onet_specific_occupation: safeString(p.job_onet_specific_occupation),
+    relevance_score: 50, // default; overwritten by scoreAndRankResults
   };
 }
 
@@ -222,4 +228,72 @@ export function deriveParsedKeywords(
     credentials: (parsed.credentials as string[]) || [],
     employers: (parsed.current_companies as string[]) || [],
   };
+}
+
+export function scoreAndRankResults(
+  candidates: FormattedCandidate[],
+  parsed: Record<string, unknown>,
+): FormattedCandidate[] {
+  const queryTitles = ((parsed.job_titles as string[]) || []).map(t => t.toLowerCase());
+  const querySpecialties = ((parsed.specialties as string[]) || []).map(s => s.toLowerCase());
+  const queryCompanies = ((parsed.current_companies as string[]) || []).map(c => c.toLowerCase());
+
+  const wantsDoc = queryTitles.some(t => /\b(physician|doctor|surgeon|hospitalist|md)\b/.test(t))
+                && !queryTitles.some(t => /\bphysician assistant\b/.test(t));
+  const wantsPa  = queryTitles.some(t => /\bphysician assistant\b|\bpa-?c\b/.test(t));
+  const wantsNurse = queryTitles.some(t => /\b(nurse|rn|lpn|cna|crna|aprn)\b/.test(t))
+                  && !queryTitles.some(t => /\bnurse practitioner\b/.test(t));
+
+  return candidates.map(person => {
+    let score = 50;
+    const jobTitle = (person.job_title || "").toLowerCase();
+    const subRole = (person.job_title_sub_role || "").toLowerCase();
+    const onetBroad = (person.job_onet_broad_occupation || "").toLowerCase();
+    const onetSpecific = (person.job_onet_specific_occupation || "").toLowerCase();
+
+    // Title match
+    for (const qt of queryTitles) {
+      if (jobTitle.includes(qt)) { score += 8; break; }
+    }
+
+    // Specialty match
+    for (const qs of querySpecialties) {
+      if (jobTitle.includes(qs) || (person.all_skills || []).some(s => s.toLowerCase().includes(qs))) {
+        score += 5; break;
+      }
+    }
+
+    // Company match
+    for (const qc of queryCompanies) {
+      if ((person.job_company_name || "").toLowerCase().includes(qc)) { score += 5; break; }
+    }
+
+    // O*NET and sub-role scoring
+    if (wantsDoc) {
+      if (onetBroad === "physician assistants" || onetSpecific === "physician assistants") score -= 100;
+      if (onetBroad === "registered nurses" || onetSpecific === "registered nurses") score -= 100;
+      if (onetSpecific === "nurse practitioners" || onetSpecific === "nurse anesthetists") score -= 100;
+
+      const nonDoctor = /(physician assistant|pa-?c|nurse practitioner|registered nurse|medical assistant|medical scribe|technician|technologist|hygienist|phlebotomist)/i;
+      if (nonDoctor.test(jobTitle)) score -= 60;
+
+      if (onetBroad === "physicians" || onetBroad === "surgeons") score += 20;
+      if (onetSpecific.includes("physician") && !onetSpecific.includes("assistant")) score += 15;
+      if (subRole === "doctor") score += 10;
+
+      if (/\b(physician|surgeon|hospitalist|cardiologist|oncologist|pediatrician|radiologist|anesthesiologist|psychiatrist|neurologist)\b/i.test(jobTitle)
+          && !/\bassistant\b/i.test(jobTitle)) score += 15;
+      if (/, md\b|, do\b|^dr\.?\s/i.test(jobTitle)) score += 10;
+    }
+    if (wantsPa) {
+      if (onetBroad === "physician assistants" || onetSpecific === "physician assistants") score += 20;
+      if (/physician assistant|pa-?c/i.test(jobTitle)) score += 15;
+    }
+    if (wantsNurse) {
+      if (subRole === "nursing") score += 10;
+      if (onetBroad === "registered nurses") score += 15;
+    }
+
+    return { ...person, relevance_score: Math.max(0, Math.min(100, score)) };
+  }).sort((a, b) => b.relevance_score - a.relevance_score);
 }
