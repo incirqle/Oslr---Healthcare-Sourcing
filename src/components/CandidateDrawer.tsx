@@ -15,12 +15,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  cleanDisplayName,
   formatDateLabel,
   formatExperienceDuration,
   formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
+  normalizeLinkedInUrl,
   toStringArray,
 } from "@/components/search/candidate-ui";
 
