@@ -204,6 +204,7 @@ export default function SearchPage() {
     setPage(1);
     setSelected(new Set());
     setScrollToken(null);
+    setGeoScope(null);
   };
 
   const toggleSelect = (id: string) => {
@@ -294,6 +295,7 @@ export default function SearchPage() {
             pageSize={pageSize}
             onPageChange={handlePageChange}
             isSaving={addCandidates.isPending}
+            geoScope={geoScope}
           />
         )}
       </div>
