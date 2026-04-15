@@ -248,6 +248,7 @@ export function SearchResults({
   pageSize = 15,
   onPageChange,
   isSaving = false,
+  geoScope = null,
 }: SearchResultsProps) {
   const [queryDraft, setQueryDraft] = useState(query);
   const totalPages = Math.ceil(total / pageSize);
@@ -256,6 +257,20 @@ export function SearchResults({
   useEffect(() => {
     setQueryDraft(query);
   }, [query]);
+
+  // Build geo expansion banner text
+  const geoBannerText = (() => {
+    if (!geoScope?.geo_expanded) return null;
+    const city = geoScope.requested_city;
+    const scope = geoScope.effective_scope;
+    if (scope === "state" && city && geoScope.requested_state) {
+      return `Few results in ${city.charAt(0).toUpperCase() + city.slice(1)} — expanded to all of ${geoScope.requested_state.charAt(0).toUpperCase() + geoScope.requested_state.slice(1)}`;
+    }
+    if (scope === "metro" && city) {
+      return `Few results in ${city.charAt(0).toUpperCase() + city.slice(1)} — expanded to the wider metro area`;
+    }
+    return null;
+  })();
 
   if (candidates.length === 0) {
     return (
