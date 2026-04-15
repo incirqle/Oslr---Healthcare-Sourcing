@@ -134,7 +134,7 @@ function CandidateRow({
               candidate.profile_pic_url ? "hidden" : "flex",
             )}
           >
-            {getInitials(candidate.full_name)}
+            {getInitials(cleanDisplayName(candidate.full_name))}
           </div>
 
           <div className="min-w-0 flex-1">
