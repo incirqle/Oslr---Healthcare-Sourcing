@@ -11,6 +11,40 @@ const AVATAR_TONES = [
   "avatar-tone-7",
 ] as const;
 
+/**
+ * Medical credentials / suffixes that PDL sometimes merges into full_name.
+ * We strip these so "fscai jason hatch" becomes "jason hatch".
+ */
+const CREDENTIAL_PATTERNS = [
+  /\b(fscai|facc|faha|fccp|facs|facep|faap|facog|faans|faaos)\b/gi,
+  /\b(md|do|dds|dmd|dpm|phd|pharmd|dnp|drph|mph|mba|ms|ma|bs|ba)\b/gi,
+  /\b(rn|lpn|lvn|cna|crna|aprn|fnp|pa-?c|np)\b/gi,
+  /\b(board certified)\b/gi,
+  /,\s*$/,
+];
+
+export function cleanDisplayName(rawName: string): string {
+  let name = rawName;
+  for (const pattern of CREDENTIAL_PATTERNS) {
+    name = name.replace(pattern, "");
+  }
+  // Collapse extra whitespace and trim
+  name = name.replace(/\s{2,}/g, " ").replace(/^[\s,]+|[\s,]+$/g, "").trim();
+  // If we accidentally stripped everything, fall back to the original
+  return name.length >= 2 ? name : rawName;
+}
+
+/**
+ * Normalize LinkedIn URL — PDL often returns without protocol.
+ */
+export function normalizeLinkedInUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http")) return trimmed;
+  return `https://${trimmed}`;
+}
+
 export function formatSalary(salary: string | null | undefined): string | null {
   if (!salary) return null;
 
