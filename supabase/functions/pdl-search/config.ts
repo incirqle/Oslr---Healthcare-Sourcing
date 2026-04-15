@@ -348,6 +348,27 @@ export const CITY_TO_METRO: Record<string, string[]> = {
 };
 
 /* ------------------------------------------------------------------ */
+/* Regional Expansion — for cascade EXPAND_TO_METRO on small towns     */
+/* Instead of mapping to a distant metro, expand to nearby communities */
+/* ------------------------------------------------------------------ */
+export const REGIONAL_EXPANSION: Record<string, string[]> = {
+  // Colorado mountain corridor
+  "vail": ["vail", "edwards", "avon", "eagle", "minturn", "frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville", "aspen", "basalt", "carbondale"],
+  "edwards": ["vail", "edwards", "avon", "eagle", "minturn", "frisco", "breckenridge", "silverthorne", "glenwood springs"],
+  "avon": ["vail", "edwards", "avon", "eagle", "minturn", "frisco", "breckenridge", "silverthorne", "glenwood springs"],
+  "eagle": ["vail", "edwards", "avon", "eagle", "minturn", "frisco", "breckenridge", "silverthorne"],
+  "aspen": ["aspen", "basalt", "carbondale", "snowmass village", "glenwood springs", "vail", "edwards"],
+  "frisco": ["frisco", "breckenridge", "silverthorne", "dillon", "vail", "edwards", "leadville"],
+  "breckenridge": ["breckenridge", "frisco", "silverthorne", "dillon", "leadville", "vail"],
+  "steamboat springs": ["steamboat springs", "craig", "hayden"],
+  "durango": ["durango", "farmington", "cortez", "pagosa springs"],
+  // Wyoming resort
+  "jackson": ["jackson", "wilson", "teton village", "driggs", "victor", "alpine"],
+  // Minnesota medical hub
+  "rochester": ["rochester", "byron", "stewartville", "austin", "winona", "owatonna"],
+};
+
+/* ------------------------------------------------------------------ */
 /* Nearby Cities Map                                                    */
 /* ------------------------------------------------------------------ */
 export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[]> = {

@@ -28,6 +28,7 @@ import {
   TITLE_EXPANSIONS,
   CITY_TO_METRO,
   NEARBY_CITIES,
+  REGIONAL_EXPANSION,
   US_STATES,
 } from "./config.ts";
 
@@ -809,12 +810,25 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
     }
 
     case CascadeStep.EXPAND_TO_METRO: {
+      // For small/resort towns, expand to regional community cluster instead of distant metro
+      const city = payload.location.city?.toLowerCase();
+      const regionalCities = city ? REGIONAL_EXPANSION[city] : null;
+      if (regionalCities) {
+        const regionClauses: Clause[] = regionalCities.map(c => ({ term: { location_locality: c } }));
+        return {
+          ...query,
+          filter: query.filter
+            .filter(c => !termMatches(c, "location_locality") && !(c?.bool as Record<string, unknown>)?.should)
+            .concat([{ bool: { should: regionClauses } }]),
+        };
+      }
+      // For major metros, use the standard metro expansion
       const metro = payload.location.metro;
       if (!metro) return query;
       return {
         ...query,
         filter: query.filter
-          .filter(c => !termMatches(c, "location_locality"))
+          .filter(c => !termMatches(c, "location_locality") && !(c?.bool as Record<string, unknown>)?.should)
           .concat([{ term: { location_metro: (metro as string).toLowerCase() } }]),
       };
     }
