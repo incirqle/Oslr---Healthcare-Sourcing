@@ -139,15 +139,15 @@ function CandidateRow({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="truncate text-[16px] font-semibold text-ui-text-primary">{candidate.full_name}</h3>
+              <h3 className="truncate text-[16px] font-semibold text-ui-text-primary">{cleanDisplayName(candidate.full_name)}</h3>
               {candidate.linkedin_url && (
                 <a
-                  href={candidate.linkedin_url}
+                  href={normalizeLinkedInUrl(candidate.linkedin_url) ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 text-linkedin-foreground transition-opacity hover:opacity-80"
                   onClick={(event) => event.stopPropagation()}
-                  aria-label={`Open ${candidate.full_name} on LinkedIn`}
+                  aria-label={`Open ${cleanDisplayName(candidate.full_name)} on LinkedIn`}
                 >
                   <LinkedInMark className="h-3.5 w-3.5" />
                 </a>
