@@ -192,6 +192,9 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
     industry: safeString(p.industry),
     interests: Array.isArray(p.interests) ? p.interests : [],
     job_title_levels: Array.isArray(p.job_title_levels) ? p.job_title_levels : [],
+    job_onet_broad_occupation: safeString(p.job_onet_broad_occupation),
+    job_onet_specific_occupation: safeString(p.job_onet_specific_occupation),
+    relevance_score: 50, // default; overwritten by scoreAndRankResults
   };
 }
 
