@@ -247,8 +247,9 @@ export function buildPDLQuery(
     }
     filterClauses.push({ bool: { should: locationClauses } });
 
-    const hasRadiusExpansion = uniqueCities.length > primaryCities.length;
-    if (uniqueStates.length > 0 && !hasRadiusExpansion) {
+    // Always apply state filter when available — prevents matching cities
+    // with the same name in other states (e.g., Avon CT, Eagle ID)
+    if (uniqueStates.length > 0) {
       filterClauses.push({ terms: { location_region: uniqueStates } });
     }
   } else if (uniqueStates.length > 0) {
@@ -815,12 +816,15 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
       const regionalCities = city ? REGIONAL_EXPANSION[city] : null;
       if (regionalCities) {
         const regionClauses: Clause[] = regionalCities.map(c => ({ term: { location_locality: c } }));
-        return {
-          ...query,
-          filter: query.filter
+        const newFilter = query.filter
             .filter(c => !termMatches(c, "location_locality") && !(c?.bool as Record<string, unknown>)?.should)
-            .concat([{ bool: { should: regionClauses } }]),
-        };
+            .concat([{ bool: { should: regionClauses } }]);
+        // Ensure state filter is present to prevent matching same-name cities in other states
+        const state = payload.location.state;
+        if (state && !query.filter.some(c => termMatches(c, "location_region") || (c as Record<string, unknown>)?.terms)) {
+          newFilter.push({ terms: { location_region: [normalizeState(state as string)] } });
+        }
+        return { ...query, filter: newFilter };
       }
       // For major metros, use the standard metro expansion
       const metro = payload.location.metro;
