@@ -387,10 +387,10 @@ export function CandidateDrawer({
 
   if (!candidate) return null;
 
-  const salary = formatSalary(enriched?.inferred_salary || candidate.inferred_salary);
+  const salary = null; // PDL salary inference is unreliable for healthcare — hidden
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience;
   const profilePicture = enriched?.profile_pic_url || candidate.profile_pic_url;
-  const linkedinUrl = enriched?.linkedin_url || candidate.linkedin_url;
+  const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
   const companyName = enriched?.job_company_name || candidate.current_employer;
   const title = enriched?.job_title || candidate.title;
   const locationLabel = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location;
@@ -428,7 +428,7 @@ export function CandidateDrawer({
               {profilePicture ? (
                 <img
                   src={profilePicture}
-                  alt={candidate.full_name}
+                  alt={cleanDisplayName(candidate.full_name)}
                   className="h-16 w-16 rounded-full object-cover"
                   onError={(event) => {
                     (event.target as HTMLImageElement).style.display = "none";
@@ -443,11 +443,11 @@ export function CandidateDrawer({
                   profilePicture ? "hidden" : "flex",
                 )}
               >
-                {getInitials(candidate.full_name)}
+                {getInitials(cleanDisplayName(candidate.full_name))}
               </div>
 
               <div className="min-w-0 flex-1">
-                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{candidate.full_name}</SheetTitle>
+                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{cleanDisplayName(candidate.full_name)}</SheetTitle>
                 <p className="mt-1 text-[15px] text-ui-text-secondary">{title || "—"}</p>
 
                 {companyName && (
