@@ -21,15 +21,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // First, set up the listener so we don't miss any events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+      (_event, newSession) => {
+        setSession(newSession);
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    // Then get the initial session — this resolves the race condition
+    // where onAuthStateChange could fire before getSession completes
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      // Only set if onAuthStateChange hasn't already fired with a session
+      setSession((prev) => prev ?? initialSession);
       setLoading(false);
     });
 
