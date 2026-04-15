@@ -16,7 +16,7 @@ import {
   runPreview,
   fetchProfiles,
 } from "./fetch-pdl-results.ts";
-import { mapPerson, deriveParsedCategories, deriveParsedKeywords } from "./format-results.ts";
+import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankResults } from "./format-results.ts";
 import { callClaude } from "./ai-router.ts";
 
 const corsHeaders = {
@@ -763,7 +763,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 5: Format results
-    const formattedResults = results.map(mapPerson);
+    const formattedResults = scoreAndRankResults(results.map(mapPerson), parsed);
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
 
