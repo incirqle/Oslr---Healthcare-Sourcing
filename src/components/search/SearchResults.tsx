@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import {
   cleanDisplayName,
-  formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
