@@ -425,11 +425,10 @@ export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[
     { radius: 25, cities: ["fairfax", "reston", "rockville", "columbia", "frederick"] },
     { radius: 50, cities: ["baltimore", "annapolis", "richmond"] },
   ],
-  // Small/resort healthcare towns — expand to surrounding communities
+  // Small/resort healthcare towns — local corridor only (no Denver drift)
   "vail": [
-    { radius: 10, cities: ["edwards", "avon", "eagle", "minturn"] },
-    { radius: 25, cities: ["frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"] },
-    { radius: 50, cities: ["aspen", "boulder", "denver", "aurora", "lakewood"] },
+    { radius: 15, cities: ["edwards", "avon", "eagle", "minturn"] },
+    { radius: 30, cities: ["frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"] },
   ],
   "aspen": [
     { radius: 10, cities: ["basalt", "carbondale", "snowmass village"] },

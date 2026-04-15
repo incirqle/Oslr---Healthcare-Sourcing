@@ -234,9 +234,13 @@ export function buildPDLQuery(
     const locationClauses: Clause[] = [];
     for (const city of uniqueCities) {
       locationClauses.push({ term: { location_locality: city } });
-      const metroNames = CITY_TO_METRO[city];
-      if (metroNames) {
-        for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+      // Only inject metro mapping for cities that ARE major metros themselves.
+      // Small/resort towns should NOT pull in distant metro results.
+      if (isMajorMetro(city)) {
+        const metroNames = CITY_TO_METRO[city];
+        if (metroNames) {
+          for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+        }
       }
     }
     filterClauses.push({ bool: { should: locationClauses } });
@@ -806,11 +810,13 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
     case CascadeStep.EXPAND_TO_METRO: {
       const metro = payload.location.metro;
       if (!metro) return query;
+      const metroLower = (metro as string).toLowerCase();
+      // Replace the nested location bool clause (not just flat locality terms)
       return {
         ...query,
         filter: query.filter
-          .filter(c => !termMatches(c, "location_locality"))
-          .concat([{ term: { location_metro: (metro as string).toLowerCase() } }]),
+          .filter(c => !isLocationClause(c))
+          .concat([{ term: { location_metro: `${metroLower}, ${(payload.location.state || "").toLowerCase()}` } }]),
       };
     }
 
@@ -820,7 +826,7 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
       return {
         ...query,
         filter: query.filter
-          .filter(c => !termMatches(c, "location_locality") && !termMatches(c, "location_metro"))
+          .filter(c => !isLocationClause(c))
           .concat([{ term: { location_region: (state as string).toLowerCase() } }]),
       };
     }
