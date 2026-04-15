@@ -63,6 +63,11 @@ export async function fetchPDLWithRetry(
         };
       }
 
+      // PDL returns 404 for "no records found" — treat as empty result, not error
+      if (res.status === 404) {
+        return { ok: true, data: { total: 0, data: [] } };
+      }
+
       if (!res.ok) {
         const errText = await res.text();
         console.error(`[PDL] Error ${res.status}: ${errText} [${queryHash}]`);
