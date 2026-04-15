@@ -506,18 +506,30 @@ export function buildPDLQuery(
       filterClauses.push({ terms: { job_title_sub_role: targetSubRoles } });
       console.log("Sub-role filter (precise):", targetSubRoles);
 
-      // PDL mis-classifies PA/PA-C as sub_role:"doctor" — exclude non-physician titles
+      // PDL mis-classifies many non-physician roles as sub_role:"doctor"
+      // Add a positive title filter requiring actual physician-level terms
       if (targetSubRoles.includes("doctor") && !targetSubRoles.includes("nursing")) {
-        const doctorExclusions = [
-          "physician assistant", "physician's assistant", "pa-c",
-          "nurse practitioner", "nurse",
-          "medical assistant",
-          "surgical technician", "surgical tech",
+        const physicianTitleTerms = [
+          "physician", "doctor", "surgeon", "md", "do",
+          "attending", "hospitalist", "fellow", "resident",
+          "cardiologist", "radiologist", "anesthesiologist", "pathologist",
+          "dermatologist", "neurologist", "urologist", "oncologist",
+          "gastroenterologist", "pulmonologist", "nephrologist",
+          "endocrinologist", "rheumatologist", "ophthalmologist",
+          "psychiatrist", "pediatrician", "internist", "intensivist",
+          "neonatologist", "obstetrician", "gynecologist", "orthopedist",
+          "chief medical officer", "medical director",
         ];
-        for (const ex of doctorExclusions) {
-          mustNot.push({ match_phrase: { "job_title.text": ex } });
+        const physicianClauses: Clause[] = [];
+        for (const term of physicianTitleTerms) {
+          if (term.split(/\s+/).length >= 2) {
+            physicianClauses.push({ match_phrase: { "job_title.text": term } });
+          } else {
+            physicianClauses.push({ match: { "job_title.text": term } });
+          }
         }
-        console.log(`Doctor exclusions added: ${doctorExclusions.length} must_not phrases`);
+        filterClauses.push({ bool: { should: physicianClauses } });
+        console.log(`Doctor positive title filter added: ${physicianTitleTerms.length} terms`);
       }
     } else {
       // Generic healthcare search — fall back to role-level filter
