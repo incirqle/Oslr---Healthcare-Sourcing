@@ -754,6 +754,29 @@ function termMatches(clause: Clause, field: string): boolean {
   );
 }
 
+/** Check if a filter clause is an O*NET or sub_role based role-intent filter */
+function isRoleIntentClause(clause: Clause): boolean {
+  // Direct sub_role / O*NET term filters
+  if (termMatches(clause, "job_title_sub_role")) return true;
+  if (termMatches(clause, "job_onet_broad_occupation")) return true;
+  if (termMatches(clause, "job_onet_specific_occupation")) return true;
+
+  // Bool.should blocks containing O*NET or sub_role terms
+  const boolShould = (clause?.bool as Record<string, unknown>)?.should;
+  if (Array.isArray(boolShould)) {
+    return boolShould.some((s: unknown) => {
+      const sc = s as Record<string, unknown>;
+      return (
+        termMatches(sc, "job_title_sub_role") ||
+        termMatches(sc, "job_onet_broad_occupation") ||
+        termMatches(sc, "job_onet_specific_occupation") ||
+        (sc?.terms as Record<string, unknown>)?.job_onet_specific_occupation !== undefined
+      );
+    });
+  }
+  return false;
+}
+
 export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step: CascadeStep): PDLQueryShape {
   switch (step) {
     case CascadeStep.DROP_TITLES: {
