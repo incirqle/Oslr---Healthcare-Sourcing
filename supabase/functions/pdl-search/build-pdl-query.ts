@@ -209,12 +209,12 @@ export function buildPDLQuery(
     ? (hasCityFilter ? [filterCity.toLowerCase()] : [])
     : (hasCityFilter ? [filterCity.toLowerCase()] : aiLocations.filter(l => l.city).map(l => (l.city as string).toLowerCase()));
 
-  // Auto-expand radius for small towns: if the city has NEARBY_CITIES entries
-  // but is NOT a major metro, use 50mi default so we include surrounding communities.
+  // Only auto-expand radius for non-metro small towns.
+  // Major metros keep a tight 10mi default; small towns get 15mi (nearby corridor only — no Denver drift).
   const isMajorMetro = (c: string) => ["denver","dallas","houston","austin","los angeles","san francisco","chicago","miami","atlanta","phoenix","seattle","boston","new york","philadelphia","nashville","washington","portland","san diego","tampa","charlotte","raleigh","detroit","minneapolis","salt lake city","baltimore","las vegas","indianapolis","columbus","cleveland","kansas city","richmond","st. louis","milwaukee","memphis","sacramento","louisville","oklahoma city","new orleans","birmingham","tucson","omaha","albuquerque","honolulu","anchorage","orlando","jacksonville","pittsburgh","san antonio","san jose"].includes(c);
   const effectiveRadius = geoRadiusExplicit > 0
     ? geoRadiusExplicit
-    : (primaryCities.length > 0 && primaryCities.every(c => !isMajorMetro(c)) ? 50 : 10);
+    : (primaryCities.length > 0 && primaryCities.every(c => !isMajorMetro(c)) ? 15 : 10);
 
   const expandedCities: string[] = [...primaryCities];
   if (effectiveRadius > 0) {
