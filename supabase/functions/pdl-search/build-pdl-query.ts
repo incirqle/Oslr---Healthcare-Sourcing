@@ -780,20 +780,18 @@ function isRoleIntentClause(clause: Clause): boolean {
 export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step: CascadeStep): PDLQueryShape {
   switch (step) {
     case CascadeStep.DROP_TITLES: {
-      // Drop title/keyword must clauses but KEEP sub_role filter and must_not exclusions
-      const hasSubRole = query.filter.some(c => termMatches(c, "job_title_sub_role"));
+      // Drop title/keyword must clauses but KEEP O*NET/sub_role filter and must_not exclusions
+      const hasRoleIntent = query.filter.some(c => isRoleIntentClause(c));
       return {
         ...query,
-        // Keep only company clauses in must; drop title/keyword matching
         must: query.must.filter(c => isCompanyClause(c)),
         filter: [
-          // Keep everything except job_title_role (sub_role is preserved)
+          // Keep O*NET/role-intent filters, location, industry; drop title-specific filters
           ...query.filter.filter(c =>
-            !termMatches(c, "job_title") &&
-            !termMatches(c, "job_title_role")
+            isRoleIntentClause(c) ||
+            (!termMatches(c, "job_title") && !termMatches(c, "job_title_role"))
           ),
-          // Only add broad role fallback if no sub_role filter exists
-          ...(hasSubRole ? [] : [{ term: { job_title_role: "health" } }]),
+          ...(hasRoleIntent ? [] : [{ term: { job_title_role: "health" } }]),
         ],
       };
     }
