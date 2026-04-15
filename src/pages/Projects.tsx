@@ -26,6 +26,7 @@ export default function Projects() {
   const { data: candidateCounts = {} } = useProjectCandidateCounts();
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
+  const { isLoading: companyLoading } = useCompany();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
