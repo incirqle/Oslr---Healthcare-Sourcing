@@ -556,7 +556,7 @@ export function buildPDLQuery(
             { wildcard: { job_title: "dr. *" } },
             { wildcard: { job_title: "dr *" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
 
@@ -600,7 +600,7 @@ export function buildPDLQuery(
             { wildcard: { job_title: "*, pa-c*" } },
             { wildcard: { job_title: "*, pa-c" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
       console.log("PA intent: O*NET physician-assistant filter");
@@ -615,7 +615,7 @@ export function buildPDLQuery(
             { match_phrase: { "job_title.text": "crna" } },
             { match_phrase: { "job_title.text": "aprn" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
       mustNot.push({ term: { job_onet_broad_occupation: "Physician Assistants" } });
@@ -631,7 +631,7 @@ export function buildPDLQuery(
             { match_phrase: { "job_title.text": "registered nurse" } },
             { match_phrase: { "job_title.text": "nurse" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
       mustNot.push({ term: { job_onet_broad_occupation:   "Physician Assistants" } });
@@ -645,7 +645,7 @@ export function buildPDLQuery(
             { term: { job_title_sub_role: "therapy" } },
             { match_phrase: { "job_title.text": "therapist" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
       console.log("Therapist intent: sub_role + title filter");
@@ -656,7 +656,7 @@ export function buildPDLQuery(
             { term: { job_title_sub_role: "pharmacy" } },
             { match_phrase: { "job_title.text": "pharmacist" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
       mustNot.push({ match_phrase: { "job_title.text": "pharmacy technician" } });
@@ -670,7 +670,7 @@ export function buildPDLQuery(
             { wildcard: { job_title: "*, dds*" } },
             { wildcard: { job_title: "*, dmd*" } },
           ],
-          minimum_should_match: 1,
+
         },
       });
       mustNot.push({ match_phrase: { "job_title.text": "dental assistant" } });
