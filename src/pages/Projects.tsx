@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FolderKanban, Plus, Users, Calendar, Trash2, Loader2 } from "lucide-react";
 import { useProjects, useCreateProject, useDeleteProject, useProjectCandidateCounts } from "@/hooks/useProjects";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
