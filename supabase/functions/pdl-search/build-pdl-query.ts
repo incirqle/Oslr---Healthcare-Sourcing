@@ -765,6 +765,21 @@ function termMatches(clause: Clause, field: string): boolean {
   );
 }
 
+/** Check if a filter clause is a location clause (locality, metro, region, or nested bool containing them) */
+function isLocationClause(clause: Clause): boolean {
+  if (termMatches(clause, "location_locality")) return true;
+  if (termMatches(clause, "location_metro")) return true;
+  if (termMatches(clause, "location_region")) return true;
+  const boolShould = (clause?.bool as Record<string, unknown>)?.should;
+  if (Array.isArray(boolShould)) {
+    return boolShould.some((s: unknown) => {
+      const sc = s as Clause;
+      return termMatches(sc, "location_locality") || termMatches(sc, "location_metro") || termMatches(sc, "location_region");
+    });
+  }
+  return false;
+}
+
 /** Check if a filter clause is an O*NET or sub_role based role-intent filter */
 function isRoleIntentClause(clause: Clause): boolean {
   // Direct sub_role / O*NET term filters

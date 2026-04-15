@@ -739,7 +739,7 @@ Deno.serve(async (req: Request) => {
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
       // Cascade if too few results
-      if (results.length < 3 && page === 0) {
+      if (total < 2 && page === 0) {
         console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
         const cascadePayload: CascadePayload = {
           location: (parsed.location as CascadePayload["location"]) || {},
