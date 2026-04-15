@@ -53,6 +53,14 @@ export interface Candidate {
   raw?: Record<string, unknown>;
 }
 
+interface GeoScope {
+  requested_city?: string | null;
+  requested_state?: string | null;
+  geo_expanded?: boolean;
+  effective_scope?: "local" | "metro" | "state";
+  cascade_steps_used?: string[];
+}
+
 interface SearchResultsProps {
   query: string;
   candidates: Candidate[];
@@ -71,6 +79,7 @@ interface SearchResultsProps {
   pageSize?: number;
   onPageChange?: (page: number) => void;
   isSaving?: boolean;
+  geoScope?: GeoScope | null;
 }
 
 function CandidateRow({
