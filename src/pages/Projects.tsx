@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FolderKanban, Plus, Users, Calendar, Trash2, Loader2 } from "lucide-react";
 import { useProjects, useCreateProject, useDeleteProject, useProjectCandidateCounts } from "@/hooks/useProjects";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -25,6 +26,7 @@ export default function Projects() {
   const { data: candidateCounts = {} } = useProjectCandidateCounts();
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
+  const { isLoading: companyLoading } = useCompany();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -105,8 +107,8 @@ export default function Projects() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate} disabled={!name.trim() || createProject.isPending}>
-                  {createProject.isPending ? "Creating..." : "Create Project"}
+                <Button onClick={handleCreate} disabled={!name.trim() || createProject.isPending || companyLoading}>
+                  {companyLoading ? "Loading..." : createProject.isPending ? "Creating..." : "Create Project"}
                 </Button>
               </DialogFooter>
             </DialogContent>
