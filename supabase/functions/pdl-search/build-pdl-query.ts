@@ -247,8 +247,9 @@ export function buildPDLQuery(
     }
     filterClauses.push({ bool: { should: locationClauses } });
 
-    const hasRadiusExpansion = uniqueCities.length > primaryCities.length;
-    if (uniqueStates.length > 0 && !hasRadiusExpansion) {
+    // Always apply state filter when available — prevents matching cities
+    // with the same name in other states (e.g., Avon CT, Eagle ID)
+    if (uniqueStates.length > 0) {
       filterClauses.push({ terms: { location_region: uniqueStates } });
     }
   } else if (uniqueStates.length > 0) {
