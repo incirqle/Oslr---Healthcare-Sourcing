@@ -505,6 +505,22 @@ export function buildPDLQuery(
       // Precise sub_role filter — only returns the role types the user asked for
       filterClauses.push({ terms: { job_title_sub_role: targetSubRoles } });
       console.log("Sub-role filter (precise):", targetSubRoles);
+
+      // PDL mis-classifies PA/PA-C as sub_role:"doctor" — exclude non-physician titles
+      if (targetSubRoles.includes("doctor") && !targetSubRoles.includes("nursing")) {
+        const doctorExclusions = [
+          "physician assistant", "physician's assistant", "pa-c", "pa c",
+          "surgical technician", "surgical tech", "surg tech",
+          "medical assistant", "clinical assistant",
+          "nurse practitioner", "nurse", "rn", "lpn", "lvn", "cna",
+          "recruiter", "coordinator", "scheduler", "billing",
+          "medical scribe", "scribe",
+        ];
+        for (const ex of doctorExclusions) {
+          mustNot.push({ match_phrase: { "job_title.text": ex } });
+        }
+        console.log(`Doctor exclusions added: ${doctorExclusions.length} must_not phrases`);
+      }
     } else {
       // Generic healthcare search — fall back to role-level filter
       filterClauses.push({ term: { job_title_role: "health" } });
