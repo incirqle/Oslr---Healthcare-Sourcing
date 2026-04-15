@@ -613,7 +613,9 @@ function termMatches(clause: Clause, field: string): boolean {
 
 export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step: CascadeStep): PDLQueryShape {
   switch (step) {
-    case CascadeStep.DROP_TITLES:
+    case CascadeStep.DROP_TITLES: {
+      // Drop title matching from must, but KEEP sub_role filter and must_not exclusions
+      const hasSubRole = query.filter.some(c => termMatches(c, "job_title_sub_role"));
       return {
         ...query,
         must: query.must.filter(c => isCompanyClause(c)),
@@ -621,11 +623,17 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
           ...query.filter.filter(c =>
             !termMatches(c, "job_title") &&
             !termMatches(c, "job_title_role") &&
-            !termMatches(c, "job_title_sub_role")
+            // Keep sub_role if it exists; only drop title-related filters
+            (termMatches(c, "job_title_sub_role") || (
+              !termMatches(c, "job_title") &&
+              !termMatches(c, "job_title_role")
+            ))
           ),
-          { term: { job_title_role: "health" } },
+          // Only add broad role fallback if no sub_role filter exists
+          ...(hasSubRole ? [] : [{ term: { job_title_role: "health" } }]),
         ],
       };
+    }
 
     case CascadeStep.EXPAND_TO_METRO: {
       const metro = payload.location.metro;
