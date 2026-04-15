@@ -335,16 +335,10 @@ export const CITY_TO_METRO: Record<string, string[]> = {
   "albuquerque": ["albuquerque, new mexico"],
   "honolulu": ["honolulu, hawaii"],
   "anchorage": ["anchorage, alaska"],
-  // Small/resort healthcare towns → nearest metro
-  "vail": ["denver, colorado"],
-  "edwards": ["denver, colorado"],
-  "avon": ["denver, colorado"],
-  "eagle": ["denver, colorado"],
-  "frisco": ["denver, colorado"],
-  "breckenridge": ["denver, colorado"],
-  "aspen": ["denver, colorado"],
-  "steamboat springs": ["denver, colorado"],
-  "durango": ["denver, colorado"],
+  // Small/resort healthcare towns — do NOT map to Denver metro
+  // These are distinct communities 100+ miles from Denver
+  "steamboat springs": ["steamboat springs, colorado"],
+  "durango": ["durango, colorado"],
   "rochester": ["rochester, minnesota"],   // Mayo Clinic
   "jackson": ["jackson, wyoming"],          // Jackson Hole
   "park city": ["salt lake city, utah"],
@@ -437,12 +431,12 @@ export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[
   "vail": [
     { radius: 10, cities: ["edwards", "avon", "eagle", "minturn"] },
     { radius: 25, cities: ["frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"] },
-    { radius: 50, cities: ["aspen", "boulder", "denver", "aurora", "lakewood"] },
+    { radius: 50, cities: ["aspen", "basalt", "carbondale"] },
   ],
   "aspen": [
     { radius: 10, cities: ["basalt", "carbondale", "snowmass village"] },
     { radius: 25, cities: ["glenwood springs", "vail", "edwards"] },
-    { radius: 50, cities: ["grand junction", "denver"] },
+    { radius: 50, cities: ["grand junction", "silverthorne", "frisco"] },
   ],
   "rochester": [
     { radius: 10, cities: ["byron", "stewartville"] },

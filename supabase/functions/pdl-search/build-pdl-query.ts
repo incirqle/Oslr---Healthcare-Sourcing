@@ -232,11 +232,16 @@ export function buildPDLQuery(
 
   if (uniqueCities.length > 0) {
     const locationClauses: Clause[] = [];
+    // Only apply metro expansion to primary (user-specified) cities,
+    // NOT to cities added via radius expansion — prevents Vail pulling in Denver metro
+    const primaryCitySet = new Set(primaryCities);
     for (const city of uniqueCities) {
       locationClauses.push({ term: { location_locality: city } });
-      const metroNames = CITY_TO_METRO[city];
-      if (metroNames) {
-        for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+      if (primaryCitySet.has(city)) {
+        const metroNames = CITY_TO_METRO[city];
+        if (metroNames) {
+          for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+        }
       }
     }
     filterClauses.push({ bool: { should: locationClauses } });
