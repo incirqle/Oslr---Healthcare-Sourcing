@@ -107,8 +107,8 @@ export default function Projects() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate} disabled={!name.trim() || createProject.isPending}>
-                  {createProject.isPending ? "Creating..." : "Create Project"}
+                <Button onClick={handleCreate} disabled={!name.trim() || createProject.isPending || companyLoading}>
+                  {companyLoading ? "Loading..." : createProject.isPending ? "Creating..." : "Create Project"}
                 </Button>
               </DialogFooter>
             </DialogContent>
