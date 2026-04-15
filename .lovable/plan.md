@@ -1,108 +1,81 @@
 
+Goal
 
-# Surgical Rewrite: `pdl-search` Edge Function
+Ship one surgical “search geography” fix so Vail orthopedic searches stay Vail-first, only widen when truly necessary, and clearly tell the user when widening happened.
 
-This plan implements the uploaded spec — replacing the current broken SQL-based PDL search with a proven Elasticsearch DSL architecture adapted from RepGPT.
+What’s happening now
 
----
+- The problem starts before cascade. The base query is already broad:
+  - `build-pdl-query.ts` auto-expands non-metro cities to a 50-mile radius.
+  - `config.ts` maps `vail` and nearby towns to `denver, colorado`.
+  - The built query therefore contains `location_locality: vail` plus nearby towns plus `location_metro: denver, colorado`, which is why Boulder/Castle Rock/Denver-area profiles show up.
+- Cascade is too eager:
+  - `index.ts` cascades when `results.length < 3` instead of when the actual match total is under 2.
+- Cascade geography replacement is flawed:
+  - `applyStep()` adds metro/state filters without properly removing the nested base location bool clause, so widening is not controlled cleanly.
+- The UI hides what happened:
+  - `SearchPage.tsx` ignores cascade metadata and does not send edited location filters back in the backend’s expected structured shape, so users can’t reliably correct geography.
 
-## What Changes
+One-go implementation plan
 
-The entire `supabase/functions/pdl-search/` directory gets rewritten with 8 files. The frontend `SearchPage.tsx` gets updated to match the new API contract (single endpoint, `preview` flag, different response shape). A new `oslr_searches` table is created for rate limiting, and the existing `pdl_cache` table is replaced with the simpler schema the new code expects. An `ANTHROPIC_API_KEY` secret is required.
+1. Fix base Vail geography in `build-pdl-query.ts`
+- Stop injecting Denver metro for small-town/local-market searches by default.
+- Split location behavior into:
+  - major metros: city + metro is allowed
+  - local towns/resort markets: exact city + immediate nearby towns only
+- For Vail, keep the base query local:
+  - Vail
+  - Avon / Edwards / Eagle / Minturn
+  - optional next ring like Frisco / Silverthorne only if radius supports it
+- Remove Denver/Boulder/Castle Rock from the default Vail search scope.
 
----
+2. Tighten the location config in `config.ts`
+- Remove or neutralize the current `vail -> denver metro` behavior for the base search path.
+- Clean the `NEARBY_CITIES` tiers so Vail’s nearby list reflects real local catchment, not statewide leakage.
+- Keep metro mappings only for genuine metro-driven searches, not resort-town defaults.
 
-## Step 1: Database Migration
+3. Make cascade truly surgical in `index.ts` + `build-pdl-query.ts`
+- Change cascade trigger from “first page returned under 3 rows” to “actual total is under 2”.
+- Rework location cascade steps so they replace prior location clauses cleanly.
+- Use a gentler order:
+  1. exact/local scope
+  2. nearby local towns
+  3. metro only for real metro markets
+  4. state only as last resort
+- Keep doctor/specialty intent intact while widening geography.
 
-Create `oslr_searches` table and update `pdl_cache` to match the new schema:
+4. Return honest scope metadata from the edge function
+- Add response fields for:
+  - requested location
+  - effective location scope
+  - whether expansion occurred
+  - which step triggered it
+  - corrected total after expansion
+- If cascade wins, return the widened total instead of the original base total so the UI never says “0” while showing people.
 
-```sql
--- New cache table (replaces old pdl_cache)
-DROP TABLE IF EXISTS pdl_cache;
-CREATE TABLE pdl_cache (
-  cache_key TEXT PRIMARY KEY,
-  total INTEGER DEFAULT 0,
-  data JSONB DEFAULT '[]',
-  scroll_token TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+5. Surface the behavior in the frontend
+- Update `SearchPage.tsx` to store search-scope metadata from the function response.
+- Add a visible banner in results, e.g.:
+  - “Showing 11 orthopedic surgeons within 25 miles of Vail.”
+  - or “No exact Vail matches found; expanded to nearby mountain communities.”
+- Wire `FilterEditor` location edits into the backend payload as structured `city` / `states` / optional radius so manual location changes actually affect search.
 
--- Search logging for rate limiting
-CREATE TABLE IF NOT EXISTS oslr_searches (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  query TEXT,
-  filters JSONB DEFAULT '{}',
-  result_count INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
+Files to touch
 
-RLS: `oslr_searches` needs insert policy for authenticated users and select for own rows.
+- `supabase/functions/pdl-search/build-pdl-query.ts`
+- `supabase/functions/pdl-search/index.ts`
+- `supabase/functions/pdl-search/config.ts`
+- `src/pages/SearchPage.tsx`
+- likely `src/components/search/SearchResults.tsx` or `FilterReview.tsx` for the scope/expansion banner
 
----
+Expected result
 
-## Step 2: Add `ANTHROPIC_API_KEY` Secret
+- “Orthopedic surgeons in Vail, Colorado” stays Vail-first.
+- No Denver/Boulder/statewide drift unless the base search truly has 0–1 matches.
+- If geography broadens, the UI explains exactly what broadened and why.
+- Counts and visible results stay consistent.
 
-The new architecture uses Claude Haiku as the primary AI parser. Will prompt user to add their Anthropic API key.
+Technical details
 
-Note: The existing secret is named `PDL_PREVIEW_KEY` but the spec references `PDL_PREVIEW_API_KEY`. The code will use whichever name is configured.
-
----
-
-## Step 3: Rewrite Edge Function Files (8 files)
-
-All under `supabase/functions/pdl-search/`:
-
-| File | Description |
-|------|-------------|
-| `ai-router.ts` | Direct Anthropic API helper for Claude Haiku/Sonnet |
-| `cache.ts` | Simplified SHA-256 cache key generation |
-| `fetch-pdl-results.ts` | Two-key routing, retry with backoff, DB cache, advisory locks |
-| `config.ts` | Clinical keyword expansions, health system divisions, metro maps, title expansions |
-| `parse-query.ts` | Claude L2 parser with confidence scores, Gemini fallback, deterministic last resort |
-| `build-pdl-query.ts` | Elasticsearch DSL builder with cascade support |
-| `format-results.ts` | PDL record → FormattedCandidate mapping |
-| `index.ts` | Orchestrator: auth → parse → build → preview/fetch → cascade → respond |
-
-Key architectural changes:
-- **SQL → Elasticsearch DSL**: PDL queries use `bool` with `filter/must/should/must_not`
-- **Two-key routing**: Preview key for counts (0 credits), live key for profiles
-- **Cascade planner**: Claude L5 decides filter relaxation when results are sparse
-- **Advisory locks**: Prevents thundering herd on identical queries
-- **JWT auth + role checks**: Validates user has admin/recruiter role
-- **Retry logic**: Exponential backoff on 429 (rate limit) responses
-
-Note: `CITY_TO_METRO` and `NEARBY_CITIES` maps are stubbed in the spec with "copy from RepGPT" comments. Will populate with the major city entries shown plus reasonable defaults.
-
----
-
-## Step 4: Update Frontend (`SearchPage.tsx`)
-
-The new API has a different contract:
-- Single endpoint with `preview: true/false` flag (replaces `action: "parse_filters"` / `action: "search_with_filters"`)
-- Response shape: `{ results, total, parsed, parsed_categories, parsed_keywords, scroll_token, hasMore }`
-- No separate `parse_filters` step — preview mode returns `{ preview: true, total, parsed }`
-
-Changes needed in `SearchPage.tsx`:
-- `handleInitialSearch`: Call with `{ query, preview: true }` → get back parsed filters + total count
-- `handleRunSearch`: Call with `{ query, filters, page, size }` → get back results
-- Map `FormattedCandidate` fields to the existing `Candidate` interface
-
-Also update `FilterReview.tsx` and `FilterEditor.tsx` to work with the new parsed payload shape (confidence scores, `location` object vs flat `locations` array).
-
----
-
-## Step 5: Deploy and Test
-
-Deploy the edge function and run a test query to verify end-to-end.
-
----
-
-## Technical Notes
-
-- The spec references `ANTHROPIC_API_KEY` for Claude calls. If this is not available, the system falls back to Gemini via Lovable AI Gateway, then to deterministic parsing.
-- The `pdl_cache` table schema change is breaking — existing cached data will be lost (acceptable since the query format changed entirely).
-- The `user_roles` table already exists with `admin` and `recruiter` roles, which the new auth check uses.
-- Secret `PDL_PREVIEW_KEY` (current name) will be read as `PDL_PREVIEW_API_KEY` in code — will adapt the code to check both names.
-
+- Current logs already confirm the root issue: the base query includes `location_metro:"denver, colorado"` and multiple widened localities, so the over-broadness is happening before any meaningful cascade.
+- This should be implemented as one cohesive geo-control patch, not separate tweaks, so backend location logic, cascade thresholds, totals, and frontend transparency all land together in one go.
