@@ -27,6 +27,7 @@ import {
   EXCLUDED_INDUSTRIES,
   TITLE_EXPANSIONS,
   CITY_TO_METRO,
+  CITY_CLUSTERS,
   NEARBY_CITIES,
   REGIONAL_EXPANSION,
   US_STATES,
@@ -211,10 +212,19 @@ export function buildPDLQuery(
     : (hasCityFilter ? [filterCity.toLowerCase()] : aiLocations.filter(l => l.city).map(l => (l.city as string).toLowerCase()));
 
   // STRICT LOCATION: Base query uses exact city only. No auto-radius expansion.
-  // Location expansion only happens as a fallback in index.ts when results < 2.
+  // EXCEPT: small towns use CITY_CLUSTERS to include immediate neighbors
+  // (e.g., "vail" → vail, edwards, avon, eagle, minturn)
   const effectiveRadius = geoRadiusExplicit > 0 ? geoRadiusExplicit : 0;
 
-  const expandedCities: string[] = [...primaryCities];
+  const expandedCities: string[] = [];
+  for (const city of primaryCities) {
+    const cluster = CITY_CLUSTERS[city];
+    if (cluster) {
+      expandedCities.push(...cluster);
+    } else {
+      expandedCities.push(city);
+    }
+  }
   if (effectiveRadius > 0) {
     for (const city of primaryCities) {
       expandedCities.push(...getNearbyCities(city, effectiveRadius));
