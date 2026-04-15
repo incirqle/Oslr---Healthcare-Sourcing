@@ -675,12 +675,15 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
         ),
       };
 
-    case CascadeStep.ROLE_ONLY:
+    case CascadeStep.ROLE_ONLY: {
+      // Keep sub_role filter if it exists, otherwise fall back to broad role
+      const subRoleFilter = query.filter.find(c => termMatches(c, "job_title_sub_role"));
       return {
-        filter: [{ term: { job_title_role: "health" } }],
+        filter: subRoleFilter ? [subRoleFilter] : [{ term: { job_title_role: "health" } }],
         must: [],
-        must_not: query.must_not,
+        must_not: query.must_not, // ALWAYS preserve must_not exclusions
       };
+    }
 
     default:
       return query;
