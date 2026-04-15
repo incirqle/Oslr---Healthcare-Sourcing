@@ -335,16 +335,8 @@ export const CITY_TO_METRO: Record<string, string[]> = {
   "albuquerque": ["albuquerque, new mexico"],
   "honolulu": ["honolulu, hawaii"],
   "anchorage": ["anchorage, alaska"],
-  // Small/resort healthcare towns → nearest metro
-  "vail": ["denver, colorado"],
-  "edwards": ["denver, colorado"],
-  "avon": ["denver, colorado"],
-  "eagle": ["denver, colorado"],
-  "frisco": ["denver, colorado"],
-  "breckenridge": ["denver, colorado"],
-  "aspen": ["denver, colorado"],
-  "steamboat springs": ["denver, colorado"],
-  "durango": ["denver, colorado"],
+  // NOTE: Small/resort towns intentionally OMITTED from metro mapping.
+  // They should search locally first; cascade handles widening if needed.
   "rochester": ["rochester, minnesota"],   // Mayo Clinic
   "jackson": ["jackson, wyoming"],          // Jackson Hole
   "park city": ["salt lake city, utah"],
@@ -433,11 +425,10 @@ export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[
     { radius: 25, cities: ["fairfax", "reston", "rockville", "columbia", "frederick"] },
     { radius: 50, cities: ["baltimore", "annapolis", "richmond"] },
   ],
-  // Small/resort healthcare towns — expand to surrounding communities
+  // Small/resort healthcare towns — local corridor only (no Denver drift)
   "vail": [
-    { radius: 10, cities: ["edwards", "avon", "eagle", "minturn"] },
-    { radius: 25, cities: ["frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"] },
-    { radius: 50, cities: ["aspen", "boulder", "denver", "aurora", "lakewood"] },
+    { radius: 15, cities: ["edwards", "avon", "eagle", "minturn"] },
+    { radius: 30, cities: ["frisco", "breckenridge", "silverthorne", "glenwood springs", "leadville"] },
   ],
   "aspen": [
     { radius: 10, cities: ["basalt", "carbondale", "snowmass village"] },

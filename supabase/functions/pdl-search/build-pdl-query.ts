@@ -209,12 +209,12 @@ export function buildPDLQuery(
     ? (hasCityFilter ? [filterCity.toLowerCase()] : [])
     : (hasCityFilter ? [filterCity.toLowerCase()] : aiLocations.filter(l => l.city).map(l => (l.city as string).toLowerCase()));
 
-  // Auto-expand radius for small towns: if the city has NEARBY_CITIES entries
-  // but is NOT a major metro, use 50mi default so we include surrounding communities.
+  // Only auto-expand radius for non-metro small towns.
+  // Major metros keep a tight 10mi default; small towns get 15mi (nearby corridor only — no Denver drift).
   const isMajorMetro = (c: string) => ["denver","dallas","houston","austin","los angeles","san francisco","chicago","miami","atlanta","phoenix","seattle","boston","new york","philadelphia","nashville","washington","portland","san diego","tampa","charlotte","raleigh","detroit","minneapolis","salt lake city","baltimore","las vegas","indianapolis","columbus","cleveland","kansas city","richmond","st. louis","milwaukee","memphis","sacramento","louisville","oklahoma city","new orleans","birmingham","tucson","omaha","albuquerque","honolulu","anchorage","orlando","jacksonville","pittsburgh","san antonio","san jose"].includes(c);
   const effectiveRadius = geoRadiusExplicit > 0
     ? geoRadiusExplicit
-    : (primaryCities.length > 0 && primaryCities.every(c => !isMajorMetro(c)) ? 50 : 10);
+    : (primaryCities.length > 0 && primaryCities.every(c => !isMajorMetro(c)) ? 15 : 10);
 
   const expandedCities: string[] = [...primaryCities];
   if (effectiveRadius > 0) {
@@ -234,9 +234,13 @@ export function buildPDLQuery(
     const locationClauses: Clause[] = [];
     for (const city of uniqueCities) {
       locationClauses.push({ term: { location_locality: city } });
-      const metroNames = CITY_TO_METRO[city];
-      if (metroNames) {
-        for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+      // Only inject metro mapping for cities that ARE major metros themselves.
+      // Small/resort towns should NOT pull in distant metro results.
+      if (isMajorMetro(city)) {
+        const metroNames = CITY_TO_METRO[city];
+        if (metroNames) {
+          for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+        }
       }
     }
     filterClauses.push({ bool: { should: locationClauses } });
@@ -761,6 +765,21 @@ function termMatches(clause: Clause, field: string): boolean {
   );
 }
 
+/** Check if a filter clause is a location clause (locality, metro, region, or nested bool containing them) */
+function isLocationClause(clause: Clause): boolean {
+  if (termMatches(clause, "location_locality")) return true;
+  if (termMatches(clause, "location_metro")) return true;
+  if (termMatches(clause, "location_region")) return true;
+  const boolShould = (clause?.bool as Record<string, unknown>)?.should;
+  if (Array.isArray(boolShould)) {
+    return boolShould.some((s: unknown) => {
+      const sc = s as Clause;
+      return termMatches(sc, "location_locality") || termMatches(sc, "location_metro") || termMatches(sc, "location_region");
+    });
+  }
+  return false;
+}
+
 /** Check if a filter clause is an O*NET or sub_role based role-intent filter */
 function isRoleIntentClause(clause: Clause): boolean {
   // Direct sub_role / O*NET term filters
@@ -806,11 +825,13 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
     case CascadeStep.EXPAND_TO_METRO: {
       const metro = payload.location.metro;
       if (!metro) return query;
+      const metroLower = (metro as string).toLowerCase();
+      // Replace the nested location bool clause (not just flat locality terms)
       return {
         ...query,
         filter: query.filter
-          .filter(c => !termMatches(c, "location_locality"))
-          .concat([{ term: { location_metro: (metro as string).toLowerCase() } }]),
+          .filter(c => !isLocationClause(c))
+          .concat([{ term: { location_metro: `${metroLower}, ${(payload.location.state || "").toLowerCase()}` } }]),
       };
     }
 
@@ -820,7 +841,7 @@ export function applyStep(query: PDLQueryShape, payload: ApplyStepPayload, step:
       return {
         ...query,
         filter: query.filter
-          .filter(c => !termMatches(c, "location_locality") && !termMatches(c, "location_metro"))
+          .filter(c => !isLocationClause(c))
           .concat([{ term: { location_region: (state as string).toLowerCase() } }]),
       };
     }

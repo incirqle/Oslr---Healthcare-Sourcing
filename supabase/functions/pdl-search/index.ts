@@ -739,7 +739,7 @@ Deno.serve(async (req: Request) => {
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
       // Cascade if too few results
-      if (results.length < 3 && page === 0) {
+      if (total < 2 && page === 0) {
         console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
         const cascadePayload: CascadePayload = {
           location: (parsed.location as CascadePayload["location"]) || {},
@@ -790,6 +790,19 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to log search:", e);
     }
 
+    // Build geo scope metadata for frontend transparency
+    const requestedLocation = (parsed.location as Record<string, unknown>) || {};
+    const geoScope: Record<string, unknown> = {
+      requested_city: requestedLocation.city || null,
+      requested_state: requestedLocation.state || null,
+      geo_expanded: cascadeUsed,
+      effective_scope: cascadeUsed
+        ? (cascadePlan.includes(CascadeStep.EXPAND_TO_STATE as CascadeStep) ? "state"
+          : cascadePlan.includes(CascadeStep.EXPAND_TO_METRO as CascadeStep) ? "metro" : "local")
+        : "local",
+      cascade_steps_used: cascadeUsed ? cascadePlan : [],
+    };
+
     return new Response(
       JSON.stringify({
         results: formattedResults,
@@ -801,6 +814,7 @@ Deno.serve(async (req: Request) => {
         hasMore: total > (page + 1) * size,
         cascade_used: cascadeUsed,
         cascade_plan: cascadePlan,
+        geo_scope: geoScope,
         timing_ms: Date.now() - requestStart,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
