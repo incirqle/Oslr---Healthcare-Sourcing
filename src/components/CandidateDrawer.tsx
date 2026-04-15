@@ -337,10 +337,19 @@ export function CandidateDrawer({
 
   const experienceEntries = useMemo(() => normalizeExperience(candidate, enriched), [candidate, enriched]);
   const educationEntries = useMemo(() => normalizeEducation(candidate, enriched), [candidate, enriched]);
-  const certifications = useMemo(
-    () => (enriched?.certifications?.length ? enriched.certifications : toStringArray(candidate?.raw?.certifications)),
-    [candidate?.raw, enriched?.certifications],
-  );
+  const certifications = useMemo(() => {
+    const raw = enriched?.certifications?.length
+      ? enriched.certifications
+      : (candidate?.raw?.certifications ?? []);
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((c: unknown) => {
+        if (typeof c === "string") return c.trim();
+        if (c && typeof c === "object" && "name" in c) return String((c as { name: unknown }).name).trim();
+        return "";
+      })
+      .filter((s: string) => s.length > 0);
+  }, [candidate?.raw, enriched?.certifications]);
   const primarySkills = useMemo(() => {
     if (candidate?.clinical_skills?.length) return candidate.clinical_skills;
     const rawClinicalSkills = toStringArray(candidate?.raw?.clinical_skills);
