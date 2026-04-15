@@ -16,10 +16,12 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import {
+  cleanDisplayName,
   formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
+  normalizeLinkedInUrl,
 } from "@/components/search/candidate-ui";
 
 export interface Candidate {
