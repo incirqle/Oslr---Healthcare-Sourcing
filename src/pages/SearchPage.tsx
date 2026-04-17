@@ -27,7 +27,7 @@ export default function SearchPage() {
   const [step, setStep] = useState<SearchStep>("hero");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ParsedFilters>({
-    job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [],
+    job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [], salary_preset: null,
   });
   const [filterTotal, setFilterTotal] = useState(0);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
