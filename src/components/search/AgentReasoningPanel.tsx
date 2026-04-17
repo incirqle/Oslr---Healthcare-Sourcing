@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pencil, ChevronDown, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
+import { Pencil, Sparkles, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ReasoningLine = {
@@ -15,20 +15,11 @@ interface AgentReasoningPanelProps {
   streaming: boolean;
   /** Called when user clicks the pencil to edit and re-run. */
   onEditQuery?: () => void;
-  /** User-typed filter values, derived by comparing parsed output to original query. */
-  userFilters: { label: string; group: string }[];
-  /** AI-expansion filter values not present in the original query. */
-  aiFilters: { label: string; group: string; reason?: string }[];
-  /** Original raw query for the "How I interpreted this" panel. */
-  rawQuery: string;
-  onEditFilters?: () => void;
-  /** True if no results — alters tone. */
-  zeroResults?: boolean;
   /** True if search errored — alters tone. */
   errored?: boolean;
 }
 
-const TYPING_SPEED_MS = 25; // ~40 chars/sec
+const TYPING_SPEED_MS = 22; // ~45 chars/sec
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -36,20 +27,42 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Hook that exposes a list of fully-typed lines plus the current in-progress line.
- * Reveals lines sequentially, character by character, at TYPING_SPEED_MS.
+ * Stable typewriter:
+ * - Keys off a content signature (joined text), NOT the array reference.
+ *   This prevents resets when parent re-renders with structurally-identical lines.
+ * - When new lines are APPENDED, we keep the typed prefix and continue from where
+ *   we left off instead of restarting from line 0.
  */
 function useTypedReveal(lines: ReasoningLine[], enabled: boolean) {
   const [, force] = useReducer((x) => x + 1, 0);
   const stateRef = useRef({ lineIdx: 0, charIdx: 0, complete: false });
   const linesRef = useRef(lines);
+  const tickingRef = useRef(false);
 
-  // When the lines array changes (new search), reset.
+  // Build a content signature so we only react to real content changes.
+  const signature = useMemo(() => lines.map((l) => `${l.kind ?? ""}|${l.text}`).join("\n"), [lines]);
+  const prevSignatureRef = useRef(signature);
+  const prevLinesLenRef = useRef(lines.length);
+
+  // Reset / append handling.
   useEffect(() => {
+    const prev = prevSignatureRef.current;
+    const isAppendOnly = signature.startsWith(prev) && lines.length >= prevLinesLenRef.current;
+
     linesRef.current = lines;
-    stateRef.current = { lineIdx: 0, charIdx: 0, complete: false };
+
+    if (!isAppendOnly) {
+      // Genuine reset (new search, different content).
+      stateRef.current = { lineIdx: 0, charIdx: 0, complete: false };
+    } else {
+      // Same prefix, just more lines — keep current position, mark not complete.
+      stateRef.current = { ...stateRef.current, complete: false };
+    }
+
+    prevSignatureRef.current = signature;
+    prevLinesLenRef.current = lines.length;
     force();
-  }, [lines]);
+  }, [signature, lines]);
 
   useEffect(() => {
     if (!enabled) {
@@ -58,14 +71,21 @@ function useTypedReveal(lines: ReasoningLine[], enabled: boolean) {
       return;
     }
     if (lines.length === 0) return;
+    if (tickingRef.current) return; // already running
 
     let cancelled = false;
+    tickingRef.current = true;
+
     const tick = () => {
-      if (cancelled) return;
+      if (cancelled) {
+        tickingRef.current = false;
+        return;
+      }
       const s = stateRef.current;
       const current = linesRef.current[s.lineIdx];
       if (!current) {
         stateRef.current = { ...s, complete: true };
+        tickingRef.current = false;
         force();
         return;
       }
@@ -74,17 +94,18 @@ function useTypedReveal(lines: ReasoningLine[], enabled: boolean) {
         force();
         setTimeout(tick, TYPING_SPEED_MS);
       } else {
-        // Brief pause between lines
         stateRef.current = { lineIdx: s.lineIdx + 1, charIdx: 0, complete: false };
         force();
-        setTimeout(tick, 120);
+        setTimeout(tick, 140);
       }
     };
-    setTimeout(tick, 250);
+    setTimeout(tick, 200);
     return () => {
       cancelled = true;
+      tickingRef.current = false;
     };
-  }, [lines, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, signature]);
 
   const s = stateRef.current;
   const completedLines = lines.slice(0, s.lineIdx);
@@ -98,17 +119,11 @@ export function AgentReasoningPanel({
   lines,
   streaming,
   onEditQuery,
-  userFilters,
-  aiFilters,
-  rawQuery,
-  onEditFilters,
-  zeroResults = false,
   errored = false,
 }: AgentReasoningPanelProps) {
   const reducedMotion = useMemo(prefersReducedMotion, []);
   const useTyping = streaming && !reducedMotion;
   const { completedLines, inProgress, isDone } = useTypedReveal(lines, useTyping);
-  const [interpretOpen, setInterpretOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -132,7 +147,6 @@ export function AgentReasoningPanel({
 
       {/* Agent reasoning stream (left-aligned) */}
       <div className="flex items-start gap-3">
-        {/* Avatar */}
         <div className="relative shrink-0">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm shadow-primary/20">
             <Sparkles className="h-4 w-4 text-primary-foreground" />
@@ -142,7 +156,6 @@ export function AgentReasoningPanel({
           )}
         </div>
 
-        {/* Stream */}
         <div
           className="flex-1 min-w-0 rounded-2xl rounded-tl-sm border border-border/60 bg-card/60 backdrop-blur-sm px-4 py-3"
           aria-live="polite"
@@ -150,7 +163,7 @@ export function AgentReasoningPanel({
         >
           <AnimatePresence initial={false}>
             {completedLines.map((line, i) => (
-              <ReasoningLineRow key={`done-${i}`} line={line} reducedMotion={reducedMotion} />
+              <ReasoningLineRow key={`done-${i}-${line.text}`} line={line} reducedMotion={reducedMotion} />
             ))}
           </AnimatePresence>
 
@@ -163,7 +176,6 @@ export function AgentReasoningPanel({
             />
           )}
 
-          {/* Empty state shimmer while we have nothing yet */}
           {lines.length === 0 && !errored && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
@@ -175,58 +187,6 @@ export function AgentReasoningPanel({
             <div className="flex items-center gap-2 text-sm text-amber-400">
               <AlertCircle className="h-4 w-4" />
               <span>Something went wrong on my end.</span>
-            </div>
-          )}
-
-          {/* "How I interpreted this" — only after streaming completes */}
-          {isDone && !errored && (userFilters.length > 0 || aiFilters.length > 0) && (
-            <div className="mt-3 pt-3 border-t border-border/50">
-              <button
-                type="button"
-                onClick={() => setInterpretOpen((v) => !v)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                aria-expanded={interpretOpen}
-              >
-                {interpretOpen ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                )}
-                How I interpreted this
-              </button>
-
-              <AnimatePresence initial={false}>
-                {interpretOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="pt-3 space-y-3">
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80 mb-1">
-                          Your query
-                        </div>
-                        <div className="text-sm text-foreground/90 italic">"{rawQuery}"</div>
-                      </div>
-
-                      <InterpretedFilterGroups userFilters={userFilters} aiFilters={aiFilters} />
-
-                      {onEditFilters && (
-                        <button
-                          type="button"
-                          onClick={onEditFilters}
-                          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                        >
-                          Edit filters →
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
           )}
         </div>
@@ -249,7 +209,7 @@ function ReasoningLineRow({
       case "header":
         return "text-foreground font-medium";
       case "step":
-        return "text-muted-foreground pl-3";
+        return "text-muted-foreground";
       case "result":
         return "text-foreground/90 font-medium";
       case "warn":
@@ -268,57 +228,5 @@ function ReasoningLineRow({
       {line.text}
       {cursor && <span className="inline-block w-1.5 h-3.5 bg-primary/70 ml-0.5 animate-pulse align-baseline" />}
     </motion.div>
-  );
-}
-
-function InterpretedFilterGroups({
-  userFilters,
-  aiFilters,
-}: {
-  userFilters: { label: string; group: string }[];
-  aiFilters: { label: string; group: string; reason?: string }[];
-}) {
-  const groups = new Map<string, { user: string[]; ai: { label: string; reason?: string }[] }>();
-  for (const f of userFilters) {
-    const g = groups.get(f.group) ?? { user: [], ai: [] };
-    g.user.push(f.label);
-    groups.set(f.group, g);
-  }
-  for (const f of aiFilters) {
-    const g = groups.get(f.group) ?? { user: [], ai: [] };
-    g.ai.push({ label: f.label, reason: f.reason });
-    groups.set(f.group, g);
-  }
-
-  if (groups.size === 0) return null;
-
-  return (
-    <div className="space-y-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-        What I searched for
-      </div>
-      {[...groups.entries()].map(([group, { user, ai }]) => (
-        <div key={group} className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground capitalize w-20 shrink-0">{group}:</span>
-          {user.map((label) => (
-            <span
-              key={`u-${label}`}
-              className="rounded-full bg-primary/15 border border-primary/30 px-2.5 py-0.5 text-xs text-foreground"
-            >
-              {label}
-            </span>
-          ))}
-          {ai.map(({ label, reason }) => (
-            <span
-              key={`a-${label}`}
-              title={reason ?? `Added because candidates sometimes use "${label}" instead.`}
-              className="rounded-full border border-dashed border-border bg-transparent px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 cursor-help transition-colors"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      ))}
-    </div>
   );
 }
