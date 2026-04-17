@@ -854,6 +854,37 @@ export function buildPDLQuery(
         mustNot.push({ match_phrase: { "job_title.text": exclusion } });
       }
 
+      // FIX B — NON-CLINICAL EXCLUSIONS (April 2026 v3): when the user asked
+      // for a doctor, exclude unambiguous IT/admin/finance roles. These
+      // surface today because they share employer (UMiami, Cleveland Clinic)
+      // and sometimes share specialty keywords ("Cardiology System Engineer").
+      // Surgical exclusions only — anything ambiguous (coordinator, manager,
+      // assistant) is left out so we don't accidentally drop clinical staff.
+      const nonClinicalDoctorExclusions = [
+        "engineer", "software engineer", "data engineer", "systems engineer",
+        "developer", "software developer", "web developer",
+        "data analyst", "business analyst", "financial analyst", "systems analyst",
+        "data scientist", "machine learning engineer",
+        "architect", "solutions architect", "software architect",
+        "product manager", "project manager", "program manager",
+        "recruiter", "talent acquisition", "human resources",
+        "marketing manager", "sales representative", "account executive",
+        "billing specialist", "revenue cycle", "claims specialist",
+        "it support", "help desk", "system administrator",
+      ];
+      for (const exclusion of nonClinicalDoctorExclusions) {
+        mustNot.push({ match_phrase: { "job_title.text": exclusion } });
+      }
+      // Broad O*NET role exclusions — anything explicitly tagged engineering,
+      // IT, finance, sales, HR, marketing is never a doctor.
+      mustNot.push({ term: { job_title_role: "engineering" } });
+      mustNot.push({ term: { job_title_role: "information_technology" } });
+      mustNot.push({ term: { job_title_role: "finance" } });
+      mustNot.push({ term: { job_title_role: "sales" } });
+      mustNot.push({ term: { job_title_role: "human_resources" } });
+      mustNot.push({ term: { job_title_role: "marketing" } });
+      console.log(`[FIX B] doctor intent → ${nonClinicalDoctorExclusions.length} non-clinical title exclusions + 6 role-level exclusions`);
+
       // STRICT-MODE-ONLY title exclusions — these can incidentally match
       // legitimate clinical staff at an ortho practice (e.g. "physical
       // therapist" colleagues whose titles overlap), so we only enforce
