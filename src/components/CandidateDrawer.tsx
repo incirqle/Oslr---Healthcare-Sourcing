@@ -803,6 +803,94 @@ export function CandidateDrawer({
                 )}
               </TabsContent>
 
+              <TabsContent value="notes" className="mt-0 space-y-5 px-6 py-6 pb-28 sm:px-7">
+                <div className="flex items-center gap-2 text-[12px] text-ui-text-muted">
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Private — only you can see these notes.
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!candidate || !noteDraft.trim()) return;
+                    addNote.mutate(
+                      { pdlId: candidate.id, body: noteDraft },
+                      {
+                        onSuccess: () => {
+                          setNoteDraft("");
+                          toast.success("Note saved");
+                        },
+                        onError: (err) => {
+                          toast.error(err instanceof Error ? err.message : "Failed to save note");
+                        },
+                      },
+                    );
+                  }}
+                  className="space-y-2"
+                >
+                  <Textarea
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    placeholder="e.g. Reached out via LinkedIn 4/16 — waiting on reply…"
+                    rows={3}
+                    className="resize-none border-ui-border-medium bg-card text-[14px]"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-ui-text-muted">
+                      ⌘/Ctrl + Enter to save
+                    </span>
+                    <Button
+                      type="submit"
+                      disabled={!noteDraft.trim() || addNote.isPending}
+                      className="h-9 bg-ui-info px-4 text-[13px] font-medium text-ui-info-foreground hover:bg-ui-info/90"
+                    >
+                      {addNote.isPending ? "Saving…" : "Add note"}
+                    </Button>
+                  </div>
+                </form>
+
+                {notes.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-ui-border-light px-4 py-6 text-center text-[13px] text-ui-text-muted">
+                    No notes yet. Capture context, follow-ups, or anything you'd want to remember next time you see this profile.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {notes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="group rounded-lg border border-ui-border-light bg-ui-surface-subtle/40 px-4 py-3"
+                      >
+                        <p className="whitespace-pre-wrap text-[14px] leading-6 text-ui-text-primary">
+                          {note.body}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-ui-text-muted">
+                          <span>{new Date(note.created_at).toLocaleString()}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!candidate) return;
+                              deleteNote.mutate(
+                                { id: note.id, pdlId: candidate.id },
+                                {
+                                  onSuccess: () => toast.success("Note deleted"),
+                                  onError: (err) =>
+                                    toast.error(err instanceof Error ? err.message : "Failed to delete note"),
+                                },
+                              );
+                            }}
+                            className="inline-flex items-center gap-1 opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+                            aria-label="Delete note"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
               <TabsContent value="contact" className="mt-0 px-6 py-6 pb-28 sm:px-7">
                 {!contactUnlocked ? (
                   <div className="rounded-xl border border-locked-border bg-locked px-8 py-10 text-center">
