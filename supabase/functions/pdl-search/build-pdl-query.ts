@@ -347,6 +347,16 @@ export function buildPDLQuery(
       ? rawCompanyList.map(normalizeCompany)
       : ((parsed.current_companies as string[]) || []).map(normalizeCompany));
 
+  // Company anchor signal — when we have a resolved PDL company ID as a hard
+  // filter, the employer alone is a very strong constraint. We use this to
+  // safely relax the strict O*NET role filter and aggressive title exclusions
+  // that would otherwise drop legitimate doctors whose profiles lack O*NET
+  // tags. This ONLY affects company-anchored searches; intent-only searches
+  // (e.g. "orthopedic surgeons in Vail") keep all strict filters.
+  const hasResolvedCompanyAnchor =
+    Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids) &&
+    ((parsed as Record<string, unknown>)._resolved_company_ids as string[]).length > 0;
+
   const pastCompanies = ((parsed.past_companies as string[]) || []).map(normalizeCompany);
   const anyCompanies = ((parsed.any_companies as string[]) || []).map(normalizeCompany);
 
@@ -649,52 +659,62 @@ export function buildPDLQuery(
     ];
 
     if (wantsDoctor) {
-      filterClauses.push({
-        bool: {
-          should: [
-            { terms: { job_onet_specific_occupation: PHYSICIAN_ONET_SPECIFIC } },
-            { term:  { job_onet_specific_occupation: "Physicians" } },
-            { term:  { job_onet_broad_occupation:   "Physicians" } },
-            { term:  { job_onet_broad_occupation:   "Surgeons" } },
-            { term:  { job_title_sub_role: "doctor" } },
-            { match_phrase: { "job_title.text": "physician" } },
-            { match_phrase: { "job_title.text": "surgeon" } },
-            { match_phrase: { "job_title.text": "hospitalist" } },
-            { match_phrase: { "job_title.text": "cardiologist" } },
-            { match_phrase: { "job_title.text": "oncologist" } },
-            { match_phrase: { "job_title.text": "pediatrician" } },
-            { match_phrase: { "job_title.text": "radiologist" } },
-            { match_phrase: { "job_title.text": "anesthesiologist" } },
-            { match_phrase: { "job_title.text": "psychiatrist" } },
-            { match_phrase: { "job_title.text": "neurologist" } },
-            { match_phrase: { "job_title.text": "dermatologist" } },
-            { match_phrase: { "job_title.text": "ophthalmologist" } },
-            { match_phrase: { "job_title.text": "pathologist" } },
-            // Orthopedic family + common subspecialty surgeons (Steadman / Vail-Summit / Vail Health)
-            { match_phrase: { "job_title.text": "orthopedic surgeon" } },
-            { match_phrase: { "job_title.text": "orthopaedic surgeon" } },
-            { match_phrase: { "job_title.text": "orthopedist" } },
-            { match_phrase: { "job_title.text": "orthopaedist" } },
-            { match_phrase: { "job_title.text": "sports medicine surgeon" } },
-            { match_phrase: { "job_title.text": "sports medicine physician" } },
-            { match_phrase: { "job_title.text": "spine surgeon" } },
-            { match_phrase: { "job_title.text": "foot and ankle surgeon" } },
-            { match_phrase: { "job_title.text": "hand surgeon" } },
-            { match_phrase: { "job_title.text": "joint replacement surgeon" } },
-            { match_phrase: { "job_title.text": "shoulder surgeon" } },
-            { match_phrase: { "job_title.text": "knee surgeon" } },
-            { wildcard: { job_title: "*, md" } },
-            { wildcard: { job_title: "*, md *" } },
-            { wildcard: { job_title: "*, do" } },
-            { wildcard: { job_title: "*, do *" } },
-            { wildcard: { job_title: "dr. *" } },
-            { wildcard: { job_title: "dr *" } },
-          ],
+      const doctorRoleShould: Clause[] = [
+        { terms: { job_onet_specific_occupation: PHYSICIAN_ONET_SPECIFIC } },
+        { term:  { job_onet_specific_occupation: "Physicians" } },
+        { term:  { job_onet_broad_occupation:   "Physicians" } },
+        { term:  { job_onet_broad_occupation:   "Surgeons" } },
+        { term:  { job_title_sub_role: "doctor" } },
+        { match_phrase: { "job_title.text": "physician" } },
+        { match_phrase: { "job_title.text": "surgeon" } },
+        { match_phrase: { "job_title.text": "hospitalist" } },
+        { match_phrase: { "job_title.text": "cardiologist" } },
+        { match_phrase: { "job_title.text": "oncologist" } },
+        { match_phrase: { "job_title.text": "pediatrician" } },
+        { match_phrase: { "job_title.text": "radiologist" } },
+        { match_phrase: { "job_title.text": "anesthesiologist" } },
+        { match_phrase: { "job_title.text": "psychiatrist" } },
+        { match_phrase: { "job_title.text": "neurologist" } },
+        { match_phrase: { "job_title.text": "dermatologist" } },
+        { match_phrase: { "job_title.text": "ophthalmologist" } },
+        { match_phrase: { "job_title.text": "pathologist" } },
+        // Orthopedic family + common subspecialty surgeons (Steadman / Vail-Summit / Vail Health)
+        { match_phrase: { "job_title.text": "orthopedic surgeon" } },
+        { match_phrase: { "job_title.text": "orthopaedic surgeon" } },
+        { match_phrase: { "job_title.text": "orthopedist" } },
+        { match_phrase: { "job_title.text": "orthopaedist" } },
+        { match_phrase: { "job_title.text": "sports medicine surgeon" } },
+        { match_phrase: { "job_title.text": "sports medicine physician" } },
+        { match_phrase: { "job_title.text": "spine surgeon" } },
+        { match_phrase: { "job_title.text": "foot and ankle surgeon" } },
+        { match_phrase: { "job_title.text": "hand surgeon" } },
+        { match_phrase: { "job_title.text": "joint replacement surgeon" } },
+        { match_phrase: { "job_title.text": "shoulder surgeon" } },
+        { match_phrase: { "job_title.text": "knee surgeon" } },
+        { wildcard: { job_title: "*, md" } },
+        { wildcard: { job_title: "*, md *" } },
+        { wildcard: { job_title: "*, do" } },
+        { wildcard: { job_title: "*, do *" } },
+        { wildcard: { job_title: "dr. *" } },
+        { wildcard: { job_title: "dr *" } },
+      ];
 
-        },
-      });
+      if (hasResolvedCompanyAnchor) {
+        // COMPANY-ANCHORED MODE: employer is doing the heavy lifting.
+        // Demote the strict role filter to a soft boost so we don't drop
+        // doctors whose PDL profiles lack O*NET tags.
+        for (const clause of doctorRoleShould) {
+          softShould.push(clause);
+        }
+        console.log("[QUERY MODE] doctor + company-anchored → role filter demoted to boost");
+      } else {
+        // STRICT MODE: no company anchor, role filter is essential.
+        filterClauses.push({ bool: { should: doctorRoleShould } });
+        console.log("[QUERY MODE] doctor + no-company → strict O*NET role filter");
+      }
 
-      // Hard O*NET exclusions
+      // ALWAYS-ON unambiguous O*NET exclusions — these are never doctors,
+      // regardless of employer. Safe in both modes.
       mustNot.push({ term: { job_onet_broad_occupation:   "Physician Assistants" } });
       mustNot.push({ term: { job_onet_specific_occupation: "Physician Assistants" } });
       mustNot.push({ term: { job_onet_broad_occupation:   "Registered Nurses" } });
@@ -703,23 +723,34 @@ export function buildPDLQuery(
       mustNot.push({ term: { job_onet_specific_occupation: "Nurse Anesthetists" } });
       mustNot.push({ term: { job_onet_specific_occupation: "Nurse Midwives" } });
 
-      // Title-phrase exclusions for records missing O*NET
-      const nonDoctorTitleExclusions = [
+      // ALWAYS-ON title exclusions — unambiguous non-doctor roles only.
+      const alwaysOnTitleExclusions = [
         "physician assistant", "physician's assistant", "physicians assistant",
         "nurse practitioner", "registered nurse",
         "licensed practical nurse", "licensed vocational nurse",
         "certified nursing assistant", "medical assistant", "medical scribe",
-        "physical therapist", "occupational therapist", "respiratory therapist",
-        "speech therapist", "pharmacy technician",
-        "radiologic technologist", "surgical technologist",
         "phlebotomist", "patient care technician", "patient care assistant",
         "nursing assistant", "health aide", "medical aide",
         "dental hygienist", "dental assistant",
       ];
-      for (const exclusion of nonDoctorTitleExclusions) {
+      for (const exclusion of alwaysOnTitleExclusions) {
         mustNot.push({ match_phrase: { "job_title.text": exclusion } });
       }
-      console.log("DOCTOR intent: O*NET physician filter + hard exclusion of PAs/RNs/NPs/techs/aides");
+
+      // STRICT-MODE-ONLY title exclusions — these can incidentally match
+      // legitimate clinical staff at an ortho practice (e.g. "physical
+      // therapist" colleagues whose titles overlap), so we only enforce
+      // them when there is no company anchor to do the filtering.
+      if (!hasResolvedCompanyAnchor) {
+        const strictModeTitleExclusions = [
+          "physical therapist", "occupational therapist", "respiratory therapist",
+          "speech therapist", "pharmacy technician",
+          "radiologic technologist", "surgical technologist",
+        ];
+        for (const exclusion of strictModeTitleExclusions) {
+          mustNot.push({ match_phrase: { "job_title.text": exclusion } });
+        }
+      }
 
       softShould.push({ term: { job_title_sub_role:        { value: "doctor",     boost: 10.0 } } });
       softShould.push({ term: { job_onet_broad_occupation: { value: "Physicians", boost: 8.0  } } });
