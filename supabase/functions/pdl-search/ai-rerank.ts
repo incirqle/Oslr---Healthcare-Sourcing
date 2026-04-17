@@ -1,29 +1,32 @@
 /**
- * ai-rerank.ts — LLM re-ranking of top N PDL results against the parsed query intent.
+ * ai-rerank.ts — LLM re-ranking of top N PDL results against parsed query intent.
  *
- * Uses Lovable AI Gateway (google/gemini-3-flash-preview) for cheap, fast scoring.
- * Returns relevance scores 0-100 keyed by candidate id. Falls back gracefully on any error.
+ * Uses Claude Haiku (via direct Anthropic API) for fast, reliable structured classification.
+ * Gemini Pro consistently timed out at 50 candidates with tool calls; Haiku returns compact
+ * JSON in ~3-6s for the same payload.
  *
  * Strategy:
  *  - Take top 50 by deterministic score (already sorted)
- *  - Build a compact JSON brief per candidate (name, title, employer, locality, practice locality,
- *    onet codes, top skills, headline) — keep tokens minimal
- *  - Single LLM call returns array of { id, score, reason }
- *  - Merge: final = AI score (0-100) becomes new relevance_score; ties broken by deterministic score
- *  - On any failure (timeout, 429, 402, parse error): return original list unchanged
+ *  - Build a compact JSON brief per candidate
+ *  - Single Claude call returns array of { id, score }
+ *  - On any failure: return original list unchanged (safe fallback)
  */
 
 import type { FormattedCandidate } from "./format-results.ts";
+import { callClaude, CLAUDE_HAIKU } from "./ai-router.ts";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const RERANK_MODEL = "google/gemini-3.1-pro-preview";
+const RERANK_MODEL = CLAUDE_HAIKU;
 const RERANK_TOP_N = 50;
-const RERANK_TIMEOUT_MS = 25000;
+const RERANK_TIMEOUT_MS = 20000;
+const RERANK_MAX_TOKENS = 4096; // 50 items × ~30 tokens each + JSON overhead
 
 interface RerankItem {
   id: string;
   score: number;
-  reason?: string;
+}
+
+interface RerankResponse {
+  rankings: RerankItem[];
 }
 
 interface RerankResult {
@@ -87,22 +90,22 @@ Scoring guidance:
 - 0-19: Wrong field entirely, or out-of-state with no practice connection
 
 Hard rules:
-- If a specialty is requested, candidates of a different physician specialty (hospitalist, family medicine, internal medicine, urgent care, OB/GYN, pediatrician, emergency medicine) should score below 50 UNLESS their title/skills show the requested specialty.
+- If a specialty is requested, candidates of a different physician specialty (hospitalist, family medicine, internal medicine, urgent care, OB/GYN, pediatrician, emergency medicine, regenerative medicine) should score below 50 UNLESS their title/skills show the requested specialty.
 - If a location is requested, prefer candidates whose PRACTICE location matches over those who only RESIDE there.
 - Penalize candidates whose practice is in a different US state than requested (score below 30).
 - Don't penalize for missing data — score on what's present.
 
-You MUST call the rank_candidates function with one entry per candidate. Use the exact id provided.`;
+OUTPUT FORMAT — return ONLY valid JSON, no prose, no markdown fences:
+{"rankings":[{"id":"<exact_id>","score":<0-100>}, ...]}
+
+You MUST include one entry per candidate, using the exact id provided.`;
 
 export async function rerankWithAI(
   candidates: FormattedCandidate[],
   parsed: Record<string, unknown>,
   query: string,
-  lovableApiKey: string | undefined,
+  _lovableApiKey: string | undefined,
 ): Promise<RerankResult> {
-  if (!lovableApiKey) {
-    return { candidates, ai_reranked: false, ai_rerank_error: "no_api_key" };
-  }
   if (!candidates || candidates.length === 0) {
     return { candidates, ai_reranked: false };
   }
@@ -117,111 +120,42 @@ export async function rerankWithAI(
 
   const userMessage = `RECRUITER INTENT:\n${intent}\n\nCANDIDATES (${briefs.length}):\n${JSON.stringify(briefs)}`;
 
-  console.log(`[ai-rerank] model=${RERANK_MODEL} feeding ${briefs.length} candidates`);
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), RERANK_TIMEOUT_MS);
+  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates`);
 
   try {
-    const resp = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: RERANK_MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "rank_candidates",
-              description: "Score each candidate on relevance to the recruiter intent.",
-              parameters: {
-                type: "object",
-                properties: {
-                  rankings: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string", description: "Exact candidate id from input" },
-                        score: { type: "number", description: "Relevance 0-100" },
-                        reason: { type: "string", description: "1 short sentence why" },
-                      },
-                      required: ["id", "score"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["rankings"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "rank_candidates" } },
-      }),
-    });
+    const result = await callClaude<RerankResponse>(
+      SYSTEM_PROMPT,
+      userMessage,
+      null,
+      "ai-rerank",
+      { model: RERANK_MODEL, timeoutMs: RERANK_TIMEOUT_MS, maxTokens: RERANK_MAX_TOKENS },
+    );
 
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.warn(`[ai-rerank] gateway ${resp.status}: ${errText.slice(0, 200)}`);
-      return {
-        candidates,
-        ai_reranked: false,
-        ai_rerank_error: `gateway_${resp.status}`,
-      };
-    }
-
-    const data = await resp.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    const argsRaw = toolCall?.function?.arguments;
-    if (!argsRaw) {
-      console.warn("[ai-rerank] no tool call returned");
-      return { candidates, ai_reranked: false, ai_rerank_error: "no_tool_call" };
-    }
-
-    const parsedArgs = typeof argsRaw === "string" ? JSON.parse(argsRaw) : argsRaw;
-    const rankings: RerankItem[] = parsedArgs.rankings || [];
+    const rankings = result?.rankings;
     if (!Array.isArray(rankings) || rankings.length === 0) {
+      console.warn("[ai-rerank] empty rankings from Claude");
       return { candidates, ai_reranked: false, ai_rerank_error: "empty_rankings" };
     }
 
-    // Build score map by id
-    const scoreById = new Map<string, { score: number; reason?: string }>();
+    const scoreById = new Map<string, number>();
     for (const r of rankings) {
       if (r && typeof r.id === "string" && typeof r.score === "number") {
-        scoreById.set(r.id, {
-          score: Math.max(0, Math.min(100, r.score)),
-          reason: r.reason,
-        });
+        scoreById.set(r.id, Math.max(0, Math.min(100, r.score)));
       }
     }
 
-    // Merge: re-ranked head gets AI score; tail keeps deterministic score
     const reranked = head.map(c => {
-      const ai = scoreById.get(c.id);
-      if (ai) {
-        return {
-          ...c,
-          relevance_score: ai.score,
-          ai_match_reason: ai.reason || null,
-        } as FormattedCandidate & { ai_match_reason?: string | null };
+      const aiScore = scoreById.get(c.id);
+      if (typeof aiScore === "number") {
+        return { ...c, relevance_score: aiScore };
       }
       return c;
     });
 
-    // Sort head by new AI score (desc), break ties on original deterministic order (already preserved)
     reranked.sort((a, b) => b.relevance_score - a.relevance_score);
 
     const elapsed = Date.now() - startMs;
-    console.log(`[ai-rerank] scored ${scoreById.size}/${head.length} in ${elapsed}ms`);
+    console.log(`[ai-rerank] scored ${scoreById.size}/${head.length} in ${elapsed}ms via ${RERANK_MODEL}`);
 
     return {
       candidates: [...reranked, ...tail],
@@ -230,11 +164,8 @@ export async function rerankWithAI(
       ai_rerank_ms: elapsed,
     };
   } catch (err) {
-    const isAbort = (err as Error).name === "AbortError";
-    const msg = isAbort ? "timeout" : (err instanceof Error ? err.message : "unknown");
+    const msg = err instanceof Error ? err.message : "unknown";
     console.warn(`[ai-rerank] failed: ${msg}`);
     return { candidates, ai_reranked: false, ai_rerank_error: msg };
-  } finally {
-    clearTimeout(timeout);
   }
 }
