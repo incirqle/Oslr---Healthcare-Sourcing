@@ -185,6 +185,8 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
     job_start_date: safeString(p.job_start_date),
     job_company_size: safeString(p.job_company_size),
     job_company_location_name: safeString(p.job_company_location_name),
+    job_company_location_locality: safeString(p.job_company_location_locality),
+    job_company_location_region: safeString(p.job_company_location_region),
     profile_pic_url: safeString(p.profile_pic_url) || safeString((p as Record<string, unknown>).facebook_profile_pic_url),
     github_url: safeString(p.github_url),
     facebook_url: safeString(p.facebook_url),
