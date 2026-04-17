@@ -3,16 +3,17 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Building2,
   ChevronLeft,
   ChevronRight,
   Copy,
   Lock,
   Mail,
-  MapPin,
+  Maximize2,
+  Minimize2,
   Phone,
   Sparkles,
   StickyNote,
@@ -21,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { FitPill } from "@/components/search/FitPill";
 import { useCandidateFits, useSetCandidateFit } from "@/hooks/useCandidateFit";
+import { useDrawerSize } from "@/hooks/useDrawerSize";
 import {
   useCandidateNotes,
   useAddCandidateNote,
