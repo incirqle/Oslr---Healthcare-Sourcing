@@ -995,47 +995,29 @@ Deno.serve(async (req: Request) => {
       // at the top. Recovers recall (25 → ~80–150 for UMiami cardiology)
       // without sacrificing precision (ranker is now specialty-aware).
       // ════════════════════════════════════════════════════════════════
-      const SPECIALTY_CASCADE_THRESHOLD = 40;
-      const isHealthSystemSearch = Boolean((parsed as Record<string, unknown>)._is_health_system);
-      const hasSpecialty = Boolean(
-        (parsed.specialty as string) ||
-        ((parsed.specialties as string[]) || []).length > 0
-      );
-      if (
-        useRerankPool &&
-        isHealthSystemSearch &&
-        hasSpecialty &&
-        total < SPECIALTY_CASCADE_THRESHOLD
-      ) {
-        console.log(`[SPECIALTY CASCADE] Health system + specialty returned only ${total} results (<${SPECIALTY_CASCADE_THRESHOLD}). Rebuilding without specialty must-clause...`);
-        const softQuery = buildPDLQuery(parsed, filters, false, false, /*omitSpecialtyMust*/ true);
-        const softCacheKey = await getPDLCacheKey(softQuery, fetchSize, null);
-        const softCached = await getDBCache(adminClient, softCacheKey);
-        let softData: Record<string, unknown>;
-        if (softCached && softCached.data.length > 0) {
-          softData = { data: softCached.data, total: softCached.total, scroll_token: softCached.scroll_token };
-          console.log(`[SPECIALTY CASCADE] Cache hit on soft query: ${softCached.total} total, ${softCached.data.length} results`);
-        } else {
-          softData = await fetchPDLForFullSearch(
-            softQuery, liveKey, 0, fetchSize, null, softCacheKey, adminClient
-          );
-        }
-        if (!(softData as Record<string, unknown>)._error) {
-          const softResults = (softData.data as Record<string, unknown>[]) || [];
-          const softTotal = (softData.total as number) || 0;
-          if (softResults.length > results.length) {
-            console.log(`[SPECIALTY CASCADE] Recovered: ${results.length} → ${softResults.length} results (PDL total ${total} → ${softTotal})`);
-            results = softResults;
-            total = softTotal;
-            returnScrollToken = (softData.scroll_token as string) || null;
-            cascadeUsed = true;
-            cascadePlan = [CascadeStep.DROP_SPECIALTY];
-            cascadeWinningStep = CascadeStep.DROP_SPECIALTY;
-          } else {
-            console.log(`[SPECIALTY CASCADE] No improvement (${softResults.length} vs ${results.length}). Keeping original.`);
-          }
-        }
-      }
+      // ════════════════════════════════════════════════════════════════
+      // SPECIALTY CASCADE — DISABLED (April 17 2026)
+      // ════════════════════════════════════════════════════════════════
+      // The cascade traded precision for recall and lost both. When it fired
+      // for "cardiologist at University of Miami", the soft fallback combined
+      // with experience.company.name expansion surfaced people from Mosa
+      // Surgery (Nashville) and Memorial Healthcare while also pulling in
+      // admin titles ("Director of Physician Relations", "Physician
+      // Compensation Director") because the generic "Physician" keyword
+      // expansion matched their job titles.
+      //
+      // The pre-cascade version returned ~28 results that were ALL real
+      // cardiologists. Recall was lower but precision was 100%. Recruiters
+      // strongly prefer that tradeoff. Keeping the strict specialty must.
+      //
+      // If we want to expand recall later, the right path is:
+      //   1. Strip generic "Physician" / "Cardiologist" from the keyword
+      //      cluster when a SPECIALTY is set (they're redundant noise).
+      //   2. Add a deterministic title penalty for admin/director/manager/
+      //      coordinator/relations titles in format-results.
+      //   3. THEN consider a cascade with company kept locked + admin
+      //      titles excluded via must_not.
+      // ════════════════════════════════════════════════════════════════
 
       // Existing legacy cascade — only fires when even the soft fallback returned almost nothing
       if (total < 2 && useRerankPool && !cascadeUsed) {
