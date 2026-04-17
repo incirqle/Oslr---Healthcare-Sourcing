@@ -240,8 +240,34 @@ export function scoreAndRankResults(
   parsed: Record<string, unknown>,
 ): FormattedCandidate[] {
   const queryTitles = ((parsed.job_titles as string[]) || []).map(t => t.toLowerCase());
-  const querySpecialties = ((parsed.specialties as string[]) || []).map(s => s.toLowerCase());
-  const queryCompanies = ((parsed.current_companies as string[]) || []).map(c => c.toLowerCase());
+  // FIX: read both plural `specialties` array AND singular `specialty` string from L2 parser
+  const specialtiesArr = ((parsed.specialties as string[]) || []).map(s => s.toLowerCase());
+  const singleSpecialty = typeof parsed.specialty === "string" ? (parsed.specialty as string).toLowerCase() : "";
+  const querySpecialties = Array.from(new Set([...specialtiesArr, ...(singleSpecialty ? [singleSpecialty] : [])]));
+  const queryCompanies = ((parsed.current_companies as string[]) || (parsed.companies as string[]) || []).map(c => c.toLowerCase());
+
+  // Map specialty → expected ONET specific occupation tokens for high-confidence boost
+  const SPECIALTY_ONET_MAP: Record<string, string[]> = {
+    cardiology: ["cardiologists"],
+    cardiologist: ["cardiologists"],
+    oncology: ["oncologists", "hematologists/oncologists"],
+    oncologist: ["oncologists"],
+    pediatrics: ["pediatricians, general"],
+    pediatrician: ["pediatricians, general"],
+    radiology: ["radiologists"],
+    radiologist: ["radiologists"],
+    anesthesiology: ["anesthesiologists"],
+    anesthesiologist: ["anesthesiologists"],
+    psychiatry: ["psychiatrists"],
+    psychiatrist: ["psychiatrists"],
+    neurology: ["neurologists"],
+    neurologist: ["neurologists"],
+    dermatology: ["dermatologists"],
+    dermatologist: ["dermatologists"],
+    orthopedic: ["orthopedic surgeons", "surgeons, orthopedic"],
+    orthopedics: ["orthopedic surgeons"],
+    "orthopedic surgery": ["orthopedic surgeons"],
+  };
 
   // Pull requested locality (city) from parsed L2 location for practice-match boosting
   const reqLoc = (parsed.location as { city?: string | null; state?: string | null } | undefined) || {};
