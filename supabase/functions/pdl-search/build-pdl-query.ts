@@ -549,7 +549,31 @@ export function buildPDLQuery(
 
   const hasSpecialtyKeywords = allKeywordTerms.length > 0;
   const isSpecialtyOnlyQuery = jobTitles.length === 0 && hasSpecialtyKeywords;
-  const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(jobTitles);
+
+  // FIX (April 2026 v3): Combine job_titles AND title_synonyms into the title cluster
+  // instead of dropping synonyms when titles exist. Add orthopaedic spelling variants
+  // and common subspecialty surgeon titles (sports medicine, spine, foot & ankle, etc.)
+  // when an orthopedic intent is detected.
+  const titleSynonymsLower = titleSynonyms.map(t => t.toLowerCase());
+  const combinedTitlePool = [...new Set([...jobTitles, ...titleSynonymsLower])];
+
+  // Specialty-aware title expansion (orthopedic family + common subspecialty surgeons)
+  const specialtyVariants: string[] = [];
+  const orthoSignal = [...combinedTitlePool, ...specialties, ...requiredKeywords]
+    .some(t => /ortho/i.test(String(t)));
+  if (orthoSignal) {
+    specialtyVariants.push(
+      "orthopedic surgeon", "orthopaedic surgeon", "orthopedist", "orthopaedist",
+      "orthopedic physician", "orthopaedic physician",
+      "sports medicine surgeon", "sports medicine physician",
+      "spine surgeon", "foot and ankle surgeon", "hand surgeon",
+      "joint replacement surgeon", "shoulder surgeon", "knee surgeon",
+      "musculoskeletal surgeon",
+    );
+  }
+  const titleSetForExpansion = [...new Set([...combinedTitlePool, ...specialtyVariants])];
+  const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(titleSetForExpansion);
+
   const currentRoleOnly = parsed.current_role_only !== false;
 
   if (expandedTitles.length > 0) {
