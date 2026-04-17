@@ -994,6 +994,27 @@ export function buildPDLQuery(
       filterClauses.push({ term: { job_title_role: "health" } });
       console.log("Role filter (generic healthcare): job_title_role=health");
     }
+
+    // FIX B (shared) — for any non-doctor clinical intent (PA/NP/RN/therapist/
+    // pharmacist/dentist), apply a smaller non-clinical exclusion list.
+    // Doctor intent already applied a fuller list above.
+    if (wantsPA || wantsNP || wantsRN || wantsTherapist || wantsPharmacist || wantsDentist) {
+      const sharedNonClinicalExclusions = [
+        "software engineer", "data engineer", "systems engineer",
+        "software developer", "web developer",
+        "data scientist", "machine learning engineer",
+        "software architect", "solutions architect",
+        "data analyst", "business analyst",
+        "recruiter", "talent acquisition",
+        "billing specialist", "claims specialist",
+      ];
+      for (const exclusion of sharedNonClinicalExclusions) {
+        mustNot.push({ match_phrase: { "job_title.text": exclusion } });
+      }
+      mustNot.push({ term: { job_title_role: "engineering" } });
+      mustNot.push({ term: { job_title_role: "information_technology" } });
+      console.log(`[FIX B] non-doctor clinical intent → ${sharedNonClinicalExclusions.length} non-clinical exclusions`);
+    }
   }
 
   // ═══════════════════════════════════════════
