@@ -57,7 +57,10 @@ function buildBrief(c: FormattedCandidate, idx: number): Record<string, unknown>
 
 function buildIntentSummary(parsed: Record<string, unknown>, query: string): string {
   const titles = (parsed.job_titles as string[]) || [];
-  const specs = (parsed.specialties as string[]) || [];
+  // FIX: read both plural `specialties` array AND singular `specialty` string from L2 parser
+  const specsArr = (parsed.specialties as string[]) || [];
+  const singleSpec = typeof parsed.specialty === "string" ? [parsed.specialty as string] : [];
+  const specs = Array.from(new Set([...specsArr, ...singleSpec].filter(Boolean)));
   const loc = (parsed.location as { city?: string; state?: string }) || {};
   const companies = (parsed.current_companies as string[]) || (parsed.companies as string[]) || [];
   const credentials = (parsed.credentials as string[]) || [];
@@ -65,7 +68,7 @@ function buildIntentSummary(parsed: Record<string, unknown>, query: string): str
   const parts: string[] = [];
   parts.push(`Original query: "${query}"`);
   if (titles.length) parts.push(`Roles wanted: ${titles.join(", ")}`);
-  if (specs.length) parts.push(`Specialties: ${specs.join(", ")}`);
+  if (specs.length) parts.push(`SPECIALTY (CRITICAL — must match): ${specs.join(", ")}`);
   if (credentials.length) parts.push(`Credentials: ${credentials.join(", ")}`);
   if (companies.length) parts.push(`Employers of interest: ${companies.join(", ")}`);
   if (loc.city || loc.state) {
