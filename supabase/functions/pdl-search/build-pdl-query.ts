@@ -405,7 +405,15 @@ export function buildPDLQuery(
 
   // ═══════════════════════════════════════════
   // SPECIALTY + KEYWORD SCORING
-  // FIX: job_title is keyword — use job_title.text for full-text search
+  // FIX (April 2026 v2): If the job-title signals already encode the specialty
+  // (e.g. "orthopedic surgeon", "orthopaedic surgeon", "orthopedist"), we do
+  // NOT add a second hard keyword must-clause. That double-gate was causing
+  // under-retrieval — a real local orthopedist whose PDL record didn't repeat
+  // the word "orthopedic" in title/summary/headline/skills was being filtered
+  // out even though their title clearly matched.
+  //
+  // Rule: specialty + role-intent stays HARD. Specialty alone (when titles
+  // already cover it) becomes a SOFT scoring boost via `should`.
   // ═══════════════════════════════════════════
   const specialties = [
     ...new Set([
@@ -416,19 +424,36 @@ export function buildPDLQuery(
   const requiredKeywords = (parsed.required_keywords as string[]) || (filters.keywords as string[]) || [];
   const allKeywordTerms = [...new Set([...specialties, ...requiredKeywords])];
 
+  // Detect whether the title set already encodes the specialty.
+  // E.g. ["orthopedic surgeon"] for specialty "orthopedic" → titles satisfy specialty.
+  const lowerTitlePool = [
+    ...((parsed.job_titles as string[]) || []),
+    ...((parsed.title_synonyms as string[]) || []),
+    ...((filters.job_titles as string[]) || []),
+  ].map(t => String(t).toLowerCase());
+
+  const specialtyAlreadyInTitles = specialties.length > 0 && specialties.every(sp => {
+    const root = sp.replace(/(s|ic|ics|y)$/i, ""); // ortho, cardio, neuro, etc.
+    return lowerTitlePool.some(t => t.includes(sp) || (root.length >= 4 && t.includes(root)));
+  });
+
   if (allKeywordTerms.length > 0) {
     const kwClauses: Clause[] = [];
     for (const kw of allKeywordTerms.slice(0, 15)) {
-      // FIX: use .text sub-field for full-text search on keyword field
       kwClauses.push({ match: { "job_title.text": kw } });
-      // Also search in summary and headline (actual text fields)
       kwClauses.push({ match: { summary: kw } });
       kwClauses.push({ match: { headline: kw } });
-      // skills is keyword — term for exact match
       kwClauses.push({ term: { skills: kw.toLowerCase() } });
     }
     if (kwClauses.length > 0) {
-      must.push({ bool: { should: kwClauses } });
+      // If titles already encode the specialty, demote keyword cluster to a
+      // soft scoring boost. Otherwise keep it as a hard must (existing behavior).
+      if (specialtyAlreadyInTitles) {
+        should.push({ bool: { should: kwClauses } });
+        console.log(`Specialty satisfied by titles (${specialties.join(",")}) — demoted keyword cluster to soft boost.`);
+      } else {
+        must.push({ bool: { should: kwClauses } });
+      }
     }
   }
 
