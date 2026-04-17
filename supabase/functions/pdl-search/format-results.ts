@@ -242,6 +242,11 @@ export function scoreAndRankResults(
   const querySpecialties = ((parsed.specialties as string[]) || []).map(s => s.toLowerCase());
   const queryCompanies = ((parsed.current_companies as string[]) || []).map(c => c.toLowerCase());
 
+  // Pull requested locality (city) from parsed L2 location for practice-match boosting
+  const reqLoc = (parsed.location as { city?: string | null; state?: string | null } | undefined) || {};
+  const reqCity = (reqLoc.city || "").toLowerCase();
+  const reqState = (reqLoc.state || "").toLowerCase();
+
   const wantsDoc = queryTitles.some(t => /\b(physician|doctor|surgeon|hospitalist|md)\b/.test(t))
                 && !queryTitles.some(t => /\bphysician assistant\b/.test(t));
   const wantsPa  = queryTitles.some(t => /\bphysician assistant\b|\bpa-?c\b/.test(t));
@@ -254,6 +259,8 @@ export function scoreAndRankResults(
     const subRole = (person.job_title_sub_role || "").toLowerCase();
     const onetBroad = (person.job_onet_broad_occupation || "").toLowerCase();
     const onetSpecific = (person.job_onet_specific_occupation || "").toLowerCase();
+    const personalLocality = (person.location_locality || "").toLowerCase();
+    const practiceLocality = (person.job_company_location_locality || "").toLowerCase();
 
     // Title match
     for (const qt of queryTitles) {
@@ -270,6 +277,14 @@ export function scoreAndRankResults(
     // Company match
     for (const qc of queryCompanies) {
       if ((person.job_company_name || "").toLowerCase().includes(qc)) { score += 5; break; }
+    }
+
+    // LOCATION RELEVANCE: rank practice-in-city above residence-in-city above neither
+    if (reqCity) {
+      const practiceMatches = practiceLocality === reqCity;
+      const personalMatches = personalLocality === reqCity;
+      if (practiceMatches) score += 12;          // strongest signal — actually works there
+      else if (personalMatches) score += 6;       // lives there
     }
 
     // O*NET and sub-role scoring
@@ -297,6 +312,9 @@ export function scoreAndRankResults(
       if (subRole === "nursing") score += 10;
       if (onetBroad === "registered nurses") score += 15;
     }
+
+    // Suppress reqState-unused warning
+    void reqState;
 
     return { ...person, relevance_score: Math.max(0, Math.min(100, score)) };
   }).sort((a, b) => b.relevance_score - a.relevance_score);
