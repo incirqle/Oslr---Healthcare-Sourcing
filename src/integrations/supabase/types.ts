@@ -214,6 +214,33 @@ export type Database = {
         }
         Relationships: []
       }
+      candidate_notes: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          pdl_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          pdl_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          pdl_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
           added_by: string | null
