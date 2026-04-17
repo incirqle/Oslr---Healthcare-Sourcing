@@ -13,9 +13,9 @@ export async function callClaude<T>(
   userMessage: string,
   fallbackValue: T | null = null,
   label = "Claude",
-  options: { model?: string; timeoutMs?: number } = {}
+  options: { model?: string; timeoutMs?: number; maxTokens?: number } = {}
 ): Promise<T> {
-  const { model = CLAUDE_SONNET, timeoutMs = 10000 } = options;
+  const { model = CLAUDE_SONNET, timeoutMs = 10000, maxTokens = 1024 } = options;
 
   if (!ANTHROPIC_API_KEY) {
     console.warn(`[${label}] ANTHROPIC_API_KEY not set — using fallback`);
@@ -36,7 +36,7 @@ export async function callClaude<T>(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }),
