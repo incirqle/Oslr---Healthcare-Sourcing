@@ -44,12 +44,15 @@ ORDERING RULE: Always try geographic expansion BEFORE dropping titles or employe
 
 RETURN: { "cascade_plan": string[], "reasoning": string }`;
 
+// FIX (April 2026 v2): Try SEMANTIC relaxation inside the existing local
+// geography BEFORE widening to metro/state. Geography only widens after the
+// local-semantic pass still produces too few results.
 const DEFAULT_CASCADE: CascadeStep[] = [
-  CascadeStep.EXPAND_TO_METRO,
+  CascadeStep.DROP_SPECIALTY,   // local + role intent, drop specialty hard gate
+  CascadeStep.DROP_TITLES,      // local + role intent only, drop title soft gate
+  CascadeStep.EXPAND_TO_METRO,  // then start widening geography
   CascadeStep.EXPAND_TO_STATE,
   CascadeStep.DROP_COMPANY,
-  CascadeStep.DROP_TITLES,
-  CascadeStep.DROP_SPECIALTY,
   CascadeStep.ROLE_ONLY,
 ];
 
