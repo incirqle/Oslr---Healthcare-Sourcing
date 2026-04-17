@@ -563,23 +563,26 @@ export function buildPDLQuery(
         for (const kw of allKeywordTerms.slice(0, 15)) {
           softShould.push({ term: { job_title_sub_role: { value: kw.toLowerCase(), boost: 5.0 } } });
         }
-        // Tier 3 — title contains the specialty word (catches "Director of X")
+        // Tier 3 — title contains the specialty word (catches "Director of X").
+        // PDL doesn't accept the wildcard long-form ({value, boost}); use a
+        // bool wrapper to apply boost on a plain wildcard.
         for (const kw of allKeywordTerms.slice(0, 8)) {
           const root = kw.toLowerCase().replace(/(s|ic|ics|y)$/i, "");
           if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
             wildcardCount++;
-            softShould.push({ wildcard: { job_title: { value: `*${root}*`, boost: 4.0 } } });
+            softShould.push({
+              bool: {
+                should: [{ wildcard: { job_title: `*${root}*` } }],
+                boost: 4.0,
+              },
+            });
           }
         }
         // Tier 5 — skills array exact match
         for (const kw of allKeywordTerms.slice(0, 15)) {
           softShould.push({ term: { skills: { value: kw.toLowerCase(), boost: 2.0 } } });
         }
-        // Tier 6 — past experience contains specialty (catches former fellows).
-        // Use term on the keyword sub-field for boost compatibility.
-        for (const kw of allKeywordTerms.slice(0, 8)) {
-          softShould.push({ term: { "experience.title.name": { value: kw.toLowerCase(), boost: 1.5 } } });
-        }
+        // (Tier 6 past-experience boost removed — PDL keyword field not stable)
         // Original cluster kept for summary/headline coverage at base weight
         should.push({ bool: { should: kwClauses } });
         console.log(`Specialty demoted to soft boost (${specialties.join(",")}) + tiered weighted boosts (5/4/2/1.5) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
