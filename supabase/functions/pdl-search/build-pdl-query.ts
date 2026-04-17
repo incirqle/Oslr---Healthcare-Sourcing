@@ -700,13 +700,28 @@ export function buildPDLQuery(
       ];
 
       if (hasResolvedCompanyAnchor) {
-        // COMPANY-ANCHORED MODE: employer is doing the heavy lifting.
-        // Demote the strict role filter to a soft boost so we don't drop
-        // doctors whose PDL profiles lack O*NET tags.
+        // COMPANY-ANCHORED MODE (Option B): employer is the strong filter, but
+        // we still need to cut admin/billing/tech staff from the result set.
+        // Use an INCLUSIVE hard role filter — sub_role:"doctor" catches the
+        // many real doctors whose PDL profiles lack O*NET tags entirely
+        // (~18 of 32 at Panorama have onet=null but sub_role=doctor).
+        // Combined with the always-on PA/RN must_not exclusions below, this
+        // lands precisely at PDL's true doctor ceiling for the company.
+        filterClauses.push({
+          bool: {
+            should: [
+              { term: { job_title_sub_role: "doctor" } },
+              { term: { job_onet_broad_occupation: "Physicians" } },
+              { term: { job_onet_broad_occupation: "Surgeons" } },
+              { terms: { job_onet_specific_occupation: PHYSICIAN_ONET_SPECIFIC } },
+            ],
+          },
+        });
+        // Also feed the full title/wildcard list as soft boosts for ranking.
         for (const clause of doctorRoleShould) {
           softShould.push(clause);
         }
-        console.log("[QUERY MODE] doctor + company-anchored → role filter demoted to boost");
+        console.log("[QUERY MODE] doctor + company-anchored → inclusive hard role filter (sub_role/ONET)");
       } else {
         // STRICT MODE: no company anchor, role filter is essential.
         filterClauses.push({ bool: { should: doctorRoleShould } });
