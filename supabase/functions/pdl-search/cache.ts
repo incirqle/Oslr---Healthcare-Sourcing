@@ -5,7 +5,7 @@
  * pools are invalidated. Without this, users see pre-fix orderings until TTL expires.
  */
 
-const RANK_VERSION = "v6-must-specialty-2026-04-17";
+const RANK_VERSION = "v7-specialty-cascade-2026-04-17";
 
 export async function getPDLCacheKey(
   query: Record<string, unknown>,
