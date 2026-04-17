@@ -231,28 +231,72 @@ export function buildPDLQuery(
   const uniqueStates = [...new Set(allStates.map(s => normalizeState(s)))];
 
   if (uniqueCities.length > 0) {
-    const locationClauses: Clause[] = [];
+    // FIX (April 2026 v3): Match BOTH personal residence AND current practice location.
+    // Many specialists (esp. in resort/small markets like Vail) live in nearby
+    // towns or even out-of-state but PRACTICE in the searched city. PDL stores
+    // practice location under job_company_location_*. Querying only personal
+    // location_* fields under-retrieves heavily.
+    //
+    // Structure: for each "side" (personal vs practice), require state match
+    // AND locality match together, so cross-state collisions like Avon, CT or
+    // Eagle, ID stay excluded. Then OR the two sides.
+    const personalLocClauses: Clause[] = uniqueCities.map(city => ({ term: { location_locality: city } }));
+    const practiceLocClauses: Clause[] = uniqueCities.map(city => ({ term: { job_company_location_locality: city } }));
+
+    // Inject metro mapping ONLY for cities that ARE major metros themselves.
     for (const city of uniqueCities) {
-      locationClauses.push({ term: { location_locality: city } });
-      // Only inject metro mapping for cities that ARE major metros themselves.
-      // Small/resort towns should NOT pull in distant metro results.
       if (isMajorMetro(city)) {
         const metroNames = CITY_TO_METRO[city];
         if (metroNames) {
-          for (const metro of metroNames) locationClauses.push({ term: { location_metro: metro } });
+          for (const metro of metroNames) {
+            personalLocClauses.push({ term: { location_metro: metro } });
+            practiceLocClauses.push({ term: { job_company_location_metro: metro } });
+          }
         }
       }
     }
-    filterClauses.push({ bool: { should: locationClauses } });
 
-    // CRITICAL: Always keep the state constraint when the user asked for a state.
-    // Without this, expanded city names like "Avon" or "Eagle" match across the US
-    // (Avon, CT; Eagle, ID) instead of staying within Colorado.
     if (uniqueStates.length > 0) {
-      filterClauses.push({ terms: { location_region: uniqueStates } });
+      // Each side requires its own state match alongside its locality match
+      const personalSide: Clause = {
+        bool: {
+          must: [
+            { terms: { location_region: uniqueStates } },
+            { bool: { should: personalLocClauses } },
+          ],
+        },
+      };
+      const practiceSide: Clause = {
+        bool: {
+          must: [
+            { terms: { job_company_location_region: uniqueStates } },
+            { bool: { should: practiceLocClauses } },
+          ],
+        },
+      };
+      filterClauses.push({ bool: { should: [personalSide, practiceSide] } });
+      console.log(`Dual-location filter: ${uniqueCities.length} cities × {personal, practice} bounded by states [${uniqueStates.join(",")}]`);
+    } else {
+      // No state — still match either personal or practice locality
+      filterClauses.push({
+        bool: {
+          should: [
+            { bool: { should: personalLocClauses } },
+            { bool: { should: practiceLocClauses } },
+          ],
+        },
+      });
     }
   } else if (uniqueStates.length > 0) {
-    filterClauses.push({ terms: { location_region: uniqueStates } });
+    // State-only search: match either personal or practice region
+    filterClauses.push({
+      bool: {
+        should: [
+          { terms: { location_region: uniqueStates } },
+          { terms: { job_company_location_region: uniqueStates } },
+        ],
+      },
+    });
   }
 
   // ═══════════════════════════════════════════
@@ -503,7 +547,31 @@ export function buildPDLQuery(
 
   const hasSpecialtyKeywords = allKeywordTerms.length > 0;
   const isSpecialtyOnlyQuery = jobTitles.length === 0 && hasSpecialtyKeywords;
-  const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(jobTitles);
+
+  // FIX (April 2026 v3): Combine job_titles AND title_synonyms into the title cluster
+  // instead of dropping synonyms when titles exist. Add orthopaedic spelling variants
+  // and common subspecialty surgeon titles (sports medicine, spine, foot & ankle, etc.)
+  // when an orthopedic intent is detected.
+  const titleSynonymsLower = titleSynonyms.map(t => t.toLowerCase());
+  const combinedTitlePool = [...new Set([...jobTitles, ...titleSynonymsLower])];
+
+  // Specialty-aware title expansion (orthopedic family + common subspecialty surgeons)
+  const specialtyVariants: string[] = [];
+  const orthoSignal = [...combinedTitlePool, ...specialties, ...requiredKeywords]
+    .some(t => /ortho/i.test(String(t)));
+  if (orthoSignal) {
+    specialtyVariants.push(
+      "orthopedic surgeon", "orthopaedic surgeon", "orthopedist", "orthopaedist",
+      "orthopedic physician", "orthopaedic physician",
+      "sports medicine surgeon", "sports medicine physician",
+      "spine surgeon", "foot and ankle surgeon", "hand surgeon",
+      "joint replacement surgeon", "shoulder surgeon", "knee surgeon",
+      "musculoskeletal surgeon",
+    );
+  }
+  const titleSetForExpansion = [...new Set([...combinedTitlePool, ...specialtyVariants])];
+  const expandedTitles = isSpecialtyOnlyQuery ? [] : expandTitleVariants(titleSetForExpansion);
+
   const currentRoleOnly = parsed.current_role_only !== false;
 
   if (expandedTitles.length > 0) {
@@ -602,6 +670,19 @@ export function buildPDLQuery(
             { match_phrase: { "job_title.text": "dermatologist" } },
             { match_phrase: { "job_title.text": "ophthalmologist" } },
             { match_phrase: { "job_title.text": "pathologist" } },
+            // Orthopedic family + common subspecialty surgeons (Steadman / Vail-Summit / Vail Health)
+            { match_phrase: { "job_title.text": "orthopedic surgeon" } },
+            { match_phrase: { "job_title.text": "orthopaedic surgeon" } },
+            { match_phrase: { "job_title.text": "orthopedist" } },
+            { match_phrase: { "job_title.text": "orthopaedist" } },
+            { match_phrase: { "job_title.text": "sports medicine surgeon" } },
+            { match_phrase: { "job_title.text": "sports medicine physician" } },
+            { match_phrase: { "job_title.text": "spine surgeon" } },
+            { match_phrase: { "job_title.text": "foot and ankle surgeon" } },
+            { match_phrase: { "job_title.text": "hand surgeon" } },
+            { match_phrase: { "job_title.text": "joint replacement surgeon" } },
+            { match_phrase: { "job_title.text": "shoulder surgeon" } },
+            { match_phrase: { "job_title.text": "knee surgeon" } },
             { wildcard: { job_title: "*, md" } },
             { wildcard: { job_title: "*, md *" } },
             { wildcard: { job_title: "*, do" } },
@@ -807,17 +888,19 @@ function termMatches(clause: Clause, field: string): boolean {
   );
 }
 
-/** Check if a filter clause is a location clause (locality, metro, region, or nested bool containing them) */
+/** Check if a filter clause is a location clause (locality/metro/region — personal OR practice — including nested bools) */
 function isLocationClause(clause: Clause): boolean {
-  if (termMatches(clause, "location_locality")) return true;
-  if (termMatches(clause, "location_metro")) return true;
-  if (termMatches(clause, "location_region")) return true;
-  const boolShould = (clause?.bool as Record<string, unknown>)?.should;
-  if (Array.isArray(boolShould)) {
-    return boolShould.some((s: unknown) => {
-      const sc = s as Clause;
-      return termMatches(sc, "location_locality") || termMatches(sc, "location_metro") || termMatches(sc, "location_region");
-    });
+  const LOC_FIELDS = [
+    "location_locality", "location_metro", "location_region",
+    "job_company_location_locality", "job_company_location_metro", "job_company_location_region",
+  ];
+  for (const f of LOC_FIELDS) if (termMatches(clause, f)) return true;
+  const b = clause?.bool as Record<string, unknown> | undefined;
+  if (b) {
+    for (const key of ["should", "must"] as const) {
+      const arr = b[key];
+      if (Array.isArray(arr) && arr.some((s: unknown) => isLocationClause(s as Clause))) return true;
+    }
   }
   return false;
 }
