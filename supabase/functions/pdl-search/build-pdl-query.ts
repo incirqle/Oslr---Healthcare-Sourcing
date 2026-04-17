@@ -422,6 +422,38 @@ export function buildPDLQuery(
       }
     }
 
+    // 8. EXPERIENCE ARRAY (recall booster) — gated to high-confidence
+    // company-anchored searches only. Diagnostic showed PDL has 36
+    // OrthoSouth-affiliated people in experience[] vs only 16 with current
+    // job_company_name. Adding experience.company.{id,name} doubles recall
+    // for company-anchored searches WITHOUT affecting precision elsewhere
+    // (this block is inside `if (currentCompanies.length > 0)` and only fires
+    // when we have a resolved anchor).
+    //
+    // NOTE: This expands beyond strictly-current employees. For anchored
+    // company searches that's the right tradeoff — recruiters typically
+    // want everyone who *worked at* OrthoSouth, not just those whose stale
+    // PDL `job_company_*` field happens to be up-to-date today.
+    if (hasResolvedCompanyAnchor) {
+      // Match by resolved company IDs in experience array (most precise)
+      for (const id of resolvedIds) {
+        companyClauses.push({ term: { "experience.company.id": id } });
+      }
+      // Match by resolved canonical names in experience array
+      for (const name of resolvedNames) {
+        companyClauses.push({ term: { "experience.company.name": name } });
+      }
+      // Match by resolved websites in experience array
+      // (websites are unique per company → high precision, high recall)
+      for (const website of resolvedWebsites) {
+        companyClauses.push({ term: { "experience.company.website": website } });
+      }
+      // Affiliated company IDs in experience array
+      for (const affId of resolvedAffiliatedIds) {
+        companyClauses.push({ term: { "experience.company.id": affId } });
+      }
+    }
+
     // Deduplicate clauses by serializing
     const seen = new Set<string>();
     const dedupedClauses: Clause[] = [];
