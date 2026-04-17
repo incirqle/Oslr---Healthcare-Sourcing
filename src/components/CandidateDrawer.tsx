@@ -583,7 +583,39 @@ export function CandidateDrawer({
                   </div>
                 )}
               </div>
+
+              {/* Fit pill — quick rating from the header */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <FitPill
+                  status={fitStatus}
+                  onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
+                  size="md"
+                  stopPropagation={false}
+                />
+              </div>
             </div>
+
+            {/* Why they matched — only when we have parsed filters and chips */}
+            {matchChips.length > 0 && (
+              <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-primary">
+                  <Sparkles className="h-3 w-3" />
+                  Why they matched
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {matchChips.map((chip) => (
+                    <span
+                      key={chip.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
+                      title={chip.reason}
+                    >
+                      <Sparkles className="h-3 w-3" aria-hidden="true" />
+                      {chip.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 flex flex-wrap gap-2">
               {locationLabel && (
@@ -620,6 +652,12 @@ export function CandidateDrawer({
                   className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
                 >
                   Experience
+                </TabsTrigger>
+                <TabsTrigger
+                  value="notes"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
+                >
+                  Notes{notes.length > 0 ? ` (${notes.length})` : ""}
                 </TabsTrigger>
                 <TabsTrigger
                   value="contact"
