@@ -1,81 +1,84 @@
 
 Goal
 
-Ship one surgical “search geography” fix so Vail orthopedic searches stay Vail-first, only widen when truly necessary, and clearly tell the user when widening happened.
+Fix the real geography bug causing Vail searches to return Avon, CT and Eagle, ID, while keeping cascade conservative.
 
-What’s happening now
+What I found
 
-- The problem starts before cascade. The base query is already broad:
-  - `build-pdl-query.ts` auto-expands non-metro cities to a 50-mile radius.
-  - `config.ts` maps `vail` and nearby towns to `denver, colorado`.
-  - The built query therefore contains `location_locality: vail` plus nearby towns plus `location_metro: denver, colorado`, which is why Boulder/Castle Rock/Denver-area profiles show up.
-- Cascade is too eager:
-  - `index.ts` cascades when `results.length < 3` instead of when the actual match total is under 2.
-- Cascade geography replacement is flawed:
-  - `applyStep()` adds metro/state filters without properly removing the nested base location bool clause, so widening is not controlled cleanly.
-- The UI hides what happened:
-  - `SearchPage.tsx` ignores cascade metadata and does not send edited location filters back in the backend’s expected structured shape, so users can’t reliably correct geography.
+- The main problem is not the cascade threshold.
+- The current base query expands `vail` to nearby locality names (`edwards`, `avon`, `eagle`, `minturn`) but then drops the Colorado state constraint.
+- That means PDL is matching any `avon` or `eagle` in the US, which is why you’re seeing Connecticut and Idaho.
+- The logs prove it:
+  - preview total is 7 on the local query
+  - built query contains locality terms only
+  - returned results include `Avon, Connecticut` and `Eagle, Idaho`
+- So the bug is: nearby-city expansion is being treated as plain city-name matching instead of “these cities in Colorado”.
 
-One-go implementation plan
+Why it got worse
 
-1. Fix base Vail geography in `build-pdl-query.ts`
-- Stop injecting Denver metro for small-town/local-market searches by default.
-- Split location behavior into:
-  - major metros: city + metro is allowed
-  - local towns/resort markets: exact city + immediate nearby towns only
-- For Vail, keep the base query local:
-  - Vail
-  - Avon / Edwards / Eagle / Minturn
-  - optional next ring like Frisco / Silverthorne only if radius supports it
-- Remove Denver/Boulder/Castle Rock from the default Vail search scope.
+- The recent change correctly removed the default Denver metro widening for Vail.
+- But the logic in `build-pdl-query.ts` currently skips adding `location_region` whenever nearby-city expansion is active.
+- For ambiguous city names, that makes results broader and less accurate than before.
 
-2. Tighten the location config in `config.ts`
-- Remove or neutralize the current `vail -> denver metro` behavior for the base search path.
-- Clean the `NEARBY_CITIES` tiers so Vail’s nearby list reflects real local catchment, not statewide leakage.
-- Keep metro mappings only for genuine metro-driven searches, not resort-town defaults.
+One-go fix
 
-3. Make cascade truly surgical in `index.ts` + `build-pdl-query.ts`
-- Change cascade trigger from “first page returned under 3 rows” to “actual total is under 2”.
-- Rework location cascade steps so they replace prior location clauses cleanly.
-- Use a gentler order:
-  1. exact/local scope
-  2. nearby local towns
-  3. metro only for real metro markets
-  4. state only as last resort
-- Keep doctor/specialty intent intact while widening geography.
+1. Fix the base location query in `build-pdl-query.ts`
+- Keep nearby-city expansion for Vail.
+- But always keep the state constraint when the user asked for a state.
+- Build location logic as:
+  - `location_region = colorado`
+  - AND `location_locality IN [vail, edwards, avon, eagle, minturn]`
+- Do not drop the state filter just because radius/nearby expansion was used.
 
-4. Return honest scope metadata from the edge function
-- Add response fields for:
-  - requested location
-  - effective location scope
-  - whether expansion occurred
-  - which step triggered it
-  - corrected total after expansion
-- If cascade wins, return the widened total instead of the original base total so the UI never says “0” while showing people.
+2. Make locality expansion state-safe
+- Apply the same rule to all expanded-city searches, not just Vail.
+- If a city is ambiguous and the parser has a state, the query must remain state-bounded.
+- Preserve metro-only behavior for true metro searches, but never at the cost of removing the requested state.
 
-5. Surface the behavior in the frontend
-- Update `SearchPage.tsx` to store search-scope metadata from the function response.
-- Add a visible banner in results, e.g.:
-  - “Showing 11 orthopedic surgeons within 25 miles of Vail.”
-  - or “No exact Vail matches found; expanded to nearby mountain communities.”
-- Wire `FilterEditor` location edits into the backend payload as structured `city` / `states` / optional radius so manual location changes actually affect search.
+3. Tighten cascade behavior in `index.ts`
+- Keep the threshold at `total < 2`.
+- Only widen after the state-bounded local search fails.
+- When widening, expand in this order:
+  1. requested city + nearby cities within requested state
+  2. metro (only if appropriate)
+  3. full state as last resort
+- Use the actually applied step, not the planned step list, when reporting scope.
 
-Files to touch
+4. Fix misleading scope metadata
+- Current `geo_scope.effective_scope` is derived from the whole cascade plan, which can overstate what happened.
+- Return metadata based on the step that actually produced the winning results.
+- Example:
+  - local if the Colorado-bounded Vail corridor succeeded
+  - metro only if metro expansion actually ran and won
+  - state only if state expansion actually ran and won
+
+5. Clean up the small frontend issues exposed in this flow
+- `FilterReview.tsx`: duplicate badge keys for repeated values like `orthopedics`
+- `SearchResults.tsx`: ref warning on a function component
+- These are not the search bug, but they should be fixed in the same pass so the flow is clean and debug output is trustworthy.
+
+Files to update
 
 - `supabase/functions/pdl-search/build-pdl-query.ts`
 - `supabase/functions/pdl-search/index.ts`
-- `supabase/functions/pdl-search/config.ts`
-- `src/pages/SearchPage.tsx`
-- likely `src/components/search/SearchResults.tsx` or `FilterReview.tsx` for the scope/expansion banner
+- possibly `supabase/functions/pdl-search/config.ts` only if nearby-city tiers need minor cleanup
+- `src/components/search/FilterReview.tsx`
+- `src/components/search/SearchResults.tsx`
 
 Expected result
 
-- “Orthopedic surgeons in Vail, Colorado” stays Vail-first.
-- No Denver/Boulder/statewide drift unless the base search truly has 0–1 matches.
-- If geography broadens, the UI explains exactly what broadened and why.
-- Counts and visible results stay consistent.
+- “orthopedic surgeons in Vail, Colorado” stays in Colorado.
+- Nearby results can include Edwards/Avon/Eagle/Minturn, but not Avon, CT or Eagle, ID.
+- Cascade only happens when the Colorado-local search is truly under 2 results.
+- The UI accurately tells you whether the result set is local, metro, or state-expanded.
 
 Technical details
 
-- Current logs already confirm the root issue: the base query includes `location_metro:"denver, colorado"` and multiple widened localities, so the over-broadness is happening before any meaningful cascade.
-- This should be implemented as one cohesive geo-control patch, not separate tweaks, so backend location logic, cascade thresholds, totals, and frontend transparency all land together in one go.
+- Root cause is this branch in `build-pdl-query.ts`:
+  - state filter is only added when there is no radius expansion
+  - for Vail, radius expansion adds nearby cities, so `location_region: colorado` is omitted
+- Current logs confirm the failure pattern:
+  - parsed location = Vail, Colorado
+  - built query = only locality clauses
+  - results = out-of-state city-name collisions
+- This is a query-construction bug first, a cascade bug second.
