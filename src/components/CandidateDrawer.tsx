@@ -65,12 +65,20 @@ interface CandidateDrawerProps {
     clinical_skills?: string[];
     has_contact_info?: boolean;
     summary?: string | null;
+    industry?: string | null;
     raw?: Record<string, unknown>;
   } | null;
   isSaved?: boolean;
   isSavingCandidate?: boolean;
   onSaveCandidate?: () => Promise<void> | void;
   onAddToCampaign?: () => void;
+  /** Filters from the active search — used for query-aware highlighting + match chips. */
+  filters?: ParsedFilters;
+  /** Prev/next navigation through the visible result list. */
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 interface EnrichedData {
