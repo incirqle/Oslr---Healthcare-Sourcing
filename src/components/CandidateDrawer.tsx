@@ -361,8 +361,10 @@ export function CandidateDrawer({
       setContactUnlocked(false);
       setShowAllSkills(false);
       setActiveTab("overview");
+      setNoteDraft("");
       return;
     }
+    setNoteDraft("");
 
     const cached = summaryCache.current.get(candidate.id);
     setAiSummary(cached ?? null);
