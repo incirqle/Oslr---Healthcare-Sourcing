@@ -303,6 +303,7 @@ export function CandidateDrawer({
   hasPrev = false,
   hasNext = false,
 }: CandidateDrawerProps) {
+  const { size: drawerSize, toggle: toggleDrawerSize, isWide } = useDrawerSize();
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
