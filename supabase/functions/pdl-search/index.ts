@@ -18,6 +18,7 @@ import {
 } from "./fetch-pdl-results.ts";
 import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankResults } from "./format-results.ts";
 import { callClaude } from "./ai-router.ts";
+import { rerankWithAI } from "./ai-rerank.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -776,7 +777,22 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 5: Format results
-    const formattedResults = scoreAndRankResults(results.map(mapPerson), parsed);
+    const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
+
+    // Step 5b: AI re-rank top 50 (page 0 only — paginated requests reuse cached order)
+    let formattedResults = deterministicResults;
+    let aiRerankMeta: Record<string, unknown> = { ai_reranked: false };
+    if (page === 0 && deterministicResults.length > 0) {
+      const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
+      formattedResults = rerank.candidates;
+      aiRerankMeta = {
+        ai_reranked: rerank.ai_reranked,
+        ai_rerank_count: rerank.ai_rerank_count ?? null,
+        ai_rerank_ms: rerank.ai_rerank_ms ?? null,
+        ai_rerank_error: rerank.ai_rerank_error ?? null,
+      };
+    }
+
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
 
@@ -841,6 +857,7 @@ Deno.serve(async (req: Request) => {
         cascade_used: cascadeUsed,
         cascade_plan: cascadePlan,
         geo_scope: geoScope,
+        ...aiRerankMeta,
         timing_ms: Date.now() - requestStart,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
