@@ -651,8 +651,8 @@ export function CandidateDrawer({
 
           {/* Row 3: Match chip strip — single line with tooltips */}
           {matchChips.length > 0 && (
-            <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-ui-border-light bg-primary/[0.04] px-5 py-1.5 sm:px-6">
-              <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+            <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-ui-border-light bg-primary/15 px-5 py-1.5 sm:px-6">
+              <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground/80">
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                 Matched
               </span>
@@ -661,7 +661,7 @@ export function CandidateDrawer({
                   <Tooltip key={chip.id}>
                     <TooltipTrigger asChild>
                       <span
-                        className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                        className="inline-flex items-center rounded-full border border-primary/50 bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground"
                         tabIndex={0}
                       >
                         {chip.label}
