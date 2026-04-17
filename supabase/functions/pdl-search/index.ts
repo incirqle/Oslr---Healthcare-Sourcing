@@ -98,7 +98,7 @@ async function runCascade(
   queryHash: string,
   adminClient: ReturnType<typeof createClient>,
   size: number
-): Promise<{ profiles: Record<string, unknown>[]; stepsUsed: number; plan: CascadeStep[] }> {
+): Promise<{ profiles: Record<string, unknown>[]; stepsUsed: number; plan: CascadeStep[]; winningStep: CascadeStep | null; total: number }> {
   const cascadePlan = await planCascade(payload, queryType, previewTotal);
 
   const boolBlock = (basePdlQuery as { bool?: { filter?: unknown[]; must?: unknown[]; must_not?: unknown[] } }).bool || {};
@@ -109,6 +109,7 @@ async function runCascade(
   };
 
   let stepsUsed = 0;
+  let lastTotal = previewTotal;
 
   for (const step of cascadePlan) {
     current = applyStep(current, payload, step);
@@ -117,7 +118,7 @@ async function runCascade(
     const stepHash = queryHash + "_" + step;
     const cached = await getDBCache(adminClient, stepHash);
     if (cached && cached.data.length > 0) {
-      return { profiles: cached.data as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+      return { profiles: cached.data as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: step, total: cached.total };
     }
 
     const stepQuery = {
@@ -129,12 +130,13 @@ async function runCascade(
     };
 
     const total = await runPreview(stepQuery);
+    lastTotal = total;
     console.log(`[CASCADE] step=${step}, preview_total=${total}`);
 
     if (total >= 3) {
       const profiles = await fetchProfiles(stepQuery, Math.min(size, 100));
       setDBCache(adminClient, stepHash, total, profiles, null);
-      return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+      return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: step, total };
     }
   }
 
@@ -146,7 +148,7 @@ async function runCascade(
     },
   };
   const profiles = await fetchProfiles(finalQuery, Math.min(size, 100));
-  return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+  return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: cascadePlan[cascadePlan.length - 1] ?? null, total: lastTotal };
 }
 
 /* ------------------------------------------------------------------ */
