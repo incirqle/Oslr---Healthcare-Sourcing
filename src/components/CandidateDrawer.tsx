@@ -295,6 +295,11 @@ export function CandidateDrawer({
   isSavingCandidate = false,
   onSaveCandidate,
   onAddToCampaign,
+  filters,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false,
 }: CandidateDrawerProps) {
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -304,7 +309,50 @@ export function CandidateDrawer({
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [showAllSkills, setShowAllSkills] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [noteDraft, setNoteDraft] = useState("");
   const summaryCache = useRef<Map<string, string>>(new Map());
+
+  // Per-user fit + notes for this candidate
+  const candidatePdlIds = useMemo(() => (candidate ? [candidate.id] : []), [candidate?.id]);
+  const { data: fitMap } = useCandidateFits(candidatePdlIds);
+  const setFit = useSetCandidateFit();
+  const fitStatus = candidate ? fitMap?.get(candidate.id) ?? "unreviewed" : "unreviewed";
+
+  const { data: notes = [] } = useCandidateNotes(candidate?.id ?? null);
+  const addNote = useAddCandidateNote();
+  const deleteNote = useDeleteCandidateNote();
+
+  // Highlight terms derived from the parsed query
+  const highlightTerms = useMemo(
+    () => (filters ? collectHighlightTerms(filters) : []),
+    [filters],
+  );
+
+  // Match chips for the in-drawer "Why they matched" panel
+  const matchChips = useMemo(() => {
+    if (!candidate || !filters) return [];
+    return buildMatchChips(candidate as never, filters);
+  }, [candidate, filters]);
+
+  // J/K keyboard navigation while drawer is open
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === "j" && hasNext && onNext) {
+        e.preventDefault();
+        onNext();
+      } else if (e.key === "k" && hasPrev && onPrev) {
+        e.preventDefault();
+        onPrev();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, hasNext, hasPrev, onNext, onPrev]);
 
   useEffect(() => {
     if (!open || !candidate) {
