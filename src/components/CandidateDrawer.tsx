@@ -16,13 +16,16 @@ import {
 import { cn } from "@/lib/utils";
 import {
   cleanDisplayName,
-  formatDateLabel,
+  formatDateLabelSmart,
+  formatDegree,
   formatExperienceDuration,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
+  renderNamedValue,
   toStringArray,
+  toTitleCase,
 } from "@/components/search/candidate-ui";
 
 interface CandidateDrawerProps {
@@ -202,7 +205,7 @@ function buildSummaryPrompt(
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience || "Unknown";
   const career = experience
     .slice(0, 3)
-    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabel(entry.startDate)} — ${formatDateLabel(entry.endDate)})`)
+    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} — ${formatDateLabelSmart(entry.endDate)})`)
     .join("; ");
   const educationSummary = education
     .slice(0, 3)
@@ -341,13 +344,18 @@ export function CandidateDrawer({
       ? enriched.certifications
       : (candidate?.raw?.certifications ?? []);
     if (!Array.isArray(raw)) return [];
-    return raw
-      .map((c: unknown) => {
-        if (typeof c === "string") return c.trim();
-        if (c && typeof c === "object" && "name" in c) return String((c as { name: unknown }).name).trim();
-        return "";
-      })
-      .filter((s: string) => s.length > 0);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of raw) {
+      const name = renderNamedValue(c);
+      if (!name) continue;
+      const titled = toTitleCase(name);
+      const key = titled.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(titled);
+    }
+    return out;
   }, [candidate?.raw, enriched?.certifications]);
   const primarySkills = useMemo(() => {
     if (candidate?.clinical_skills?.length) return candidate.clinical_skills;
@@ -455,13 +463,13 @@ export function CandidateDrawer({
               </div>
 
               <div className="min-w-0 flex-1">
-                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{cleanDisplayName(candidate.full_name)}</SheetTitle>
-                <p className="mt-1 text-[15px] text-ui-text-secondary">{title || "—"}</p>
+                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{toTitleCase(cleanDisplayName(candidate.full_name))}</SheetTitle>
+                <p className="mt-1 text-[15px] text-ui-text-secondary">{title ? toTitleCase(title) : "—"}</p>
 
                 {companyName && (
                   <div className="mt-1 inline-flex items-center gap-1.5 text-sm text-ui-text-tertiary">
                     <Building2 className="h-3.5 w-3.5" />
-                    <span>{companyName}</span>
+                    <span>{toTitleCase(companyName)}</span>
                   </div>
                 )}
               </div>
@@ -549,17 +557,27 @@ export function CandidateDrawer({
                   <section className="space-y-4">
                     <SectionHeading label="Education" />
                     <div className="space-y-3">
-                      {educationEntries.map((entry, index) => (
-                        <div key={`${entry.school}-${index}`} className="space-y-1">
-                          <p className="text-[15px] font-semibold text-ui-text-primary">{entry.school || "Unknown school"}</p>
-                          <p className="text-sm text-ui-text-tertiary">
-                            {[entry.degree, entry.major].filter(Boolean).join(entry.degree && entry.major ? " · " : "") || "Degree not available"}
-                          </p>
-                          <p className="text-[13px] text-ui-text-muted">
-                            {formatDateLabel(entry.startDate)} — {formatDateLabel(entry.endDate)}
-                          </p>
-                        </div>
-                      ))}
+                      {educationEntries.map((entry, index) => {
+                        const degreeInfo = formatDegree(
+                          entry.degree && entry.major
+                            ? { degree: entry.degree, major: entry.major }
+                            : entry.degree ?? entry.major,
+                        );
+                        const school = entry.school ? toTitleCase(entry.school) : null;
+                        return (
+                          <div key={`${entry.school}-${index}`} className="space-y-1">
+                            {school && (
+                              <p className="text-[15px] font-semibold text-ui-text-primary">{school}</p>
+                            )}
+                            {degreeInfo.display && (
+                              <p className="text-sm text-ui-text-tertiary">{degreeInfo.display}</p>
+                            )}
+                            <p className="text-[13px] text-ui-text-muted">
+                              {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
@@ -621,7 +639,7 @@ export function CandidateDrawer({
                               </div>
                               <p className="mt-1 text-[15px] text-ui-text-secondary">{entry.company || "Unknown company"}</p>
                               <p className="mt-1 text-[13px] text-ui-text-muted">
-                                {formatDateLabel(entry.startDate)} — {formatDateLabel(entry.endDate)}
+                                {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
                                 {duration ? ` · ${duration}` : ""}
                               </p>
                             </div>

@@ -187,6 +187,33 @@ export type Database = {
         }
         Relationships: []
       }
+      candidate_fit: {
+        Row: {
+          created_at: string
+          id: string
+          pdl_id: string
+          status: Database["public"]["Enums"]["candidate_fit_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pdl_id: string
+          status?: Database["public"]["Enums"]["candidate_fit_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pdl_id?: string
+          status?: Database["public"]["Enums"]["candidate_fit_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
           added_by: string | null
@@ -1027,6 +1054,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "recruiter" | "viewer"
+      candidate_fit_status: "unreviewed" | "good" | "maybe" | "not"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1155,6 +1183,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "recruiter", "viewer"],
+      candidate_fit_status: ["unreviewed", "good", "maybe", "not"],
     },
   },
 } as const

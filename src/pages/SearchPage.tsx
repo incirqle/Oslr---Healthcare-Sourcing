@@ -400,10 +400,13 @@ export default function SearchPage() {
                 selected={selected}
                 savedIds={savedIds}
                 projectName={project?.name}
+                filters={filters}
                 onToggleSelect={toggleSelect}
                 onToggleSelectAll={toggleSelectAll}
+                onClearSelection={() => setSelected(new Set())}
                 onOpenCandidate={setDrawerCandidate}
                 onSaveBulk={() => handleSaveCandidates(selectedCandidates)}
+                onAddToCampaignBulk={() => toast.info("Campaign builder integration coming soon")}
                 onEditFilters={() => setFilterEditorOpen(true)}
                 onNewSearch={handleReset}
                 onSubmitQuery={runFullSearch}
