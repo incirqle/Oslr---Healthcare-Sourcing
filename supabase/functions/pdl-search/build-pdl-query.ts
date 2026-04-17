@@ -707,12 +707,22 @@ export function buildPDLQuery(
         // field — PDL stores the full lowercased title there.
         for (const t of jobTitles.slice(0, 10)) {
           if (t.length >= 3) {
-            softShould.push({ term: { job_title: { value: t.toLowerCase(), boost: 8.0 } } });
+            softShould.push({
+              constant_score: {
+                filter: { term: { job_title: t.toLowerCase() } },
+                boost: 8.0,
+              },
+            });
           }
         }
         for (const t of titleSynonymsLower.slice(0, 10)) {
           if (t.length >= 3) {
-            softShould.push({ term: { job_title: { value: t.toLowerCase(), boost: 4.0 } } });
+            softShould.push({
+              constant_score: {
+                filter: { term: { job_title: t.toLowerCase() } },
+                boost: 4.0,
+              },
+            });
           }
         }
         console.log(`[QUERY MODE] company-anchored → title cluster + tiered weighted boosts (exact=8.0, synonyms=4.0)`);
