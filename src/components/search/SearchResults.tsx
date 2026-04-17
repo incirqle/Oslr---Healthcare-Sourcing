@@ -469,7 +469,7 @@ export function SearchResults({
           onAddToCampaign={() => onAddToCampaignBulk?.()}
           onMarkFit={handleMarkFitBulk}
           onExportCsv={handleExportCsv}
-          onClear={() => onToggleSelectAll()}
+          onClear={() => (onClearSelection ? onClearSelection() : onToggleSelectAll())}
           isSaving={isSaving}
         />
       )}
