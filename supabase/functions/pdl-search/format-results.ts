@@ -240,8 +240,34 @@ export function scoreAndRankResults(
   parsed: Record<string, unknown>,
 ): FormattedCandidate[] {
   const queryTitles = ((parsed.job_titles as string[]) || []).map(t => t.toLowerCase());
-  const querySpecialties = ((parsed.specialties as string[]) || []).map(s => s.toLowerCase());
-  const queryCompanies = ((parsed.current_companies as string[]) || []).map(c => c.toLowerCase());
+  // FIX: read both plural `specialties` array AND singular `specialty` string from L2 parser
+  const specialtiesArr = ((parsed.specialties as string[]) || []).map(s => s.toLowerCase());
+  const singleSpecialty = typeof parsed.specialty === "string" ? (parsed.specialty as string).toLowerCase() : "";
+  const querySpecialties = Array.from(new Set([...specialtiesArr, ...(singleSpecialty ? [singleSpecialty] : [])]));
+  const queryCompanies = ((parsed.current_companies as string[]) || (parsed.companies as string[]) || []).map(c => c.toLowerCase());
+
+  // Map specialty → expected ONET specific occupation tokens for high-confidence boost
+  const SPECIALTY_ONET_MAP: Record<string, string[]> = {
+    cardiology: ["cardiologists"],
+    cardiologist: ["cardiologists"],
+    oncology: ["oncologists", "hematologists/oncologists"],
+    oncologist: ["oncologists"],
+    pediatrics: ["pediatricians, general"],
+    pediatrician: ["pediatricians, general"],
+    radiology: ["radiologists"],
+    radiologist: ["radiologists"],
+    anesthesiology: ["anesthesiologists"],
+    anesthesiologist: ["anesthesiologists"],
+    psychiatry: ["psychiatrists"],
+    psychiatrist: ["psychiatrists"],
+    neurology: ["neurologists"],
+    neurologist: ["neurologists"],
+    dermatology: ["dermatologists"],
+    dermatologist: ["dermatologists"],
+    orthopedic: ["orthopedic surgeons", "surgeons, orthopedic"],
+    orthopedics: ["orthopedic surgeons"],
+    "orthopedic surgery": ["orthopedic surgeons"],
+  };
 
   // Pull requested locality (city) from parsed L2 location for practice-match boosting
   const reqLoc = (parsed.location as { city?: string | null; state?: string | null } | undefined) || {};
@@ -268,10 +294,32 @@ export function scoreAndRankResults(
       if (jobTitle.includes(qt)) { score += 8; break; }
     }
 
-    // Specialty match
+    // Specialty match — TIERED scoring (was flat +5)
+    let specialtyBoosted = false;
     for (const qs of querySpecialties) {
-      if (jobTitle.includes(qs) || (person.all_skills || []).some(s => s.toLowerCase().includes(qs))) {
-        score += 5; break;
+      if (!qs) continue;
+      // Tier 1 (+30): ONET specific occupation matches the requested specialty — strongest possible signal
+      const onetTokens = SPECIALTY_ONET_MAP[qs] || [];
+      if (onetTokens.some(t => onetSpecific.includes(t))) {
+        score += 30;
+        specialtyBoosted = true;
+        break;
+      }
+      // Tier 2 (+20): Job title literally contains the specialty (e.g. "interventional cardiology")
+      if (jobTitle.includes(qs)) {
+        score += 20;
+        specialtyBoosted = true;
+        break;
+      }
+    }
+    if (!specialtyBoosted) {
+      // Tier 3 (+5): skill match only
+      for (const qs of querySpecialties) {
+        if (!qs) continue;
+        if ((person.all_skills || []).some(s => s.toLowerCase().includes(qs))) {
+          score += 5;
+          break;
+        }
       }
     }
 
