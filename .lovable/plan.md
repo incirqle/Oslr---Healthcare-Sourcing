@@ -1,66 +1,80 @@
-<final-text>What I found
 
-- The current live query for “orthopedic surgeons in Vail Colorado” is already local and state-bounded:
-  - localities: `vail`, `edwards`, `avon`, `eagle`, `minturn`
-  - state: `colorado`
-  - `cascade_used = false`
-  - preview/full total is only `1`
-- So the active problem is not geography anymore. The geo changes were part of the confusion, but the current bad behavior is now under-retrieval.
-- The real failure is in `build-pdl-query.ts`:
-  - surgeon/physician intent is one hard requirement
-  - orthopedic specialty text is another hard requirement
-  - together they over-constrain the search and exclude real local physicians whose records are classified as doctors/surgeons but do not repeat “orthopedic” in the exact searched fields
-- There is also a second bug:
-  - “doctor/doctors” intent only looks at `parsed.job_titles`
-  - when that array is empty, the query falls back to generic `job_title_role = health`
-  - that is why broader Vail doctor searches admit false positives like audiology doctorates
+Goal
 
-Plan
+Stop guessing. Use what PDL actually supports to fix Vail orthopedics under-retrieval in one pass.
 
-1. Stop changing geography again
-- Keep the current Colorado-bounded Vail corridor logic.
-- Do not touch `config.ts` unless a later validation proves a locality list is wrong.
+What PDL reference confirms
 
-2. Rebuild specialty matching in `build-pdl-query.ts`
-- Keep physician/surgeon intent as the hard filter.
-- Make orthopedic specialty count as satisfied by title/title-synonym matches like:
-  - `orthopedic surgeon`
-  - `orthopaedic surgeon`
-  - `orthopedist`
-- If those title signals exist, do not also force a separate orthopedic keyword must-clause.
-- Use specialty text as a strong boost/fallback signal instead of a second independent hard gate.
+- Most fields are `keyword` → must use `term`/`terms` with lowercase exact values.
+- `experience` is `object`, not `nested` → cross-field matching inside one experience entry is not guaranteed. We cannot safely require "this past job was orthopedic AND in Vail" together.
+- Key location fields available on a person record include both **personal location** and **current job/company location**:
+  - `location_locality`, `location_region`, `location_metro`, `location_country`
+  - `job_company_location_locality`, `job_company_location_region`, `job_company_location_metro`, `job_company_location_country`
+- Healthcare precision field: `job_title_class` Major Group 29 = "Healthcare Practitioners and Technical Occupations". This is the right hard gate for "doctor", not free-text title matching.
+- Full-text match only works on a small set of fields including `job_title.text`, `summary`, `headline`, `experience.title.name.text`, `experience.summary`. Everywhere else needs `term`/`terms`/`wildcard`/`prefix`.
 
-3. Fix doctor intent detection in `build-pdl-query.ts`
-- Detect physician intent from:
-  - `job_titles`
-  - `title_synonyms`
-  - `required_keywords`
-  - `keywords`
-  - credentials
-- This prevents “doctors in Vail” from degrading to generic healthcare.
+Why current Vail query returns 1–3
 
-4. Change fallback order in `index.ts`
-- If local Vail results are under 2:
-  - first relax semantics inside the same local Colorado corridor
-  - only after that consider metro/state widening
-- So the order becomes: local exact -> local semantic fallback -> geo expansion.
+Confirmed from the live edge function logs we just pulled:
 
-5. Keep metadata honest
-- Return whether the winning fallback was:
-  - still local
-  - semantic only
-  - actual geo expansion
-- Update the UI only if needed so it does not imply geography changed when it did not.
+- Built query restricts location to **personal** locality only:
+  - `location_locality IN [vail, edwards, avon, eagle, minturn]`
+  - `location_region = colorado`
+- Most Vail-area orthopedists (Steadman, Vail Health, The Steadman Clinic, Vail-Summit Orthopaedics) live in Edwards/Avon/Denver/elsewhere but **work** in Vail. PDL stores that under `job_company_location_*`, which we never query.
+- Title gate is also too narrow: we don't include `orthopaedic` spelling variants, subspecialty surgeon titles (sports medicine, spine, foot & ankle, hand, joint replacement), or use `job_title.text` match for free-text title hits.
+- `must_not: 32` is huge — aggressive exclusion list is also pruning legitimate orthopedic surgeons whose profiles mention excluded terms incidentally.
+
+The actual fix (one pass)
+
+1. Make local geography match practice OR residence
+- Replace the locality bool with:
+  - `bool.should`:
+    - personal-location bool: `location_region=colorado` AND `location_locality IN [vail corridor]`
+    - practice-location bool: `job_company_location_region=colorado` AND `job_company_location_locality IN [vail corridor]`
+  - `minimum_should_match: 1`
+- Keep `location_country=united states` as a hard filter.
+- Apply this state-bounded dual-location pattern to all local clinical searches, not just Vail.
+
+2. Use O*NET as the physician hard gate
+- For doctor/surgeon intent, require `job_title_class = "healthcare practitioners and technical occupations"` (O*NET Major Group 29).
+- Keep the PA/RN/NP/tech/aide exclusions, but trim the `must_not` list to the ones that actually conflict (drop incidental keyword bans that nuke real surgeons).
+
+3. Broaden orthopedic title matching
+- Combine `job_titles` AND `title_synonyms` into one `should` cluster (today we drop synonyms when titles exist).
+- Add variants:
+  - `orthopedic surgeon`, `orthopaedic surgeon`, `orthopedist`, `orthopaedist`
+  - subspecialty surgeons commonly used at Steadman/Vail: `sports medicine surgeon`, `spine surgeon`, `foot and ankle surgeon`, `hand surgeon`, `joint replacement surgeon`, `shoulder surgeon`, `knee surgeon`
+- Match using BOTH:
+  - `terms` on `job_title` (keyword exact)
+  - `match_phrase` on `job_title.text` (full-text — supported per PDL ES mapping)
+- Treat orthopedic specialty keyword as a soft `should` boost only when title signals already exist (already done — keep it).
+
+4. Cascade only after local dual-location semantic pass fails
+- Order:
+  1. local exact (Vail corridor, dual location, full physician + ortho title set)
+  2. local semantic (drop ortho specialty keywords, keep physician + Vail corridor dual location)
+  3. metro
+  4. state
+- Trigger remains `total < 2`.
+
+5. Honest metadata + UI
+- Keep current `geo_scope` reporting; it's already wired.
+- No additional UI changes needed unless the new banner copy needs tweaking.
 
 Files to update
 
-- `supabase/functions/pdl-search/build-pdl-query.ts`
-- `supabase/functions/pdl-search/index.ts`
-- optionally `src/components/search/SearchResults.tsx` for clearer fallback messaging
+- `supabase/functions/pdl-search/build-pdl-query.ts` — dual-location bool, title+synonym merge, `job_title.text` match, trim `must_not`, O*NET physician gate confirmed.
+- `supabase/functions/pdl-search/index.ts` — verify cascade ordering uses new local-dual-location step before metro/state.
+- `supabase/functions/pdl-search/format-results.ts` — rank candidates whose `job_company_location_locality` is in the Vail corridor above pure residence matches.
 
-Expected outcome
+Validation after implementation
 
-- “Orthopedic surgeons in Vail, Colorado” stays local.
-- The query stops filtering out likely orthopedists just because their profile lacks exact orthopedic keyword text.
-- “Doctors in Vail” becomes physician-only instead of generic healthcare.
-- Geography only widens after the local semantic pass still produces under 2 results.</final-text>
+- Re-run via the deployed function:
+  - `orthopedic surgeons in vail colorado` → expect materially more than 3, all Colorado, dominated by Steadman / Vail Health / Vail-Summit Orthopaedics.
+  - `doctors in vail` → physicians only, no audiology/MA/scribe.
+  - `cardiologists in telluride colorado` → small market; expect semantic-relax banner before any geo widening.
+- Inspect logs to confirm:
+  - `job_company_location_*` clauses present
+  - `job_title.text` match clause present
+  - `must_not` count reduced
+  - cascade not triggered when total ≥ 2
