@@ -563,9 +563,9 @@ export function buildPDLQuery(
         // Tier 3 — title contains the specialty word (catches "Director of X")
         for (const kw of allKeywordTerms.slice(0, 8)) {
           const root = kw.toLowerCase().replace(/(s|ic|ics|y)$/i, "");
-          if (root.length >= 4) {
-            const wc = addWildcard("job_title", `*${root}*`);
-            if (wc) softShould.push({ ...wc, boost: 4.0 } as Clause);
+          if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
+            wildcardCount++;
+            softShould.push({ wildcard: { job_title: { value: `*${root}*`, boost: 4.0 } } });
           }
         }
         // Tier 5 — skills array exact match
