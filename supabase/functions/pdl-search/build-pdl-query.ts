@@ -575,7 +575,7 @@ export function buildPDLQuery(
           }
         }
         if (mustHaveSpecialty.length > 0) {
-          must.push({ bool: { should: mustHaveSpecialty, minimum_should_match: 1 } });
+          must.push({ bool: { should: mustHaveSpecialty } });
         }
 
         // ADDITIONAL soft-boost tiers for ranking lift among matches
