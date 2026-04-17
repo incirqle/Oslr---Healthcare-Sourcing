@@ -57,7 +57,8 @@ interface GeoScope {
   requested_city?: string | null;
   requested_state?: string | null;
   geo_expanded?: boolean;
-  effective_scope?: "local" | "metro" | "state";
+  semantic_relaxed?: boolean;
+  effective_scope?: "local" | "semantic" | "metro" | "state";
   cascade_steps_used?: string[];
 }
 

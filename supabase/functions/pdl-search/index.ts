@@ -40,7 +40,11 @@ AVAILABLE STEPS (use exact strings only):
 "drop_specialty" — remove clinical specialty filter
 "role_only" — keep only job_title_role="health" (last resort)
 
-ORDERING RULE: Always try geographic expansion BEFORE dropping titles or employers.
+ORDERING RULE (April 2026 v2): Try LOCAL semantic relaxation first
+("drop_specialty", then "drop_titles") so the candidate stays inside the
+user's requested city/corridor. Only AFTER that try geographic expansion
+("expand_to_metro", then "expand_to_state"). Drop_company and role_only
+are last-resort. Never widen geography before trying local semantics.
 
 RETURN: { "cascade_plan": string[], "reasoning": string }`;
 
@@ -801,18 +805,25 @@ Deno.serve(async (req: Request) => {
 
     // Build geo scope metadata for frontend transparency.
     // Use the WINNING step (what actually produced results), not the planned cascade list.
+    // Distinguishes semantic relaxation (still local) from real geographic widening.
     const requestedLocation = (parsed.location as Record<string, unknown>) || {};
-    const effectiveScope: "local" | "metro" | "state" = !cascadeUsed
+    const effectiveScope: "local" | "semantic" | "metro" | "state" = !cascadeUsed
       ? "local"
       : cascadeWinningStep === CascadeStep.EXPAND_TO_STATE
         ? "state"
         : cascadeWinningStep === CascadeStep.EXPAND_TO_METRO
           ? "metro"
-          : "local";
+          : (cascadeWinningStep === CascadeStep.DROP_SPECIALTY ||
+             cascadeWinningStep === CascadeStep.DROP_TITLES ||
+             cascadeWinningStep === CascadeStep.DROP_COMPANY)
+            ? "semantic"
+            : "local";
+    const geoExpanded = effectiveScope === "metro" || effectiveScope === "state";
     const geoScope: Record<string, unknown> = {
       requested_city: requestedLocation.city || null,
       requested_state: requestedLocation.state || null,
-      geo_expanded: cascadeUsed && (effectiveScope !== "local"),
+      geo_expanded: geoExpanded,
+      semantic_relaxed: effectiveScope === "semantic",
       effective_scope: effectiveScope,
       winning_step: cascadeWinningStep,
       cascade_steps_used: cascadeUsed ? cascadePlan : [],
