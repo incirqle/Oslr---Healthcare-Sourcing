@@ -1,115 +1,145 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Users, FolderKanban, Search, TrendingUp, Sparkles, Loader2 } from "lucide-react";
+import { Users, FolderKanban, Search, TrendingUp } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
+import { SuccessBanner } from "@/components/onboarding/SuccessBanner";
 
-const stats = [
-  { title: "Candidates Sourced", value: "0", icon: Users, change: "+0 this week", color: "bg-primary/10 text-primary" },
-  { title: "Active Projects", value: "0", icon: FolderKanban, change: "0 in progress", color: "bg-accent/10 text-accent" },
-  { title: "Searches Run", value: "0", icon: Search, change: "0 today", color: "bg-warning/10 text-warning" },
-  { title: "Response Rate", value: "0%", icon: TrendingUp, change: "No data yet", color: "bg-success/10 text-success" },
-];
+function metric(value: number, format?: (n: number) => string) {
+  if (value === 0) return "—";
+  return format ? format(value) : value.toLocaleString();
+}
+
+function deltaText(value: number, suffix: string) {
+  if (value === 0) return "No change";
+  return `+${value} ${suffix}`;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
-  const [seeding, setSeeding] = useState(false);
+  const { isFullyComplete, state, isLoading } = useOnboarding();
+  const { data: stats } = useDashboardStats();
+  const showBanner = isFullyComplete && !state?.success_banner_dismissed;
+  const showDashboard = isFullyComplete;
 
-  const handleSeedData = async () => {
-    setSeeding(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("seed-data", {});
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.already_seeded) {
-        toast.info(`Sandbox data already loaded — ${data.projects_created} projects and ${data.candidates_inserted} candidates are ready in Projects.`);
-      } else {
-        toast.success(`Sandbox data loaded! ${data.projects_created} projects and ${data.candidates_inserted} candidates added. Go to Projects to see them.`);
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to seed data");
-    } finally {
-      setSeeding(false);
-    }
-  };
+  const responseRate = stats?.responseRate.rate;
+  const responseLabel =
+    responseRate === null || responseRate === undefined
+      ? "—"
+      : `${responseRate}%`;
+
+  const kpis = [
+    {
+      title: "Candidates Sourced",
+      value: metric(stats?.candidates.total ?? 0),
+      change: deltaText(stats?.candidates.thisWeek ?? 0, "this week"),
+      icon: Users,
+      color: "bg-primary/10 text-primary",
+    },
+    {
+      title: "Active Projects",
+      value: metric(stats?.projects.total ?? 0),
+      change: deltaText(stats?.projects.activeRecent ?? 0, "active this week"),
+      icon: FolderKanban,
+      color: "bg-accent/10 text-accent",
+    },
+    {
+      title: "Searches Run",
+      value: metric(stats?.searches.total ?? 0),
+      change: deltaText(stats?.searches.today ?? 0, "today"),
+      icon: Search,
+      color: "bg-warning/10 text-warning",
+    },
+    {
+      title: "Response Rate",
+      value: responseLabel,
+      change:
+        stats?.responseRate.sent && stats.responseRate.sent > 0
+          ? `${stats.responseRate.sent} emails sent`
+          : "No outreach yet",
+      icon: TrendingUp,
+      color: "bg-success/10 text-success",
+    },
+  ];
 
   return (
     <AppLayout>
       <div className="space-y-6">
         {/* Welcome banner */}
         <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold font-display text-foreground">
-                Welcome back, {firstName} 👋
-              </h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                Here's an overview of your healthcare recruiting pipeline
-              </p>
+          <h1 className="text-3xl font-bold font-display text-foreground">
+            Welcome back, {firstName} 👋
+          </h1>
+          <p className="text-base text-foreground/80 mt-1">
+            Here's an overview of your healthcare recruiting pipeline
+          </p>
+        </div>
+
+        {isLoading ? null : !showDashboard ? (
+          <OnboardingChecklist />
+        ) : (
+          <>
+            {showBanner && <SuccessBanner />}
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {kpis.map((stat) => (
+                <Card
+                  key={stat.title}
+                  className="group hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+                >
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-foreground/80">
+                      {stat.title}
+                    </CardTitle>
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.color}`}
+                    >
+                      <stat.icon className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-4xl font-semibold font-display text-foreground">
+                      {stat.value}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {stat.change}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSeedData}
-              disabled={seeding}
-              className="shrink-0 border-dashed text-muted-foreground hover:text-foreground"
-              title="Load sandbox data for testing"
-            >
-              {seeding ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              {seeding ? "Loading data…" : "Load sandbox data"}
-            </Button>
-          </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <Card key={stat.title} className="group hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.color}`}>
-                  <stat.icon className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold font-display">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display">Recent Searches</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                No searches yet. Start by searching for candidates.
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display">Team Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                No activity yet. Invite team members to get started.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl font-semibold font-display text-foreground">
+                    Recent Searches
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center h-32 text-base text-muted-foreground">
+                    No searches yet. Start by searching for candidates.
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl font-semibold font-display text-foreground">
+                    Team Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center h-32 text-base text-muted-foreground">
+                    No activity yet. Invite team members to get started.
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </AppLayout>
   );
