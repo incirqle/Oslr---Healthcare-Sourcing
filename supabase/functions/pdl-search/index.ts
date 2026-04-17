@@ -1105,6 +1105,7 @@ Deno.serve(async (req: Request) => {
         cascade_used: cascadeUsed,
         cascade_plan: cascadePlan,
         geo_scope: geoScope,
+        company_scope: companyScope,
         ...aiRerankMeta,
         timing_ms: Date.now() - requestStart,
       }),
