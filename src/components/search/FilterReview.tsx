@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, SlidersHorizontal, RotateCcw, Loader2 } from "lucide-react";
+import { Search, SlidersHorizontal, RotateCcw, Loader2, DollarSign } from "lucide-react";
+import { findPresetById } from "@/constants/clinicalSalaryPresets";
+import type { SalaryPresetSelection } from "./ClinicalSalaryFilter";
 
 export interface ParsedFilters {
   job_titles: string[];
@@ -9,6 +11,7 @@ export interface ParsedFilters {
   keywords: string[];
   experience_years?: number | null;
   specialties: string[];
+  salary_preset?: SalaryPresetSelection | null;
 }
 
 interface FilterReviewProps {
