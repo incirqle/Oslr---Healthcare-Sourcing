@@ -205,7 +205,7 @@ function buildSummaryPrompt(
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience || "Unknown";
   const career = experience
     .slice(0, 3)
-    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabel(entry.startDate)} — ${formatDateLabel(entry.endDate)})`)
+    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} — ${formatDateLabelSmart(entry.endDate)})`)
     .join("; ");
   const educationSummary = education
     .slice(0, 3)
@@ -559,7 +559,7 @@ export function CandidateDrawer({
                             {[entry.degree, entry.major].filter(Boolean).join(entry.degree && entry.major ? " · " : "") || "Degree not available"}
                           </p>
                           <p className="text-[13px] text-ui-text-muted">
-                            {formatDateLabel(entry.startDate)} — {formatDateLabel(entry.endDate)}
+                            {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
                           </p>
                         </div>
                       ))}
@@ -624,7 +624,7 @@ export function CandidateDrawer({
                               </div>
                               <p className="mt-1 text-[15px] text-ui-text-secondary">{entry.company || "Unknown company"}</p>
                               <p className="mt-1 text-[13px] text-ui-text-muted">
-                                {formatDateLabel(entry.startDate)} — {formatDateLabel(entry.endDate)}
+                                {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
                                 {duration ? ` · ${duration}` : ""}
                               </p>
                             </div>
