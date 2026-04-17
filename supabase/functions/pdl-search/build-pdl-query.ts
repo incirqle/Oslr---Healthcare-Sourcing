@@ -575,9 +575,10 @@ export function buildPDLQuery(
         for (const kw of allKeywordTerms.slice(0, 15)) {
           softShould.push({ term: { skills: { value: kw.toLowerCase(), boost: 2.0 } } });
         }
-        // Tier 6 — past experience contains specialty (catches former fellows)
+        // Tier 6 — past experience contains specialty (catches former fellows).
+        // Use term on the keyword sub-field for boost compatibility.
         for (const kw of allKeywordTerms.slice(0, 8)) {
-          softShould.push({ match: { "experience.title.name.text": { query: kw, boost: 1.5 } } });
+          softShould.push({ term: { "experience.title.name": { value: kw.toLowerCase(), boost: 1.5 } } });
         }
         // Original cluster kept for summary/headline coverage at base weight
         should.push({ bool: { should: kwClauses } });
