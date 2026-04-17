@@ -545,14 +545,29 @@ export function buildPDLQuery(
     const PHARMACIST_INTENT = /\bpharmacist\b/i;
     const DENTIST_INTENT    = /\b(dentist|dental hygienist|dds|dmd)\b/i;
 
-    const jobTitlesJoined = jobTitles.join(" | ").toLowerCase();
-    const wantsPA         = PA_INTENT.test(jobTitlesJoined);
-    const wantsNP         = NP_INTENT.test(jobTitlesJoined);
-    const wantsDoctor     = !wantsPA && DOCTOR_INTENT.test(jobTitlesJoined);
-    const wantsRN         = !wantsNP && RN_INTENT.test(jobTitlesJoined);
-    const wantsTherapist  = THERAPIST_INTENT.test(jobTitlesJoined);
-    const wantsPharmacist = PHARMACIST_INTENT.test(jobTitlesJoined);
-    const wantsDentist    = DENTIST_INTENT.test(jobTitlesJoined);
+    // FIX (April 2026 v2): Detect physician intent from a much wider signal pool.
+    // Previously only `jobTitles` was scanned, so when the parser put intent in
+    // `title_synonyms` / `required_keywords` / `keywords` / `credentials` (or
+    // when titles were dropped during cascade), "doctors in Vail" silently
+    // degraded to generic `job_title_role: health` and pulled in audiology
+    // doctorates, scribes, etc.
+    const intentSignalPool = [
+      ...jobTitles,
+      ...((parsed.title_synonyms as string[]) || []),
+      ...((parsed.required_keywords as string[]) || []),
+      ...((parsed.keywords as string[]) || []),
+      ...((parsed.credentials as string[]) || []),
+      ...specialties,
+    ].map(s => String(s).toLowerCase());
+    const intentJoined = intentSignalPool.join(" | ");
+
+    const wantsPA         = PA_INTENT.test(intentJoined);
+    const wantsNP         = NP_INTENT.test(intentJoined);
+    const wantsDoctor     = !wantsPA && DOCTOR_INTENT.test(intentJoined);
+    const wantsRN         = !wantsNP && RN_INTENT.test(intentJoined);
+    const wantsTherapist  = THERAPIST_INTENT.test(intentJoined);
+    const wantsPharmacist = PHARMACIST_INTENT.test(intentJoined);
+    const wantsDentist    = DENTIST_INTENT.test(intentJoined);
 
     const PHYSICIAN_ONET_SPECIFIC = [
       "Anesthesiologists", "Cardiologists", "Dermatologists", "Emergency Medicine Physicians",
