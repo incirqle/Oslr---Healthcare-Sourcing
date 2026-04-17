@@ -16,13 +16,16 @@ import {
 import { cn } from "@/lib/utils";
 import {
   cleanDisplayName,
-  formatDateLabel,
+  formatDateLabelSmart,
+  formatDegree,
   formatExperienceDuration,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
+  renderNamedValue,
   toStringArray,
+  toTitleCase,
 } from "@/components/search/candidate-ui";
 
 interface CandidateDrawerProps {
