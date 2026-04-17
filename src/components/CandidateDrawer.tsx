@@ -1066,7 +1066,7 @@ export function CandidateDrawer({
               <Button
                 type="button"
                 onClick={handleAddCampaign}
-                className="h-12 flex-1 bg-ui-info text-[14px] font-medium text-ui-info-foreground hover:bg-ui-info/90"
+                className="h-12 flex-1 bg-primary text-[14px] font-medium text-primary-foreground hover:bg-primary/90"
               >
                 Add to Campaign
               </Button>
