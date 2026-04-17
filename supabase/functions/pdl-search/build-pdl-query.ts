@@ -160,6 +160,9 @@ export function buildPDLQuery(
   const must: Clause[] = [];
   const should: Clause[] = [];
   const mustNot: Clause[] = [];
+  // Hoisted so Fix A tiered boost code (in specialty/title sections) can
+  // push weighted clauses before the role-intent block populates it further.
+  const softShould: Clause[] = [];
   const filterClauses: Clause[] = [
     { term: { location_country: "united states" } },
   ];
@@ -552,8 +555,33 @@ export function buildPDLQuery(
       // multi-entity health system, demote the keyword cluster to a soft boost.
       // Otherwise keep it as a hard must (existing behavior).
       if (specialtyAlreadyInTitles || softenSpecialtyForHealthSystem) {
+        // FIX A — TIERED SCORING (April 2026 v3): replace flat soft boost with
+        // stacked weighted clauses so true specialists outscore generic
+        // anchor employees by an order of magnitude. Without this, every
+        // UMiami employee scores roughly the same and ranking collapses.
+        // Tier 2 — sub_role exact match (PDL canonical specialty taxonomy)
+        for (const kw of allKeywordTerms.slice(0, 15)) {
+          softShould.push({ term: { job_title_sub_role: { value: kw.toLowerCase(), boost: 5.0 } } });
+        }
+        // Tier 3 — title contains the specialty word (catches "Director of X")
+        for (const kw of allKeywordTerms.slice(0, 8)) {
+          const root = kw.toLowerCase().replace(/(s|ic|ics|y)$/i, "");
+          if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
+            wildcardCount++;
+            softShould.push({ wildcard: { job_title: { value: `*${root}*`, boost: 4.0 } } });
+          }
+        }
+        // Tier 5 — skills array exact match
+        for (const kw of allKeywordTerms.slice(0, 15)) {
+          softShould.push({ term: { skills: { value: kw.toLowerCase(), boost: 2.0 } } });
+        }
+        // Tier 6 — past experience contains specialty (catches former fellows)
+        for (const kw of allKeywordTerms.slice(0, 8)) {
+          softShould.push({ match: { "experience.title.name.text": { query: kw, boost: 1.5 } } });
+        }
+        // Original cluster kept for summary/headline coverage at base weight
         should.push({ bool: { should: kwClauses } });
-        console.log(`Specialty demoted to soft boost (${specialties.join(",")}) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
+        console.log(`Specialty demoted to soft boost (${specialties.join(",")}) + tiered weighted boosts (5/4/2/1.5) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
       } else {
         must.push({ bool: { should: kwClauses } });
       }
@@ -660,7 +688,25 @@ export function buildPDLQuery(
       // Keep titles purely as a scoring boost in this mode.
       if (hasResolvedCompanyAnchor) {
         should.push({ bool: { should: titleClauses } });
-        console.log("[QUERY MODE] company-anchored → title cluster demoted to soft boost");
+        // FIX A — TIERED TITLE BOOSTS (April 2026 v3): exact title matches and
+        // canonical title synonyms get high weights so an actual "Cardiologist"
+        // outranks a "Cardiology System Engineer" or generic "Physician" by
+        // many score points, even though both pass the company filter.
+        for (const t of jobTitles.slice(0, 10)) {
+          if (t.split(/\s+/).length >= 2) {
+            softShould.push({ match_phrase: { "job_title.text": { query: t, boost: 8.0 } } });
+          } else if (t.length >= 4) {
+            softShould.push({ term: { job_title: { value: t, boost: 8.0 } } });
+          }
+        }
+        for (const t of titleSynonymsLower.slice(0, 10)) {
+          if (t.split(/\s+/).length >= 2) {
+            softShould.push({ match_phrase: { "job_title.text": { query: t, boost: 4.0 } } });
+          } else if (t.length >= 4) {
+            softShould.push({ term: { job_title: { value: t, boost: 4.0 } } });
+          }
+        }
+        console.log(`[QUERY MODE] company-anchored → title cluster + tiered weighted boosts (exact=8.0, synonyms=4.0)`);
       } else {
         must.push({ bool: { should: titleClauses } });
       }
@@ -671,7 +717,7 @@ export function buildPDLQuery(
   // ROLE-AWARE PRECISION: detect specific clinician type the user asked for
   // Uses O*NET-SOC 2019 classification for precision filtering.
   // ═══════════════════════════════════════════
-  const softShould: Clause[] = [];
+  // softShould hoisted to top of function (see Fix A)
 
   if (personNames.length === 0) {
     const DOCTOR_INTENT     = /\b(doctor|physician|md|surgeon|hospitalist|attending|resident|fellow|dr\.?)\b/i;
@@ -811,6 +857,37 @@ export function buildPDLQuery(
         mustNot.push({ match_phrase: { "job_title.text": exclusion } });
       }
 
+      // FIX B — NON-CLINICAL EXCLUSIONS (April 2026 v3): when the user asked
+      // for a doctor, exclude unambiguous IT/admin/finance roles. These
+      // surface today because they share employer (UMiami, Cleveland Clinic)
+      // and sometimes share specialty keywords ("Cardiology System Engineer").
+      // Surgical exclusions only — anything ambiguous (coordinator, manager,
+      // assistant) is left out so we don't accidentally drop clinical staff.
+      const nonClinicalDoctorExclusions = [
+        "engineer", "software engineer", "data engineer", "systems engineer",
+        "developer", "software developer", "web developer",
+        "data analyst", "business analyst", "financial analyst", "systems analyst",
+        "data scientist", "machine learning engineer",
+        "architect", "solutions architect", "software architect",
+        "product manager", "project manager", "program manager",
+        "recruiter", "talent acquisition", "human resources",
+        "marketing manager", "sales representative", "account executive",
+        "billing specialist", "revenue cycle", "claims specialist",
+        "it support", "help desk", "system administrator",
+      ];
+      for (const exclusion of nonClinicalDoctorExclusions) {
+        mustNot.push({ match_phrase: { "job_title.text": exclusion } });
+      }
+      // Broad O*NET role exclusions — anything explicitly tagged engineering,
+      // IT, finance, sales, HR, marketing is never a doctor.
+      mustNot.push({ term: { job_title_role: "engineering" } });
+      mustNot.push({ term: { job_title_role: "information_technology" } });
+      mustNot.push({ term: { job_title_role: "finance" } });
+      mustNot.push({ term: { job_title_role: "sales" } });
+      mustNot.push({ term: { job_title_role: "human_resources" } });
+      mustNot.push({ term: { job_title_role: "marketing" } });
+      console.log(`[FIX B] doctor intent → ${nonClinicalDoctorExclusions.length} non-clinical title exclusions + 6 role-level exclusions`);
+
       // STRICT-MODE-ONLY title exclusions — these can incidentally match
       // legitimate clinical staff at an ortho practice (e.g. "physical
       // therapist" colleagues whose titles overlap), so we only enforce
@@ -919,6 +996,27 @@ export function buildPDLQuery(
       // Generic healthcare search — fall back to role-level filter
       filterClauses.push({ term: { job_title_role: "health" } });
       console.log("Role filter (generic healthcare): job_title_role=health");
+    }
+
+    // FIX B (shared) — for any non-doctor clinical intent (PA/NP/RN/therapist/
+    // pharmacist/dentist), apply a smaller non-clinical exclusion list.
+    // Doctor intent already applied a fuller list above.
+    if (wantsPA || wantsNP || wantsRN || wantsTherapist || wantsPharmacist || wantsDentist) {
+      const sharedNonClinicalExclusions = [
+        "software engineer", "data engineer", "systems engineer",
+        "software developer", "web developer",
+        "data scientist", "machine learning engineer",
+        "software architect", "solutions architect",
+        "data analyst", "business analyst",
+        "recruiter", "talent acquisition",
+        "billing specialist", "claims specialist",
+      ];
+      for (const exclusion of sharedNonClinicalExclusions) {
+        mustNot.push({ match_phrase: { "job_title.text": exclusion } });
+      }
+      mustNot.push({ term: { job_title_role: "engineering" } });
+      mustNot.push({ term: { job_title_role: "information_technology" } });
+      console.log(`[FIX B] non-doctor clinical intent → ${sharedNonClinicalExclusions.length} non-clinical exclusions`);
     }
   }
 
