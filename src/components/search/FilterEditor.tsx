@@ -3,8 +3,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { MapPin, Briefcase, Building2, Clock, Tag, Hash, ChevronDown, X } from "lucide-react";
+import { MapPin, Briefcase, Building2, Clock, Tag, Hash, ChevronDown, X, DollarSign } from "lucide-react";
 import type { ParsedFilters } from "./FilterReview";
+import { ClinicalSalaryFilter } from "./ClinicalSalaryFilter";
 
 interface FilterEditorProps {
   open: boolean;
