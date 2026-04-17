@@ -604,7 +604,17 @@ export function buildPDLQuery(
       }
     }
     if (titleClauses.length > 0) {
-      must.push({ bool: { should: titleClauses } });
+      // When the search is company-anchored, skip the hard title must-clause.
+      // The role filter pushed later (sub_role:doctor / ONET) is the right gate;
+      // titles like "hand surgeon" or "orthopaedic traumatologist" don't match
+      // any of the generic "physician*"/"surgeon*" patterns and would be cut.
+      // Keep titles purely as a scoring boost in this mode.
+      if (hasResolvedCompanyAnchor) {
+        should.push({ bool: { should: titleClauses } });
+        console.log("[QUERY MODE] company-anchored → title cluster demoted to soft boost");
+      } else {
+        must.push({ bool: { should: titleClauses } });
+      }
     }
   }
 
