@@ -17,12 +17,12 @@ import {
 } from "lucide-react";
 import {
   cleanDisplayName,
-  formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
 } from "@/components/search/candidate-ui";
+import { CandidateSalaryBadge } from "@/components/search/CandidateSalaryBadge";
 
 export interface Candidate {
   id: string;
