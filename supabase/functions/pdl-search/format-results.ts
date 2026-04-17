@@ -73,6 +73,7 @@ export interface FormattedCandidate {
   job_onet_broad_occupation: string | null;
   job_onet_specific_occupation: string | null;
   relevance_score: number;
+  ai_match_reason?: string | null;
 }
 
 function safeString(v: unknown): string | null {
