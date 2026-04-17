@@ -410,6 +410,11 @@ export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[
     { radius: 25, cities: ["clarksville", "gallatin", "lebanon", "smyrna"] },
     { radius: 50, cities: ["bowling green", "chattanooga", "huntsville"] },
   ],
+  "memphis": [
+    { radius: 10, cities: ["germantown", "cordova", "bartlett", "collierville", "arlington", "lakeland"] },
+    { radius: 25, cities: ["southaven", "olive branch", "horn lake", "millington", "munford", "atoka"] },
+    { radius: 50, cities: ["west memphis", "marion", "covington", "oxford", "tupelo"] },
+  ],
   "philadelphia": [
     { radius: 10, cities: ["camden", "chester", "norristown", "wilmington"] },
     { radius: 25, cities: ["trenton", "cherry hill", "king of prussia", "media"] },
