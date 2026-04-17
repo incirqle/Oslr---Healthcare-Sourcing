@@ -686,34 +686,19 @@ export function buildPDLQuery(
       // Keep titles purely as a scoring boost in this mode.
       if (hasResolvedCompanyAnchor) {
         should.push({ bool: { should: titleClauses } });
-        // FIX A — TIERED TITLE BOOSTS (April 2026 v3): exact title matches and
-        // canonical title synonyms get high weights so an actual "Cardiologist"
-        // outranks a "Cardiology System Engineer" or generic "Physician" by
-        // many score points, even though both pass the company filter.
-        // term-with-boost works on PDL keyword fields; match_phrase long-form
-        // ({query, boost}) returned 400. Use term on the keyword `job_title`
-        // field — PDL stores the full lowercased title there.
+        // FIX A — additive title boosts (plain shapes, no boost long-form).
         for (const t of jobTitles.slice(0, 10)) {
           if (t.length >= 3) {
-            softShould.push({
-              constant_score: {
-                filter: { term: { job_title: t.toLowerCase() } },
-                boost: 8.0,
-              },
-            });
+            softShould.push({ term: { job_title: t.toLowerCase() } });
+            softShould.push({ term: { job_title: t.toLowerCase() } });
           }
         }
         for (const t of titleSynonymsLower.slice(0, 10)) {
           if (t.length >= 3) {
-            softShould.push({
-              constant_score: {
-                filter: { term: { job_title: t.toLowerCase() } },
-                boost: 4.0,
-              },
-            });
+            softShould.push({ term: { job_title: t.toLowerCase() } });
           }
         }
-        console.log(`[QUERY MODE] company-anchored → title cluster + tiered weighted boosts (exact=8.0, synonyms=4.0)`);
+        console.log(`[QUERY MODE] company-anchored → title cluster + additive title boosts (exact x2, synonyms x1)`);
       } else {
         must.push({ bool: { should: titleClauses } });
       }
