@@ -557,17 +557,27 @@ export function CandidateDrawer({
                   <section className="space-y-4">
                     <SectionHeading label="Education" />
                     <div className="space-y-3">
-                      {educationEntries.map((entry, index) => (
-                        <div key={`${entry.school}-${index}`} className="space-y-1">
-                          <p className="text-[15px] font-semibold text-ui-text-primary">{entry.school || "Unknown school"}</p>
-                          <p className="text-sm text-ui-text-tertiary">
-                            {[entry.degree, entry.major].filter(Boolean).join(entry.degree && entry.major ? " · " : "") || "Degree not available"}
-                          </p>
-                          <p className="text-[13px] text-ui-text-muted">
-                            {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
-                          </p>
-                        </div>
-                      ))}
+                      {educationEntries.map((entry, index) => {
+                        const degreeInfo = formatDegree(
+                          entry.degree && entry.major
+                            ? { degree: entry.degree, major: entry.major }
+                            : entry.degree ?? entry.major,
+                        );
+                        const school = entry.school ? toTitleCase(entry.school) : null;
+                        return (
+                          <div key={`${entry.school}-${index}`} className="space-y-1">
+                            {school && (
+                              <p className="text-[15px] font-semibold text-ui-text-primary">{school}</p>
+                            )}
+                            {degreeInfo.display && (
+                              <p className="text-sm text-ui-text-tertiary">{degreeInfo.display}</p>
+                            )}
+                            <p className="text-[13px] text-ui-text-muted">
+                              {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
