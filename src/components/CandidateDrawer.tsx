@@ -475,12 +475,11 @@ export function CandidateDrawer({
                   {locationLabel}
                 </div>
               )}
-              {salary && (
-                <div className="rounded-md bg-salary px-3 py-1.5 text-[14px] font-medium text-salary-foreground">{salary}</div>
-              )}
-              {(yearsExperience ?? 0) > 0 && (
-                <div className="rounded-md bg-ui-surface-subtle px-3 py-1.5 text-sm text-ui-text-tertiary">{yearsExperience} yrs exp</div>
-              )}
+              <CandidateSalaryBadge
+                inferredSalary={inferredSalary}
+                yearsExperience={yearsExperience}
+                size="md"
+              />
               {linkedinUrl && (
                 <a
                   href={linkedinUrl}
