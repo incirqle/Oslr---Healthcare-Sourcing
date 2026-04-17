@@ -555,31 +555,38 @@ export function buildPDLQuery(
       // multi-entity health system, demote the keyword cluster to a soft boost.
       // Otherwise keep it as a hard must (existing behavior).
       if (specialtyAlreadyInTitles || softenSpecialtyForHealthSystem) {
-        // FIX A — ADDITIVE TIERED SCORING (April 2026 v3, plain shapes):
-        // PDL rejected boost long-forms and constant_score. Instead, push
-        // multiple plain `should` clauses targeting different fields. A
-        // candidate matching N tiers gets N points — true cardiologists
-        // match all 4 (sub_role + title-wildcard + skills + summary), generic
-        // employees match 0-1.
-        // Tier A — sub_role exact match (PDL's specialty taxonomy)
+        // FIX (April 17 2026): Pure soft-boost was burying real specialists below
+        // 25-result PDL window. Now add a STRONG must-clause that requires SOME
+        // specialty signal (title wildcard OR sub_role OR onet OR skill OR summary),
+        // while keeping the multi-tier soft boosts for ranking lift.
+        const mustHaveSpecialty: Clause[] = [];
+        for (const kw of allKeywordTerms.slice(0, 8)) {
+          const lower = kw.toLowerCase();
+          // Match across the broadest possible specialty surfaces
+          mustHaveSpecialty.push({ match: { "job_title.text": kw } });
+          mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
+          mustHaveSpecialty.push({ term: { skills: lower } });
+          mustHaveSpecialty.push({ match: { summary: kw } });
+          // Title wildcard catches "interventional cardiology", "cardiac electrophysiology" etc.
+          const root = lower.replace(/(s|ic|ics|y)$/i, "");
+          if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
+            wildcardCount++;
+            mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+          }
+        }
+        if (mustHaveSpecialty.length > 0) {
+          must.push({ bool: { should: mustHaveSpecialty, minimum_should_match: 1 } });
+        }
+
+        // ADDITIONAL soft-boost tiers for ranking lift among matches
         for (const kw of allKeywordTerms.slice(0, 15)) {
           softShould.push({ term: { job_title_sub_role: kw.toLowerCase() } });
         }
-        // Tier B — title contains the specialty word (3 wildcards per tier)
-        for (const kw of allKeywordTerms.slice(0, 8)) {
-          const root = kw.toLowerCase().replace(/(s|ic|ics|y)$/i, "");
-          if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
-            wildcardCount++;
-            softShould.push({ wildcard: { job_title: `*${root}*` } });
-          }
-        }
-        // Tier C — skills array exact match
         for (const kw of allKeywordTerms.slice(0, 15)) {
           softShould.push({ term: { skills: kw.toLowerCase() } });
         }
-        // Original cluster kept for summary/headline coverage
         should.push({ bool: { should: kwClauses } });
-        console.log(`Specialty demoted to soft boost (${specialties.join(",")}) + additive tiers (sub_role + title-wildcard + skills) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
+        console.log(`Specialty REQUIRED via OR-clause (${specialties.join(",")}) — ${mustHaveSpecialty.length} surfaces, reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system" : "satisfied by titles"}`);
       } else {
         must.push({ bool: { should: kwClauses } });
       }
