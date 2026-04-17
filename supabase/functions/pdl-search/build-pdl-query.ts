@@ -245,8 +245,10 @@ export function buildPDLQuery(
     }
     filterClauses.push({ bool: { should: locationClauses } });
 
-    const hasRadiusExpansion = uniqueCities.length > primaryCities.length;
-    if (uniqueStates.length > 0 && !hasRadiusExpansion) {
+    // CRITICAL: Always keep the state constraint when the user asked for a state.
+    // Without this, expanded city names like "Avon" or "Eagle" match across the US
+    // (Avon, CT; Eagle, ID) instead of staying within Colorado.
+    if (uniqueStates.length > 0) {
       filterClauses.push({ terms: { location_region: uniqueStates } });
     }
   } else if (uniqueStates.length > 0) {
