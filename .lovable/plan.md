@@ -1,104 +1,81 @@
 
-## Plan: Dashboard Redesign — Onboarding Checklist + Live KPIs
+## Candidate Drawer — Layout Rebuild
 
-### Reality check on "build everything end-to-end"
+**Goal:** Eliminate the cramped scroll area. Same data, dramatically more breathing room, prioritized by what recruiters actually need (current experience first).
 
-Three of the five steps from the prompt need backends that don't exist yet. Some I can build now; one I genuinely can't in a single turn without lying to you. I'll be explicit about each:
+---
 
-| Step | What "end-to-end" actually means | My recommendation |
-|---|---|---|
-| 1. Tell us about your team | Add `team_profile` columns to `companies` (roles, team_size, primary_specialty). Real save. | ✅ Build for real |
-| 2. Create first project | Add `role_title`, `location`, `target_start_date` to `projects`. Real create. | ✅ Build for real |
-| 3. Invite teammates | New `company_invites` table + edge function that sends invite emails via Resend. Accepting an invite would auto-join the company on signup. | ✅ Build for real (table + send function + accept flow on Auth page) |
-| 4. Connect tools | Greenhouse/Lever/Gmail/Outlook OAuth. Each is a separate OAuth app registration + token exchange + refresh + storage. **This is days of work per provider, and 3 of the 4 require apps you haven't registered.** | ⚠️ Build the UI honestly: each card opens a "Coming soon — join waitlist" dialog that records interest in a `connector_interest` table. Marking the step complete = clicking "Skip for now" or registering interest in any. I will NOT fake OAuth buttons that go nowhere. |
-| 5. Run first search | Already exists — just reuse the natural-language input and route to `/projects/:id/search?q=...`. Sandbox button reuses existing `seed-data` function. | ✅ Build for real |
+### 1. Compact sticky header (one tight zone, ~140px instead of ~340px)
 
-If you genuinely want real Greenhouse/Lever/Gmail/Outlook OAuth, that's a separate multi-turn effort and I'd need you to register OAuth apps with each provider first. Flag if you disagree with the waitlist approach for step 4.
+Restructure the header into **3 thin rows** that always stay visible:
 
-### Architecture
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ ‹ Prev   Next ›                            J/K        ⤢   ✕ │  row 1: nav (h-9)
+├──────────────────────────────────────────────────────────────┤
+│ [SL]  Sameer Lodha · Orthopaedic Surgeon                     │  row 2: identity (h-14)
+│       Panorama Orthopedics · Denver, CO · 🔗  [Unreviewed▾] │
+├──────────────────────────────────────────────────────────────┤
+│ ✦ Matched: Panorama Orthopedics · Colorado · Orthopedics    │  row 3: chip strip (h-8)
+└──────────────────────────────────────────────────────────────┘
+   ↓ Tabs (sticky) ↓
+   Overview · Experience · Notes · Contact
+```
 
-**New table: `company_onboarding`** (one row per company)
-- `company_id` (PK, FK companies)
-- `step_team_complete` bool, `step_project_complete` bool, `step_invites_complete` bool, `step_connectors_complete` bool, `step_search_complete` bool
-- `success_banner_dismissed` bool
-- `created_at`, `updated_at`
+Changes:
+- Avatar shrinks from 64px → 44px
+- Title, company, location, LinkedIn, Fit pill collapse onto one meta line
+- "Why they matched" becomes a thin single-line chip strip (no boxed card, no label header — just `✦ Matched:` prefix + chips). Tooltip on each chip explains the reason.
+- Location and LinkedIn pills are removed as separate row — folded into meta line
+- Tabs become sticky directly under the header so they're always reachable while scrolling
 
-Why per-company not per-user: invites + project + connectors are company-level. New users joining an already-onboarded company should land in a working dashboard, not redo onboarding.
+### 2. Resizable drawer with expand toggle
 
-**New table: `company_invites`**
-- `id`, `company_id`, `email`, `role` (admin/recruiter/viewer), `invited_by`, `token`, `accepted_at`, `created_at`
-- RLS: company members can see/create, admins can delete; public can SELECT by token (for accept flow)
+- Add an **expand button (⤢)** in the nav row. Clicking toggles between:
+  - **Compact:** `sm:w-[620px]` (current)
+  - **Wide:** `sm:w-[960px]` (or `min(960px, 90vw)`)
+- Persist the preference in `localStorage` (`oslr.drawer.size`) so it survives reloads and applies to next candidate
+- Smooth width transition (`transition-[width] duration-200`)
 
-**New table: `connector_interest`**
-- `id`, `company_id`, `user_id`, `connector` (text: greenhouse|lever|gmail|outlook), `created_at`
+### 3. Overview tab — reorganized by importance
 
-**Schema additions:**
-- `companies` → `recruiting_roles text[]`, `team_size text`, `primary_specialty text`
-- `projects` → `role_title text`, `location text`, `target_start_date date`
+User explicitly wants: **current experience > education > certifications**. New order inside the scrollable content area:
 
-**New edge function: `send-invite`**
-- Validates inviter is admin/recruiter, generates token, inserts row, sends email via Resend with link to `/auth?invite=<token>`
+1. **AI Summary** (unchanged, top of overview — the recruiter's quick read)
+2. **Current Role card** (NEW): pulls the primary/current experience entry to the top with title, company, start date, duration, and any current-role context. Visually distinct (subtle border).
+3. **Quick Stats strip**: years experience · avg tenure · salary band (when available) — inline, one row, no headers
+4. **Education** (compact: school + degree on one line, year on the right)
+5. **Certifications** (rendered as inline chips instead of bulleted list — saves ~60% vertical space)
+6. **Clinical Skills** (chip cloud — unchanged but moved below certs)
 
-**Auth page update** (small): if `?invite=<token>` present, after signup auto-join that company instead of provisioning a new one.
+In **wide mode**, sections 4–6 lay out as a 2-column grid for further density. In compact mode, they remain stacked.
 
-### Files
+### 4. Experience tab — tighter timeline
 
-**New**
-- `src/hooks/useOnboarding.ts` — fetch + mutate `company_onboarding` row, derive `currentStep` and `isComplete`
-- `src/components/onboarding/OnboardingChecklist.tsx` — the card with the 5 expandable rows
-- `src/components/onboarding/StepRow.tsx` — collapsible row primitive
-- `src/components/onboarding/Step1Team.tsx`
-- `src/components/onboarding/Step2Project.tsx`
-- `src/components/onboarding/Step3Invites.tsx` — uses new `useInvites` hook
-- `src/components/onboarding/Step4Connectors.tsx` — 4 cards, each opens "Join waitlist" dialog
-- `src/components/onboarding/Step5Search.tsx` — rotating-placeholder input + sandbox button
-- `src/components/onboarding/SuccessBanner.tsx`
-- `src/hooks/useInvites.ts` — list/create/revoke invites
-- `src/hooks/useDashboardStats.ts` — live counts for the 4 KPIs
-- `supabase/functions/send-invite/index.ts`
+- Reduce timeline node spacing (`space-y-5` → `space-y-4`)
+- Compact each entry: title + Current badge on row 1, company on row 2, dates+duration as muted right-aligned tail
+- In **wide mode**, optionally show 2-up cards for older roles (>3 entries collapse into 2 columns)
 
-**Edited**
-- `src/pages/Dashboard.tsx` — full rebuild: greeting (kept) → checklist OR (banner + KPIs + panels), typography fixes, em-dash for empty metrics
-- `src/pages/Auth.tsx` — handle `?invite=<token>` param, attach to company on signup instead of auto-provisioning
-- `src/integrations/supabase/types.ts` — auto-regen after migration
+### 5. Polish
 
-### Live KPIs (replacing the hardcoded zeros)
+- Reduce content padding `py-6` → `py-5`, `px-7` → `px-6`
+- Sticky tabs get a subtle bottom border so they read as a pinned bar while scrolling
+- `prefers-reduced-motion` disables the width-transition animation
 
-| KPI | Source | Empty value |
-|---|---|---|
-| Candidates Sourced | `count(candidates) where company_id = X` + `count(... where created_at > now() - 7d)` for delta | `—` if 0 |
-| Active Projects | `count(projects)` + `count(projects where updated within 7d)` for "in progress" | `—` if 0 |
-| Searches Run | `count(search_history where user_id)` + today's count | `—` if 0 |
-| Response Rate | `sum(open_count) / sum(sent_count)` from `email_campaigns where company_id`. If `sum(sent) = 0`, show `—`. | `—` |
+---
 
-### Typography
+### Files to edit
 
-Translate the prompt's slate/emerald to our tokens (since you said "keep current branding"):
-- `text-slate-900` → `text-foreground`
-- `text-slate-700` → `text-foreground/80`
-- `text-slate-600` → `text-muted-foreground`
-- `text-slate-500` → `text-muted-foreground` (smaller weight)
-- `bg-emerald-50 / border-emerald-200` → `bg-primary/10 border-primary/30`
-- KPI numerals: `text-4xl font-semibold font-display`
+- `src/components/CandidateDrawer.tsx` — header restructure, tabs sticky, Overview reorder, Current Role card, expand toggle, wide-mode grid
+- `src/components/ui/sheet.tsx` — verify width prop pattern (likely just className override on `SheetContent`)
+- New tiny hook (inline or `src/hooks/useDrawerSize.ts`) for the localStorage-backed compact/wide state
 
-### Visibility logic
+No DB changes. No API changes. No new dependencies.
 
-- `useOnboarding()` returns `{ steps, completedCount, isFullyComplete, bannerDismissed }`
-- If `!isFullyComplete` → render only `<OnboardingChecklist />` (greeting stays above)
-- If `isFullyComplete && !bannerDismissed` → render `<SuccessBanner />` then KPIs + panels
-- If `isFullyComplete && bannerDismissed` → KPIs + panels only
+### Acceptance
 
-For existing users who already have projects/candidates, I'll auto-mark steps as complete in the migration backfill so they don't get force-onboarded.
-
-### What I will NOT do
-- Fake OAuth buttons for Greenhouse/Lever/Gmail/Outlook. Each is a "join waitlist" interaction that records interest. If you want real OAuth for any provider, that's a follow-up scoped per-provider.
-- Touch the sidebar or the greeting header.
-- Modify any dark-theme tokens — onboarding card uses `bg-card`, fits the existing palette.
-
-### Migration order
-1. Run migration (5 schema changes — new tables, new columns, RLS, backfill).
-2. Wait for types regen.
-3. Build hooks + components + edge function.
-4. Verify the redirect flow on `/dashboard` for both empty and post-onboarded states.
-
-I'll start by writing the migration. Let me know if you want to swap step 4 from "waitlist dialogs" to "actually build OAuth for one specific provider first" before I run it.
+- On 911px viewport in compact mode: tabs visible without scrolling AND ≥ 3 Overview sections visible without scrolling
+- Expand toggle widens to ~960px and back; preference persists across candidates
+- Current role appears at the top of Overview, above education and certifications
+- "Why matched" chips render as a single thin strip with tooltips, no boxed panel
+- All existing data (notes, fit, AI summary, navigation, J/K) continues to work unchanged
