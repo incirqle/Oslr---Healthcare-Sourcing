@@ -881,7 +881,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        results: formattedResults,
+        results: pagedResults,
         total,
         parsed,
         parsed_categories: categories,
