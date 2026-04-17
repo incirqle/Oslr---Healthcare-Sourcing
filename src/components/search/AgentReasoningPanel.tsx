@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pencil, Sparkles, AlertCircle } from "lucide-react";
+import { Pencil, Sparkles, AlertCircle, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ReasoningLine = {
@@ -17,6 +17,14 @@ interface AgentReasoningPanelProps {
   onEditQuery?: () => void;
   /** True if search errored — alters tone. */
   errored?: boolean;
+  /** True once the request has resolved — switches to condensed one-line summary. */
+  done?: boolean;
+  /** Total result count, for the condensed summary line. */
+  totalCount?: number;
+  /** Short filter summary (e.g. "Panorama Orthopedics, Colorado, Orthopedics +1"). */
+  filterSummary?: string;
+  /** Open the refine sheet from the condensed line. */
+  onRefine?: () => void;
 }
 
 const TYPING_SPEED_MS = 22; // ~45 chars/sec
