@@ -57,7 +57,8 @@ interface GeoScope {
   requested_city?: string | null;
   requested_state?: string | null;
   geo_expanded?: boolean;
-  effective_scope?: "local" | "metro" | "state";
+  semantic_relaxed?: boolean;
+  effective_scope?: "local" | "semantic" | "metro" | "state";
   cascade_steps_used?: string[];
 }
 
@@ -258,16 +259,19 @@ export function SearchResults({
     setQueryDraft(query);
   }, [query]);
 
-  // Build geo expansion banner text
+  // Expansion banner — distinguish semantic relaxation (still local) from
+  // actual geographic widening so the UI never implies geo changed when it didn't.
   const geoBannerText = (() => {
-    if (!geoScope?.geo_expanded) return null;
-    const city = geoScope.requested_city;
-    const scope = geoScope.effective_scope;
-    if (scope === "state" && city && geoScope.requested_state) {
+    const scope = geoScope?.effective_scope;
+    const city = geoScope?.requested_city;
+    if (scope === "state" && city && geoScope?.requested_state) {
       return `Few results in ${city.charAt(0).toUpperCase() + city.slice(1)} — expanded to all of ${geoScope.requested_state.charAt(0).toUpperCase() + geoScope.requested_state.slice(1)}`;
     }
     if (scope === "metro" && city) {
       return `Few results in ${city.charAt(0).toUpperCase() + city.slice(1)} — expanded to the wider metro area`;
+    }
+    if (scope === "semantic" && city) {
+      return `Few exact matches in ${city.charAt(0).toUpperCase() + city.slice(1)} — relaxed specialty/title filters but kept the location`;
     }
     return null;
   })();
