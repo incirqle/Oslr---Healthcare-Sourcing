@@ -477,6 +477,12 @@ export function CandidateDrawer({
     void generateSummary();
   }, [open, candidate?.id, loading, aiSummary, enriched, experienceEntries, educationEntries, primarySkills, certifications]);
 
+  // Pull current role to feature at top of overview (must be before early return)
+  const currentRoleEntry = useMemo(
+    () => experienceEntries.find((e) => e.isCurrent) ?? experienceEntries[0] ?? null,
+    [experienceEntries],
+  );
+
   if (!candidate) return null;
 
   const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
@@ -510,16 +516,6 @@ export function CandidateDrawer({
     }
     toast.info("Open Campaigns to add this candidate after saving them to the project.");
   };
-
-  // Pull current role to feature at top of overview
-  const currentRoleEntry = useMemo(
-    () => experienceEntries.find((e) => e.isCurrent) ?? experienceEntries[0] ?? null,
-    [experienceEntries],
-  );
-  const pastRoles = useMemo(
-    () => (currentRoleEntry ? experienceEntries.filter((e) => e !== currentRoleEntry) : experienceEntries),
-    [experienceEntries, currentRoleEntry],
-  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
