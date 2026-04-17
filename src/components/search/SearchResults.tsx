@@ -334,6 +334,7 @@ export function SearchResults({
   filters,
   onToggleSelect,
   onToggleSelectAll,
+  onClearSelection,
   onOpenCandidate,
   onSaveBulk,
   onAddToCampaignBulk,
