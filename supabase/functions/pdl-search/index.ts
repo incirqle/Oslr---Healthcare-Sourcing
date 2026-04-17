@@ -837,12 +837,17 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 4: Full search
-    // On page 0 we fetch a deeper pool (max(size, 50)) so the AI re-ranker can
-    // score the global top 50 instead of just the first page. The full ordered
-    // pool is cached so subsequent pages slice from it without burning LLM tokens.
+    // Fetch a deeper first pool for AI reranking, but keep it aligned to the
+    // UI page size so page boundaries remain stable when we continue beyond it.
     const RERANK_POOL_SIZE = 50;
-    const fetchSize = page === 0 ? Math.max(size, RERANK_POOL_SIZE) : size;
-    const fullCacheKey = await getPDLCacheKey(pdlQuery, fetchSize, scroll_token);
+    const poolSize = Math.max(size, Math.ceil(RERANK_POOL_SIZE / size) * size);
+    const pageStart = page * size;
+    const pageEnd = pageStart + size;
+    const useRerankPool = pageStart < poolSize;
+    const fetchPage = useRerankPool ? 0 : page;
+    const fetchSize = useRerankPool ? poolSize : size;
+    const cacheScrollToken = useRerankPool ? null : scroll_token;
+    const fullCacheKey = await getPDLCacheKey(pdlQuery, fetchSize, cacheScrollToken);
     const cached = await getDBCache(adminClient, fullCacheKey);
 
     let results: Record<string, unknown>[];
@@ -876,7 +881,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const pdlData = await fetchPDLForFullSearch(
-        pdlQuery, liveKey, page, fetchSize, scroll_token, fullCacheKey, adminClient
+        pdlQuery, liveKey, fetchPage, fetchSize, cacheScrollToken, fullCacheKey, adminClient
       );
 
       if ((pdlData as Record<string, unknown>)._error) {
@@ -891,7 +896,7 @@ Deno.serve(async (req: Request) => {
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
       // Cascade if too few results
-      if (total < 2 && page === 0) {
+      if (total < 2 && useRerankPool) {
         console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
         const cascadePayload: CascadePayload = {
           location: (parsed.location as CascadePayload["location"]) || {},
@@ -929,8 +934,9 @@ Deno.serve(async (req: Request) => {
       const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
       formattedResults = deterministicResults;
 
-      // AI rerank: page 0 only — paginated requests reuse cached order
-      if (page === 0 && deterministicResults.length > 0) {
+      // AI rerank the shared first pool once, then reuse that ordering for
+      // every page that falls inside the pool window.
+      if (useRerankPool && deterministicResults.length > 0) {
         const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
         formattedResults = rerank.candidates as unknown as Record<string, unknown>[];
         aiRerankMeta = {
@@ -948,11 +954,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Slice the cached/reranked pool down to the requested page window.
-    // For page 0 with fetchSize=50 and size=25, this returns the top 25 reranked.
-    const pageStart = page * size;
-    const pageEnd = pageStart + size;
-    const pagedResults = formattedResults.slice(pageStart, pageEnd);
+    // Only slice when we're serving from the shared rerank pool. Later pages are
+    // already fetched as page-sized windows from PDL and should be returned as-is.
+    const pagedResults = useRerankPool
+      ? formattedResults.slice(pageStart, pageEnd)
+      : formattedResults;
 
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
