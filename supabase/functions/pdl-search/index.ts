@@ -814,6 +814,7 @@ Deno.serve(async (req: Request) => {
       return [...new Set(merged.map(s => s.toLowerCase()))];
     })();
     console.log(`[COMPANY RESOLVE] rawCompanies extracted: ${JSON.stringify(rawCompanies)}`);
+    let companyScope: Record<string, unknown> | null = null;
     if (rawCompanies.length > 0 && pdlApiKey) {
       const resolved = await resolveCompanyNames(rawCompanies, pdlApiKey, pdlBaseUrl);
       const resolvedIds = resolved.filter(r => r.pdl_id).map(r => r.pdl_id!);
@@ -822,6 +823,7 @@ Deno.serve(async (req: Request) => {
       const resolvedLinkedinUrls = resolved.filter(r => r.linkedin_url).map(r => r.linkedin_url!);
       const resolvedAltNames = resolved.flatMap(r => r.alt_names);
       const resolvedAffiliatedIds = resolved.flatMap(r => r.affiliated_ids);
+      const resolvedAffiliatedNames = resolved.flatMap(r => r.affiliated_names);
       const resolvedWildcards = resolved.flatMap(r => r.wildcards);
 
       if (resolvedIds.length > 0) {
@@ -842,15 +844,35 @@ Deno.serve(async (req: Request) => {
       if (resolvedAffiliatedIds.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_affiliated_ids = resolvedAffiliatedIds;
       }
+      if (resolvedAffiliatedNames.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_affiliated_names = resolvedAffiliatedNames;
+      }
       if (resolvedWildcards.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_wildcards = resolvedWildcards;
       }
+
+      // Multi-entity scope detection — used by frontend to surface a banner.
+      const isHealthSystem = resolved.some(r => r.pdl_name && isHealthSystemParent(r.pdl_name));
+      const uniqueAffiliates = [...new Set(resolvedAffiliatedNames)];
+      if (isHealthSystem || uniqueAffiliates.length > 3) {
+        (parsed as Record<string, unknown>)._is_health_system = true;
+      }
+      companyScope = {
+        anchor_name: resolved[0]?.pdl_name ?? rawCompanies[0] ?? null,
+        is_health_system: isHealthSystem,
+        affiliated_count: uniqueAffiliates.length,
+        sample_affiliates: uniqueAffiliates.slice(0, 5),
+        multi_entity: isHealthSystem || uniqueAffiliates.length > 3,
+      };
+
       console.log("[COMPANY] Enhanced resolution:", {
         ids: resolvedIds,
         names: resolvedNames,
         altNames: resolvedAltNames.length,
         affiliatedIds: resolvedAffiliatedIds,
+        affiliatedNames: uniqueAffiliates.length,
         wildcards: resolvedWildcards,
+        isHealthSystem,
       });
     }
 
