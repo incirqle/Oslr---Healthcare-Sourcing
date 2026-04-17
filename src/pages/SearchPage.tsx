@@ -51,6 +51,7 @@ export default function SearchPage() {
   const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
   const [scrollToken, setScrollToken] = useState<string | null>(null);
   const [geoScope, setGeoScope] = useState<Record<string, unknown> | null>(null);
+  const [companyScope, setCompanyScope] = useState<Record<string, unknown> | null>(null);
   const [searchPhase, setSearchPhase] = useState<"idle" | "running" | "done" | "error">("idle");
 
   // Auto-run a search if ?q= is present (e.g. coming from onboarding step 5)
@@ -183,6 +184,7 @@ export default function SearchPage() {
     setTotal(data.total || 0);
     setScrollToken(data.scroll_token || null);
     setGeoScope(data.geo_scope || null);
+    setCompanyScope(data.company_scope || null);
     setPage(targetPage);
     setSearchPhase("done");
     if (targetPage === 1) addEntry(q, data.total || 0);
@@ -246,6 +248,7 @@ export default function SearchPage() {
     setSelected(new Set());
     setScrollToken(null);
     setGeoScope(null);
+    setCompanyScope(null);
     setSearchPhase("idle");
   };
 
@@ -419,7 +422,8 @@ export default function SearchPage() {
                 pageSize={pageSize}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
-                geoScope={geoScope}
+                geoScope={geoScope as any}
+                companyScope={companyScope as any}
               />
             )}
 
