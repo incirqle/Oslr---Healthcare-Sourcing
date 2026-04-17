@@ -1,15 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
-  Building2,
-  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Mail,
   MapPin,
+  Mail,
+  Phone,
   RotateCcw,
   Search,
   SearchX,
@@ -21,7 +28,15 @@ import {
   getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
+  toTitleCase,
 } from "@/components/search/candidate-ui";
+import { MatchChipsRow } from "@/components/search/MatchChipsRow";
+import { FitPill } from "@/components/search/FitPill";
+import { BulkActionBar } from "@/components/search/BulkActionBar";
+import { exportCandidatesCsv } from "@/components/search/csv-export";
+import { buildMatchChips, queryIsCompanySpecific, type MatchChip } from "@/components/search/match-chips";
+import type { ParsedFilters } from "@/components/search/FilterReview";
+import { useCandidateFits, useSetCandidateFit, type FitStatus } from "@/hooks/useCandidateFit";
 
 export interface Candidate {
   id: string;
@@ -61,6 +76,8 @@ interface GeoScope {
   cascade_steps_used?: string[];
 }
 
+export type SortOption = "relevance" | "recent" | "experienced" | "senior";
+
 interface SearchResultsProps {
   query: string;
   candidates: Candidate[];
@@ -68,10 +85,13 @@ interface SearchResultsProps {
   selected: Set<string>;
   savedIds?: Set<string>;
   projectName?: string;
+  filters: ParsedFilters;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   onOpenCandidate: (candidate: Candidate) => void;
   onSaveBulk: () => void;
+  onAddToCampaignBulk?: () => void;
+  onMarkFitBulk?: (status: FitStatus) => void;
   onEditFilters?: () => void;
   onNewSearch?: () => void;
   onSubmitQuery?: (query: string) => void;
@@ -80,141 +100,223 @@ interface SearchResultsProps {
   onPageChange?: (page: number) => void;
   isSaving?: boolean;
   geoScope?: GeoScope | null;
+  sort?: SortOption;
+  onSortChange?: (s: SortOption) => void;
+}
+
+const SORT_LABELS: Record<SortOption, string> = {
+  relevance: "Relevance",
+  recent: "Most recent",
+  experienced: "Most experienced",
+  senior: "Most senior",
+};
+
+/**
+ * Render the role / org / location middle column. When the query targets a
+ * single company, demote the redundant org chip and surface tenure instead.
+ */
+function MiddleColumn({
+  candidate,
+  suppressCompany,
+}: {
+  candidate: Candidate;
+  suppressCompany: boolean;
+}) {
+  const orgDisplay = candidate.current_employer ? toTitleCase(candidate.current_employer) : null;
+  const locDisplay = candidate.location ? toTitleCase(candidate.location) : null;
+  const titleDisplay = candidate.title ? toTitleCase(candidate.title) : null;
+
+  return (
+    <div className="min-w-0 space-y-0.5">
+      {titleDisplay && (
+        <p className="truncate text-sm font-medium text-foreground/85">{titleDisplay}</p>
+      )}
+      <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
+        {orgDisplay && (
+          <span
+            className={cn(
+              "truncate",
+              suppressCompany ? "text-muted-foreground/70" : "text-muted-foreground",
+            )}
+          >
+            {orgDisplay}
+          </span>
+        )}
+        {orgDisplay && locDisplay && (
+          <span className="text-muted-foreground/50">·</span>
+        )}
+        {locDisplay && (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <MapPin className="h-3 w-3" aria-hidden="true" />
+            {locDisplay}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ContactIcons({ candidate }: { candidate: Candidate }) {
+  const hasEmail = !!candidate.email || !!candidate.has_email;
+  const hasPhone = !!candidate.phone || !!candidate.has_phone;
+  if (!hasEmail && !hasPhone) return null;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <div className="flex items-center gap-1.5">
+        {hasEmail && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-info/10 text-info">
+                <Mail className="h-3 w-3" aria-hidden="true" />
+                <span className="sr-only">Email available</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">Work email available</TooltipContent>
+          </Tooltip>
+        )}
+        {hasPhone && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-info/10 text-info">
+                <Phone className="h-3 w-3" aria-hidden="true" />
+                <span className="sr-only">Phone available</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">Phone available</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
+  );
 }
 
 function CandidateRow({
   candidate,
   isSelected,
   isSaved,
+  matchChips,
+  fitStatus,
+  suppressCompany,
   onToggleSelect,
   onOpenCandidate,
+  onFitChange,
 }: {
   candidate: Candidate;
   isSelected: boolean;
   isSaved: boolean;
+  matchChips: MatchChip[];
+  fitStatus: FitStatus;
+  suppressCompany: boolean;
   onToggleSelect: () => void;
   onOpenCandidate: () => void;
+  onFitChange: (next: FitStatus) => void;
 }) {
-  const previewSkills = candidate.clinical_skills?.length ? candidate.clinical_skills : candidate.skills;
-  const visibleSkills = previewSkills.slice(0, 3);
-  const extraSkills = Math.max(previewSkills.length - visibleSkills.length, 0);
+  const displayName = toTitleCase(cleanDisplayName(candidate.full_name));
 
   return (
     <div
       className={cn(
-        "cursor-pointer border-b border-ui-border-light bg-card px-5 py-4 transition-colors last:border-b-0 hover:bg-ui-surface-hover",
-        isSelected && "bg-ui-surface-selected",
+        "group cursor-pointer border-b border-border/40 bg-card px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/40",
+        isSelected && "bg-primary/5",
       )}
       onClick={onOpenCandidate}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenCandidate();
+        }
+      }}
     >
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:gap-5">
-        <div className="flex min-w-0 flex-1 items-start gap-4">
-          <div className="pt-1" onClick={(event) => event.stopPropagation()}>
-            {isSaved ? (
-              <div className="flex h-5 w-5 items-center justify-center rounded-md border border-ui-info bg-ui-info text-ui-info-foreground">
-                <Check className="h-3.5 w-3.5" />
-              </div>
-            ) : (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={onToggleSelect}
-                aria-label={`Select ${candidate.full_name}`}
-                className="h-5 w-5 rounded-md border-ui-border-medium data-[state=checked]:border-ui-info data-[state=checked]:bg-ui-info"
-              />
-            )}
-          </div>
+      <div className="flex items-start gap-3">
+        {/* Checkbox — visible on hover or when something is selected */}
+        <div
+          className={cn(
+            "pt-1 transition-opacity",
+            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onToggleSelect}
+            aria-label={`Select ${displayName}`}
+            className="h-4 w-4 rounded border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+          />
+        </div>
 
-          {candidate.profile_pic_url ? (
-            <img
-              src={candidate.profile_pic_url}
-              alt={candidate.full_name}
-              className="h-11 w-11 rounded-full object-cover"
-              onError={(event) => {
-                (event.target as HTMLImageElement).style.display = "none";
-                (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-              }}
-            />
-          ) : null}
-          <div
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold",
-              getAvatarToneClass(candidate.full_name),
-              candidate.profile_pic_url ? "hidden" : "flex",
-            )}
-          >
-            {getInitials(cleanDisplayName(candidate.full_name))}
-          </div>
+        {/* Avatar */}
+        {candidate.profile_pic_url ? (
+          <img
+            src={candidate.profile_pic_url}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-full object-cover"
+            onError={(event) => {
+              (event.target as HTMLImageElement).style.display = "none";
+              (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+            }}
+          />
+        ) : null}
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
+            getAvatarToneClass(displayName),
+            candidate.profile_pic_url ? "hidden" : "flex",
+          )}
+        >
+          {getInitials(displayName)}
+        </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="truncate text-[16px] font-semibold text-ui-text-primary">{cleanDisplayName(candidate.full_name)}</h3>
+        {/* Main grid: identity + middle + chips + actions */}
+        <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 lg:grid-cols-12">
+          {/* Identity (name + linkedin) — col 1-3 */}
+          <div className="lg:col-span-3 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h3 className="truncate text-[15px] font-semibold text-foreground">{displayName}</h3>
               {candidate.linkedin_url && (
                 <a
                   href={normalizeLinkedInUrl(candidate.linkedin_url) ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-linkedin-foreground transition-opacity hover:opacity-80"
+                  className="shrink-0 text-info hover:opacity-80"
                   onClick={(event) => event.stopPropagation()}
-                  aria-label={`Open ${cleanDisplayName(candidate.full_name)} on LinkedIn`}
+                  aria-label={`Open ${displayName} on LinkedIn`}
                 >
                   <LinkedInMark className="h-3.5 w-3.5" />
                 </a>
               )}
             </div>
+            {candidate.years_experience ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {candidate.years_experience}y experience
+              </p>
+            ) : null}
+          </div>
 
-            <p className="mt-1 text-[15px] text-ui-text-secondary">{candidate.title || "—"}</p>
+          {/* Middle column: title + org + location — col 4-7 */}
+          <div className="lg:col-span-4 min-w-0">
+            <MiddleColumn candidate={candidate} suppressCompany={suppressCompany} />
+          </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ui-text-tertiary">
-              {candidate.current_employer && (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{candidate.current_employer}</span>
-                </span>
-              )}
-              {candidate.location && (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{candidate.location}</span>
-                </span>
-              )}
-            </div>
+          {/* Match chips — col 8-10 */}
+          <div className="lg:col-span-3 min-w-0">
+            <MatchChipsRow chips={matchChips} />
+          </div>
 
-            {visibleSkills.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2 xl:hidden">
-                {visibleSkills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="rounded-[4px] bg-tag px-2.5 py-1 text-[13px] leading-none text-tag-foreground"
-                  >
-                    {skill}
-                  </span>
-                ))}
-                {extraSkills > 0 && <span className="text-[13px] text-ui-text-muted">+{extraSkills}</span>}
-              </div>
+          {/* Actions — col 11-12 */}
+          <div
+            className="flex items-center justify-end gap-2 lg:col-span-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ContactIcons candidate={candidate} />
+            <FitPill status={fitStatus} onChange={onFitChange} />
+            {isSaved && (
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-300">
+                Saved
+              </span>
             )}
           </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 xl:justify-end">
-          <div className="hidden max-w-[280px] shrink-0 flex-wrap items-center justify-end gap-2 xl:flex">
-            {visibleSkills.map((skill) => (
-              <span key={skill} className="rounded-[4px] bg-tag px-2.5 py-1 text-[13px] leading-none text-tag-foreground">
-                {skill}
-              </span>
-            ))}
-            {extraSkills > 0 && <span className="text-[13px] text-ui-text-muted">+{extraSkills}</span>}
-          </div>
-
-          {candidate.has_contact_info && (
-            <div className="flex min-w-[110px] shrink-0 flex-col items-start gap-2 text-left sm:items-end sm:text-right">
-              <span className="inline-flex items-center gap-1.5 text-[13px] text-contact-foreground">
-                <Mail className="h-3.5 w-3.5" />
-                Contact available
-              </span>
-            </div>
-          )}
-
-          <ChevronRight className="h-4 w-4 shrink-0 text-ui-text-muted" />
         </div>
       </div>
     </div>
@@ -228,10 +330,13 @@ export function SearchResults({
   selected,
   savedIds = new Set(),
   projectName,
+  filters,
   onToggleSelect,
   onToggleSelectAll,
   onOpenCandidate,
   onSaveBulk,
+  onAddToCampaignBulk,
+  onMarkFitBulk,
   onEditFilters,
   onNewSearch,
   onSubmitQuery,
@@ -240,44 +345,74 @@ export function SearchResults({
   onPageChange,
   isSaving = false,
   geoScope = null,
+  sort = "relevance",
+  onSortChange,
 }: SearchResultsProps) {
   const [queryDraft, setQueryDraft] = useState(query);
   const totalPages = Math.ceil(total / pageSize);
-  const selectableCount = candidates.filter((candidate) => !savedIds.has(candidate.id)).length;
+  const suppressCompany = queryIsCompanySpecific(filters);
 
   useEffect(() => {
     setQueryDraft(query);
   }, [query]);
 
-  // Expansion banner — distinguish semantic relaxation (still local) from
-  // actual geographic widening so the UI never implies geo changed when it didn't.
+  // Match chips per candidate (memoized — only recompute when filters or list change)
+  const matchChipsByCandidate = useMemo(() => {
+    const map = new Map<string, MatchChip[]>();
+    for (const c of candidates) {
+      map.set(c.id, buildMatchChips(c, filters));
+    }
+    return map;
+  }, [candidates, filters]);
+
+  // Fit ratings — single batched query for all visible candidates
+  const pdlIds = candidates.map((c) => c.id);
+  const { data: fitMap } = useCandidateFits(pdlIds);
+  const setFit = useSetCandidateFit();
+
+  const handleFitChange = (pdlId: string) => (next: FitStatus) => {
+    setFit.mutate({ pdlId, status: next });
+  };
+
+  const handleMarkFitBulk = (status: FitStatus) => {
+    [...selected].forEach((pdlId) => setFit.mutate({ pdlId, status }));
+    onMarkFitBulk?.(status);
+  };
+
+  const handleExportCsv = () => {
+    const list = candidates.filter((c) => selected.has(c.id));
+    const fitOnlyStrings = new Map<string, string>();
+    fitMap?.forEach((value, key) => fitOnlyStrings.set(key, value));
+    exportCandidatesCsv(list, matchChipsByCandidate, fitOnlyStrings);
+  };
+
   const geoBannerText = (() => {
     const scope = geoScope?.effective_scope;
     const city = geoScope?.requested_city;
     if (scope === "state" && city && geoScope?.requested_state) {
-      return `Few results in ${city.charAt(0).toUpperCase() + city.slice(1)} — expanded to all of ${geoScope.requested_state.charAt(0).toUpperCase() + geoScope.requested_state.slice(1)}`;
+      return `Few results in ${toTitleCase(city)} — expanded to all of ${toTitleCase(geoScope.requested_state)}`;
     }
     if (scope === "metro" && city) {
-      return `Few results in ${city.charAt(0).toUpperCase() + city.slice(1)} — expanded to the wider metro area`;
+      return `Few results in ${toTitleCase(city)} — expanded to the wider metro area`;
     }
     if (scope === "semantic" && city) {
-      return `Few exact matches in ${city.charAt(0).toUpperCase() + city.slice(1)} — relaxed specialty/title filters but kept the location`;
+      return `Few exact matches in ${toTitleCase(city)} — relaxed specialty/title filters but kept the location`;
     }
     return null;
   })();
 
   if (candidates.length === 0) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
-        <div className="mb-5 rounded-full bg-ui-surface-subtle p-6">
-          <SearchX className="h-10 w-10 text-ui-text-muted" />
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
+        <div className="mb-4 rounded-full bg-muted p-5">
+          <SearchX className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="mb-2 text-[20px] font-bold text-ui-text-primary">No results found</h3>
-        <p className="mb-6 max-w-sm text-[15px] text-ui-text-tertiary">
+        <h3 className="mb-2 text-lg font-bold text-foreground">No results found</h3>
+        <p className="mb-5 max-w-sm text-sm text-muted-foreground">
           Try broadening your search by removing some filters or expanding your location.
         </p>
         {onEditFilters && (
-          <Button variant="outline" onClick={onEditFilters} className="h-11 border-ui-border-medium px-5">
+          <Button variant="outline" onClick={onEditFilters} className="h-10 gap-1.5">
             <SlidersHorizontal className="h-4 w-4" />
             Edit Criteria
           </Button>
@@ -286,8 +421,15 @@ export function SearchResults({
     );
   }
 
-  const unsavedSelected = [...selected].filter((id) => !savedIds.has(id));
-  const allSelectableSelected = selectableCount > 0 && unsavedSelected.length === selectableCount;
+  // Build a short query-context summary for the header subtitle.
+  const queryContext = (() => {
+    const parts: string[] = [];
+    if ((filters.specialties ?? []).length) parts.push(toTitleCase(filters.specialties[0]));
+    if ((filters.job_titles ?? []).length) parts.push(toTitleCase(filters.job_titles[0]));
+    if ((filters.companies ?? []).length) parts.push(`at ${toTitleCase(filters.companies[0])}`);
+    if ((filters.locations ?? []).length) parts.push(`in ${toTitleCase(filters.locations[0])}`);
+    return parts.join(" ");
+  })();
 
   return (
     <div className="space-y-4">
@@ -297,6 +439,8 @@ export function SearchResults({
           {geoBannerText}
         </div>
       )}
+
+      {/* Inline query rerun bar */}
       <form
         className="relative"
         onSubmit={(event) => {
@@ -305,103 +449,105 @@ export function SearchResults({
           onSubmitQuery(queryDraft.trim());
         }}
       >
-        <Search className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ui-text-muted" />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={queryDraft}
           onChange={(event) => setQueryDraft(event.target.value)}
-          placeholder="Search healthcare professionals"
-          className="h-14 rounded-[10px] border-ui-border-medium bg-ui-surface-subtle pl-14 pr-14 text-base shadow-none"
+          placeholder="Refine your search…"
+          className="h-11 rounded-lg border-border bg-card pl-11 pr-4 text-sm shadow-none"
         />
-        <button
-          type="submit"
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-ui-text-muted transition-colors hover:text-ui-info"
-          aria-label="Run search"
-        >
-          <Search className="h-5 w-5" />
-        </button>
       </form>
 
-      <div className="flex flex-col gap-4 border-b border-ui-border-light pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-end gap-2">
-            <span className="text-[22px] font-bold leading-none text-ui-text-primary">{total.toLocaleString()}</span>
-            <span className="text-[15px] text-ui-text-tertiary">results</span>
-          </div>
-          {selected.size > 0 && (
-            <span className="rounded-md bg-linkedin px-3 py-1 text-[14px] font-medium text-ui-info">
-              {selected.size} selected
-            </span>
+      {/* Bulk action bar — only when something is selected */}
+      {selected.size > 0 && (
+        <BulkActionBar
+          count={selected.size}
+          projectName={projectName}
+          onAddToProject={onSaveBulk}
+          onAddToCampaign={() => onAddToCampaignBulk?.()}
+          onMarkFit={handleMarkFitBulk}
+          onExportCsv={handleExportCsv}
+          onClear={() => onToggleSelectAll()}
+          isSaving={isSaving}
+        />
+      )}
+
+      {/* Header: count + query context · sort · refine · new search */}
+      <div className="flex flex-col gap-2 border-b border-border/50 pb-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold leading-tight text-foreground">
+            {total.toLocaleString()} candidates
+          </h2>
+          {queryContext && (
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">{queryContext}</p>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="mr-2 inline-flex items-center gap-2 text-sm text-ui-text-tertiary">
-            <Checkbox
-              checked={allSelectableSelected}
-              onCheckedChange={onToggleSelectAll}
-              aria-label="Select all candidates"
-              className="h-5 w-5 rounded-md border-ui-border-medium data-[state=checked]:border-ui-info data-[state=checked]:bg-ui-info"
-            />
-            Select all
-          </label>
-
-          {unsavedSelected.length > 0 && (
-            <Button onClick={onSaveBulk} disabled={isSaving} className="h-10 bg-ui-info px-4 text-[14px] text-ui-info-foreground hover:bg-ui-info/90">
-              {isSaving ? "Saving…" : `Save ${unsavedSelected.length} to ${projectName ? `"${projectName}"` : "Project"}`}
-            </Button>
+          {onSortChange && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                  Sort: {SORT_LABELS[sort]}
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
+                  <DropdownMenuItem key={opt} onClick={() => onSortChange(opt)}>
+                    {SORT_LABELS[opt]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-
           {onEditFilters && (
-            <Button
-              variant="outline"
-              onClick={onEditFilters}
-              className="h-10 border-ui-border-medium bg-card px-4 text-[14px] text-ui-text-secondary hover:bg-ui-surface-hover"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Edit Criteria
+            <Button variant="outline" size="sm" onClick={onEditFilters} className="h-9 gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Refine
             </Button>
           )}
-
           {onNewSearch && (
-            <Button
-              variant="outline"
-              onClick={onNewSearch}
-              className="h-10 border-ui-border-medium bg-card px-4 text-[14px] text-ui-text-secondary hover:bg-ui-surface-hover"
-            >
-              <RotateCcw className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={onNewSearch} className="h-9 gap-1.5">
+              <RotateCcw className="h-3.5 w-3.5" />
               New Search
             </Button>
           )}
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-ui-border-light bg-card">
+      <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
         {candidates.map((candidate) => (
           <CandidateRow
             key={candidate.id}
             candidate={candidate}
             isSelected={selected.has(candidate.id)}
             isSaved={savedIds.has(candidate.id)}
+            matchChips={matchChipsByCandidate.get(candidate.id) ?? []}
+            fitStatus={(fitMap?.get(candidate.id) ?? "unreviewed") as FitStatus}
+            suppressCompany={suppressCompany}
             onToggleSelect={() => onToggleSelect(candidate.id)}
             onOpenCandidate={() => onOpenCandidate(candidate)}
+            onFitChange={handleFitChange(candidate.id)}
           />
         ))}
       </div>
 
       {totalPages > 1 && onPageChange && (
         <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-ui-text-tertiary">
+          <p className="text-sm text-muted-foreground">
             Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total.toLocaleString()}
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
+              size="sm"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
-              className="h-10 border-ui-border-medium px-4 text-[14px] text-ui-text-secondary hover:bg-ui-surface-hover"
+              className="h-9 gap-1.5"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
               Previous
             </Button>
 
@@ -412,16 +558,16 @@ export function SearchResults({
                 else if (page >= totalPages - 2) pageNumber = totalPages - 4 + index;
                 else pageNumber = page - 2 + index;
               }
-
               const isCurrentPage = pageNumber === page;
               return (
                 <Button
                   key={pageNumber}
                   variant="outline"
+                  size="sm"
                   onClick={() => onPageChange(pageNumber)}
                   className={cn(
-                    "h-10 w-10 border-ui-border-medium p-0 text-[14px] hover:bg-ui-surface-hover",
-                    isCurrentPage && "border-ui-info bg-linkedin text-ui-info hover:bg-linkedin",
+                    "h-9 w-9 p-0 text-sm",
+                    isCurrentPage && "border-primary bg-primary/10 text-primary hover:bg-primary/15",
                   )}
                 >
                   {pageNumber}
@@ -431,12 +577,13 @@ export function SearchResults({
 
             <Button
               variant="outline"
+              size="sm"
               disabled={page >= totalPages}
               onClick={() => onPageChange(page + 1)}
-              className="h-10 border-ui-border-medium px-4 text-[14px] text-ui-text-secondary hover:bg-ui-surface-hover"
+              className="h-9 gap-1.5"
             >
               Next
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
