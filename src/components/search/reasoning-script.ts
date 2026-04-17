@@ -3,11 +3,15 @@ import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 
 /**
- * Build the streamed reasoning script from real parse + search data.
+ * Build the streamed reasoning script — kept intentionally terse (≤3 lines).
  *
- * Lines are typed out client-side at ~40 chars/sec — they ARE the agent's
- * actual interpretation, not generic filler. Skip any line we can't fill
- * with a real value rather than fabricating.
+ * The active filter chip bar below already shows the parsed filters and
+ * AI expansions, so the reasoning narrative does NOT repeat them. It just
+ * narrates the three phases: parse → expand (if any) → result count.
+ *
+ * Critically, we DO NOT emit a zero-state line until the caller passes
+ * `searchComplete: true`. This prevents the "couldn't find anyone" message
+ * from flashing during the in-flight phase when total is briefly 0.
  */
 export function buildReasoningLines({
   rawQuery,
@@ -17,6 +21,7 @@ export function buildReasoningLines({
   shownCount,
   geoExpanded,
   errored,
+  searchComplete,
 }: {
   rawQuery: string;
   filters: ParsedFilters;
@@ -25,78 +30,42 @@ export function buildReasoningLines({
   shownCount: number;
   geoExpanded?: boolean;
   errored?: boolean;
+  /** True once the search request has resolved (success or zero results). */
+  searchComplete?: boolean;
 }): ReasoningLine[] {
   if (errored) {
-    return [
-      { kind: "header", text: "Something went wrong on my end." },
-      { kind: "step", text: "→ Retry, or rephrase your search." },
-    ];
+    return [{ kind: "warn", text: "Something went wrong on my end. Try again or rephrase." }];
   }
 
   const lines: ReasoningLine[] = [];
 
-  // Phase 1: parsing
-  lines.push({ kind: "header", text: "Parsing your query…" });
+  // Line 1: parsing — always present once we have any signal.
+  lines.push({ kind: "header", text: "Parsed your query." });
 
-  if (filters.companies.length > 0) {
-    lines.push({
-      kind: "step",
-      text: `→ Detected company: ${filters.companies.map(titleCase).join(", ")}`,
-    });
-  }
-  if (filters.locations.length > 0) {
-    lines.push({
-      kind: "step",
-      text: `→ Detected location: ${filters.locations.map(titleCase).join(", ")}`,
-    });
-  }
-  if (filters.specialties.length > 0) {
-    lines.push({
-      kind: "step",
-      text: `→ Specialty: ${filters.specialties.map(titleCase).join(", ")}`,
-    });
-  }
-  if (filters.job_titles.length > 0) {
-    const titles = filters.job_titles.slice(0, 3).map(titleCase).join(", ");
-    lines.push({ kind: "step", text: `→ Role intent: ${titles}` });
-  }
-  if (filters.experience_years && filters.experience_years > 0) {
-    lines.push({
-      kind: "step",
-      text: `→ Experience: ${filters.experience_years}+ years`,
-    });
-  }
-
-  // Phase 2: expansion (anything in parsed that wasn't in the raw query)
+  // Line 2: expansion — only if AI added terms beyond the raw query.
   const expansionTerms = collectExpansionTerms(rawQuery, filters, parsed);
   if (expansionTerms.length > 0) {
-    lines.push({ kind: "header", text: "Expanding search terms…" });
-    lines.push({
-      kind: "step",
-      text: `→ Including related terms: ${expansionTerms.slice(0, 4).join(", ")}`,
-    });
+    lines.push({ kind: "step", text: "Expanded to related terms." });
   }
 
-  // Phase 3: scanning
-  lines.push({ kind: "header", text: "Scanning healthcare professional records…" });
-  if (geoExpanded) {
-    lines.push({
-      kind: "warn",
-      text: "→ Few exact matches — widened the geographic scope",
-    });
-  }
-  if (total > 0) {
-    lines.push({ kind: "step", text: `→ ${total.toLocaleString()} matching records` });
-    lines.push({ kind: "step", text: "→ Ranking by seniority and recency…" });
-    lines.push({
-      kind: "result",
-      text: `Found ${total.toLocaleString()} candidates. Showing top ${Math.min(shownCount, total)} below.`,
-    });
+  // Line 3: result — ONLY after the search has actually completed.
+  if (searchComplete) {
+    if (total > 0) {
+      const shown = Math.min(shownCount || total, total);
+      const geoNote = geoExpanded ? " (widened to nearby areas)" : "";
+      lines.push({
+        kind: "result",
+        text: `Found ${total.toLocaleString()} candidates${geoNote}. Showing top ${shown}.`,
+      });
+    } else {
+      lines.push({
+        kind: "warn",
+        text: "No matches for all your criteria. Try removing the tightest constraint.",
+      });
+    }
   } else {
-    lines.push({
-      kind: "warn",
-      text: "I didn't find anyone matching all your criteria. Try removing the tightest constraint.",
-    });
+    // Mid-flight: show a neutral scanning line so the panel isn't empty.
+    lines.push({ kind: "step", text: "Scanning healthcare professional records…" });
   }
 
   return lines;
@@ -155,7 +124,6 @@ function collectExpansionTerms(
   const terms = new Set<string>();
   const seen = new Set<string>();
 
-  // From parsed.required_keywords / specialties / synonyms not in raw query
   const pull = (arr: unknown): string[] =>
     Array.isArray(arr) ? arr.filter((v): v is string => typeof v === "string") : [];
 
