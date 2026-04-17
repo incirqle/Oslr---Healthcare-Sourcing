@@ -558,12 +558,7 @@ export function CandidateDrawer({
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="hidden sm:inline">
-                <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">J</kbd>
-                {" / "}
-                <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">K</kbd>
-              </span>
+            <div className="flex items-center gap-2 pr-10">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
