@@ -114,6 +114,21 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
         </SheetHeader>
 
         <div className="space-y-3 mt-6">
+          <FilterSection
+            icon={DollarSign}
+            label="Clinical Role & Salary"
+            count={filters.salary_preset ? 1 : 0}
+            defaultOpen={!!filters.salary_preset}
+          >
+            <p className="text-xs text-muted-foreground mb-3">
+              Filter by clinical role tier. Maps to PDL salary buckets and job classifications.
+            </p>
+            <ClinicalSalaryFilter
+              value={filters.salary_preset ?? null}
+              onChange={(v) => update("salary_preset", v)}
+            />
+          </FilterSection>
+
           <FilterSection icon={MapPin} label="Locations" count={filters.locations.length} defaultOpen={filters.locations.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Search by state, city, or radius from a city</p>
             <TagInput tags={filters.locations} onChange={(v) => update("locations", v)} placeholder="e.g., Dallas, Texas, California..." />
