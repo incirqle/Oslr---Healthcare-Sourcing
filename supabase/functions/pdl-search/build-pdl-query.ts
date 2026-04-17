@@ -876,6 +876,10 @@ export function buildPDLQuery(
   };
 
   console.log("Final query — filter:", filterClauses.length, "| must:", must.length, "| should:", should.length + softShould.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
+  // TEMP DEBUG: dump full filter+must+must_not so we can see what's actually constraining results
+  console.log("[DEBUG-FULL] filter:", JSON.stringify(filterClauses));
+  console.log("[DEBUG-FULL] must:", JSON.stringify(must));
+  console.log("[DEBUG-FULL] must_not:", JSON.stringify(mustNot));
   return query;
 }
 
