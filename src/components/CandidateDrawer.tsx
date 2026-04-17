@@ -18,13 +18,13 @@ import {
   cleanDisplayName,
   formatDateLabel,
   formatExperienceDuration,
-  formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
   toStringArray,
 } from "@/components/search/candidate-ui";
+import { CandidateSalaryBadge } from "@/components/search/CandidateSalaryBadge";
 
 interface CandidateDrawerProps {
   open: boolean;
