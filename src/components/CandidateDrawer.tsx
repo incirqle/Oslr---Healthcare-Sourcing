@@ -511,54 +511,91 @@ export function CandidateDrawer({
     toast.info("Open Campaigns to add this candidate after saving them to the project.");
   };
 
+  // Pull current role to feature at top of overview
+  const currentRoleEntry = useMemo(
+    () => experienceEntries.find((e) => e.isCurrent) ?? experienceEntries[0] ?? null,
+    [experienceEntries],
+  );
+  const pastRoles = useMemo(
+    () => (currentRoleEntry ? experienceEntries.filter((e) => e !== currentRoleEntry) : experienceEntries),
+    [experienceEntries, currentRoleEntry],
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="shadow-panel w-full max-w-full gap-0 border-ui-border-medium p-0 sm:w-[620px] sm:max-w-[620px]">
+      <SheetContent
+        side="right"
+        className={cn(
+          "shadow-panel w-full max-w-full gap-0 border-ui-border-medium p-0 transition-[width,max-width] duration-200 ease-out motion-reduce:transition-none",
+          isWide
+            ? "sm:w-[min(960px,90vw)] sm:max-w-[min(960px,90vw)]"
+            : "sm:w-[620px] sm:max-w-[620px]",
+        )}
+      >
+        <TooltipProvider delayDuration={150}>
         <div className="flex h-full flex-col bg-card">
-          {/* Prev/next nav strip */}
-          {(onPrev || onNext) && (
-            <div className="flex shrink-0 items-center justify-between border-b border-ui-border-light bg-ui-surface-subtle/40 px-3 py-1.5 text-[12px] text-ui-text-muted">
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onPrev}
-                  disabled={!hasPrev}
-                  className="h-7 gap-1 px-2 text-[12px]"
-                  aria-label="Previous candidate (K)"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  Prev
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={onNext}
-                  disabled={!hasNext}
-                  className="h-7 gap-1 px-2 text-[12px]"
-                  aria-label="Next candidate (J)"
-                >
-                  Next
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+          {/* Row 1: Nav strip — prev/next, J/K hint, expand toggle */}
+          <div className="flex h-9 shrink-0 items-center justify-between border-b border-ui-border-light bg-ui-surface-subtle/40 px-3 text-[12px] text-ui-text-muted">
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onPrev}
+                disabled={!hasPrev}
+                className="h-7 gap-1 px-2 text-[12px]"
+                aria-label="Previous candidate (K)"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Prev
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onNext}
+                disabled={!hasNext}
+                className="h-7 gap-1 px-2 text-[12px]"
+                aria-label="Next candidate (J)"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-3">
               <span className="hidden sm:inline">
                 <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">J</kbd>
                 {" / "}
                 <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">K</kbd>
-                {" to navigate"}
               </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleDrawerSize}
+                    className="hidden h-7 w-7 px-0 sm:inline-flex"
+                    aria-label={isWide ? "Collapse drawer" : "Expand drawer"}
+                  >
+                    {isWide ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isWide ? "Collapse drawer" : "Expand drawer"}
+                </TooltipContent>
+              </Tooltip>
             </div>
-          )}
-          <div className="shrink-0 border-b border-ui-border-light px-6 pb-5 pt-6 pr-14 sm:px-7">
-            <div className="flex items-start gap-4">
+          </div>
+
+          {/* Row 2: Identity — avatar + name/meta inline + fit pill */}
+          <div className="shrink-0 border-b border-ui-border-light px-5 py-3 pr-12 sm:px-6">
+            <div className="flex items-center gap-3">
               {profilePicture ? (
                 <img
                   src={profilePicture}
                   alt={cleanDisplayName(candidate.full_name)}
-                  className="h-16 w-16 rounded-full object-cover"
+                  className="h-11 w-11 shrink-0 rounded-full object-cover"
                   onError={(event) => {
                     (event.target as HTMLImageElement).style.display = "none";
                     (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
@@ -567,7 +604,7 @@ export function CandidateDrawer({
               ) : null}
               <div
                 className={cn(
-                  "flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-[20px] font-bold",
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-bold",
                   getAvatarToneClass(candidate.full_name),
                   profilePicture ? "hidden" : "flex",
                 )}
@@ -576,200 +613,260 @@ export function CandidateDrawer({
               </div>
 
               <div className="min-w-0 flex-1">
-                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{toTitleCase(cleanDisplayName(candidate.full_name))}</SheetTitle>
-                <p className="mt-1 text-[15px] text-ui-text-secondary">{title ? toTitleCase(title) : "—"}</p>
-
-                {companyName && (
-                  <div className="mt-1 inline-flex items-center gap-1.5 text-sm text-ui-text-tertiary">
-                    <Building2 className="h-3.5 w-3.5" />
-                    <span>{toTitleCase(companyName)}</span>
-                  </div>
-                )}
+                <div className="flex items-baseline gap-2">
+                  <SheetTitle className="truncate text-[17px] font-bold text-ui-text-primary">
+                    {toTitleCase(cleanDisplayName(candidate.full_name))}
+                  </SheetTitle>
+                  {title && (
+                    <>
+                      <span className="text-ui-text-muted">·</span>
+                      <span className="truncate text-[14px] text-ui-text-secondary">{toTitleCase(title)}</span>
+                    </>
+                  )}
+                </div>
+                {/* Inline meta: company · location · LinkedIn */}
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-ui-text-tertiary">
+                  {companyName && <span className="truncate">{toTitleCase(companyName)}</span>}
+                  {companyName && locationLabel && <span aria-hidden="true">·</span>}
+                  {locationLabel && <span className="truncate">{locationLabel}</span>}
+                  {linkedinUrl && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <a
+                        href={linkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-linkedin hover:underline"
+                        aria-label="View on LinkedIn"
+                      >
+                        <LinkedInMark className="h-3 w-3" />
+                        LinkedIn
+                      </a>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Fit pill — quick rating from the header */}
-              <div onClick={(e) => e.stopPropagation()}>
+              <div onClick={(e) => e.stopPropagation()} className="shrink-0">
                 <FitPill
                   status={fitStatus}
                   onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
-                  size="md"
+                  size="sm"
                   stopPropagation={false}
                 />
               </div>
             </div>
-
-            {/* Why they matched — only when we have parsed filters and chips */}
-            {matchChips.length > 0 && (
-              <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
-                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-primary">
-                  <Sparkles className="h-3 w-3" />
-                  Why they matched
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {matchChips.map((chip) => (
-                    <span
-                      key={chip.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
-                      title={chip.reason}
-                    >
-                      <Sparkles className="h-3 w-3" aria-hidden="true" />
-                      {chip.label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {locationLabel && (
-                <div className="inline-flex items-center gap-1.5 rounded-md bg-ui-surface-subtle px-3 py-1.5 text-sm text-ui-text-tertiary">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {locationLabel}
-                </div>
-              )}
-              {linkedinUrl && (
-                <a
-                  href={linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-linkedin px-3 py-1.5 text-[14px] text-linkedin-foreground transition-opacity hover:opacity-80"
-                >
-                  <LinkedInMark className="h-3.5 w-3.5" />
-                  LinkedIn
-                </a>
-              )}
-            </div>
           </div>
 
+          {/* Row 3: Match chip strip — single line with tooltips */}
+          {matchChips.length > 0 && (
+            <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-ui-border-light bg-primary/[0.04] px-5 py-1.5 sm:px-6">
+              <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                Matched
+              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {matchChips.map((chip) => (
+                  <Tooltip key={chip.id}>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                        tabIndex={0}
+                      >
+                        {chip.label}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                      {chip.reason}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+          )}
+
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
-            <div className="shrink-0 border-b border-ui-border-light px-6 sm:px-7">
-              <TabsList className="h-auto w-full justify-start gap-2 rounded-none bg-transparent p-0 text-left">
-                <TabsTrigger
-                  value="overview"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
-                >
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger
-                  value="experience"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
-                >
-                  Experience
-                </TabsTrigger>
-                <TabsTrigger
-                  value="notes"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
-                >
-                  Notes{notes.length > 0 ? ` (${notes.length})` : ""}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="contact"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
-                >
-                  Contact
-                </TabsTrigger>
+            {/* Sticky tabs */}
+            <div className="sticky top-0 z-10 shrink-0 border-b border-ui-border-light bg-card px-5 sm:px-6">
+              <TabsList className="h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0 text-left">
+                {[
+                  { value: "overview", label: "Overview" },
+                  { value: "experience", label: "Experience" },
+                  { value: "notes", label: `Notes${notes.length > 0 ? ` (${notes.length})` : ""}` },
+                  { value: "contact", label: "Contact" },
+                ].map((t) => (
+                  <TabsTrigger
+                    key={t.value}
+                    value={t.value}
+                    className="rounded-none border-b-2 border-transparent px-3 py-2.5 text-[13px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
+                  >
+                    {t.label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <TabsContent value="overview" className="mt-0 space-y-8 px-6 py-6 pb-28 sm:px-7">
-                <div className="rounded-[10px] border border-ai-border bg-ai px-5 py-[18px]">
-                  <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-ai-foreground">
-                    <Sparkles className="h-4 w-4" />
+              {/* OVERVIEW — reorganized: AI summary → Current role → Quick stats → Education → Certs → Skills */}
+              <TabsContent value="overview" className="mt-0 space-y-5 px-5 py-5 pb-24 sm:px-6">
+                {/* AI Summary */}
+                <div className="rounded-[10px] border border-ai-border bg-ai px-4 py-4">
+                  <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-ai-foreground">
+                    <Sparkles className="h-3.5 w-3.5" />
                     AI Summary
                   </div>
-
                   {aiSummaryLoading || loading ? (
                     <div className="space-y-2">
-                      <div className="h-4 w-full animate-pulse rounded bg-ui-border-light" />
-                      <div className="h-4 w-5/6 animate-pulse rounded bg-ui-border-light" />
-                      <div className="h-4 w-3/4 animate-pulse rounded bg-ui-border-light" />
+                      <div className="h-3.5 w-full animate-pulse rounded bg-ui-border-light" />
+                      <div className="h-3.5 w-5/6 animate-pulse rounded bg-ui-border-light" />
+                      <div className="h-3.5 w-3/4 animate-pulse rounded bg-ui-border-light" />
                     </div>
                   ) : (
-                    <p className="text-[15px] leading-7 text-ui-text-secondary">
+                    <p className="text-[14px] leading-6 text-ui-text-secondary">
                       {aiSummary ? highlightText(aiSummary, highlightTerms) : "Summary not available."}
                     </p>
                   )}
                 </div>
 
-                {certifications.length > 0 && (
-                  <section className="space-y-4">
-                    <SectionHeading label="Certifications" />
-                    <div className="space-y-2">
-                      {certifications.map((certification) => (
-                        <div key={certification} className="flex items-start gap-3 text-[15px] text-ui-text-secondary">
-                          <span className="mt-[9px] h-1.5 w-1.5 rounded-full bg-ui-info" />
-                          <span>{certification}</span>
-                        </div>
-                      ))}
+                {/* Current Role — featured card */}
+                {currentRoleEntry && (
+                  <section className="rounded-[10px] border border-primary/25 bg-primary/[0.04] px-4 py-3">
+                    <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                      <span className="inline-block h-2 w-2 rounded-full bg-timeline-current ring-2 ring-timeline-ring" />
+                      Current Role
                     </div>
+                    <p className="text-[15px] font-semibold text-ui-text-primary">
+                      {currentRoleEntry.title ? toTitleCase(currentRoleEntry.title) : "Unknown role"}
+                    </p>
+                    <p className="text-[14px] text-ui-text-secondary">
+                      {currentRoleEntry.company ? toTitleCase(currentRoleEntry.company) : "Unknown company"}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-ui-text-muted">
+                      {formatDateLabelSmart(currentRoleEntry.startDate)} — {formatDateLabelSmart(currentRoleEntry.endDate) || "Present"}
+                      {(() => {
+                        const dur = formatExperienceDuration(currentRoleEntry.startDate, currentRoleEntry.endDate);
+                        return dur ? ` · ${dur}` : "";
+                      })()}
+                    </p>
                   </section>
                 )}
 
-                {educationEntries.length > 0 && (
-                  <section className="space-y-4">
-                    <SectionHeading label="Education" />
-                    <div className="space-y-3">
-                      {educationEntries.map((entry, index) => {
-                        const degreeInfo = formatDegree(
-                          entry.degree && entry.major
-                            ? { degree: entry.degree, major: entry.major }
-                            : entry.degree ?? entry.major,
-                        );
-                        const school = entry.school ? toTitleCase(entry.school) : null;
-                        return (
-                          <div key={`${entry.school}-${index}`} className="space-y-1">
-                            {school && (
-                              <p className="text-[15px] font-semibold text-ui-text-primary">{school}</p>
-                            )}
-                            {degreeInfo.display && (
-                              <p className="text-sm text-ui-text-tertiary">{degreeInfo.display}</p>
-                            )}
-                            <p className="text-[13px] text-ui-text-muted">
-                              {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {primarySkills.length > 0 && (
-                  <section className="space-y-4">
-                    <SectionHeading label="Clinical Skills" />
-                    <div className="flex flex-wrap gap-2">
-                      {(showAllSkills ? allSkills : primarySkills).map((skill) => (
-                        <span key={skill} className="rounded-md bg-tag px-3 py-1.5 text-[14px] text-tag-foreground">
-                          {skill}
+                {/* Quick Stats strip */}
+                {(yearsExperience || candidate.avg_tenure_months || inferredSalary) && (
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-4 py-2.5 text-[13px]">
+                    {yearsExperience ? (
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold text-ui-text-primary">{yearsExperience}y</span>
+                        <span className="text-ui-text-muted">experience</span>
+                      </div>
+                    ) : null}
+                    {candidate.avg_tenure_months ? (
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold text-ui-text-primary">
+                          {Math.round(candidate.avg_tenure_months / 12 * 10) / 10}y
                         </span>
-                      ))}
-                    </div>
-                    {allSkills.length > primarySkills.length && (
-                      <button
-                        type="button"
-                        className="text-[14px] font-medium text-ui-info hover:underline"
-                        onClick={() => setShowAllSkills((current) => !current)}
-                      >
-                        {showAllSkills ? "Show fewer skills" : `Show all ${allSkills.length} skills`}
-                      </button>
-                    )}
-                  </section>
+                        <span className="text-ui-text-muted">avg tenure</span>
+                      </div>
+                    ) : null}
+                    {inferredSalary ? (
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold text-ui-text-primary">{inferredSalary}</span>
+                        <span className="text-ui-text-muted">salary band</span>
+                      </div>
+                    ) : null}
+                  </div>
                 )}
 
-                {error && <p className="text-[14px] text-ui-text-muted">{error}</p>}
+                {/* Wide-mode 2-col grid for ed/certs/skills, stacked otherwise */}
+                <div className={cn("space-y-5", isWide && "sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 sm:space-y-0")}>
+                  {/* Education — compact */}
+                  {educationEntries.length > 0 && (
+                    <section className="space-y-2">
+                      <SectionHeading label="Education" />
+                      <div className="space-y-2">
+                        {educationEntries.map((entry, index) => {
+                          const degreeInfo = formatDegree(
+                            entry.degree && entry.major
+                              ? { degree: entry.degree, major: entry.major }
+                              : entry.degree ?? entry.major,
+                          );
+                          const school = entry.school ? toTitleCase(entry.school) : null;
+                          const yearLabel = formatDateLabelSmart(entry.endDate) || formatDateLabelSmart(entry.startDate);
+                          return (
+                            <div key={`${entry.school}-${index}`} className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-medium text-ui-text-primary">
+                                  {school || "Unknown school"}
+                                </p>
+                                {degreeInfo.display && (
+                                  <p className="truncate text-[12px] text-ui-text-tertiary">{degreeInfo.display}</p>
+                                )}
+                              </div>
+                              {yearLabel && (
+                                <span className="shrink-0 text-[12px] text-ui-text-muted">{yearLabel}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Certifications — inline chips */}
+                  {certifications.length > 0 && (
+                    <section className="space-y-2">
+                      <SectionHeading label="Certifications" />
+                      <div className="flex flex-wrap gap-1.5">
+                        {certifications.map((certification) => (
+                          <span
+                            key={certification}
+                            className="inline-flex items-center rounded-md border border-ui-border-light bg-ui-surface-subtle px-2 py-0.5 text-[12px] text-ui-text-secondary"
+                          >
+                            {certification}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Clinical Skills */}
+                  {primarySkills.length > 0 && (
+                    <section className={cn("space-y-2", isWide && "sm:col-span-2")}>
+                      <SectionHeading label="Clinical Skills" />
+                      <div className="flex flex-wrap gap-1.5">
+                        {(showAllSkills ? allSkills : primarySkills).map((skill) => (
+                          <span key={skill} className="rounded-md bg-tag px-2 py-0.5 text-[12px] text-tag-foreground">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                      {allSkills.length > primarySkills.length && (
+                        <button
+                          type="button"
+                          className="text-[12px] font-medium text-ui-info hover:underline"
+                          onClick={() => setShowAllSkills((current) => !current)}
+                        >
+                          {showAllSkills ? "Show fewer skills" : `Show all ${allSkills.length} skills`}
+                        </button>
+                      )}
+                    </section>
+                  )}
+                </div>
+
+                {error && <p className="text-[13px] text-ui-text-muted">{error}</p>}
               </TabsContent>
 
-              <TabsContent value="experience" className="mt-0 px-6 py-6 pb-28 sm:px-7">
+              {/* EXPERIENCE — tighter timeline */}
+              <TabsContent value="experience" className="mt-0 px-5 py-5 pb-24 sm:px-6">
                 {experienceEntries.length > 0 ? (
-                  <section className="space-y-5">
+                  <section className="space-y-3">
                     <SectionHeading label="Career Timeline" />
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       {experienceEntries.map((entry, index) => {
                         const duration = formatExperienceDuration(entry.startDate, entry.endDate);
                         return (
-                          <div key={`${entry.title}-${entry.company}-${index}`} className="relative flex gap-4">
-                            <div className="relative flex w-5 justify-center">
+                          <div key={`${entry.title}-${entry.company}-${index}`} className="relative flex gap-3">
+                            <div className="relative flex w-4 justify-center">
                               <span
                                 className={cn(
                                   "relative z-10 mt-1 h-2.5 w-2.5 rounded-full",
@@ -777,23 +874,27 @@ export function CandidateDrawer({
                                 )}
                               />
                               {index < experienceEntries.length - 1 && (
-                                <span className="absolute top-4 h-[calc(100%+16px)] w-0.5 bg-timeline-line" />
+                                <span className="absolute top-4 h-[calc(100%+12px)] w-0.5 bg-timeline-line" />
                               )}
                             </div>
 
                             <div className="min-w-0 flex-1 pb-1">
-                              <div className="flex flex-wrap items-start gap-2">
-                                <p className="text-[16px] font-semibold text-ui-text-primary">{entry.title || "Unknown role"}</p>
+                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                <p className="text-[14px] font-semibold text-ui-text-primary">
+                                  {entry.title ? toTitleCase(entry.title) : "Unknown role"}
+                                </p>
                                 {entry.isCurrent && (
-                                  <span className="rounded-[4px] bg-current-badge px-2 py-0.5 text-[12px] font-semibold text-current-badge-foreground">
+                                  <span className="rounded-[4px] bg-current-badge px-1.5 py-0 text-[10px] font-semibold text-current-badge-foreground">
                                     Current
                                   </span>
                                 )}
+                                <span className="ml-auto shrink-0 text-[11px] text-ui-text-muted">
+                                  {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate) || "Present"}
+                                  {duration ? ` · ${duration}` : ""}
+                                </span>
                               </div>
-                              <p className="mt-1 text-[15px] text-ui-text-secondary">{entry.company || "Unknown company"}</p>
-                              <p className="mt-1 text-[13px] text-ui-text-muted">
-                                {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate)}
-                                {duration ? ` · ${duration}` : ""}
+                              <p className="text-[13px] text-ui-text-secondary">
+                                {entry.company ? toTitleCase(entry.company) : "Unknown company"}
                               </p>
                             </div>
                           </div>
@@ -802,7 +903,7 @@ export function CandidateDrawer({
                     </div>
                   </section>
                 ) : (
-                  <p className="text-[15px] text-ui-text-tertiary">Experience history is not available for this profile yet.</p>
+                  <p className="text-[14px] text-ui-text-tertiary">Experience history is not available for this profile yet.</p>
                 )}
               </TabsContent>
 
