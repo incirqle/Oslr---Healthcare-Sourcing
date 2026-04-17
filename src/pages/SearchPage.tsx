@@ -309,14 +309,9 @@ export default function SearchPage() {
     shownCount: candidates.length,
     geoExpanded: !!geoScope?.geo_expanded,
     errored: searchPhase === "error",
+    searchComplete: searchPhase === "done",
   });
   const activeFilters: ActiveFilter[] = classifyFilters(query, filters);
-  const userFiltersForPanel = activeFilters
-    .filter((f) => f.fromUser)
-    .map((f) => ({ label: f.label, group: f.group }));
-  const aiFiltersForPanel = activeFilters
-    .filter((f) => !f.fromUser)
-    .map((f) => ({ label: f.label, group: f.group }));
 
   // Visible candidates list — drip in during streaming
   const visibleCandidates = candidates.slice(0, revealedCount);
@@ -358,11 +353,6 @@ export default function SearchPage() {
               lines={reasoningLines}
               streaming={searchPhase === "running" || searchPhase === "done"}
               onEditQuery={handleEditQuery}
-              userFilters={userFiltersForPanel}
-              aiFilters={aiFiltersForPanel}
-              rawQuery={query}
-              onEditFilters={() => setFilterEditorOpen(true)}
-              zeroResults={searchPhase === "done" && total === 0}
               errored={searchPhase === "error"}
             />
 
