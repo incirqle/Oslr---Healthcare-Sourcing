@@ -1,81 +1,56 @@
 
-## Candidate Drawer — Layout Rebuild
 
-**Goal:** Eliminate the cramped scroll area. Same data, dramatically more breathing room, prioritized by what recruiters actually need (current experience first).
+## The University of Miami problem
 
----
+A query like *"cardiologist at University of Miami"* will under-retrieve for the same reason OrthoSouth did, but worse — because UMiami isn't one company in PDL. It's a constellation of entities:
 
-### 1. Compact sticky header (one tight zone, ~140px instead of ~340px)
+- `university of miami` (the university)
+- `university of miami miller school of medicine`
+- `umiami health` / `uhealth` (clinical practice)
+- `sylvester comprehensive cancer center`
+- `bascom palmer eye institute`
+- `jackson memorial hospital` (primary teaching affiliate, technically separate but staffed by UMiami faculty)
+- Plus dozens of departmental/practice sub-entities
 
-Restructure the header into **3 thin rows** that always stay visible:
+Our current resolver does discover affiliates via `affiliated_profiles` + autocomplete + alt_names, but I suspect three weaknesses for big systems:
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ ‹ Prev   Next ›                            J/K        ⤢   ✕ │  row 1: nav (h-9)
-├──────────────────────────────────────────────────────────────┤
-│ [SL]  Sameer Lodha · Orthopaedic Surgeon                     │  row 2: identity (h-14)
-│       Panorama Orthopedics · Denver, CO · 🔗  [Unreviewed▾] │
-├──────────────────────────────────────────────────────────────┤
-│ ✦ Matched: Panorama Orthopedics · Colorado · Orthopedics    │  row 3: chip strip (h-8)
-└──────────────────────────────────────────────────────────────┘
-   ↓ Tabs (sticky) ↓
-   Overview · Experience · Notes · Contact
+1. **Autocomplete root extraction is too narrow** — `extractRootNames` only matches `^university of [a-z]+`. So for "University of Miami" we'd query autocomplete with "university of miami" — that surfaces `umiami` siblings but misses health-system brand siblings like `uhealth`, `sylvester`, `bascom palmer` that don't share the root token.
+
+2. **Affiliated profiles cap (`slice(0, 5)`)** — UMiami has more than 5 affiliated PDL entities. We're truncating before we've seen UHealth.
+
+3. **Specialty filter is hard-must when company-anchored** — for "cardiologist at UMiami" we still require `cardiology` as a hard keyword. A cardiologist whose PDL profile says only "Associate Professor of Medicine, UMiami Miller School" with sub-fields buried in `experience` would be filtered out. Same precision-vs-recall tradeoff we already accepted for OrthoSouth.
+
+## Proposed plan (no diagnostic needed yet — pattern is well understood)
+
+### Step 1: Diagnostic first (read-only, ~5 PDL credits)
+Before changing code, run the same diagnostic we ran for OrthoSouth, but for UMiami cardiology. Goal: confirm the ceiling and identify which sibling entities (UHealth, Sylvester, Bascom Palmer, Jackson) actually contain the missing cardiologists.
+
+```
+A) job_company_name="university of miami" + cardiology + Miami → baseline
+B) Drop cardiology hard filter → does count jump? (tells us specialty filter is the bottleneck)
+C) experience.company.name="university of miami" → does count jump? (already enabled for company-anchored)
+D) Search affiliated entities individually: uhealth, sylvester, jackson memorial → how many cardiologists?
+E) Total unique people across A+C+D → the true ceiling
 ```
 
-Changes:
-- Avatar shrinks from 64px → 44px
-- Title, company, location, LinkedIn, Fit pill collapse onto one meta line
-- "Why they matched" becomes a thin single-line chip strip (no boxed card, no label header — just `✦ Matched:` prefix + chips). Tooltip on each chip explains the reason.
-- Location and LinkedIn pills are removed as separate row — folded into meta line
-- Tabs become sticky directly under the header so they're always reachable while scrolling
+### Step 2: Targeted code changes (only if diagnostic confirms the gaps)
 
-### 2. Resizable drawer with expand toggle
+**A. Broaden affiliate discovery for health systems** (`index.ts` resolver)
+- Lift the `affiliated_profiles.slice(0, 5)` cap to 15 for health-system anchors (detect via name keywords: "university of", "health system", "medical center", "healthcare").
+- Add a second autocomplete pass keyed off the *brand* token, not just the root pattern. E.g. for "university of miami" also query autocomplete for "uhealth", "miller school", "sylvester" — derived from the alt_names returned by enrich.
 
-- Add an **expand button (⤢)** in the nav row. Clicking toggles between:
-  - **Compact:** `sm:w-[620px]` (current)
-  - **Wide:** `sm:w-[960px]` (or `min(960px, 90vw)`)
-- Persist the preference in `localStorage` (`oslr.drawer.size`) so it survives reloads and applies to next candidate
-- Smooth width transition (`transition-[width] duration-200`)
+**B. Health-system-aware affiliate filtering** (`index.ts`)
+- Currently `nameIsHealthRelated` keeps anything with "medical/hospital/health". For an academic health system, also include affiliated entities whose name contains the parent brand token (e.g. anything starting with "umiami" or containing "miller school").
 
-### 3. Overview tab — reorganized by importance
+**C. Company-anchored specialty softening** (`build-pdl-query.ts`)
+- We already soft-demote specialty when titles encode it. Extend the same logic: when `hasResolvedCompanyAnchor === true` AND the company is a multi-entity health system (e.g. >3 resolved IDs/names), demote specialty to a `should` boost rather than a hard `must`. Academic faculty titles are notoriously generic ("Associate Professor of Medicine") and the specialty lives in summary/skills/department fields PDL doesn't index reliably.
 
-User explicitly wants: **current experience > education > certifications**. New order inside the scrollable content area:
+**D. UI honesty banner**
+- For company-anchored searches that resolved >3 affiliated entities, show an info banner: *"University of Miami spans multiple entities (UHealth, Miller School, Sylvester…). Showing candidates across all affiliated organizations."* So the user understands why a "cardiologist at UMiami" result might list "Sylvester Comprehensive Cancer Center" as employer.
 
-1. **AI Summary** (unchanged, top of overview — the recruiter's quick read)
-2. **Current Role card** (NEW): pulls the primary/current experience entry to the top with title, company, start date, duration, and any current-role context. Visually distinct (subtle border).
-3. **Quick Stats strip**: years experience · avg tenure · salary band (when available) — inline, one row, no headers
-4. **Education** (compact: school + degree on one line, year on the right)
-5. **Certifications** (rendered as inline chips instead of bulleted list — saves ~60% vertical space)
-6. **Clinical Skills** (chip cloud — unchanged but moved below certs)
+### Step 3: Validate
+Re-run diagnostic search after changes. Target: capture ≥80% of the unique-person ceiling identified in Step 1.
 
-In **wide mode**, sections 4–6 lay out as a 2-column grid for further density. In compact mode, they remain stacked.
+### What I need from you
+Approve **Step 1 (diagnostic only)**. It's read-only, costs ~5 PDL credits, and tells us whether the bottleneck is affiliate discovery, specialty filtering, or PDL coverage itself. Then we'll know which subset of B/C/D is actually worth shipping — same disciplined approach as the OrthoSouth fix.
 
-### 4. Experience tab — tighter timeline
-
-- Reduce timeline node spacing (`space-y-5` → `space-y-4`)
-- Compact each entry: title + Current badge on row 1, company on row 2, dates+duration as muted right-aligned tail
-- In **wide mode**, optionally show 2-up cards for older roles (>3 entries collapse into 2 columns)
-
-### 5. Polish
-
-- Reduce content padding `py-6` → `py-5`, `px-7` → `px-6`
-- Sticky tabs get a subtle bottom border so they read as a pinned bar while scrolling
-- `prefers-reduced-motion` disables the width-transition animation
-
----
-
-### Files to edit
-
-- `src/components/CandidateDrawer.tsx` — header restructure, tabs sticky, Overview reorder, Current Role card, expand toggle, wide-mode grid
-- `src/components/ui/sheet.tsx` — verify width prop pattern (likely just className override on `SheetContent`)
-- New tiny hook (inline or `src/hooks/useDrawerSize.ts`) for the localStorage-backed compact/wide state
-
-No DB changes. No API changes. No new dependencies.
-
-### Acceptance
-
-- On 911px viewport in compact mode: tabs visible without scrolling AND ≥ 3 Overview sections visible without scrolling
-- Expand toggle widens to ~960px and back; preference persists across candidates
-- Current role appears at the top of Overview, above education and certifications
-- "Why matched" chips render as a single thin strip with tooltips, no boxed panel
-- All existing data (notes, fit, AI summary, navigation, J/K) continues to work unchanged
