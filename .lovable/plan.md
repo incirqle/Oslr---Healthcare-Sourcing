@@ -1,42 +1,41 @@
 
-The user wants two changes to the AI re-ranker:
-1. Switch model from `google/gemini-3-flash-preview` to the highest Gemini (`google/gemini-3.1-pro-preview`).
-2. Make sure all 50 candidates are actually ranked, not just 15.
+Goal
 
-From earlier investigation: PDL full search was returning only 15 because page size defaults to 15 in `fetchPDLForFullSearch`. The reranker sees what comes back from PDL — so we need to fetch a larger pool (50) before pagination, rerank globally, then return the requested page.
+- Stop the reranker from timing out while still scoring all 50 candidates.
 
-## Plan
+What I found
 
-### 1. Switch model in `ai-rerank.ts`
-- Change `model: "google/gemini-3-flash-preview"` → `model: "google/gemini-3.1-pro-preview"`.
-- Bump `RERANK_TIMEOUT_MS` from 12s → 25s (Pro is slower, especially with tool calls).
-- Keep tool-calling structure identical.
+- `supabase/functions/pdl-search/ai-rerank.ts` currently uses `google/gemini-3.1-pro-preview` with a 25s timeout.
+- The edge logs show the reranker feeding 50 candidates and then failing with `timeout`, so the app falls back to deterministic ranking.
+- The 50-candidate fetch in `supabase/functions/pdl-search/index.ts` is already correct now; the problem is the model call itself.
+- Claude is already in active use in this search stack (`parse-query.ts` and cascade planning), so switching the reranker to Claude fits the existing architecture.
 
-### 2. Fetch a 50-deep pool for page 0, then rerank, then slice
-In `supabase/functions/pdl-search/index.ts`:
-- On page 0 (when AI rerank will run), request `size = max(requestedSize, 50)` from PDL instead of just the page size.
-- Run `mapPerson` + `scoreAndRankResults` on the full 50.
-- Run `rerankWithAI` on the full 50 (it already caps at `RERANK_TOP_N=50`).
-- Slice the reranked array down to the requested page size before returning.
-- Pass the full reranked list (or the necessary count) into the response so pagination still works — store the extra candidates in cache so subsequent page requests don't re-fetch/re-rank.
+Plan
 
-### 3. Cache the reranked pool
-- After reranking, write the full ordered 50 back to the existing `pdl_cache` row (keyed by query hash) so page 1, 2, 3 reads come from cache and don't re-burn LLM tokens.
-- Page > 0 requests skip the AI rerank entirely and just slice from cached order.
+1. Move the reranker off Gemini Pro
+- Replace the reranker’s primary model in `supabase/functions/pdl-search/ai-rerank.ts` with Claude Haiku.
+- Keep the same safe fallback behavior: if AI fails, return the deterministic ranking unchanged.
 
-### 4. Logging
-- Log the model name, candidate count fed in, count scored, and elapsed ms so we can verify "scored 50/50" in next run.
+2. Make the rerank payload/output lighter
+- Stop requiring a reason for every candidate, or make reasons optional.
+- Ask Claude for compact JSON only: `rankings: [{ id, score }]`.
+- This reduces latency and output size, and it is safe because `ai_match_reason` is not currently displayed in the frontend.
 
-## Files to update
-- `supabase/functions/pdl-search/ai-rerank.ts` — model swap + timeout bump + extra log line.
-- `supabase/functions/pdl-search/index.ts` — fetch pool of 50 on page 0, rerank globally, slice for response, cache full ordered pool, skip rerank on page > 0.
+3. Reuse the existing Claude helper cleanly
+- Extend `supabase/functions/pdl-search/ai-router.ts` so the reranker can pass the model, timeout, and a larger token budget if needed for 50 scored items.
+- Keep parser/cascade behavior unchanged.
 
-## Validation
-- Re-run "orthopedic surgeons in Vail Colorado" and confirm logs show:
-  - `[ai-rerank] model=google/gemini-3.1-pro-preview`
-  - `[ai-rerank] scored 50/50 in <ms>ms`
-- Confirm Steadman / Vail-Summit orthopedists dominate the visible top 10.
-- Confirm page 2 loads from cache without a second rerank call.
+4. Keep the 50-wide ranking flow
+- Leave the page-0 fetch/cache logic in `index.ts` as-is so all 50 candidates are still ranked before pagination.
+- Only add clearer reranker logs if needed: provider, model, candidate count, and elapsed ms.
 
-## Risk / tradeoff
-- Pro is ~3-5x slower than Flash. First page latency likely jumps from ~5s to ~10-15s on cold cache. Subsequent pages stay fast (cache hit). Acceptable for the precision win the user is asking for.
+Validation
+
+- Re-run the Vail orthopedic search.
+- Confirm logs show Claude scoring all 50 instead of timing out.
+- Confirm the top results are actual Vail-area orthopedists and the Indiana / hospitalist / non-ortho profiles are pushed down.
+
+Technical details
+
+- Files: `supabase/functions/pdl-search/ai-rerank.ts`, `supabase/functions/pdl-search/ai-router.ts` and possibly a very small `index.ts` logging touch.
+- Recommended model: `claude-haiku-4-5-20251001` for this rerank path, because it is much better suited to fast structured classification than a Pro-style Gemini model.
