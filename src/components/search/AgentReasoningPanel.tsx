@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pencil, Sparkles, AlertCircle } from "lucide-react";
+import { Pencil, Sparkles, AlertCircle, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ReasoningLine = {
@@ -17,6 +17,14 @@ interface AgentReasoningPanelProps {
   onEditQuery?: () => void;
   /** True if search errored — alters tone. */
   errored?: boolean;
+  /** True once the request has resolved — switches to condensed one-line summary. */
+  done?: boolean;
+  /** Total result count, for the condensed summary line. */
+  totalCount?: number;
+  /** Short filter summary (e.g. "Panorama Orthopedics, Colorado, Orthopedics +1"). */
+  filterSummary?: string;
+  /** Open the refine sheet from the condensed line. */
+  onRefine?: () => void;
 }
 
 const TYPING_SPEED_MS = 22; // ~45 chars/sec
@@ -120,11 +128,65 @@ export function AgentReasoningPanel({
   streaming,
   onEditQuery,
   errored = false,
+  done = false,
+  totalCount,
+  filterSummary,
+  onRefine,
 }: AgentReasoningPanelProps) {
   const reducedMotion = useMemo(prefersReducedMotion, []);
-  const useTyping = streaming && !reducedMotion;
+  const useTyping = streaming && !done && !reducedMotion;
   const { completedLines, inProgress, isDone } = useTypedReveal(lines, useTyping);
 
+  // Condensed one-line summary mode — shown after the search resolves.
+  if (done && !errored) {
+    const count = totalCount ?? 0;
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-border/50 bg-card/40 px-4 py-2.5 text-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-foreground">
+            Found <span className="font-semibold">{count.toLocaleString()}</span>{" "}
+            {count === 1 ? "candidate" : "candidates"} for{" "}
+            <span className="text-muted-foreground">"{query}"</span>
+          </span>
+        </div>
+        {filterSummary && (
+          <>
+            <span className="hidden sm:inline text-border" aria-hidden>
+              ·
+            </span>
+            <span className="text-xs text-muted-foreground truncate max-w-full sm:max-w-[40ch]">
+              Filtered by {filterSummary}
+            </span>
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          {onRefine && (
+            <button
+              type="button"
+              onClick={onRefine}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              Refine
+            </button>
+          )}
+          {onEditQuery && (
+            <button
+              type="button"
+              onClick={onEditQuery}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Streaming bubble mode — shown while the search is in flight.
   return (
     <div className="space-y-4">
       {/* User query echo bubble (right-aligned) */}

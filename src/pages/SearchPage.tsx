@@ -313,6 +313,15 @@ export default function SearchPage() {
   });
   const activeFilters: ActiveFilter[] = classifyFilters(query, filters);
 
+  // Compact filter summary for the condensed reasoning line.
+  // Show first 3 labels, then "+N more" if there are extras.
+  const buildFilterSummary = (filters: ActiveFilter[]): string => {
+    if (filters.length === 0) return "";
+    const labels = filters.map((f) => f.label);
+    if (labels.length <= 3) return labels.join(", ");
+    return `${labels.slice(0, 3).join(", ")} +${labels.length - 3} more`;
+  };
+
   // Visible candidates list — drip in during streaming
   const visibleCandidates = candidates.slice(0, revealedCount);
   const skeletonCount = searchPhase === "running" ? Math.max(0, 10 - revealedCount) : 0;
@@ -351,12 +360,18 @@ export default function SearchPage() {
             <AgentReasoningPanel
               query={query}
               lines={reasoningLines}
-              streaming={searchPhase === "running" || searchPhase === "done"}
+              streaming={searchPhase === "running"}
               onEditQuery={handleEditQuery}
               errored={searchPhase === "error"}
+              done={searchPhase === "done"}
+              totalCount={total}
+              filterSummary={buildFilterSummary(activeFilters)}
+              onRefine={() => setFilterEditorOpen(true)}
             />
 
-            {activeFilters.length > 0 && (
+            {/* Active filter bar only while search is running — once done, the
+                condensed reasoning line shows the filter summary + Refine link. */}
+            {searchPhase === "running" && activeFilters.length > 0 && (
               <ActiveFilterBar
                 filters={activeFilters}
                 onRemove={handleRemoveActiveFilter}
