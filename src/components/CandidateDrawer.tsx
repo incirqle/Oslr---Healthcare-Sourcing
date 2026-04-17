@@ -396,7 +396,7 @@ export function CandidateDrawer({
 
   if (!candidate) return null;
 
-  const salary = null; // PDL salary inference is unreliable for healthcare — hidden
+  const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience;
   const profilePicture = enriched?.profile_pic_url || candidate.profile_pic_url;
   const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
