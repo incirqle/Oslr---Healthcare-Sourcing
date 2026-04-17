@@ -531,6 +531,14 @@ export function buildPDLQuery(
     return lowerTitlePool.some(t => t.includes(sp) || (root.length >= 4 && t.includes(root)));
   });
 
+  // Multi-entity health system detection — when the anchor resolved to a
+  // university hospital / IDN with many affiliated entities, academic faculty
+  // titles are notoriously generic ("Associate Professor of Medicine") and the
+  // specialty signal lives buried in summary/skills/experience. Hard-keyword
+  // gating filters out real cardiologists. Demote specialty to a soft boost.
+  const isMultiEntityHealthSystem = Boolean((parsed as Record<string, unknown>)._is_health_system);
+  const softenSpecialtyForHealthSystem = hasResolvedCompanyAnchor && isMultiEntityHealthSystem;
+
   if (allKeywordTerms.length > 0) {
     const kwClauses: Clause[] = [];
     for (const kw of allKeywordTerms.slice(0, 15)) {
@@ -540,11 +548,12 @@ export function buildPDLQuery(
       kwClauses.push({ term: { skills: kw.toLowerCase() } });
     }
     if (kwClauses.length > 0) {
-      // If titles already encode the specialty, demote keyword cluster to a
-      // soft scoring boost. Otherwise keep it as a hard must (existing behavior).
-      if (specialtyAlreadyInTitles) {
+      // If titles already encode the specialty OR we're searching across a
+      // multi-entity health system, demote the keyword cluster to a soft boost.
+      // Otherwise keep it as a hard must (existing behavior).
+      if (specialtyAlreadyInTitles || softenSpecialtyForHealthSystem) {
         should.push({ bool: { should: kwClauses } });
-        console.log(`Specialty satisfied by titles (${specialties.join(",")}) — demoted keyword cluster to soft boost.`);
+        console.log(`Specialty demoted to soft boost (${specialties.join(",")}) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
       } else {
         must.push({ bool: { should: kwClauses } });
       }

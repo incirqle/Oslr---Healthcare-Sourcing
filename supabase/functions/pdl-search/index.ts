@@ -302,12 +302,35 @@ const HEALTH_NAME_KEYWORDS = [
   "saint", "st.", "mount sinai", "cedars", "kaiser", "mayo",
 ];
 
-function nameIsHealthRelated(name: string): boolean {
+/** Indicates the anchor is a multi-entity health system (university hospital,
+ *  IDN, academic medical center). Triggers wider affiliate discovery. */
+const HEALTH_SYSTEM_PARENT_KEYWORDS = [
+  "university of", "health system", "healthcare system", "medical center",
+  "school of medicine", "miller school", "uhealth", "uchealth",
+  "academic medical", "health sciences",
+];
+
+function isHealthSystemParent(name: string): boolean {
   const lower = name.toLowerCase();
-  return HEALTH_NAME_KEYWORDS.some(kw => lower.includes(kw));
+  return HEALTH_SYSTEM_PARENT_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-/** Extract root organizational name from alternative names. */
+function nameIsHealthRelated(name: string, brandTokens: string[] = []): boolean {
+  const lower = name.toLowerCase();
+  if (HEALTH_NAME_KEYWORDS.some(kw => lower.includes(kw))) return true;
+  // Also keep affiliates that share a brand token with the parent (e.g. "umiami",
+  // "miller school", "sylvester") even when no health keyword is present.
+  for (const tok of brandTokens) {
+    const t = tok.toLowerCase().trim();
+    if (t.length >= 4 && lower.includes(t)) return true;
+  }
+  return false;
+}
+
+/** Extract root organizational name from alternative names.
+ *  Health systems get extra "brand sibling" tokens harvested from alt_names so
+ *  we surface entities like "uhealth", "miller school", "sylvester" that don't
+ *  share the parent's "university of" prefix. */
 function extractRootNames(altNames: string[], canonicalName: string): string[] {
   const roots = new Set<string>();
   const uniPattern = /^(university of [a-z]+)/i;
@@ -319,6 +342,32 @@ function extractRootNames(altNames: string[], canonicalName: string): string[] {
   }
   if (canonicalName) {
     roots.add(canonicalName.toLowerCase());
+  }
+  // Brand-sibling token harvest for health-system parents.
+  // Pull short distinctive tokens (uhealth, sylvester, anschutz, miller) from
+  // alt_names so we can run a second autocomplete pass keyed off the brand.
+  const isParent = canonicalName && isHealthSystemParent(canonicalName);
+  if (isParent) {
+    const STOP = new Set([
+      "the", "of", "and", "for", "school", "college", "university", "system",
+      "health", "healthcare", "medical", "medicine", "center", "hospital",
+      "clinic", "department", "division", "institute", "faculty", "campus",
+    ]);
+    for (const name of altNames) {
+      const tokens = name.toLowerCase().split(/[\s,&\-\/]+/).filter(Boolean);
+      for (const tok of tokens) {
+        if (tok.length >= 5 && !STOP.has(tok) && /^[a-z][a-z0-9]+$/.test(tok)) {
+          roots.add(tok);
+        }
+      }
+      // 2-grams that often denote a sibling brand: "miller school", "bascom palmer"
+      for (let i = 0; i < tokens.length - 1; i++) {
+        const a = tokens[i], b = tokens[i + 1];
+        if (a.length >= 4 && b.length >= 4 && !STOP.has(a) && !STOP.has(b)) {
+          roots.add(`${a} ${b}`);
+        }
+      }
+    }
   }
   return [...roots];
 }
@@ -538,8 +587,14 @@ async function resolveCompanyNames(
       }
 
       // ── Step 3: Autocomplete discovery (free) ──
+      // For health-system parents (e.g. "university of miami") we run more passes
+      // because the brand harvest in extractRootNames adds sibling tokens like
+      // "uhealth", "sylvester", "miller school" that don't share the parent root.
       const rootNames = extractRootNames(altNames, pdlName);
-      for (const rootName of rootNames.slice(0, 3)) {
+      const isHealthSystemAnchor = isHealthSystemParent(pdlName);
+      const brandTokensForFilter = rootNames.filter(r => r !== pdlName);
+      const autocompletePassLimit = isHealthSystemAnchor ? 8 : 3;
+      for (const rootName of rootNames.slice(0, autocompletePassLimit)) {
         try {
           const autoUrl = `${pdlBaseUrl}/v5/autocomplete?field=company&text=${encodeURIComponent(rootName)}&size=20&pretty=false`;
           const autoResp = await fetch(autoUrl, {
@@ -551,7 +606,7 @@ async function resolveCompanyNames(
             if (Array.isArray(autoData.data)) {
               for (const item of autoData.data) {
                 const itemName = (item.name || "").toLowerCase();
-                if (itemName && nameIsHealthRelated(itemName)) {
+                if (itemName && nameIsHealthRelated(itemName, brandTokensForFilter)) {
                   if (!altNames.includes(itemName) && itemName !== pdlName) {
                     altNames.push(itemName);
                   }
@@ -563,10 +618,14 @@ async function resolveCompanyNames(
           console.error(`[COMPANY RESOLVE] Autocomplete error for "${rootName}":`, autoErr);
         }
       }
-      console.log(`[COMPANY RESOLVE] Step 3 Autocomplete: total ${altNames.length} alt names after discovery`);
+      console.log(`[COMPANY RESOLVE] Step 3 Autocomplete: total ${altNames.length} alt names after discovery (healthSystem=${isHealthSystemAnchor}, passes=${Math.min(rootNames.length, autocompletePassLimit)})`);
 
       // ── Step 4: Resolve affiliated company IDs to names ──
-      for (const affId of affiliatedIds.slice(0, 5)) {
+      // Lift cap from 5 → 15 for health-system parents. UMiami, Mayo, Cleveland
+      // Clinic, etc. have more than 5 affiliated PDL entities; truncating at 5
+      // guarantees we miss UHealth / Sylvester / Bascom Palmer style siblings.
+      const affiliateCap = isHealthSystemAnchor ? 15 : 5;
+      for (const affId of affiliatedIds.slice(0, affiliateCap)) {
         try {
           const affSearchResp = await fetch(`${pdlBaseUrl}/v5/company/search`, {
             method: "POST",
@@ -755,6 +814,7 @@ Deno.serve(async (req: Request) => {
       return [...new Set(merged.map(s => s.toLowerCase()))];
     })();
     console.log(`[COMPANY RESOLVE] rawCompanies extracted: ${JSON.stringify(rawCompanies)}`);
+    let companyScope: Record<string, unknown> | null = null;
     if (rawCompanies.length > 0 && pdlApiKey) {
       const resolved = await resolveCompanyNames(rawCompanies, pdlApiKey, pdlBaseUrl);
       const resolvedIds = resolved.filter(r => r.pdl_id).map(r => r.pdl_id!);
@@ -763,6 +823,7 @@ Deno.serve(async (req: Request) => {
       const resolvedLinkedinUrls = resolved.filter(r => r.linkedin_url).map(r => r.linkedin_url!);
       const resolvedAltNames = resolved.flatMap(r => r.alt_names);
       const resolvedAffiliatedIds = resolved.flatMap(r => r.affiliated_ids);
+      const resolvedAffiliatedNames = resolved.flatMap(r => r.affiliated_names);
       const resolvedWildcards = resolved.flatMap(r => r.wildcards);
 
       if (resolvedIds.length > 0) {
@@ -783,15 +844,35 @@ Deno.serve(async (req: Request) => {
       if (resolvedAffiliatedIds.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_affiliated_ids = resolvedAffiliatedIds;
       }
+      if (resolvedAffiliatedNames.length > 0) {
+        (parsed as Record<string, unknown>)._resolved_company_affiliated_names = resolvedAffiliatedNames;
+      }
       if (resolvedWildcards.length > 0) {
         (parsed as Record<string, unknown>)._resolved_company_wildcards = resolvedWildcards;
       }
+
+      // Multi-entity scope detection — used by frontend to surface a banner.
+      const isHealthSystem = resolved.some(r => r.pdl_name && isHealthSystemParent(r.pdl_name));
+      const uniqueAffiliates = [...new Set(resolvedAffiliatedNames)];
+      if (isHealthSystem || uniqueAffiliates.length > 3) {
+        (parsed as Record<string, unknown>)._is_health_system = true;
+      }
+      companyScope = {
+        anchor_name: resolved[0]?.pdl_name ?? rawCompanies[0] ?? null,
+        is_health_system: isHealthSystem,
+        affiliated_count: uniqueAffiliates.length,
+        sample_affiliates: uniqueAffiliates.slice(0, 5),
+        multi_entity: isHealthSystem || uniqueAffiliates.length > 3,
+      };
+
       console.log("[COMPANY] Enhanced resolution:", {
         ids: resolvedIds,
         names: resolvedNames,
         altNames: resolvedAltNames.length,
         affiliatedIds: resolvedAffiliatedIds,
+        affiliatedNames: uniqueAffiliates.length,
         wildcards: resolvedWildcards,
+        isHealthSystem,
       });
     }
 
@@ -1024,6 +1105,7 @@ Deno.serve(async (req: Request) => {
         cascade_used: cascadeUsed,
         cascade_plan: cascadePlan,
         geo_scope: geoScope,
+        company_scope: companyScope,
         ...aiRerankMeta,
         timing_ms: Date.now() - requestStart,
       }),

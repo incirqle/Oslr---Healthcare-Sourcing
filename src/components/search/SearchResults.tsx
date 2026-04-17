@@ -76,6 +76,14 @@ interface GeoScope {
   cascade_steps_used?: string[];
 }
 
+interface CompanyScope {
+  anchor_name?: string | null;
+  is_health_system?: boolean;
+  affiliated_count?: number;
+  sample_affiliates?: string[];
+  multi_entity?: boolean;
+}
+
 export type SortOption = "relevance" | "recent" | "experienced" | "senior";
 
 interface SearchResultsProps {
@@ -101,6 +109,7 @@ interface SearchResultsProps {
   onPageChange?: (page: number) => void;
   isSaving?: boolean;
   geoScope?: GeoScope | null;
+  companyScope?: CompanyScope | null;
   sort?: SortOption;
   onSortChange?: (s: SortOption) => void;
 }
@@ -347,6 +356,7 @@ export function SearchResults({
   onPageChange,
   isSaving = false,
   geoScope = null,
+  companyScope = null,
   sort = "relevance",
   onSortChange,
 }: SearchResultsProps) {
@@ -439,6 +449,31 @@ export function SearchResults({
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           <MapPin className="h-4 w-4 shrink-0 text-amber-400" />
           {geoBannerText}
+        </div>
+      )}
+
+      {companyScope?.multi_entity && companyScope.anchor_name && (
+        <div className="flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-foreground/90">
+          <SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <span className="font-medium">{toTitleCase(companyScope.anchor_name)}</span>{" "}
+            spans multiple affiliated entities
+            {(companyScope.sample_affiliates?.length ?? 0) > 0 && (
+              <>
+                {" "}— including{" "}
+                <span className="text-muted-foreground">
+                  {companyScope.sample_affiliates!
+                    .slice(0, 3)
+                    .map((n) => toTitleCase(n))
+                    .join(", ")}
+                  {companyScope.affiliated_count && companyScope.affiliated_count > 3
+                    ? `, +${companyScope.affiliated_count - 3} more`
+                    : ""}
+                </span>
+              </>
+            )}
+            . Showing candidates across all of them.
+          </div>
         </div>
       )}
 
