@@ -347,6 +347,16 @@ export function buildPDLQuery(
       ? rawCompanyList.map(normalizeCompany)
       : ((parsed.current_companies as string[]) || []).map(normalizeCompany));
 
+  // Company anchor signal — when we have a resolved PDL company ID as a hard
+  // filter, the employer alone is a very strong constraint. We use this to
+  // safely relax the strict O*NET role filter and aggressive title exclusions
+  // that would otherwise drop legitimate doctors whose profiles lack O*NET
+  // tags. This ONLY affects company-anchored searches; intent-only searches
+  // (e.g. "orthopedic surgeons in Vail") keep all strict filters.
+  const hasResolvedCompanyAnchor =
+    Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids) &&
+    ((parsed as Record<string, unknown>)._resolved_company_ids as string[]).length > 0;
+
   const pastCompanies = ((parsed.past_companies as string[]) || []).map(normalizeCompany);
   const anyCompanies = ((parsed.any_companies as string[]) || []).map(normalizeCompany);
 
