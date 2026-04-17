@@ -27,7 +27,7 @@ export default function SearchPage() {
   const [step, setStep] = useState<SearchStep>("hero");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ParsedFilters>({
-    job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [],
+    job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [], salary_preset: null,
   });
   const [filterTotal, setFilterTotal] = useState(0);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -79,6 +79,7 @@ export default function SearchPage() {
         keywords: parsed.required_keywords || parsed.keywords || [],
         experience_years: parsed.min_years_experience || null,
         specialties: parsed.specialties || (parsed.specialty ? [parsed.specialty] : []),
+        salary_preset: null,
       };
 
       setFilters(mappedFilters);
@@ -105,6 +106,7 @@ export default function SearchPage() {
             companies: filters.companies,
             keywords: filters.keywords,
             specialties: filters.specialties,
+            salary_preset: filters.salary_preset ?? null,
           },
           parsed: parsedPayload,
           page: searchPage - 1,
@@ -138,7 +140,7 @@ export default function SearchPage() {
         match_score: r.relevance_score ?? 75,
         // V2 enriched fields
         profile_pic_url: r.profile_pic_url || null,
-        inferred_salary: null, // PDL salary inference is unreliable for healthcare — do not display
+        inferred_salary: r.inferred_salary || null,
         years_experience: r.years_experience || r.inferred_years_experience || 0,
         clinical_skills: r.clinical_skills || [],
         has_contact_info: r.has_contact_info || false,
@@ -198,7 +200,7 @@ export default function SearchPage() {
   const handleReset = () => {
     setStep("hero");
     setQuery("");
-    setFilters({ job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [] });
+    setFilters({ job_titles: [], locations: [], companies: [], keywords: [], experience_years: null, specialties: [], salary_preset: null });
     setCandidates([]);
     setTotal(0);
     setPage(1);

@@ -18,13 +18,13 @@ import {
   cleanDisplayName,
   formatDateLabel,
   formatExperienceDuration,
-  formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
   toStringArray,
 } from "@/components/search/candidate-ui";
+import { CandidateSalaryBadge } from "@/components/search/CandidateSalaryBadge";
 
 interface CandidateDrawerProps {
   open: boolean;
@@ -396,7 +396,7 @@ export function CandidateDrawer({
 
   if (!candidate) return null;
 
-  const salary = null; // PDL salary inference is unreliable for healthcare — hidden
+  const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience;
   const profilePicture = enriched?.profile_pic_url || candidate.profile_pic_url;
   const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
@@ -475,12 +475,11 @@ export function CandidateDrawer({
                   {locationLabel}
                 </div>
               )}
-              {salary && (
-                <div className="rounded-md bg-salary px-3 py-1.5 text-[14px] font-medium text-salary-foreground">{salary}</div>
-              )}
-              {(yearsExperience ?? 0) > 0 && (
-                <div className="rounded-md bg-ui-surface-subtle px-3 py-1.5 text-sm text-ui-text-tertiary">{yearsExperience} yrs exp</div>
-              )}
+              <CandidateSalaryBadge
+                inferredSalary={inferredSalary}
+                yearsExperience={yearsExperience}
+                size="md"
+              />
               {linkedinUrl && (
                 <a
                   href={linkedinUrl}
