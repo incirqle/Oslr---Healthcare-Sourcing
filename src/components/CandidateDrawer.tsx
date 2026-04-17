@@ -2,18 +2,33 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Building2,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Lock,
   Mail,
   MapPin,
   Phone,
   Sparkles,
+  StickyNote,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FitPill } from "@/components/search/FitPill";
+import { useCandidateFits, useSetCandidateFit } from "@/hooks/useCandidateFit";
+import {
+  useCandidateNotes,
+  useAddCandidateNote,
+  useDeleteCandidateNote,
+} from "@/hooks/useCandidateNotes";
+import type { ParsedFilters } from "@/components/search/FilterReview";
+import { buildMatchChips } from "@/components/search/match-chips";
+import { collectHighlightTerms, highlightText } from "@/components/search/highlight";
 import {
   cleanDisplayName,
   formatDateLabelSmart,
