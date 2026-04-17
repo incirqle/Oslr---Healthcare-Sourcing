@@ -710,7 +710,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 4: Full search
-    const fullCacheKey = await getPDLCacheKey(pdlQuery, size, scroll_token);
+    // On page 0 we fetch a deeper pool (max(size, 50)) so the AI re-ranker can
+    // score the global top 50 instead of just the first page. The full ordered
+    // pool is cached so subsequent pages slice from it without burning LLM tokens.
+    const RERANK_POOL_SIZE = 50;
+    const fetchSize = page === 0 ? Math.max(size, RERANK_POOL_SIZE) : size;
+    const fullCacheKey = await getPDLCacheKey(pdlQuery, fetchSize, scroll_token);
     const cached = await getDBCache(adminClient, fullCacheKey);
 
     let results: Record<string, unknown>[];
@@ -719,12 +724,21 @@ Deno.serve(async (req: Request) => {
     let cascadeUsed = false;
     let cascadePlan: CascadeStep[] = [];
     let cascadeWinningStep: CascadeStep | null = null;
+    let cachedFormatted: Record<string, unknown>[] | null = null;
 
     if (cached && cached.data.length > 0) {
       console.log(`[SEARCH] Cache hit: ${cached.total} total, ${cached.data.length} results`);
-      results = cached.data as Record<string, unknown>[];
       total = cached.total;
       returnScrollToken = cached.scroll_token;
+      // Cache may hold either raw PDL profiles (legacy) or already-formatted+reranked
+      // candidates. Detect by checking for the relevance_score field we add in formatting.
+      const first = cached.data[0] as Record<string, unknown>;
+      if (first && typeof first.relevance_score === "number") {
+        cachedFormatted = cached.data as Record<string, unknown>[];
+        results = [];
+      } else {
+        results = cached.data as Record<string, unknown>[];
+      }
     } else {
       const liveKey = Deno.env.get("PDL_API_KEY");
       if (!liveKey) {
@@ -735,7 +749,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const pdlData = await fetchPDLForFullSearch(
-        pdlQuery, liveKey, page, size, scroll_token, fullCacheKey, adminClient
+        pdlQuery, liveKey, page, fetchSize, scroll_token, fullCacheKey, adminClient
       );
 
       if ((pdlData as Record<string, unknown>)._error) {
@@ -761,7 +775,7 @@ Deno.serve(async (req: Request) => {
         };
 
         const cascadeResult = await runCascade(
-          pdlQuery, cascadePayload, "clinical_search", total, fullCacheKey, adminClient, size
+          pdlQuery, cascadePayload, "clinical_search", total, fullCacheKey, adminClient, fetchSize
         );
 
         if (cascadeResult.profiles.length > results.length) {
@@ -776,22 +790,42 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Step 5: Format results
-    const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
-
-    // Step 5b: AI re-rank top 50 (page 0 only — paginated requests reuse cached order)
-    let formattedResults = deterministicResults;
+    // Step 5: Format + AI rerank
+    let formattedResults: Record<string, unknown>[];
     let aiRerankMeta: Record<string, unknown> = { ai_reranked: false };
-    if (page === 0 && deterministicResults.length > 0) {
-      const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
-      formattedResults = rerank.candidates;
-      aiRerankMeta = {
-        ai_reranked: rerank.ai_reranked,
-        ai_rerank_count: rerank.ai_rerank_count ?? null,
-        ai_rerank_ms: rerank.ai_rerank_ms ?? null,
-        ai_rerank_error: rerank.ai_rerank_error ?? null,
-      };
+
+    if (cachedFormatted) {
+      // Cache hit on already-formatted+reranked pool — just use it
+      formattedResults = cachedFormatted;
+      aiRerankMeta = { ai_reranked: true, ai_rerank_count: cachedFormatted.length, ai_rerank_cached: true };
+    } else {
+      const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
+      formattedResults = deterministicResults;
+
+      // AI rerank: page 0 only — paginated requests reuse cached order
+      if (page === 0 && deterministicResults.length > 0) {
+        const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
+        formattedResults = rerank.candidates as unknown as Record<string, unknown>[];
+        aiRerankMeta = {
+          ai_reranked: rerank.ai_reranked,
+          ai_rerank_count: rerank.ai_rerank_count ?? null,
+          ai_rerank_ms: rerank.ai_rerank_ms ?? null,
+          ai_rerank_error: rerank.ai_rerank_error ?? null,
+        };
+
+        // Cache the full ordered pool so pagination back to page 0 (or page>0)
+        // can serve from cache without re-burning LLM tokens.
+        if (rerank.ai_reranked) {
+          setDBCache(adminClient, fullCacheKey, total, formattedResults, returnScrollToken);
+        }
+      }
     }
+
+    // Slice the cached/reranked pool down to the requested page window.
+    // For page 0 with fetchSize=50 and size=25, this returns the top 25 reranked.
+    const pageStart = page * size;
+    const pageEnd = pageStart + size;
+    const pagedResults = formattedResults.slice(pageStart, pageEnd);
 
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
@@ -847,7 +881,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        results: formattedResults,
+        results: pagedResults,
         total,
         parsed,
         parsed_categories: categories,

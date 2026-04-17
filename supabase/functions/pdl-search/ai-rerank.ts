@@ -16,8 +16,9 @@
 import type { FormattedCandidate } from "./format-results.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const RERANK_MODEL = "google/gemini-3.1-pro-preview";
 const RERANK_TOP_N = 50;
-const RERANK_TIMEOUT_MS = 12000;
+const RERANK_TIMEOUT_MS = 25000;
 
 interface RerankItem {
   id: string;
@@ -116,6 +117,8 @@ export async function rerankWithAI(
 
   const userMessage = `RECRUITER INTENT:\n${intent}\n\nCANDIDATES (${briefs.length}):\n${JSON.stringify(briefs)}`;
 
+  console.log(`[ai-rerank] model=${RERANK_MODEL} feeding ${briefs.length} candidates`);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RERANK_TIMEOUT_MS);
 
@@ -128,7 +131,7 @@ export async function rerankWithAI(
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: RERANK_MODEL,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage },
