@@ -377,9 +377,19 @@ export function buildPDLQuery(
   // that would otherwise drop legitimate doctors whose profiles lack O*NET
   // tags. This ONLY affects company-anchored searches; intent-only searches
   // (e.g. "orthopedic surgeons in Vail") keep all strict filters.
+  // FIX: detect anchor from ANY successful resolution signal (IDs, canonical names,
+  // websites, LinkedIn URLs, or wildcard patterns). PDL Autocomplete frequently
+  // returns a canonical name without an ID — when that happens we still have a
+  // strong company-name hard filter, which is enough to safely relax role strictness.
+  // Without this, "doctors at Panorama Orthopedics" silently fell back to strict mode
+  // because no ID was resolved → only 22 hits instead of the true ceiling (~29).
+  const _parsedAny = parsed as Record<string, unknown>;
   const hasResolvedCompanyAnchor =
-    Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids) &&
-    ((parsed as Record<string, unknown>)._resolved_company_ids as string[]).length > 0;
+    (Array.isArray(_parsedAny._resolved_company_ids) && (_parsedAny._resolved_company_ids as unknown[]).length > 0) ||
+    (Array.isArray(_parsedAny._resolved_company_names) && (_parsedAny._resolved_company_names as unknown[]).length > 0) ||
+    (Array.isArray(_parsedAny._resolved_company_websites) && (_parsedAny._resolved_company_websites as unknown[]).length > 0) ||
+    (Array.isArray(_parsedAny._resolved_company_linkedin_urls) && (_parsedAny._resolved_company_linkedin_urls as unknown[]).length > 0) ||
+    (Array.isArray(_parsedAny._resolved_company_wildcards) && (_parsedAny._resolved_company_wildcards as unknown[]).length > 0);
 
   const pastCompanies = ((parsed.past_companies as string[]) || []).map(normalizeCompany);
   const anyCompanies = ((parsed.any_companies as string[]) || []).map(normalizeCompany);
