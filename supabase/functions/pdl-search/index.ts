@@ -710,6 +710,7 @@ Deno.serve(async (req: Request) => {
     let returnScrollToken: string | null = null;
     let cascadeUsed = false;
     let cascadePlan: CascadeStep[] = [];
+    let cascadeWinningStep: CascadeStep | null = null;
 
     if (cached && cached.data.length > 0) {
       console.log(`[SEARCH] Cache hit: ${cached.total} total, ${cached.data.length} results`);
@@ -759,7 +760,10 @@ Deno.serve(async (req: Request) => {
           results = cascadeResult.profiles;
           cascadeUsed = true;
           cascadePlan = cascadeResult.plan;
-          console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps`);
+          cascadeWinningStep = cascadeResult.winningStep;
+          // Surface widened total so UI doesn't say "0 results" while showing people
+          if (cascadeResult.total > total) total = cascadeResult.total;
+          console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps (winning step: ${cascadeWinningStep})`);
         }
       }
     }
