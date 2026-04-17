@@ -1,84 +1,66 @@
+<final-text>What I found
 
-Goal
+- The current live query for “orthopedic surgeons in Vail Colorado” is already local and state-bounded:
+  - localities: `vail`, `edwards`, `avon`, `eagle`, `minturn`
+  - state: `colorado`
+  - `cascade_used = false`
+  - preview/full total is only `1`
+- So the active problem is not geography anymore. The geo changes were part of the confusion, but the current bad behavior is now under-retrieval.
+- The real failure is in `build-pdl-query.ts`:
+  - surgeon/physician intent is one hard requirement
+  - orthopedic specialty text is another hard requirement
+  - together they over-constrain the search and exclude real local physicians whose records are classified as doctors/surgeons but do not repeat “orthopedic” in the exact searched fields
+- There is also a second bug:
+  - “doctor/doctors” intent only looks at `parsed.job_titles`
+  - when that array is empty, the query falls back to generic `job_title_role = health`
+  - that is why broader Vail doctor searches admit false positives like audiology doctorates
 
-Fix the real geography bug causing Vail searches to return Avon, CT and Eagle, ID, while keeping cascade conservative.
+Plan
 
-What I found
+1. Stop changing geography again
+- Keep the current Colorado-bounded Vail corridor logic.
+- Do not touch `config.ts` unless a later validation proves a locality list is wrong.
 
-- The main problem is not the cascade threshold.
-- The current base query expands `vail` to nearby locality names (`edwards`, `avon`, `eagle`, `minturn`) but then drops the Colorado state constraint.
-- That means PDL is matching any `avon` or `eagle` in the US, which is why you’re seeing Connecticut and Idaho.
-- The logs prove it:
-  - preview total is 7 on the local query
-  - built query contains locality terms only
-  - returned results include `Avon, Connecticut` and `Eagle, Idaho`
-- So the bug is: nearby-city expansion is being treated as plain city-name matching instead of “these cities in Colorado”.
+2. Rebuild specialty matching in `build-pdl-query.ts`
+- Keep physician/surgeon intent as the hard filter.
+- Make orthopedic specialty count as satisfied by title/title-synonym matches like:
+  - `orthopedic surgeon`
+  - `orthopaedic surgeon`
+  - `orthopedist`
+- If those title signals exist, do not also force a separate orthopedic keyword must-clause.
+- Use specialty text as a strong boost/fallback signal instead of a second independent hard gate.
 
-Why it got worse
+3. Fix doctor intent detection in `build-pdl-query.ts`
+- Detect physician intent from:
+  - `job_titles`
+  - `title_synonyms`
+  - `required_keywords`
+  - `keywords`
+  - credentials
+- This prevents “doctors in Vail” from degrading to generic healthcare.
 
-- The recent change correctly removed the default Denver metro widening for Vail.
-- But the logic in `build-pdl-query.ts` currently skips adding `location_region` whenever nearby-city expansion is active.
-- For ambiguous city names, that makes results broader and less accurate than before.
+4. Change fallback order in `index.ts`
+- If local Vail results are under 2:
+  - first relax semantics inside the same local Colorado corridor
+  - only after that consider metro/state widening
+- So the order becomes: local exact -> local semantic fallback -> geo expansion.
 
-One-go fix
-
-1. Fix the base location query in `build-pdl-query.ts`
-- Keep nearby-city expansion for Vail.
-- But always keep the state constraint when the user asked for a state.
-- Build location logic as:
-  - `location_region = colorado`
-  - AND `location_locality IN [vail, edwards, avon, eagle, minturn]`
-- Do not drop the state filter just because radius/nearby expansion was used.
-
-2. Make locality expansion state-safe
-- Apply the same rule to all expanded-city searches, not just Vail.
-- If a city is ambiguous and the parser has a state, the query must remain state-bounded.
-- Preserve metro-only behavior for true metro searches, but never at the cost of removing the requested state.
-
-3. Tighten cascade behavior in `index.ts`
-- Keep the threshold at `total < 2`.
-- Only widen after the state-bounded local search fails.
-- When widening, expand in this order:
-  1. requested city + nearby cities within requested state
-  2. metro (only if appropriate)
-  3. full state as last resort
-- Use the actually applied step, not the planned step list, when reporting scope.
-
-4. Fix misleading scope metadata
-- Current `geo_scope.effective_scope` is derived from the whole cascade plan, which can overstate what happened.
-- Return metadata based on the step that actually produced the winning results.
-- Example:
-  - local if the Colorado-bounded Vail corridor succeeded
-  - metro only if metro expansion actually ran and won
-  - state only if state expansion actually ran and won
-
-5. Clean up the small frontend issues exposed in this flow
-- `FilterReview.tsx`: duplicate badge keys for repeated values like `orthopedics`
-- `SearchResults.tsx`: ref warning on a function component
-- These are not the search bug, but they should be fixed in the same pass so the flow is clean and debug output is trustworthy.
+5. Keep metadata honest
+- Return whether the winning fallback was:
+  - still local
+  - semantic only
+  - actual geo expansion
+- Update the UI only if needed so it does not imply geography changed when it did not.
 
 Files to update
 
 - `supabase/functions/pdl-search/build-pdl-query.ts`
 - `supabase/functions/pdl-search/index.ts`
-- possibly `supabase/functions/pdl-search/config.ts` only if nearby-city tiers need minor cleanup
-- `src/components/search/FilterReview.tsx`
-- `src/components/search/SearchResults.tsx`
+- optionally `src/components/search/SearchResults.tsx` for clearer fallback messaging
 
-Expected result
+Expected outcome
 
-- “orthopedic surgeons in Vail, Colorado” stays in Colorado.
-- Nearby results can include Edwards/Avon/Eagle/Minturn, but not Avon, CT or Eagle, ID.
-- Cascade only happens when the Colorado-local search is truly under 2 results.
-- The UI accurately tells you whether the result set is local, metro, or state-expanded.
-
-Technical details
-
-- Root cause is this branch in `build-pdl-query.ts`:
-  - state filter is only added when there is no radius expansion
-  - for Vail, radius expansion adds nearby cities, so `location_region: colorado` is omitted
-- Current logs confirm the failure pattern:
-  - parsed location = Vail, Colorado
-  - built query = only locality clauses
-  - results = out-of-state city-name collisions
-- This is a query-construction bug first, a cascade bug second.
+- “Orthopedic surgeons in Vail, Colorado” stays local.
+- The query stops filtering out likely orthopedists just because their profile lacks exact orthopedic keyword text.
+- “Doctors in Vail” becomes physician-only instead of generic healthcare.
+- Geography only widens after the local semantic pass still produces under 2 results.</final-text>
