@@ -106,6 +106,7 @@ export default function SearchPage() {
             companies: filters.companies,
             keywords: filters.keywords,
             specialties: filters.specialties,
+            salary_preset: filters.salary_preset ?? null,
           },
           parsed: parsedPayload,
           page: searchPage - 1,
