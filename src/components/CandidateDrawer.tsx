@@ -878,7 +878,7 @@ export function CandidateDrawer({
                                 },
                               );
                             }}
-                            className="inline-flex items-center gap-1 opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+                            className="inline-flex items-center gap-1 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                             aria-label="Delete note"
                           >
                             <Trash2 className="h-3 w-3" />
