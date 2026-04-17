@@ -147,7 +147,8 @@ export function buildPDLQuery(
   parsed: Record<string, unknown>,
   filters: Record<string, unknown>,
   _sandbox = false,
-  strictFilterMode = false
+  strictFilterMode = false,
+  omitSpecialtyMust = false
 ): Record<string, unknown> {
   let wildcardCount = 0;
   const MAX_WILDCARDS = 20;
@@ -559,23 +560,31 @@ export function buildPDLQuery(
         // 25-result PDL window. Now add a STRONG must-clause that requires SOME
         // specialty signal (title wildcard OR sub_role OR onet OR skill OR summary),
         // while keeping the multi-tier soft boosts for ranking lift.
-        const mustHaveSpecialty: Clause[] = [];
-        for (const kw of allKeywordTerms.slice(0, 8)) {
-          const lower = kw.toLowerCase();
-          // Match across the broadest possible specialty surfaces
-          mustHaveSpecialty.push({ match: { "job_title.text": kw } });
-          mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
-          mustHaveSpecialty.push({ term: { skills: lower } });
-          mustHaveSpecialty.push({ match: { summary: kw } });
-          // Title wildcard catches "interventional cardiology", "cardiac electrophysiology" etc.
-          const root = lower.replace(/(s|ic|ics|y)$/i, "");
-          if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
-            wildcardCount++;
-            mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+        //
+        // CASCADE FALLBACK (April 17 2026): When omitSpecialtyMust=true the caller
+        // (index.ts) has detected the must-clause was too strict (returned <40
+        // results for a multi-entity health system) and is asking us to rebuild
+        // with specialty as soft-boost only. This recovers recall while the
+        // specialty-aware ranker still surfaces real specialists at the top.
+        if (!omitSpecialtyMust) {
+          const mustHaveSpecialty: Clause[] = [];
+          for (const kw of allKeywordTerms.slice(0, 8)) {
+            const lower = kw.toLowerCase();
+            // Match across the broadest possible specialty surfaces
+            mustHaveSpecialty.push({ match: { "job_title.text": kw } });
+            mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
+            mustHaveSpecialty.push({ term: { skills: lower } });
+            mustHaveSpecialty.push({ match: { summary: kw } });
+            // Title wildcard catches "interventional cardiology", "cardiac electrophysiology" etc.
+            const root = lower.replace(/(s|ic|ics|y)$/i, "");
+            if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
+              wildcardCount++;
+              mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+            }
           }
-        }
-        if (mustHaveSpecialty.length > 0) {
-          must.push({ bool: { should: mustHaveSpecialty } });
+          if (mustHaveSpecialty.length > 0) {
+            must.push({ bool: { should: mustHaveSpecialty } });
+          }
         }
 
         // ADDITIONAL soft-boost tiers for ranking lift among matches
@@ -586,7 +595,7 @@ export function buildPDLQuery(
           softShould.push({ term: { skills: kw.toLowerCase() } });
         }
         should.push({ bool: { should: kwClauses } });
-        console.log(`Specialty REQUIRED via OR-clause (${specialties.join(",")}) — ${mustHaveSpecialty.length} surfaces, reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system" : "satisfied by titles"}`);
+        console.log(`Specialty ${omitSpecialtyMust ? "SOFT-BOOST ONLY (cascade fallback)" : "REQUIRED via OR-clause"} (${specialties.join(",")}), reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system" : "satisfied by titles"}`);
       } else {
         must.push({ bool: { should: kwClauses } });
       }
