@@ -468,7 +468,7 @@ export function buildPDLQuery(
     // ALWAYS use must — company is a hard requirement when specified
     if (dedupedClauses.length > 0) {
       must.push({ bool: { should: dedupedClauses } });
-      console.log(`Company MUST clause (hard filter): ${dedupedClauses.length} clauses (IDs: ${resolvedIds}, names: ${resolvedNames}, altNames: ${resolvedAltNames.length}, wildcards: ${resolvedWildcards})`);
+      console.log(`Company MUST clause (hard filter): ${dedupedClauses.length} clauses (IDs: ${resolvedIds}, names: ${resolvedNames}, altNames: ${resolvedAltNames.length}, wildcards: ${resolvedWildcards}, experienceArrayBoost: ${hasResolvedCompanyAnchor})`);
     }
   }
 
