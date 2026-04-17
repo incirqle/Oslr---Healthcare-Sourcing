@@ -1,8 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, SlidersHorizontal, RotateCcw, Loader2, DollarSign } from "lucide-react";
-import { findPresetById } from "@/constants/clinicalSalaryPresets";
-import type { SalaryPresetSelection } from "./ClinicalSalaryFilter";
+import { Search, SlidersHorizontal, RotateCcw, Loader2 } from "lucide-react";
 
 export interface ParsedFilters {
   job_titles: string[];
@@ -11,7 +9,6 @@ export interface ParsedFilters {
   keywords: string[];
   experience_years?: number | null;
   specialties: string[];
-  salary_preset?: SalaryPresetSelection | null;
 }
 
 interface FilterReviewProps {
@@ -76,17 +73,6 @@ export function FilterReview({ query, filters, total, onEdit, onReset, onRunSear
                 {filters.experience_years}+ years
               </Badge>
             )}
-            {filters.salary_preset &&
-              (() => {
-                const preset = findPresetById(filters.salary_preset.id);
-                if (!preset) return null;
-                return (
-                  <Badge variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal inline-flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" />
-                    {preset.label} · {preset.rangeLabel}
-                  </Badge>
-                );
-              })()}
           </div>
 
           <button onClick={onEdit} className="text-xs text-primary font-medium hover:underline mt-2 inline-block">

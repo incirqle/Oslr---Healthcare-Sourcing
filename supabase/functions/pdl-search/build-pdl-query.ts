@@ -316,32 +316,6 @@ export function buildPDLQuery(
   }
 
   // ═══════════════════════════════════════════
-  // CLINICAL SALARY PRESET — optional additive filter
-  // Layered ON TOP of sub_role / O*NET / company-anchor logic.
-  // inferred_salary is a KEYWORD field — must use terms (not range).
-  // experienceHint is opt-in via requireExperience flag (lower fill rate on nursing).
-  // ═══════════════════════════════════════════
-  const salaryPreset = filters.salary_preset as
-    | { id?: string; salaryBuckets?: string[]; jobTitleClasses?: string[]; experienceHint?: { gte?: number; lte?: number }; requireExperience?: boolean }
-    | null
-    | undefined;
-  if (salaryPreset && Array.isArray(salaryPreset.salaryBuckets) && salaryPreset.salaryBuckets.length > 0) {
-    filterClauses.push({ terms: { inferred_salary: salaryPreset.salaryBuckets } });
-    if (Array.isArray(salaryPreset.jobTitleClasses) && salaryPreset.jobTitleClasses.length > 0) {
-      filterClauses.push({ terms: { job_title_class: salaryPreset.jobTitleClasses } });
-    }
-    if (salaryPreset.requireExperience && salaryPreset.experienceHint) {
-      const expRange: Record<string, number> = {};
-      if (typeof salaryPreset.experienceHint.gte === "number") expRange.gte = salaryPreset.experienceHint.gte;
-      if (typeof salaryPreset.experienceHint.lte === "number") expRange.lte = salaryPreset.experienceHint.lte;
-      if (Object.keys(expRange).length > 0) {
-        filterClauses.push({ range: { inferred_years_experience: expRange } });
-      }
-    }
-    console.log(`[SALARY PRESET] ${salaryPreset.id} → ${salaryPreset.salaryBuckets.length} salary buckets, ${salaryPreset.jobTitleClasses?.length ?? 0} title classes, requireExperience=${!!salaryPreset.requireExperience}`);
-  }
-
-  // ═══════════════════════════════════════════
   const seniority = (filters.seniority as string) ?? null;
   if (seniority) {
     filterClauses.push({ term: { job_title_levels: seniority.toLowerCase() } });
