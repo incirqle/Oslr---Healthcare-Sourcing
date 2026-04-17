@@ -1056,6 +1056,7 @@ export function CandidateDrawer({
             </div>
           </div>
         </div>
+        </TooltipProvider>
       </SheetContent>
     </Sheet>
   );
