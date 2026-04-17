@@ -98,7 +98,7 @@ async function runCascade(
   queryHash: string,
   adminClient: ReturnType<typeof createClient>,
   size: number
-): Promise<{ profiles: Record<string, unknown>[]; stepsUsed: number; plan: CascadeStep[] }> {
+): Promise<{ profiles: Record<string, unknown>[]; stepsUsed: number; plan: CascadeStep[]; winningStep: CascadeStep | null; total: number }> {
   const cascadePlan = await planCascade(payload, queryType, previewTotal);
 
   const boolBlock = (basePdlQuery as { bool?: { filter?: unknown[]; must?: unknown[]; must_not?: unknown[] } }).bool || {};
@@ -109,6 +109,7 @@ async function runCascade(
   };
 
   let stepsUsed = 0;
+  let lastTotal = previewTotal;
 
   for (const step of cascadePlan) {
     current = applyStep(current, payload, step);
@@ -117,7 +118,7 @@ async function runCascade(
     const stepHash = queryHash + "_" + step;
     const cached = await getDBCache(adminClient, stepHash);
     if (cached && cached.data.length > 0) {
-      return { profiles: cached.data as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+      return { profiles: cached.data as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: step, total: cached.total };
     }
 
     const stepQuery = {
@@ -129,12 +130,13 @@ async function runCascade(
     };
 
     const total = await runPreview(stepQuery);
+    lastTotal = total;
     console.log(`[CASCADE] step=${step}, preview_total=${total}`);
 
     if (total >= 3) {
       const profiles = await fetchProfiles(stepQuery, Math.min(size, 100));
       setDBCache(adminClient, stepHash, total, profiles, null);
-      return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+      return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: step, total };
     }
   }
 
@@ -146,7 +148,7 @@ async function runCascade(
     },
   };
   const profiles = await fetchProfiles(finalQuery, Math.min(size, 100));
-  return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan };
+  return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: cascadePlan[cascadePlan.length - 1] ?? null, total: lastTotal };
 }
 
 /* ------------------------------------------------------------------ */
@@ -708,6 +710,7 @@ Deno.serve(async (req: Request) => {
     let returnScrollToken: string | null = null;
     let cascadeUsed = false;
     let cascadePlan: CascadeStep[] = [];
+    let cascadeWinningStep: CascadeStep | null = null;
 
     if (cached && cached.data.length > 0) {
       console.log(`[SEARCH] Cache hit: ${cached.total} total, ${cached.data.length} results`);
@@ -757,7 +760,10 @@ Deno.serve(async (req: Request) => {
           results = cascadeResult.profiles;
           cascadeUsed = true;
           cascadePlan = cascadeResult.plan;
-          console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps`);
+          cascadeWinningStep = cascadeResult.winningStep;
+          // Surface widened total so UI doesn't say "0 results" while showing people
+          if (cascadeResult.total > total) total = cascadeResult.total;
+          console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps (winning step: ${cascadeWinningStep})`);
         }
       }
     }
@@ -790,16 +796,22 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to log search:", e);
     }
 
-    // Build geo scope metadata for frontend transparency
+    // Build geo scope metadata for frontend transparency.
+    // Use the WINNING step (what actually produced results), not the planned cascade list.
     const requestedLocation = (parsed.location as Record<string, unknown>) || {};
+    const effectiveScope: "local" | "metro" | "state" = !cascadeUsed
+      ? "local"
+      : cascadeWinningStep === CascadeStep.EXPAND_TO_STATE
+        ? "state"
+        : cascadeWinningStep === CascadeStep.EXPAND_TO_METRO
+          ? "metro"
+          : "local";
     const geoScope: Record<string, unknown> = {
       requested_city: requestedLocation.city || null,
       requested_state: requestedLocation.state || null,
-      geo_expanded: cascadeUsed,
-      effective_scope: cascadeUsed
-        ? (cascadePlan.includes(CascadeStep.EXPAND_TO_STATE as CascadeStep) ? "state"
-          : cascadePlan.includes(CascadeStep.EXPAND_TO_METRO as CascadeStep) ? "metro" : "local")
-        : "local",
+      geo_expanded: cascadeUsed && (effectiveScope !== "local"),
+      effective_scope: effectiveScope,
+      winning_step: cascadeWinningStep,
       cascade_steps_used: cascadeUsed ? cascadePlan : [],
     };
 

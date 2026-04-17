@@ -53,16 +53,16 @@ export function FilterReview({ query, filters, total, onEdit, onReset, onRunSear
           </p>
 
           <div className="flex flex-wrap gap-1.5 mb-1">
-            {allTags.map((tag) => (
-              <Badge key={tag.label} variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
+            {allTags.map((tag, idx) => (
+              <Badge key={`${tag.type}-${tag.label}-${idx}`} variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
                 {tag.label}
               </Badge>
             ))}
             {locationTags.length > 0 && (
               <>
                 <span className="text-xs text-muted-foreground self-center mx-0.5">in</span>
-                {locationTags.map((loc) => (
-                  <Badge key={loc} variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
+                {locationTags.map((loc, idx) => (
+                  <Badge key={`loc-${loc}-${idx}`} variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
                     {loc}
                   </Badge>
                 ))}
