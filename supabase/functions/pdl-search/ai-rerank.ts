@@ -17,8 +17,9 @@ import { callClaude, CLAUDE_HAIKU } from "./ai-router.ts";
 
 const RERANK_MODEL = CLAUDE_HAIKU;
 const RERANK_TOP_N = 50;
-const RERANK_TIMEOUT_MS = 20000;
-const RERANK_MAX_TOKENS = 4096; // 50 items × ~30 tokens each + JSON overhead
+const RERANK_BATCH_SIZE = 25;
+const RERANK_BATCH_TIMEOUT_MS = 25000;
+const RERANK_MAX_TOKENS = 2048; // 25 items × ~30 tokens each + JSON overhead
 
 interface RerankItem {
   id: string;
@@ -50,8 +51,7 @@ function buildBrief(c: FormattedCandidate, idx: number): Record<string, unknown>
     sub_role: c.job_title_sub_role,
     lives: [c.location_locality, c.location_region].filter(Boolean).join(", ") || null,
     practices: [c.job_company_location_locality, c.job_company_location_region].filter(Boolean).join(", ") || null,
-    skills: (c.clinical_skills || []).slice(0, 6),
-    headline: (c.headline || "").slice(0, 140) || null,
+    skills: (c.clinical_skills || []).slice(0, 4),
   };
 }
 
@@ -100,6 +100,44 @@ OUTPUT FORMAT — return ONLY valid JSON, no prose, no markdown fences:
 
 You MUST include one entry per candidate, using the exact id provided.`;
 
+async function scoreBatch(
+  batchIdx: number,
+  totalBatches: number,
+  briefs: Record<string, unknown>[],
+  intent: string,
+): Promise<{ scores: Map<string, number>; ms: number; error?: string }> {
+  const startMs = Date.now();
+  const userMessage = `RECRUITER INTENT:\n${intent}\n\nCANDIDATES (${briefs.length}):\n${JSON.stringify(briefs)}`;
+
+  try {
+    const result = await callClaude<RerankResponse>(
+      SYSTEM_PROMPT,
+      userMessage,
+      null,
+      `ai-rerank:batch${batchIdx + 1}`,
+      { model: RERANK_MODEL, timeoutMs: RERANK_BATCH_TIMEOUT_MS, maxTokens: RERANK_MAX_TOKENS },
+    );
+
+    const scores = new Map<string, number>();
+    const rankings = result?.rankings;
+    if (Array.isArray(rankings)) {
+      for (const r of rankings) {
+        if (r && typeof r.id === "string" && typeof r.score === "number") {
+          scores.set(r.id, Math.max(0, Math.min(100, r.score)));
+        }
+      }
+    }
+    const ms = Date.now() - startMs;
+    console.log(`[ai-rerank] batch ${batchIdx + 1}/${totalBatches} scored ${scores.size}/${briefs.length} in ${ms}ms`);
+    return { scores, ms };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "unknown";
+    const ms = Date.now() - startMs;
+    console.warn(`[ai-rerank] batch ${batchIdx + 1}/${totalBatches} failed in ${ms}ms: ${msg}`);
+    return { scores: new Map(), ms, error: msg };
+  }
+}
+
 export async function rerankWithAI(
   candidates: FormattedCandidate[],
   parsed: Record<string, unknown>,
@@ -118,54 +156,51 @@ export async function rerankWithAI(
   const briefs = head.map(buildBrief);
   const intent = buildIntentSummary(parsed, query);
 
-  const userMessage = `RECRUITER INTENT:\n${intent}\n\nCANDIDATES (${briefs.length}):\n${JSON.stringify(briefs)}`;
-
-  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates`);
-
-  try {
-    const result = await callClaude<RerankResponse>(
-      SYSTEM_PROMPT,
-      userMessage,
-      null,
-      "ai-rerank",
-      { model: RERANK_MODEL, timeoutMs: RERANK_TIMEOUT_MS, maxTokens: RERANK_MAX_TOKENS },
-    );
-
-    const rankings = result?.rankings;
-    if (!Array.isArray(rankings) || rankings.length === 0) {
-      console.warn("[ai-rerank] empty rankings from Claude");
-      return { candidates, ai_reranked: false, ai_rerank_error: "empty_rankings" };
-    }
-
-    const scoreById = new Map<string, number>();
-    for (const r of rankings) {
-      if (r && typeof r.id === "string" && typeof r.score === "number") {
-        scoreById.set(r.id, Math.max(0, Math.min(100, r.score)));
-      }
-    }
-
-    const reranked = head.map(c => {
-      const aiScore = scoreById.get(c.id);
-      if (typeof aiScore === "number") {
-        return { ...c, relevance_score: aiScore };
-      }
-      return c;
-    });
-
-    reranked.sort((a, b) => b.relevance_score - a.relevance_score);
-
-    const elapsed = Date.now() - startMs;
-    console.log(`[ai-rerank] scored ${scoreById.size}/${head.length} in ${elapsed}ms via ${RERANK_MODEL}`);
-
-    return {
-      candidates: [...reranked, ...tail],
-      ai_reranked: true,
-      ai_rerank_count: scoreById.size,
-      ai_rerank_ms: elapsed,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "unknown";
-    console.warn(`[ai-rerank] failed: ${msg}`);
-    return { candidates, ai_reranked: false, ai_rerank_error: msg };
+  // Split into parallel batches
+  const batches: Record<string, unknown>[][] = [];
+  for (let i = 0; i < briefs.length; i += RERANK_BATCH_SIZE) {
+    batches.push(briefs.slice(i, i + RERANK_BATCH_SIZE));
   }
+
+  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates in ${batches.length} parallel batches`);
+
+  const batchResults = await Promise.all(
+    batches.map((b, i) => scoreBatch(i, batches.length, b, intent)),
+  );
+
+  // Merge all scores
+  const scoreById = new Map<string, number>();
+  const errors: string[] = [];
+  for (const r of batchResults) {
+    for (const [id, score] of r.scores) scoreById.set(id, score);
+    if (r.error) errors.push(r.error);
+  }
+
+  if (scoreById.size === 0) {
+    console.warn(`[ai-rerank] all batches failed, returning deterministic ranking`);
+    return { candidates, ai_reranked: false, ai_rerank_error: errors.join("; ") || "no_scores" };
+  }
+
+  // Apply scores; candidates without an AI score keep their deterministic score
+  const reranked = head.map(c => {
+    const aiScore = scoreById.get(c.id);
+    return typeof aiScore === "number" ? { ...c, relevance_score: aiScore } : c;
+  });
+
+  reranked.sort((a, b) => b.relevance_score - a.relevance_score);
+
+  const elapsed = Date.now() - startMs;
+  const partial = scoreById.size < head.length;
+  console.log(
+    `[ai-rerank] total scored ${scoreById.size}/${head.length} in ${elapsed}ms via ${RERANK_MODEL}` +
+    (partial ? ` (PARTIAL — ${head.length - scoreById.size} kept deterministic)` : ""),
+  );
+
+  return {
+    candidates: [...reranked, ...tail],
+    ai_reranked: true,
+    ai_rerank_count: scoreById.size,
+    ai_rerank_ms: elapsed,
+    ai_rerank_error: errors.length ? errors.join("; ") : undefined,
+  };
 }
