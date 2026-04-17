@@ -24,7 +24,6 @@ import {
   normalizeLinkedInUrl,
   toStringArray,
 } from "@/components/search/candidate-ui";
-import { CandidateSalaryBadge } from "@/components/search/CandidateSalaryBadge";
 
 interface CandidateDrawerProps {
   open: boolean;
@@ -475,11 +474,6 @@ export function CandidateDrawer({
                   {locationLabel}
                 </div>
               )}
-              <CandidateSalaryBadge
-                inferredSalary={inferredSalary}
-                yearsExperience={yearsExperience}
-                size="md"
-              />
               {linkedinUrl && (
                 <a
                   href={linkedinUrl}

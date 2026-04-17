@@ -22,7 +22,6 @@ import {
   LinkedInMark,
   normalizeLinkedInUrl,
 } from "@/components/search/candidate-ui";
-import { CandidateSalaryBadge } from "@/components/search/CandidateSalaryBadge";
 
 export interface Candidate {
   id: string;
@@ -206,19 +205,14 @@ function CandidateRow({
             {extraSkills > 0 && <span className="text-[13px] text-ui-text-muted">+{extraSkills}</span>}
           </div>
 
-          <div className="flex min-w-[110px] shrink-0 flex-col items-start gap-2 text-left sm:items-end sm:text-right">
-            <CandidateSalaryBadge
-              inferredSalary={candidate.inferred_salary}
-              yearsExperience={candidate.years_experience}
-              className="sm:justify-end"
-            />
-            {candidate.has_contact_info && (
+          {candidate.has_contact_info && (
+            <div className="flex min-w-[110px] shrink-0 flex-col items-start gap-2 text-left sm:items-end sm:text-right">
               <span className="inline-flex items-center gap-1.5 text-[13px] text-contact-foreground">
                 <Mail className="h-3.5 w-3.5" />
                 Contact available
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           <ChevronRight className="h-4 w-4 shrink-0 text-ui-text-muted" />
         </div>
