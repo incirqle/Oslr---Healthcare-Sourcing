@@ -160,6 +160,9 @@ export function buildPDLQuery(
   const must: Clause[] = [];
   const should: Clause[] = [];
   const mustNot: Clause[] = [];
+  // Hoisted so Fix A tiered boost code (in specialty/title sections) can
+  // push weighted clauses before the role-intent block populates it further.
+  const softShould: Clause[] = [];
   const filterClauses: Clause[] = [
     { term: { location_country: "united states" } },
   ];
