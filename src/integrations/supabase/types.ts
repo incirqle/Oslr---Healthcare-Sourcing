@@ -285,7 +285,10 @@ export type Database = {
           from_name: string | null
           id: string
           name: string
+          primary_specialty: string | null
+          recruiting_roles: string[] | null
           reply_to_email: string | null
+          team_size: string | null
           updated_at: string
         }
         Insert: {
@@ -295,7 +298,10 @@ export type Database = {
           from_name?: string | null
           id?: string
           name: string
+          primary_specialty?: string | null
+          recruiting_roles?: string[] | null
           reply_to_email?: string | null
+          team_size?: string | null
           updated_at?: string
         }
         Update: {
@@ -305,10 +311,130 @@ export type Database = {
           from_name?: string | null
           id?: string
           name?: string
+          primary_specialty?: string | null
+          recruiting_roles?: string[] | null
           reply_to_email?: string | null
+          team_size?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      company_invites: {
+        Row: {
+          accepted_at: string | null
+          company_id: string
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          company_id: string
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_invites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_onboarding: {
+        Row: {
+          company_id: string
+          created_at: string
+          step_connectors_complete: boolean
+          step_invites_complete: boolean
+          step_project_complete: boolean
+          step_search_complete: boolean
+          step_team_complete: boolean
+          success_banner_dismissed: boolean
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          step_connectors_complete?: boolean
+          step_invites_complete?: boolean
+          step_project_complete?: boolean
+          step_search_complete?: boolean
+          step_team_complete?: boolean
+          success_banner_dismissed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          step_connectors_complete?: boolean
+          step_invites_complete?: boolean
+          step_project_complete?: boolean
+          step_search_complete?: boolean
+          step_team_complete?: boolean
+          success_banner_dismissed?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_onboarding_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connector_interest: {
+        Row: {
+          company_id: string
+          connector: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          connector: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          connector?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connector_interest_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_campaigns: {
         Row: {
@@ -608,7 +734,10 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          location: string | null
           name: string
+          role_title: string | null
+          target_start_date: string | null
           updated_at: string
         }
         Insert: {
@@ -617,7 +746,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          location?: string | null
           name: string
+          role_title?: string | null
+          target_start_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -626,7 +758,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          location?: string | null
           name?: string
+          role_title?: string | null
+          target_start_date?: string | null
           updated_at?: string
         }
         Relationships: [

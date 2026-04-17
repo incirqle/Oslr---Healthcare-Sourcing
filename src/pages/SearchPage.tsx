@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ type SearchStep = "hero" | "parsing" | "review" | "searching" | "results";
 export default function SearchPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoRanRef = useRef(false);
 
   const { data: project } = useProject(projectId ?? "");
   const { data: existingCandidates = [] } = useProjectCandidates(projectId ?? "");
@@ -40,6 +42,20 @@ export default function SearchPage() {
   const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
   const [scrollToken, setScrollToken] = useState<string | null>(null);
   const [geoScope, setGeoScope] = useState<Record<string, unknown> | null>(null);
+
+  // Auto-run a search if ?q= is present (e.g. coming from onboarding step 5)
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q && !autoRanRef.current && projectId) {
+      autoRanRef.current = true;
+      handleInitialSearch(q);
+      // Clear the param so refresh doesn't re-trigger
+      const next = new URLSearchParams(searchParams);
+      next.delete("q");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // Guard: must be in a project context (all hooks already called above)
   if (!projectId) {
