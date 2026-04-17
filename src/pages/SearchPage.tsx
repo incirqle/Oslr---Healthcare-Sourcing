@@ -351,12 +351,18 @@ export default function SearchPage() {
             <AgentReasoningPanel
               query={query}
               lines={reasoningLines}
-              streaming={searchPhase === "running" || searchPhase === "done"}
+              streaming={searchPhase === "running"}
               onEditQuery={handleEditQuery}
               errored={searchPhase === "error"}
+              done={searchPhase === "done"}
+              totalCount={total}
+              filterSummary={buildFilterSummary(activeFilters)}
+              onRefine={() => setFilterEditorOpen(true)}
             />
 
-            {activeFilters.length > 0 && (
+            {/* Active filter bar only while search is running — once done, the
+                condensed reasoning line shows the filter summary + Refine link. */}
+            {searchPhase === "running" && activeFilters.length > 0 && (
               <ActiveFilterBar
                 filters={activeFilters}
                 onRemove={handleRemoveActiveFilter}
