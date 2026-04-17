@@ -796,16 +796,22 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to log search:", e);
     }
 
-    // Build geo scope metadata for frontend transparency
+    // Build geo scope metadata for frontend transparency.
+    // Use the WINNING step (what actually produced results), not the planned cascade list.
     const requestedLocation = (parsed.location as Record<string, unknown>) || {};
+    const effectiveScope: "local" | "metro" | "state" = !cascadeUsed
+      ? "local"
+      : cascadeWinningStep === CascadeStep.EXPAND_TO_STATE
+        ? "state"
+        : cascadeWinningStep === CascadeStep.EXPAND_TO_METRO
+          ? "metro"
+          : "local";
     const geoScope: Record<string, unknown> = {
       requested_city: requestedLocation.city || null,
       requested_state: requestedLocation.state || null,
-      geo_expanded: cascadeUsed,
-      effective_scope: cascadeUsed
-        ? (cascadePlan.includes(CascadeStep.EXPAND_TO_STATE as CascadeStep) ? "state"
-          : cascadePlan.includes(CascadeStep.EXPAND_TO_METRO as CascadeStep) ? "metro" : "local")
-        : "local",
+      geo_expanded: cascadeUsed && (effectiveScope !== "local"),
+      effective_scope: effectiveScope,
+      winning_step: cascadeWinningStep,
       cascade_steps_used: cascadeUsed ? cascadePlan : [],
     };
 
