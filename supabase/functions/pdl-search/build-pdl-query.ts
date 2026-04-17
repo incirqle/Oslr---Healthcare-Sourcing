@@ -890,17 +890,19 @@ function termMatches(clause: Clause, field: string): boolean {
   );
 }
 
-/** Check if a filter clause is a location clause (locality, metro, region, or nested bool containing them) */
+/** Check if a filter clause is a location clause (locality/metro/region — personal OR practice — including nested bools) */
 function isLocationClause(clause: Clause): boolean {
-  if (termMatches(clause, "location_locality")) return true;
-  if (termMatches(clause, "location_metro")) return true;
-  if (termMatches(clause, "location_region")) return true;
-  const boolShould = (clause?.bool as Record<string, unknown>)?.should;
-  if (Array.isArray(boolShould)) {
-    return boolShould.some((s: unknown) => {
-      const sc = s as Clause;
-      return termMatches(sc, "location_locality") || termMatches(sc, "location_metro") || termMatches(sc, "location_region");
-    });
+  const LOC_FIELDS = [
+    "location_locality", "location_metro", "location_region",
+    "job_company_location_locality", "job_company_location_metro", "job_company_location_region",
+  ];
+  for (const f of LOC_FIELDS) if (termMatches(clause, f)) return true;
+  const b = clause?.bool as Record<string, unknown> | undefined;
+  if (b) {
+    for (const key of ["should", "must"] as const) {
+      const arr = b[key];
+      if (Array.isArray(arr) && arr.some((s: unknown) => isLocationClause(s as Clause))) return true;
+    }
   }
   return false;
 }
