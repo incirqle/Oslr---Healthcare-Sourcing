@@ -463,13 +463,13 @@ export function CandidateDrawer({
               </div>
 
               <div className="min-w-0 flex-1">
-                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{cleanDisplayName(candidate.full_name)}</SheetTitle>
-                <p className="mt-1 text-[15px] text-ui-text-secondary">{title || "—"}</p>
+                <SheetTitle className="text-[20px] font-bold text-ui-text-primary">{toTitleCase(cleanDisplayName(candidate.full_name))}</SheetTitle>
+                <p className="mt-1 text-[15px] text-ui-text-secondary">{title ? toTitleCase(title) : "—"}</p>
 
                 {companyName && (
                   <div className="mt-1 inline-flex items-center gap-1.5 text-sm text-ui-text-tertiary">
                     <Building2 className="h-3.5 w-3.5" />
-                    <span>{companyName}</span>
+                    <span>{toTitleCase(companyName)}</span>
                   </div>
                 )}
               </div>
