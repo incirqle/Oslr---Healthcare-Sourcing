@@ -79,6 +79,7 @@ export default function SearchPage() {
         keywords: parsed.required_keywords || parsed.keywords || [],
         experience_years: parsed.min_years_experience || null,
         specialties: parsed.specialties || (parsed.specialty ? [parsed.specialty] : []),
+        salary_preset: null,
       };
 
       setFilters(mappedFilters);
