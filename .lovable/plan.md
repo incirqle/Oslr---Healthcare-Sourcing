@@ -1,56 +1,76 @@
 
+Goal: stop guessing. The right next move is a live PDL diagnostic outside the current app flow to establish the real ceiling for “cardiologist at University of Miami.”
 
-## The University of Miami problem
+What I found from the code review:
+- The current shipped version is `v8-cascade-disabled-2026-04-17`, which keeps:
+  - company as a hard `must`
+  - specialty as a hard `must`
+  - cascade disabled except for near-zero result cases
+- That explains why you’re seeing ~25–28 highly precise results.
+- There is no stored evidence in the codebase or DB schema that proves 80–150 was correct. That number was an estimate, not something grounded in an actual PDL count.
 
-A query like *"cardiologist at University of Miami"* will under-retrieve for the same reason OrthoSouth did, but worse — because UMiami isn't one company in PDL. It's a constellation of entities:
+Right fix:
+1. Run a direct PDL diagnostic, not the app search pipeline
+   - Query raw PDL counts for:
+     - University of Miami only
+     - UHealth
+     - Miller School of Medicine
+     - Sylvester
+     - Bascom Palmer
+     - Jackson Memorial
+   - For each, test:
+     - strict cardiology
+     - softer cardiology variants
+     - no specialty filter
+   - Pull person IDs and de-duplicate across entities so we get a real unique-person ceiling.
 
-- `university of miami` (the university)
-- `university of miami miller school of medicine`
-- `umiami health` / `uhealth` (clinical practice)
-- `sylvester comprehensive cancer center`
-- `bascom palmer eye institute`
-- `jackson memorial hospital` (primary teaching affiliate, technically separate but staffed by UMiami faculty)
-- Plus dozens of departmental/practice sub-entities
+2. Use that diagnostic to choose the fix, with no more back-and-forth
+   - If raw PDL unique cardiologists is only ~25–35:
+     - keep the strict version
+     - do not chase recall that PDL does not actually have
+     - focus only on ranking/labeling
+   - If raw PDL unique cardiologists is 60+:
+     - retrieval is the problem
+     - fix affiliate/entity coverage in `index.ts`
+     - adjust specialty gating in `build-pdl-query.ts` without reintroducing the noisy cascade
+   - If raw PDL pool is large but page 1 is still noisy:
+     - retrieval is acceptable
+     - ranking/parsing are the problem
+     - fix keyword pollution and scorer penalties
 
-Our current resolver does discover affiliates via `affiliated_profiles` + autocomplete + alt_names, but I suspect three weaknesses for big systems:
+3. If retrieval is the problem, implement the smallest safe retrieval fix
+   - Keep company locked as a hard requirement
+   - Remove generic noise terms like `physician` from specialty-driven searches
+   - Expand only verified UMiami affiliate entities discovered by the diagnostic
+   - Do not re-enable the broad cascade fallback
 
-1. **Autocomplete root extraction is too narrow** — `extractRootNames` only matches `^university of [a-z]+`. So for "University of Miami" we'd query autocomplete with "university of miami" — that surfaces `umiami` siblings but misses health-system brand siblings like `uhealth`, `sylvester`, `bascom palmer` that don't share the root token.
+4. If ranking is the problem, implement the smallest safe ranking fix
+   - Penalize admin/business titles like director, compensation, relations, strategy, business development
+   - Preserve specialty-heavy boosts for actual cardiology signals
+   - Keep the strict retrieval that produced the clean 25–28 set
 
-2. **Affiliated profiles cap (`slice(0, 5)`)** — UMiami has more than 5 affiliated PDL entities. We're truncating before we've seen UHealth.
+5. Validate against one hard acceptance rule
+   - We will report:
+     - true raw PDL unique count
+     - how many are current strict results
+     - how many are app-missed but present in PDL
+     - whether the final fix should target retrieval or ranking
+   - No more “probably.”
 
-3. **Specialty filter is hard-must when company-anchored** — for "cardiologist at UMiami" we still require `cardiology` as a hard keyword. A cardiologist whose PDL profile says only "Associate Professor of Medicine, UMiami Miller School" with sub-fields buried in `experience` would be filtered out. Same precision-vs-recall tradeoff we already accepted for OrthoSouth.
+Technical details:
+- Files already reviewed:
+  - `supabase/functions/pdl-search/index.ts`
+  - `supabase/functions/pdl-search/build-pdl-query.ts`
+  - `supabase/functions/pdl-search/parse-query.ts`
+  - `supabase/functions/pdl-search/format-results.ts`
+  - `supabase/functions/pdl-search/cache.ts`
+- Likely implementation files after the diagnostic:
+  - `index.ts` for affiliate scoping / orchestration
+  - `build-pdl-query.ts` for specialty/company behavior
+  - `parse-query.ts` if generic keyword expansion is poisoning searches
+  - `format-results.ts` if ranking still promotes admin titles
 
-## Proposed plan (no diagnostic needed yet — pattern is well understood)
-
-### Step 1: Diagnostic first (read-only, ~5 PDL credits)
-Before changing code, run the same diagnostic we ran for OrthoSouth, but for UMiami cardiology. Goal: confirm the ceiling and identify which sibling entities (UHealth, Sylvester, Bascom Palmer, Jackson) actually contain the missing cardiologists.
-
-```
-A) job_company_name="university of miami" + cardiology + Miami → baseline
-B) Drop cardiology hard filter → does count jump? (tells us specialty filter is the bottleneck)
-C) experience.company.name="university of miami" → does count jump? (already enabled for company-anchored)
-D) Search affiliated entities individually: uhealth, sylvester, jackson memorial → how many cardiologists?
-E) Total unique people across A+C+D → the true ceiling
-```
-
-### Step 2: Targeted code changes (only if diagnostic confirms the gaps)
-
-**A. Broaden affiliate discovery for health systems** (`index.ts` resolver)
-- Lift the `affiliated_profiles.slice(0, 5)` cap to 15 for health-system anchors (detect via name keywords: "university of", "health system", "medical center", "healthcare").
-- Add a second autocomplete pass keyed off the *brand* token, not just the root pattern. E.g. for "university of miami" also query autocomplete for "uhealth", "miller school", "sylvester" — derived from the alt_names returned by enrich.
-
-**B. Health-system-aware affiliate filtering** (`index.ts`)
-- Currently `nameIsHealthRelated` keeps anything with "medical/hospital/health". For an academic health system, also include affiliated entities whose name contains the parent brand token (e.g. anything starting with "umiami" or containing "miller school").
-
-**C. Company-anchored specialty softening** (`build-pdl-query.ts`)
-- We already soft-demote specialty when titles encode it. Extend the same logic: when `hasResolvedCompanyAnchor === true` AND the company is a multi-entity health system (e.g. >3 resolved IDs/names), demote specialty to a `should` boost rather than a hard `must`. Academic faculty titles are notoriously generic ("Associate Professor of Medicine") and the specialty lives in summary/skills/department fields PDL doesn't index reliably.
-
-**D. UI honesty banner**
-- For company-anchored searches that resolved >3 affiliated entities, show an info banner: *"University of Miami spans multiple entities (UHealth, Miller School, Sylvester…). Showing candidates across all affiliated organizations."* So the user understands why a "cardiologist at UMiami" result might list "Sylvester Comprehensive Cancer Center" as employer.
-
-### Step 3: Validate
-Re-run diagnostic search after changes. Target: capture ≥80% of the unique-person ceiling identified in Step 1.
-
-### What I need from you
-Approve **Step 1 (diagnostic only)**. It's read-only, costs ~5 PDL credits, and tells us whether the bottleneck is affiliate discovery, specialty filtering, or PDL coverage itself. Then we'll know which subset of B/C/D is actually worth shipping — same disciplined approach as the OrthoSouth fix.
-
+What I will do once approved:
+- run the direct PDL diagnostic first
+- give you the actual unique count
+- then ship only the fix supported by that evidence
