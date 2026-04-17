@@ -552,8 +552,33 @@ export function buildPDLQuery(
       // multi-entity health system, demote the keyword cluster to a soft boost.
       // Otherwise keep it as a hard must (existing behavior).
       if (specialtyAlreadyInTitles || softenSpecialtyForHealthSystem) {
+        // FIX A — TIERED SCORING (April 2026 v3): replace flat soft boost with
+        // stacked weighted clauses so true specialists outscore generic
+        // anchor employees by an order of magnitude. Without this, every
+        // UMiami employee scores roughly the same and ranking collapses.
+        // Tier 2 — sub_role exact match (PDL canonical specialty taxonomy)
+        for (const kw of allKeywordTerms.slice(0, 15)) {
+          softShould.push({ term: { job_title_sub_role: { value: kw.toLowerCase(), boost: 5.0 } } });
+        }
+        // Tier 3 — title contains the specialty word (catches "Director of X")
+        for (const kw of allKeywordTerms.slice(0, 8)) {
+          const root = kw.toLowerCase().replace(/(s|ic|ics|y)$/i, "");
+          if (root.length >= 4) {
+            const wc = addWildcard("job_title", `*${root}*`);
+            if (wc) softShould.push({ ...wc, boost: 4.0 } as Clause);
+          }
+        }
+        // Tier 5 — skills array exact match
+        for (const kw of allKeywordTerms.slice(0, 15)) {
+          softShould.push({ term: { skills: { value: kw.toLowerCase(), boost: 2.0 } } });
+        }
+        // Tier 6 — past experience contains specialty (catches former fellows)
+        for (const kw of allKeywordTerms.slice(0, 8)) {
+          softShould.push({ match: { "experience.title.name.text": { query: kw, boost: 1.5 } } });
+        }
+        // Original cluster kept for summary/headline coverage at base weight
         should.push({ bool: { should: kwClauses } });
-        console.log(`Specialty demoted to soft boost (${specialties.join(",")}) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
+        console.log(`Specialty demoted to soft boost (${specialties.join(",")}) + tiered weighted boosts (5/4/2/1.5) — reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system anchor" : "satisfied by titles"}`);
       } else {
         must.push({ bool: { should: kwClauses } });
       }
@@ -660,7 +685,25 @@ export function buildPDLQuery(
       // Keep titles purely as a scoring boost in this mode.
       if (hasResolvedCompanyAnchor) {
         should.push({ bool: { should: titleClauses } });
-        console.log("[QUERY MODE] company-anchored → title cluster demoted to soft boost");
+        // FIX A — TIERED TITLE BOOSTS (April 2026 v3): exact title matches and
+        // canonical title synonyms get high weights so an actual "Cardiologist"
+        // outranks a "Cardiology System Engineer" or generic "Physician" by
+        // many score points, even though both pass the company filter.
+        for (const t of jobTitles.slice(0, 10)) {
+          if (t.split(/\s+/).length >= 2) {
+            softShould.push({ match_phrase: { "job_title.text": { query: t, boost: 8.0 } } });
+          } else if (t.length >= 4) {
+            softShould.push({ term: { job_title: { value: t, boost: 8.0 } } });
+          }
+        }
+        for (const t of titleSynonymsLower.slice(0, 10)) {
+          if (t.split(/\s+/).length >= 2) {
+            softShould.push({ match_phrase: { "job_title.text": { query: t, boost: 4.0 } } });
+          } else if (t.length >= 4) {
+            softShould.push({ term: { job_title: { value: t, boost: 4.0 } } });
+          }
+        }
+        console.log(`[QUERY MODE] company-anchored → title cluster + tiered weighted boosts (exact=8.0, synonyms=4.0)`);
       } else {
         must.push({ bool: { should: titleClauses } });
       }
