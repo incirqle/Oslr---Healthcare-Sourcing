@@ -717,7 +717,7 @@ export function buildPDLQuery(
   // ROLE-AWARE PRECISION: detect specific clinician type the user asked for
   // Uses O*NET-SOC 2019 classification for precision filtering.
   // ═══════════════════════════════════════════
-  const softShould: Clause[] = [];
+  // softShould hoisted to top of function (see Fix A)
 
   if (personNames.length === 0) {
     const DOCTOR_INTENT     = /\b(doctor|physician|md|surgeon|hospitalist|attending|resident|fellow|dr\.?)\b/i;
