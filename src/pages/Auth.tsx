@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,12 +18,35 @@ const features = [
 ];
 
 export default function Auth() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+  const [isSignUp, setIsSignUp] = useState(!!inviteToken);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState<{ email: string; companyName: string } | null>(null);
   const navigate = useNavigate();
+
+  // Resolve invite token (public read by token policy)
+  useEffect(() => {
+    if (!inviteToken) return;
+    (async () => {
+      const { data: invite } = await supabase
+        .from("company_invites")
+        .select("email, company_id, accepted_at")
+        .eq("token", inviteToken)
+        .maybeSingle();
+      if (!invite || invite.accepted_at) return;
+      const { data: company } = await supabase
+        .from("companies")
+        .select("name")
+        .eq("id", invite.company_id)
+        .maybeSingle();
+      setInviteInfo({ email: invite.email, companyName: company?.name ?? "your team" });
+      setEmail(invite.email);
+    })();
+  }, [inviteToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +59,18 @@ export default function Auth() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: fullName },
+            data: {
+              full_name: fullName,
+              ...(inviteToken ? { invite_token: inviteToken } : {}),
+            },
           },
         });
         if (error) throw error;
-        toast.success("Check your email to confirm your account!");
+        toast.success(
+          inviteToken
+            ? "Check your email to confirm your account and join the team!"
+            : "Check your email to confirm your account!",
+        );
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
