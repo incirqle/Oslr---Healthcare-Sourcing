@@ -135,6 +135,17 @@ export default function Auth() {
             <img src={oslrLogo} alt="Oslr" className="h-16 w-16 rounded-2xl" />
           </div>
 
+          {inviteInfo && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-center">
+              <p className="text-sm text-foreground">
+                You've been invited to join <strong>{inviteInfo.companyName}</strong>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Sign up with {inviteInfo.email} to accept
+              </p>
+            </div>
+          )}
+
           <Card className="shadow-lg border-border/60">
             <CardHeader className="text-center pb-4">
               <CardTitle className="font-display text-xl">{isSignUp ? "Create an account" : "Welcome back"}</CardTitle>
