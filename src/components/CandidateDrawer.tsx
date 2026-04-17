@@ -510,8 +510,45 @@ export function CandidateDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="shadow-panel w-full max-w-full gap-0 border-ui-border-medium p-0 sm:w-[580px] sm:max-w-[580px]">
+      <SheetContent side="right" className="shadow-panel w-full max-w-full gap-0 border-ui-border-medium p-0 sm:w-[620px] sm:max-w-[620px]">
         <div className="flex h-full flex-col bg-card">
+          {/* Prev/next nav strip */}
+          {(onPrev || onNext) && (
+            <div className="flex shrink-0 items-center justify-between border-b border-ui-border-light bg-ui-surface-subtle/40 px-3 py-1.5 text-[12px] text-ui-text-muted">
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onPrev}
+                  disabled={!hasPrev}
+                  className="h-7 gap-1 px-2 text-[12px]"
+                  aria-label="Previous candidate (K)"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Prev
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onNext}
+                  disabled={!hasNext}
+                  className="h-7 gap-1 px-2 text-[12px]"
+                  aria-label="Next candidate (J)"
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <span className="hidden sm:inline">
+                <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">J</kbd>
+                {" / "}
+                <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">K</kbd>
+                {" to navigate"}
+              </span>
+            </div>
+          )}
           <div className="shrink-0 border-b border-ui-border-light px-6 pb-5 pt-6 pr-14 sm:px-7">
             <div className="flex items-start gap-4">
               {profilePicture ? (
