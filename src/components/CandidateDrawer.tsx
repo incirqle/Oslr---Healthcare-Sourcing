@@ -2,18 +2,33 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Building2,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Lock,
   Mail,
   MapPin,
   Phone,
   Sparkles,
+  StickyNote,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FitPill } from "@/components/search/FitPill";
+import { useCandidateFits, useSetCandidateFit } from "@/hooks/useCandidateFit";
+import {
+  useCandidateNotes,
+  useAddCandidateNote,
+  useDeleteCandidateNote,
+} from "@/hooks/useCandidateNotes";
+import type { ParsedFilters } from "@/components/search/FilterReview";
+import { buildMatchChips } from "@/components/search/match-chips";
+import { collectHighlightTerms, highlightText } from "@/components/search/highlight";
 import {
   cleanDisplayName,
   formatDateLabelSmart,
@@ -50,12 +65,20 @@ interface CandidateDrawerProps {
     clinical_skills?: string[];
     has_contact_info?: boolean;
     summary?: string | null;
+    industry?: string | null;
     raw?: Record<string, unknown>;
   } | null;
   isSaved?: boolean;
   isSavingCandidate?: boolean;
   onSaveCandidate?: () => Promise<void> | void;
   onAddToCampaign?: () => void;
+  /** Filters from the active search — used for query-aware highlighting + match chips. */
+  filters?: ParsedFilters;
+  /** Prev/next navigation through the visible result list. */
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 interface EnrichedData {
@@ -272,6 +295,11 @@ export function CandidateDrawer({
   isSavingCandidate = false,
   onSaveCandidate,
   onAddToCampaign,
+  filters,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false,
 }: CandidateDrawerProps) {
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -281,7 +309,50 @@ export function CandidateDrawer({
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [showAllSkills, setShowAllSkills] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [noteDraft, setNoteDraft] = useState("");
   const summaryCache = useRef<Map<string, string>>(new Map());
+
+  // Per-user fit + notes for this candidate
+  const candidatePdlIds = useMemo(() => (candidate ? [candidate.id] : []), [candidate?.id]);
+  const { data: fitMap } = useCandidateFits(candidatePdlIds);
+  const setFit = useSetCandidateFit();
+  const fitStatus = candidate ? fitMap?.get(candidate.id) ?? "unreviewed" : "unreviewed";
+
+  const { data: notes = [] } = useCandidateNotes(candidate?.id ?? null);
+  const addNote = useAddCandidateNote();
+  const deleteNote = useDeleteCandidateNote();
+
+  // Highlight terms derived from the parsed query
+  const highlightTerms = useMemo(
+    () => (filters ? collectHighlightTerms(filters) : []),
+    [filters],
+  );
+
+  // Match chips for the in-drawer "Why they matched" panel
+  const matchChips = useMemo(() => {
+    if (!candidate || !filters) return [];
+    return buildMatchChips(candidate as never, filters);
+  }, [candidate, filters]);
+
+  // J/K keyboard navigation while drawer is open
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === "j" && hasNext && onNext) {
+        e.preventDefault();
+        onNext();
+      } else if (e.key === "k" && hasPrev && onPrev) {
+        e.preventDefault();
+        onPrev();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, hasNext, hasPrev, onNext, onPrev]);
 
   useEffect(() => {
     if (!open || !candidate) {
@@ -290,8 +361,10 @@ export function CandidateDrawer({
       setContactUnlocked(false);
       setShowAllSkills(false);
       setActiveTab("overview");
+      setNoteDraft("");
       return;
     }
+    setNoteDraft("");
 
     const cached = summaryCache.current.get(candidate.id);
     setAiSummary(cached ?? null);
@@ -437,8 +510,45 @@ export function CandidateDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="shadow-panel w-full max-w-full gap-0 border-ui-border-medium p-0 sm:w-[580px] sm:max-w-[580px]">
+      <SheetContent side="right" className="shadow-panel w-full max-w-full gap-0 border-ui-border-medium p-0 sm:w-[620px] sm:max-w-[620px]">
         <div className="flex h-full flex-col bg-card">
+          {/* Prev/next nav strip */}
+          {(onPrev || onNext) && (
+            <div className="flex shrink-0 items-center justify-between border-b border-ui-border-light bg-ui-surface-subtle/40 px-3 py-1.5 text-[12px] text-ui-text-muted">
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onPrev}
+                  disabled={!hasPrev}
+                  className="h-7 gap-1 px-2 text-[12px]"
+                  aria-label="Previous candidate (K)"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Prev
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onNext}
+                  disabled={!hasNext}
+                  className="h-7 gap-1 px-2 text-[12px]"
+                  aria-label="Next candidate (J)"
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <span className="hidden sm:inline">
+                <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">J</kbd>
+                {" / "}
+                <kbd className="rounded border border-ui-border-light bg-card px-1.5 py-0.5 text-[10px] font-mono">K</kbd>
+                {" to navigate"}
+              </span>
+            </div>
+          )}
           <div className="shrink-0 border-b border-ui-border-light px-6 pb-5 pt-6 pr-14 sm:px-7">
             <div className="flex items-start gap-4">
               {profilePicture ? (
@@ -473,7 +583,39 @@ export function CandidateDrawer({
                   </div>
                 )}
               </div>
+
+              {/* Fit pill — quick rating from the header */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <FitPill
+                  status={fitStatus}
+                  onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
+                  size="md"
+                  stopPropagation={false}
+                />
+              </div>
             </div>
+
+            {/* Why they matched — only when we have parsed filters and chips */}
+            {matchChips.length > 0 && (
+              <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-primary">
+                  <Sparkles className="h-3 w-3" />
+                  Why they matched
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {matchChips.map((chip) => (
+                    <span
+                      key={chip.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
+                      title={chip.reason}
+                    >
+                      <Sparkles className="h-3 w-3" aria-hidden="true" />
+                      {chip.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 flex flex-wrap gap-2">
               {locationLabel && (
@@ -512,6 +654,12 @@ export function CandidateDrawer({
                   Experience
                 </TabsTrigger>
                 <TabsTrigger
+                  value="notes"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
+                >
+                  Notes{notes.length > 0 ? ` (${notes.length})` : ""}
+                </TabsTrigger>
+                <TabsTrigger
                   value="contact"
                   className="rounded-none border-b-2 border-transparent px-4 py-3 text-[14px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
                 >
@@ -535,7 +683,9 @@ export function CandidateDrawer({
                       <div className="h-4 w-3/4 animate-pulse rounded bg-ui-border-light" />
                     </div>
                   ) : (
-                    <p className="text-[15px] leading-7 text-ui-text-secondary">{aiSummary || "Summary not available."}</p>
+                    <p className="text-[15px] leading-7 text-ui-text-secondary">
+                      {aiSummary ? highlightText(aiSummary, highlightTerms) : "Summary not available."}
+                    </p>
                   )}
                 </div>
 
@@ -650,6 +800,94 @@ export function CandidateDrawer({
                   </section>
                 ) : (
                   <p className="text-[15px] text-ui-text-tertiary">Experience history is not available for this profile yet.</p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="notes" className="mt-0 space-y-5 px-6 py-6 pb-28 sm:px-7">
+                <div className="flex items-center gap-2 text-[12px] text-ui-text-muted">
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Private — only you can see these notes.
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!candidate || !noteDraft.trim()) return;
+                    addNote.mutate(
+                      { pdlId: candidate.id, body: noteDraft },
+                      {
+                        onSuccess: () => {
+                          setNoteDraft("");
+                          toast.success("Note saved");
+                        },
+                        onError: (err) => {
+                          toast.error(err instanceof Error ? err.message : "Failed to save note");
+                        },
+                      },
+                    );
+                  }}
+                  className="space-y-2"
+                >
+                  <Textarea
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    placeholder="e.g. Reached out via LinkedIn 4/16 — waiting on reply…"
+                    rows={3}
+                    className="resize-none border-ui-border-medium bg-card text-[14px]"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-ui-text-muted">
+                      ⌘/Ctrl + Enter to save
+                    </span>
+                    <Button
+                      type="submit"
+                      disabled={!noteDraft.trim() || addNote.isPending}
+                      className="h-9 bg-ui-info px-4 text-[13px] font-medium text-ui-info-foreground hover:bg-ui-info/90"
+                    >
+                      {addNote.isPending ? "Saving…" : "Add note"}
+                    </Button>
+                  </div>
+                </form>
+
+                {notes.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-ui-border-light px-4 py-6 text-center text-[13px] text-ui-text-muted">
+                    No notes yet. Capture context, follow-ups, or anything you'd want to remember next time you see this profile.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {notes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="group rounded-lg border border-ui-border-light bg-ui-surface-subtle/40 px-4 py-3"
+                      >
+                        <p className="whitespace-pre-wrap text-[14px] leading-6 text-ui-text-primary">
+                          {note.body}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-ui-text-muted">
+                          <span>{new Date(note.created_at).toLocaleString()}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!candidate) return;
+                              deleteNote.mutate(
+                                { id: note.id, pdlId: candidate.id },
+                                {
+                                  onSuccess: () => toast.success("Note deleted"),
+                                  onError: (err) =>
+                                    toast.error(err instanceof Error ? err.message : "Failed to delete note"),
+                                },
+                              );
+                            }}
+                            className="inline-flex items-center gap-1 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                            aria-label="Delete note"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </TabsContent>
 
