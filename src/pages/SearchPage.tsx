@@ -403,6 +403,7 @@ export default function SearchPage() {
                 filters={filters}
                 onToggleSelect={toggleSelect}
                 onToggleSelectAll={toggleSelectAll}
+                onClearSelection={() => setSelected(new Set())}
                 onOpenCandidate={setDrawerCandidate}
                 onSaveBulk={() => handleSaveCandidates(selectedCandidates)}
                 onAddToCampaignBulk={() => toast.info("Campaign builder integration coming soon")}
