@@ -729,13 +729,32 @@ Deno.serve(async (req: Request) => {
     const pdlApiKey = Deno.env.get("PDL_API_KEY");
     const pdlBaseUrl = "https://api.peopledatalabs.com";
     const rawCompanies: string[] = (() => {
-      const co = parsed.companies || parsed.company || parsed.current_company || parsed.current_companies || [];
-      return Array.isArray(co)
-        ? co.map((c: string) => c.trim()).filter(Boolean)
-        : typeof co === "string" && co
-          ? co.split(",").map((c: string) => c.trim()).filter(Boolean)
-          : [];
+      // Bug fix: empty arrays are truthy, so `parsed.companies || parsed.current_companies`
+      // would stop at `[]` and never fall through. Merge all company fields instead.
+      const buckets = [
+        parsed.companies,
+        (parsed as any).company,
+        (parsed as any).current_company,
+        (parsed as any).current_companies,
+        (parsed as any).any_companies,
+        (parsed as any).past_companies,
+      ];
+      const merged: string[] = [];
+      for (const b of buckets) {
+        if (Array.isArray(b)) {
+          for (const c of b) {
+            if (typeof c === "string" && c.trim()) merged.push(c.trim());
+          }
+        } else if (typeof b === "string" && b.trim()) {
+          for (const c of b.split(",")) {
+            const t = c.trim();
+            if (t) merged.push(t);
+          }
+        }
+      }
+      return [...new Set(merged.map(s => s.toLowerCase()))];
     })();
+    console.log(`[COMPANY RESOLVE] rawCompanies extracted: ${JSON.stringify(rawCompanies)}`);
     if (rawCompanies.length > 0 && pdlApiKey) {
       const resolved = await resolveCompanyNames(rawCompanies, pdlApiKey, pdlBaseUrl);
       const resolvedIds = resolved.filter(r => r.pdl_id).map(r => r.pdl_id!);
