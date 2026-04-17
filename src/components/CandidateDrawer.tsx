@@ -747,8 +747,8 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                {/* Quick Stats strip */}
-                {(yearsExperience || candidate.avg_tenure_months || inferredSalary) && (
+                {/* Quick Stats strip — years + avg tenure only (no salary band) */}
+                {(yearsExperience || candidate.avg_tenure_months) && (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-4 py-2.5 text-[13px]">
                     {yearsExperience ? (
                       <div className="flex items-baseline gap-1.5">
@@ -764,51 +764,11 @@ export function CandidateDrawer({
                         <span className="text-ui-text-muted">avg tenure</span>
                       </div>
                     ) : null}
-                    {inferredSalary ? (
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-ui-text-primary">{inferredSalary}</span>
-                        <span className="text-ui-text-muted">salary band</span>
-                      </div>
-                    ) : null}
                   </div>
                 )}
 
-                {/* Wide-mode 2-col grid for ed/certs/skills, stacked otherwise */}
+                {/* Certifications + Skills (Education moved to Experience tab) */}
                 <div className={cn("space-y-5", isWide && "sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 sm:space-y-0")}>
-                  {/* Education — compact */}
-                  {educationEntries.length > 0 && (
-                    <section className="space-y-2">
-                      <SectionHeading label="Education" />
-                      <div className="space-y-2">
-                        {educationEntries.map((entry, index) => {
-                          const degreeInfo = formatDegree(
-                            entry.degree && entry.major
-                              ? { degree: entry.degree, major: entry.major }
-                              : entry.degree ?? entry.major,
-                          );
-                          const school = entry.school ? toTitleCase(entry.school) : null;
-                          const yearLabel = formatDateLabelSmart(entry.endDate) || formatDateLabelSmart(entry.startDate);
-                          return (
-                            <div key={`${entry.school}-${index}`} className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-[14px] font-medium text-ui-text-primary">
-                                  {school || "Unknown school"}
-                                </p>
-                                {degreeInfo.display && (
-                                  <p className="truncate text-[12px] text-ui-text-tertiary">{degreeInfo.display}</p>
-                                )}
-                              </div>
-                              {yearLabel && (
-                                <span className="shrink-0 text-[12px] text-ui-text-muted">{yearLabel}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Certifications — inline chips */}
                   {certifications.length > 0 && (
                     <section className="space-y-2">
                       <SectionHeading label="Certifications" />
@@ -825,9 +785,8 @@ export function CandidateDrawer({
                     </section>
                   )}
 
-                  {/* Clinical Skills */}
                   {primarySkills.length > 0 && (
-                    <section className={cn("space-y-2", isWide && "sm:col-span-2")}>
+                    <section className={cn("space-y-2", isWide && certifications.length === 0 && "sm:col-span-2")}>
                       <SectionHeading label="Clinical Skills" />
                       <div className="flex flex-wrap gap-1.5">
                         {(showAllSkills ? allSkills : primarySkills).map((skill) => (
@@ -852,30 +811,40 @@ export function CandidateDrawer({
                 {error && <p className="text-[13px] text-ui-text-muted">{error}</p>}
               </TabsContent>
 
-              {/* EXPERIENCE — tighter timeline */}
-              <TabsContent value="experience" className="mt-0 px-5 py-5 pb-24 sm:px-6">
-                {experienceEntries.length > 0 ? (
-                  <section className="space-y-3">
-                    <SectionHeading label="Career Timeline" />
+              {/* EXPERIENCE — LinkedIn-style: Experience section + Education section */}
+              <TabsContent value="experience" className="mt-0 space-y-6 px-5 py-5 pb-24 sm:px-6">
+                {/* Experience */}
+                <section>
+                  <h3 className="mb-3 text-[15px] font-semibold text-ui-text-primary">Experience</h3>
+                  {experienceEntries.length > 0 ? (
                     <div className="space-y-4">
                       {experienceEntries.map((entry, index) => {
                         const duration = formatExperienceDuration(entry.startDate, entry.endDate);
+                        const companyInitials = getInitials(entry.company || "?");
+                        const isLast = index === experienceEntries.length - 1;
                         return (
-                          <div key={`${entry.title}-${entry.company}-${index}`} className="relative flex gap-3">
-                            <div className="relative flex w-4 justify-center">
-                              <span
+                          <div
+                            key={`${entry.title}-${entry.company}-${index}`}
+                            className="relative flex gap-3"
+                          >
+                            {/* Company logo placeholder + connecting line */}
+                            <div className="relative flex w-10 flex-col items-center">
+                              <div
                                 className={cn(
-                                  "relative z-10 mt-1 h-2.5 w-2.5 rounded-full",
-                                  entry.isCurrent ? "bg-timeline-current ring-2 ring-timeline-ring" : "bg-timeline-past",
+                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[11px] font-bold",
+                                  getAvatarToneClass(entry.company || entry.title || "x"),
                                 )}
-                              />
-                              {index < experienceEntries.length - 1 && (
-                                <span className="absolute top-4 h-[calc(100%+12px)] w-0.5 bg-timeline-line" />
+                                aria-hidden="true"
+                              >
+                                {companyInitials}
+                              </div>
+                              {!isLast && (
+                                <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
                               )}
                             </div>
 
-                            <div className="min-w-0 flex-1 pb-1">
-                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <div className="min-w-0 flex-1 pb-3">
+                              <div className="flex flex-wrap items-baseline gap-x-2">
                                 <p className="text-[14px] font-semibold text-ui-text-primary">
                                   {entry.title ? toTitleCase(entry.title) : "Unknown role"}
                                 </p>
@@ -884,22 +853,75 @@ export function CandidateDrawer({
                                     Current
                                   </span>
                                 )}
-                                <span className="ml-auto shrink-0 text-[11px] text-ui-text-muted">
-                                  {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate) || "Present"}
-                                  {duration ? ` · ${duration}` : ""}
-                                </span>
                               </div>
                               <p className="text-[13px] text-ui-text-secondary">
                                 {entry.company ? toTitleCase(entry.company) : "Unknown company"}
+                              </p>
+                              <p className="mt-0.5 text-[12px] text-ui-text-muted">
+                                {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate) || "Present"}
+                                {duration ? ` · ${duration}` : ""}
                               </p>
                             </div>
                           </div>
                         );
                       })}
                     </div>
+                  ) : (
+                    <p className="text-[14px] text-ui-text-tertiary">No experience history available.</p>
+                  )}
+                </section>
+
+                {/* Education */}
+                {educationEntries.length > 0 && (
+                  <section>
+                    <h3 className="mb-3 text-[15px] font-semibold text-ui-text-primary">Education</h3>
+                    <div className="space-y-4">
+                      {educationEntries.map((entry, index) => {
+                        const degreeInfo = formatDegree(
+                          entry.degree && entry.major
+                            ? { degree: entry.degree, major: entry.major }
+                            : entry.degree ?? entry.major,
+                        );
+                        const school = entry.school ? toTitleCase(entry.school) : "Unknown school";
+                        const schoolInitials = getInitials(entry.school || "?");
+                        const isLast = index === educationEntries.length - 1;
+                        const startYear = formatDateLabelSmart(entry.startDate);
+                        const endYear = formatDateLabelSmart(entry.endDate);
+                        const dateLabel =
+                          startYear && endYear
+                            ? `${startYear} — ${endYear}`
+                            : endYear || startYear || null;
+                        return (
+                          <div key={`${entry.school}-${index}`} className="relative flex gap-3">
+                            <div className="relative flex w-10 flex-col items-center">
+                              <div
+                                className={cn(
+                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[11px] font-bold",
+                                  getAvatarToneClass(entry.school || "edu"),
+                                )}
+                                aria-hidden="true"
+                              >
+                                {schoolInitials}
+                              </div>
+                              {!isLast && (
+                                <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1 pb-3">
+                              <p className="text-[14px] font-semibold text-ui-text-primary">{school}</p>
+                              {degreeInfo.display && (
+                                <p className="text-[13px] text-ui-text-secondary">{degreeInfo.display}</p>
+                              )}
+                              {dateLabel && (
+                                <p className="mt-0.5 text-[12px] text-ui-text-muted">{dateLabel}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </section>
-                ) : (
-                  <p className="text-[14px] text-ui-text-tertiary">Experience history is not available for this profile yet.</p>
                 )}
               </TabsContent>
 
