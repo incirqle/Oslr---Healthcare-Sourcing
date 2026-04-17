@@ -51,8 +51,7 @@ function buildBrief(c: FormattedCandidate, idx: number): Record<string, unknown>
     sub_role: c.job_title_sub_role,
     lives: [c.location_locality, c.location_region].filter(Boolean).join(", ") || null,
     practices: [c.job_company_location_locality, c.job_company_location_region].filter(Boolean).join(", ") || null,
-    skills: (c.clinical_skills || []).slice(0, 6),
-    headline: (c.headline || "").slice(0, 140) || null,
+    skills: (c.clinical_skills || []).slice(0, 4),
   };
 }
 
