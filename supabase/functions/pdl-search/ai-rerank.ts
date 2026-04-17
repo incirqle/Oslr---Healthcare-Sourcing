@@ -16,8 +16,9 @@
 import type { FormattedCandidate } from "./format-results.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const RERANK_MODEL = "google/gemini-3.1-pro-preview";
 const RERANK_TOP_N = 50;
-const RERANK_TIMEOUT_MS = 12000;
+const RERANK_TIMEOUT_MS = 25000;
 
 interface RerankItem {
   id: string;
