@@ -274,7 +274,7 @@ export function buildPDLQuery(
           ],
         },
       };
-      filterClauses.push({ bool: { should: [personalSide, practiceSide], minimum_should_match: 1 } });
+      filterClauses.push({ bool: { should: [personalSide, practiceSide] } });
       console.log(`Dual-location filter: ${uniqueCities.length} cities × {personal, practice} bounded by states [${uniqueStates.join(",")}]`);
     } else {
       // No state — still match either personal or practice locality
@@ -284,7 +284,6 @@ export function buildPDLQuery(
             { bool: { should: personalLocClauses } },
             { bool: { should: practiceLocClauses } },
           ],
-          minimum_should_match: 1,
         },
       });
     }
@@ -296,7 +295,6 @@ export function buildPDLQuery(
           { terms: { location_region: uniqueStates } },
           { terms: { job_company_location_region: uniqueStates } },
         ],
-        minimum_should_match: 1,
       },
     });
   }
