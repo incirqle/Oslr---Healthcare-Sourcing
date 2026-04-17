@@ -184,10 +184,13 @@ export async function rerankWithAI(
     return { candidates, ai_reranked: false, ai_rerank_error: errors.join("; ") || "no_scores" };
   }
 
-  // Apply scores; candidates without an AI score keep their deterministic score
+  // BLENDED scoring: 60% deterministic (which knows ONET specialty match = +30) + 40% Claude.
+  // Pure-replace was burying real cardiologists because Claude clusters scores 20-40 for everyone.
   const reranked = head.map(c => {
     const aiScore = scoreById.get(c.id);
-    return typeof aiScore === "number" ? { ...c, relevance_score: aiScore } : c;
+    if (typeof aiScore !== "number") return c;
+    const blended = Math.round(0.6 * c.relevance_score + 0.4 * aiScore);
+    return { ...c, relevance_score: Math.max(0, Math.min(100, blended)), ai_score: aiScore };
   });
 
   reranked.sort((a, b) => b.relevance_score - a.relevance_score);
