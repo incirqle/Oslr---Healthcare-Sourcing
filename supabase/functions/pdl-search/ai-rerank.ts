@@ -17,8 +17,9 @@ import { callClaude, CLAUDE_HAIKU } from "./ai-router.ts";
 
 const RERANK_MODEL = CLAUDE_HAIKU;
 const RERANK_TOP_N = 50;
-const RERANK_TIMEOUT_MS = 20000;
-const RERANK_MAX_TOKENS = 4096; // 50 items × ~30 tokens each + JSON overhead
+const RERANK_BATCH_SIZE = 25;
+const RERANK_BATCH_TIMEOUT_MS = 25000;
+const RERANK_MAX_TOKENS = 2048; // 25 items × ~30 tokens each + JSON overhead
 
 interface RerankItem {
   id: string;
