@@ -96,7 +96,6 @@ function CandidateRow({
   onToggleSelect: () => void;
   onOpenCandidate: () => void;
 }) {
-  const salary = formatSalary(candidate.inferred_salary);
   const previewSkills = candidate.clinical_skills?.length ? candidate.clinical_skills : candidate.skills;
   const visibleSkills = previewSkills.slice(0, 3);
   const extraSkills = Math.max(previewSkills.length - visibleSkills.length, 0);
