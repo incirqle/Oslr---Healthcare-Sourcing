@@ -391,8 +391,116 @@ async function resolveCompanyNames(
         }
       }
 
+      // ── Step 1b: Enrich-by-name fallback (fuzzy match) ──
+      // /v5/company/clean is strict and 404s on shortened names like "panorama orthopedics".
+      // /v5/company/enrich?name=... is much fuzzier and resolves the canonical entity.
       if (!pdlName) {
-        console.log(`[COMPANY RESOLVE] "${name}" -> not resolved after ${namesToTry.length} attempts, using original`);
+        for (const tryName of namesToTry) {
+          if (pdlName) break;
+          try {
+            const enrichByNameUrl = `${pdlBaseUrl}/v5/company/enrich?name=${encodeURIComponent(tryName)}&pretty=false`;
+            const eResp = await fetch(enrichByNameUrl, {
+              method: "GET",
+              headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+            });
+            if (eResp.ok) {
+              const eData = await eResp.json();
+              if (eData.status === 200 && eData.name) {
+                pdlName = eData.name?.toLowerCase() || null;
+                pdlId = eData.id || null;
+                website = eData.website || null;
+                linkedinUrl = eData.linkedin_url || null;
+                // capture alt_names early since we already have the enrich payload
+                if (Array.isArray(eData.alternative_names)) {
+                  for (const altName of eData.alternative_names) {
+                    if (typeof altName === "string" && altName.length > 0) {
+                      altNames.push(altName.toLowerCase());
+                    }
+                  }
+                }
+                if (Array.isArray(eData.affiliated_profiles)) {
+                  for (const affId of eData.affiliated_profiles) {
+                    if (typeof affId === "string" && affId.length > 0) {
+                      affiliatedIds.push(affId);
+                    }
+                  }
+                }
+                console.log(`[COMPANY RESOLVE] Step 1b Enrich-by-name: "${tryName}" -> "${pdlName}", ID: ${pdlId}, alt_names: ${altNames.length}`);
+              }
+            }
+          } catch (eErr) {
+            console.error(`[COMPANY RESOLVE] Enrich-by-name error for "${tryName}":`, eErr);
+          }
+        }
+      }
+
+      // ── Step 1c: Autocomplete fallback (free, fuzzy) ──
+      // Pick the top health-related suggestion. Useful when both Cleaner and Enrich miss.
+      if (!pdlName) {
+        for (const tryName of namesToTry) {
+          if (pdlName) break;
+          try {
+            const acUrl = `${pdlBaseUrl}/v5/autocomplete?field=company&text=${encodeURIComponent(tryName)}&size=10&pretty=false`;
+            const acResp = await fetch(acUrl, {
+              method: "GET",
+              headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+            });
+            if (acResp.ok) {
+              const acData = await acResp.json();
+              if (Array.isArray(acData.data) && acData.data.length > 0) {
+                // Prefer health-related entities; fall back to top result
+                const candidates = acData.data.filter((it: any) =>
+                  typeof it.name === "string" && nameIsHealthRelated(it.name)
+                );
+                const pick = (candidates[0] || acData.data[0]) as any;
+                if (pick && pick.name) {
+                  const pickedName = String(pick.name).toLowerCase();
+                  // Re-run enrich on the picked canonical name to grab id + alt_names
+                  try {
+                    const enrich2Url = `${pdlBaseUrl}/v5/company/enrich?name=${encodeURIComponent(pickedName)}&pretty=false`;
+                    const e2Resp = await fetch(enrich2Url, {
+                      method: "GET",
+                      headers: { "X-Api-Key": pdlApiKey, "Content-Type": "application/json" },
+                    });
+                    if (e2Resp.ok) {
+                      const e2Data = await e2Resp.json();
+                      if (e2Data.status === 200 && e2Data.name) {
+                        pdlName = e2Data.name?.toLowerCase() || pickedName;
+                        pdlId = e2Data.id || null;
+                        website = e2Data.website || null;
+                        linkedinUrl = e2Data.linkedin_url || null;
+                        if (Array.isArray(e2Data.alternative_names)) {
+                          for (const altName of e2Data.alternative_names) {
+                            if (typeof altName === "string" && altName.length > 0) {
+                              altNames.push(altName.toLowerCase());
+                            }
+                          }
+                        }
+                        if (Array.isArray(e2Data.affiliated_profiles)) {
+                          for (const affId of e2Data.affiliated_profiles) {
+                            if (typeof affId === "string" && affId.length > 0) {
+                              affiliatedIds.push(affId);
+                            }
+                          }
+                        }
+                      }
+                    }
+                  } catch (_) { /* ignore, fall through */ }
+
+                  // If enrich didn't fill in, at least keep the picked name
+                  if (!pdlName) pdlName = pickedName;
+                  console.log(`[COMPANY RESOLVE] Step 1c Autocomplete: "${tryName}" -> "${pdlName}", ID: ${pdlId ?? "n/a"}`);
+                }
+              }
+            }
+          } catch (acErr) {
+            console.error(`[COMPANY RESOLVE] Autocomplete fallback error for "${tryName}":`, acErr);
+          }
+        }
+      }
+
+      if (!pdlName) {
+        console.log(`[COMPANY RESOLVE] "${name}" -> not resolved after Cleaner/Search/Enrich/Autocomplete, using original`);
         results.push({
           original: name, pdl_name: null, pdl_id: null, website: null,
           linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
