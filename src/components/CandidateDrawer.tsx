@@ -683,7 +683,9 @@ export function CandidateDrawer({
                       <div className="h-4 w-3/4 animate-pulse rounded bg-ui-border-light" />
                     </div>
                   ) : (
-                    <p className="text-[15px] leading-7 text-ui-text-secondary">{aiSummary || "Summary not available."}</p>
+                    <p className="text-[15px] leading-7 text-ui-text-secondary">
+                      {aiSummary ? highlightText(aiSummary, highlightTerms) : "Summary not available."}
+                    </p>
                   )}
                 </div>
 
