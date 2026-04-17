@@ -344,13 +344,18 @@ export function CandidateDrawer({
       ? enriched.certifications
       : (candidate?.raw?.certifications ?? []);
     if (!Array.isArray(raw)) return [];
-    return raw
-      .map((c: unknown) => {
-        if (typeof c === "string") return c.trim();
-        if (c && typeof c === "object" && "name" in c) return String((c as { name: unknown }).name).trim();
-        return "";
-      })
-      .filter((s: string) => s.length > 0);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of raw) {
+      const name = renderNamedValue(c);
+      if (!name) continue;
+      const titled = toTitleCase(name);
+      const key = titled.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(titled);
+    }
+    return out;
   }, [candidate?.raw, enriched?.certifications]);
   const primarySkills = useMemo(() => {
     if (candidate?.clinical_skills?.length) return candidate.clinical_skills;
