@@ -207,14 +207,11 @@ function CandidateRow({
           </div>
 
           <div className="flex min-w-[110px] shrink-0 flex-col items-start gap-2 text-left sm:items-end sm:text-right">
-            {salary && (
-              <span className="rounded-[4px] bg-salary px-2.5 py-1 text-[14px] font-medium leading-none text-salary-foreground">
-                {salary}
-              </span>
-            )}
-            {(candidate.years_experience ?? 0) > 0 && (
-              <span className="text-[13px] text-ui-text-muted">{candidate.years_experience} yrs exp</span>
-            )}
+            <CandidateSalaryBadge
+              inferredSalary={candidate.inferred_salary}
+              yearsExperience={candidate.years_experience}
+              className="sm:justify-end"
+            />
             {candidate.has_contact_info && (
               <span className="inline-flex items-center gap-1.5 text-[13px] text-contact-foreground">
                 <Mail className="h-3.5 w-3.5" />
