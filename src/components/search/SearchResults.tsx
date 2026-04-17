@@ -88,6 +88,7 @@ interface SearchResultsProps {
   filters: ParsedFilters;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
+  onClearSelection?: () => void;
   onOpenCandidate: (candidate: Candidate) => void;
   onSaveBulk: () => void;
   onAddToCampaignBulk?: () => void;
