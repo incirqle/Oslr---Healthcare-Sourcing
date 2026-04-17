@@ -854,15 +854,23 @@ Deno.serve(async (req: Request) => {
       // Multi-entity scope detection — used by frontend to surface a banner.
       const isHealthSystem = resolved.some(r => r.pdl_name && isHealthSystemParent(r.pdl_name));
       const uniqueAffiliates = [...new Set(resolvedAffiliatedNames)];
-      if (isHealthSystem || uniqueAffiliates.length > 3) {
+      // Fall back to alt-names when PDL didn't return affiliated_profiles but
+      // autocomplete + brand-token harvesting surfaced sibling entities (e.g. UHealth, Miller School).
+      const anchorLower = (resolved[0]?.pdl_name ?? "").toLowerCase();
+      const siblingAltNames = [...new Set(resolvedAltNames)].filter(
+        (n) => n.toLowerCase() !== anchorLower,
+      );
+      const displayAffiliates = uniqueAffiliates.length > 0 ? uniqueAffiliates : siblingAltNames;
+      const effectiveAffiliateCount = Math.max(uniqueAffiliates.length, siblingAltNames.length);
+      if (isHealthSystem || effectiveAffiliateCount > 3) {
         (parsed as Record<string, unknown>)._is_health_system = true;
       }
       companyScope = {
         anchor_name: resolved[0]?.pdl_name ?? rawCompanies[0] ?? null,
         is_health_system: isHealthSystem,
-        affiliated_count: uniqueAffiliates.length,
-        sample_affiliates: uniqueAffiliates.slice(0, 5),
-        multi_entity: isHealthSystem || uniqueAffiliates.length > 3,
+        affiliated_count: effectiveAffiliateCount,
+        sample_affiliates: displayAffiliates.slice(0, 5),
+        multi_entity: isHealthSystem || effectiveAffiliateCount > 3,
       };
 
       console.log("[COMPANY] Enhanced resolution:", {
