@@ -473,6 +473,24 @@ export default function SearchPage() {
         isSaved={drawerCandidate ? savedIds.has(drawerCandidate.id) : false}
         isSavingCandidate={addCandidates.isPending}
         onSaveCandidate={drawerCandidate ? () => handleSaveCandidates([drawerCandidate]) : undefined}
+        filters={filters}
+        onPrev={() => {
+          if (!drawerCandidate) return;
+          const idx = visibleCandidates.findIndex((c) => c.id === drawerCandidate.id);
+          if (idx > 0) setDrawerCandidate(visibleCandidates[idx - 1]);
+        }}
+        onNext={() => {
+          if (!drawerCandidate) return;
+          const idx = visibleCandidates.findIndex((c) => c.id === drawerCandidate.id);
+          if (idx >= 0 && idx < visibleCandidates.length - 1) {
+            setDrawerCandidate(visibleCandidates[idx + 1]);
+          }
+        }}
+        hasPrev={!!drawerCandidate && visibleCandidates.findIndex((c) => c.id === drawerCandidate.id) > 0}
+        hasNext={
+          !!drawerCandidate &&
+          visibleCandidates.findIndex((c) => c.id === drawerCandidate.id) < visibleCandidates.length - 1
+        }
       />
     </AppLayout>
   );
