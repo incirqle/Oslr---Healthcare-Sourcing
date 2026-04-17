@@ -984,8 +984,61 @@ Deno.serve(async (req: Request) => {
       total = (pdlData.total as number) || 0;
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
-      // Cascade if too few results
-      if (total < 2 && useRerankPool) {
+      // ════════════════════════════════════════════════════════════════
+      // SPECIALTY-MUST CASCADE FALLBACK (April 17 2026)
+      // When a multi-entity health system search returns < 40 results, the
+      // hard specialty must-clause is over-filtering (academic faculty have
+      // generic titles like "Associate Professor of Medicine" with the
+      // specialty buried in unindexed fields). Rebuild the query with
+      // specialty demoted to soft-boost only and re-fetch, then let the
+      // specialty-aware deterministic + AI ranker surface real specialists
+      // at the top. Recovers recall (25 → ~80–150 for UMiami cardiology)
+      // without sacrificing precision (ranker is now specialty-aware).
+      // ════════════════════════════════════════════════════════════════
+      const SPECIALTY_CASCADE_THRESHOLD = 40;
+      const isHealthSystemSearch = Boolean((parsed as Record<string, unknown>)._is_health_system);
+      const hasSpecialty = Boolean(
+        (parsed.specialty as string) ||
+        ((parsed.specialties as string[]) || []).length > 0
+      );
+      if (
+        useRerankPool &&
+        isHealthSystemSearch &&
+        hasSpecialty &&
+        total < SPECIALTY_CASCADE_THRESHOLD
+      ) {
+        console.log(`[SPECIALTY CASCADE] Health system + specialty returned only ${total} results (<${SPECIALTY_CASCADE_THRESHOLD}). Rebuilding without specialty must-clause...`);
+        const softQuery = buildPDLQuery(parsed, filters, false, false, /*omitSpecialtyMust*/ true);
+        const softCacheKey = await getPDLCacheKey(softQuery, fetchSize, null);
+        const softCached = await getDBCache(adminClient, softCacheKey);
+        let softData: Record<string, unknown>;
+        if (softCached && softCached.data.length > 0) {
+          softData = { data: softCached.data, total: softCached.total, scroll_token: softCached.scroll_token };
+          console.log(`[SPECIALTY CASCADE] Cache hit on soft query: ${softCached.total} total, ${softCached.data.length} results`);
+        } else {
+          softData = await fetchPDLForFullSearch(
+            softQuery, liveKey, 0, fetchSize, null, softCacheKey, adminClient
+          );
+        }
+        if (!(softData as Record<string, unknown>)._error) {
+          const softResults = (softData.data as Record<string, unknown>[]) || [];
+          const softTotal = (softData.total as number) || 0;
+          if (softResults.length > results.length) {
+            console.log(`[SPECIALTY CASCADE] Recovered: ${results.length} → ${softResults.length} results (PDL total ${total} → ${softTotal})`);
+            results = softResults;
+            total = softTotal;
+            returnScrollToken = (softData.scroll_token as string) || null;
+            cascadeUsed = true;
+            cascadePlan = [CascadeStep.DROP_SPECIALTY];
+            cascadeWinningStep = CascadeStep.DROP_SPECIALTY;
+          } else {
+            console.log(`[SPECIALTY CASCADE] No improvement (${softResults.length} vs ${results.length}). Keeping original.`);
+          }
+        }
+      }
+
+      // Existing legacy cascade — only fires when even the soft fallback returned almost nothing
+      if (total < 2 && useRerankPool && !cascadeUsed) {
         console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
         const cascadePayload: CascadePayload = {
           location: (parsed.location as CascadePayload["location"]) || {},
