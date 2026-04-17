@@ -294,10 +294,32 @@ export function scoreAndRankResults(
       if (jobTitle.includes(qt)) { score += 8; break; }
     }
 
-    // Specialty match
+    // Specialty match — TIERED scoring (was flat +5)
+    let specialtyBoosted = false;
     for (const qs of querySpecialties) {
-      if (jobTitle.includes(qs) || (person.all_skills || []).some(s => s.toLowerCase().includes(qs))) {
-        score += 5; break;
+      if (!qs) continue;
+      // Tier 1 (+30): ONET specific occupation matches the requested specialty — strongest possible signal
+      const onetTokens = SPECIALTY_ONET_MAP[qs] || [];
+      if (onetTokens.some(t => onetSpecific.includes(t))) {
+        score += 30;
+        specialtyBoosted = true;
+        break;
+      }
+      // Tier 2 (+20): Job title literally contains the specialty (e.g. "interventional cardiology")
+      if (jobTitle.includes(qs)) {
+        score += 20;
+        specialtyBoosted = true;
+        break;
+      }
+    }
+    if (!specialtyBoosted) {
+      // Tier 3 (+5): skill match only
+      for (const qs of querySpecialties) {
+        if (!qs) continue;
+        if ((person.all_skills || []).some(s => s.toLowerCase().includes(qs))) {
+          score += 5;
+          break;
+        }
       }
     }
 
