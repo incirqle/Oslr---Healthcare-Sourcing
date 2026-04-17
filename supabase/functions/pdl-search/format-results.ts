@@ -59,6 +59,8 @@ export interface FormattedCandidate {
   job_start_date: string | null;
   job_company_size: string | null;
   job_company_location_name: string | null;
+  job_company_location_locality: string | null;
+  job_company_location_region: string | null;
   profile_pic_url: string | null;
   github_url: string | null;
   facebook_url: string | null;
