@@ -543,6 +543,17 @@ export function buildPDLQuery(
   const isMultiEntityHealthSystem = Boolean((parsed as Record<string, unknown>)._is_health_system);
   const softenSpecialtyForHealthSystem = hasResolvedCompanyAnchor && isMultiEntityHealthSystem;
 
+  // Small specialty practice detection (April 17 2026) — when the anchor
+  // resolved to a single private practice (e.g. Panorama Orthopedics,
+  // OrthoSouth), PDL has near-zero ONET/role enrichment for these companies.
+  // Diagnostic evidence: Panorama strict 11/24 (46%), OrthoSouth strict 15/49
+  // (31%). The company filter alone is already a very tight constraint, so we
+  // safely demote specialty to a soft boost. The specialty-aware ranker still
+  // keeps real specialists on page 1 (Tier 1 ONET +30, Tier 2 title +20).
+  const isSmallPractice = Boolean((parsed as Record<string, unknown>)._is_small_practice);
+  const softenSpecialtyForSmallPractice = hasResolvedCompanyAnchor && isSmallPractice;
+  const softenSpecialtyForCompanyAnchor = softenSpecialtyForHealthSystem || softenSpecialtyForSmallPractice;
+
   if (allKeywordTerms.length > 0) {
     const kwClauses: Clause[] = [];
     for (const kw of allKeywordTerms.slice(0, 15)) {
@@ -553,9 +564,10 @@ export function buildPDLQuery(
     }
     if (kwClauses.length > 0) {
       // If titles already encode the specialty OR we're searching across a
-      // multi-entity health system, demote the keyword cluster to a soft boost.
-      // Otherwise keep it as a hard must (existing behavior).
-      if (specialtyAlreadyInTitles || softenSpecialtyForHealthSystem) {
+      // multi-entity health system OR a small specialty practice (where PDL
+      // has near-zero role taxonomy), demote the keyword cluster to a soft
+      // boost. Otherwise keep it as a hard must (existing behavior).
+      if (specialtyAlreadyInTitles || softenSpecialtyForCompanyAnchor) {
         // FIX (April 17 2026): Pure soft-boost was burying real specialists below
         // 25-result PDL window. Now add a STRONG must-clause that requires SOME
         // specialty signal (title wildcard OR sub_role OR onet OR skill OR summary),
@@ -595,7 +607,12 @@ export function buildPDLQuery(
           softShould.push({ term: { skills: kw.toLowerCase() } });
         }
         should.push({ bool: { should: kwClauses } });
-        console.log(`Specialty ${omitSpecialtyMust ? "SOFT-BOOST ONLY (cascade fallback)" : "REQUIRED via OR-clause"} (${specialties.join(",")}), reason: ${softenSpecialtyForHealthSystem ? "multi-entity health system" : "satisfied by titles"}`);
+        const reason = softenSpecialtyForHealthSystem
+          ? "multi-entity health system"
+          : softenSpecialtyForSmallPractice
+            ? "small specialty practice (low PDL role taxonomy)"
+            : "satisfied by titles";
+        console.log(`Specialty ${omitSpecialtyMust ? "SOFT-BOOST ONLY (cascade fallback)" : "REQUIRED via OR-clause"} (${specialties.join(",")}), reason: ${reason}`);
       } else {
         must.push({ bool: { should: kwClauses } });
       }
