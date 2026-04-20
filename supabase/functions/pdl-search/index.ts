@@ -865,9 +865,30 @@ Deno.serve(async (req: Request) => {
       if (isHealthSystem || effectiveAffiliateCount > 3) {
         (parsed as Record<string, unknown>)._is_health_system = true;
       }
+
+      // Small specialty practice detection — when the anchor resolved cleanly
+      // but to a single (or near-single) entity AND it's clearly NOT a health
+      // system, we know the company filter alone is a very tight constraint.
+      // For these practices, PDL has near-zero role/ONET enrichment (verified
+      // diagnostically against Panorama Orthopedics, OrthoSouth Memphis), so a
+      // hard specialty must-clause collapses the clinical pool by 50–70%.
+      // Demote specialty to a soft scoring boost — the specialty-aware ranker
+      // in format-results.ts (Tier 1 +30 ONET, Tier 2 +20 title) still keeps
+      // real specialists on page 1.
+      const hasAnyResolvedAnchor = resolvedIds.length > 0 || resolvedNames.length > 0 || resolvedWebsites.length > 0;
+      const isSmallPractice =
+        hasAnyResolvedAnchor &&
+        !isHealthSystem &&
+        effectiveAffiliateCount <= 2 &&
+        resolvedIds.length <= 2;
+      if (isSmallPractice) {
+        (parsed as Record<string, unknown>)._is_small_practice = true;
+      }
+
       companyScope = {
         anchor_name: resolved[0]?.pdl_name ?? rawCompanies[0] ?? null,
         is_health_system: isHealthSystem,
+        is_small_practice: isSmallPractice,
         affiliated_count: effectiveAffiliateCount,
         sample_affiliates: displayAffiliates.slice(0, 5),
         multi_entity: isHealthSystem || effectiveAffiliateCount > 3,
@@ -881,6 +902,7 @@ Deno.serve(async (req: Request) => {
         affiliatedNames: uniqueAffiliates.length,
         wildcards: resolvedWildcards,
         isHealthSystem,
+        isSmallPractice,
       });
     }
 
