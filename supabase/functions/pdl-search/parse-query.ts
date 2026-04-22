@@ -75,6 +75,7 @@ export interface ParsedPayload {
   any_companies: string[];
   specialty: string | null;
   specialty_confidence: number;
+  seniority: string | null;
   location: {
     state: string | null;
     state_confidence: number;
@@ -114,6 +115,7 @@ export function validateAIOutput(raw: unknown): ParsedPayload {
     any_companies: any,
     specialty: toStr(r.specialty),
     specialty_confidence: clamp(r.specialty_confidence, 0, 1, 0.5),
+    seniority: toStr(r.seniority),
     location: {
       state: toStr(loc.state),
       state_confidence: clamp(loc.state_confidence, 0, 1, 0.5),
@@ -158,6 +160,12 @@ const ROLE_WORD_PATTERNS: { pattern: RegExp; titles: string[] }[] = [
   { pattern: /\b(pharmacist|pharmd)\b/i, titles: ["pharmacist", "clinical pharmacist", "staff pharmacist"] },
   { pattern: /\b(medical assistant|cma)\b/i, titles: ["medical assistant", "certified medical assistant"] },
   { pattern: /\b(crna|nurse anesthetist)\b/i, titles: ["crna", "certified registered nurse anesthetist", "nurse anesthetist"] },
+  { pattern: /\b(srna|student (registered )?nurse anesthetist|student crna)\b/i, titles: ["srna", "student registered nurse anesthetist", "student nurse anesthetist"] },
+  { pattern: /\b(residents?|resident physicians?)\b/i, titles: ["resident physician", "resident", "medical resident"] },
+  { pattern: /\b(fellows?|clinical fellows?)\b/i, titles: ["fellow", "clinical fellow"] },
+  { pattern: /\b(medical student|med student|ms[1-4])\b/i, titles: ["medical student"] },
+  { pattern: /\b(nursing student|student nurses?|bsn student)\b/i, titles: ["nursing student", "student nurse"] },
+  { pattern: /\b(pa student|physician assistant student)\b/i, titles: ["physician assistant student", "pa student"] },
   { pattern: /\b(medical director|cmo)\b/i, titles: ["medical director", "chief medical officer"] },
   { pattern: /\b(nurse manager)\b/i, titles: ["nurse manager", "nursing manager", "clinical nurse manager"] },
   { pattern: /\b(director of nursing|don|cno)\b/i, titles: ["director of nursing", "chief nursing officer", "nursing director"] },
@@ -300,7 +308,16 @@ function normalizeParsedPayload(raw: Record<string, unknown>): Record<string, un
 
 const L2_SYSTEM_PROMPT = `You are a clinical healthcare workforce intelligence engine. Parse the user query and return ONLY valid JSON. No markdown, no explanation.
 
-You are searching for CLINICAL HEALTHCARE PROFESSIONALS: physicians (MDs, DOs), nurses (RNs, LPNs, NPs, CRNAs), physician assistants (PA-Cs), therapists (PT, OT, SLP, RT), pharmacists, medical assistants, dentists, dental hygienists, and allied health professionals.
+SCOPE — CLINICAL ROLES ONLY:
+Extract ONLY clinical healthcare professionals: physicians (MDs, DOs, residents, fellows, interns, medical students), nurses (RNs, LPNs, NPs, CRNAs, nursing students, SRNAs), physician assistants (PA-Cs, PA students), therapists (PT, OT, SLP, RT), pharmacists, medical assistants, dentists, dental hygienists, and allied health professionals.
+
+NON-CLINICAL roles are OUT OF SCOPE. When the query targets a non-clinical role (risk manager, compliance officer, billing, coding, HR, recruiter, IT, administrator without clinical license, executive, marketing, finance, operations, facilities, food service, security, clerical, janitorial), return:
+- job_titles: []
+- specialty: null
+- seniority: null
+- credentials: []
+- search_notes: "out of scope: non-clinical role"
+Still extract companies and location. Do not fabricate clinical titles to rescue the query.
 
 RETURN THIS EXACT SHAPE:
 {
@@ -314,6 +331,7 @@ RETURN THIS EXACT SHAPE:
   "any_companies": string[],
   "specialty": string|null,
   "specialty_confidence": number,
+  "seniority": string|null,
   "location": {
     "state": string|null,
     "state_confidence": number,
@@ -335,11 +353,30 @@ CLINICAL TITLE RULES:
 - "PA" or "physician assistant" → job_titles: ["physician assistant", "pa-c"]
 - "surgeon" → job_titles: ["surgeon"], specialty from context
 - "CRNA" → job_titles: ["crna", "nurse anesthetist"]
-- When a specialty modifies a generic role: "cardiac nurse" → job_titles: ["registered nurse", "rn"], specialty: "cardiology"
+- Specialty-modified generic: "cardiac nurse" → job_titles: ["registered nurse", "rn"], specialty: "cardiology"
+
+TRAINING STAGE — set seniority: "training":
+When the query targets anyone currently in a clinical training program (residency, fellowship, nursing school, PA school, SRNA program, medical school), set seniority: "training" AND use training-appropriate job_titles.
+
+- "resident" / "residents" / "resident physician" → job_titles: ["resident physician", "resident"], seniority: "training"
+- "fellow" / "fellows" (clinical context) → job_titles: ["fellow", "clinical fellow"], seniority: "training"
+- "intern" / "interns" (clinical context, not summer/corporate interns) → job_titles: ["intern", "medical intern"], seniority: "training"
+- "medical student" / "med student" / "ms1"–"ms4" → job_titles: ["medical student"], seniority: "training"
+- "nursing student" / "student nurse" / "bsn student" → job_titles: ["nursing student", "student nurse"], seniority: "training"
+- "SRNA" / "student nurse anesthetist" / "student CRNA" → job_titles: ["srna", "student registered nurse anesthetist"], specialty: "nurse anesthesia", seniority: "training"
+- "PA student" / "physician assistant student" → job_titles: ["physician assistant student", "pa student"], seniority: "training"
+
+Specialty-qualified training examples:
+- "cardiology fellows at Cleveland Clinic" → job_titles: ["cardiology fellow", "fellow"], specialty: "cardiology", seniority: "training", current_companies: ["cleveland clinic"]
+- "IM residents at MGH" → job_titles: ["internal medicine resident", "resident physician"], specialty: "internal medicine", seniority: "training", current_companies: ["massachusetts general hospital"]
+- "surgical residents at NYU" → job_titles: ["surgical resident", "general surgery resident"], specialty: "surgery", seniority: "training", current_companies: ["nyu langone"]
+- "NICU nursing students at HCA" → job_titles: ["nursing student", "student nurse"], specialty: "neonatal", seniority: "training", current_companies: ["hca healthcare"]
+
+seniority takes ONLY "training" today. For every non-training query, seniority: null. Do not use "entry", "senior", "lead", "mid", "junior" — these are not supported yet.
 
 GENERIC CATEGORY NOUNS — DO NOT extract as job_titles:
 providers, clinicians, professionals, practitioners, staff, healthcare workers, people, candidates, contacts.
-Set job_titles: [] for these. ONLY extract job_titles when the user specifies a DISTINCT role.
+Set job_titles: [] for these. ONLY extract job_titles when the user specifies a DISTINCT clinical role.
 
 When a specialty is combined with a generic word:
 - "cardiac nurses in Atlanta" → job_titles: ["registered nurse", "rn"], specialty: "cardiology"
@@ -380,6 +417,9 @@ COMPANY EXTRACTION:
     "Intermountain" → "intermountain health"
     "Providence" → "providence"
     "Advocate Aurora" → "advocate aurora health"
+    "NYU Langone" / "NYU" (healthcare context) → "nyu langone"
+    "Mass General" / "MGH" → "massachusetts general hospital"
+    "Brigham" / "BWH" → "brigham and women's hospital"
 
   Examples:
     "Physicians at Mayo Clinic and Cleveland Clinic" → current_companies: ["mayo clinic", "cleveland clinic"]
@@ -389,7 +429,7 @@ COMPANY EXTRACTION:
     "orthopedic doctors at uc health in denver" → current_companies: ["uchealth"], location.city: "denver"
     "cardiologists at mayo clinic" → current_companies: ["mayo clinic"]
 
-CREDENTIAL EXTRACTION: RN, BSN, MSN, MD, DO, NP, APRN, PA-C, PT, DPT, OT, SLP, RT, RRT, CRNA, etc.
+CREDENTIAL EXTRACTION: RN, BSN, MSN, MD, DO, NP, APRN, PA-C, PT, DPT, OT, SLP, RT, RRT, CRNA, SRNA, DDS, DMD, PharmD.
 
 CONFIDENCE SCALE: 0.9+ explicit | 0.7-0.89 implied | 0.5-0.69 inferred | <0.5 uncertain
 
@@ -397,7 +437,9 @@ RULES:
 1. All string values lowercase.
 2. title_synonyms: generate variants a healthcare profile might use for the same role.
 3. current_role_only=true unless: former, ex-, previously, past, background, before.
-4. Small states (DE,RI,VT,WY): set metro to nearest major city.`;
+4. Small states (DE,RI,VT,WY): set metro to nearest major city.
+5. seniority takes ONLY "training" today — null otherwise.
+6. Non-clinical queries: empty job_titles + "out of scope: non-clinical role" in search_notes. Do not fabricate clinical titles.`;
 
 const AI_SYSTEM_PROMPT = L2_SYSTEM_PROMPT;
 
