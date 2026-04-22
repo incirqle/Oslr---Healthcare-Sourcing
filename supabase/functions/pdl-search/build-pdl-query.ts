@@ -169,6 +169,23 @@ export function buildPDLQuery(
   ];
 
   // ═══════════════════════════════════════════
+  // CLINICAL SCOPE GATE — reject non-clinical queries outright
+  // If the L2 parser flagged the query as non-clinical (e.g. "risk managers at
+  // HCA Memphis"), short-circuit with a query that matches nothing. Prevents
+  // credit burn and admin-role leakage through the generic fallback.
+  // ═══════════════════════════════════════════
+  const searchNotesRaw = typeof parsed.search_notes === "string" ? parsed.search_notes.toLowerCase() : "";
+  const isOutOfScope = searchNotesRaw.includes("out of scope") && searchNotesRaw.includes("non-clinical");
+  if (isOutOfScope) {
+    console.log("[SCOPE] Non-clinical query rejected via parser search_notes — returning match_none");
+    return {
+      bool: {
+        filter: [{ term: { _id: "__oslr_non_clinical_out_of_scope__" } }],
+      },
+    };
+  }
+
+  // ═══════════════════════════════════════════
   // PERSON NAME
   // FIX: full_name, first_name, last_name are keyword fields — use term, not match_phrase
   // ═══════════════════════════════════════════
@@ -320,9 +337,12 @@ export function buildPDLQuery(
   }
 
   // ═══════════════════════════════════════════
-  const seniority = (filters.seniority as string) ?? null;
+  // Seniority: prefer user-supplied filter, fall back to L2 parser output
+  // (e.g. "cardiology fellows" → parsed.seniority = "training").
+  const seniority = (filters.seniority as string) ?? ((parsed.seniority as string) ?? null);
   if (seniority) {
     filterClauses.push({ term: { job_title_levels: seniority.toLowerCase() } });
+    console.log(`Seniority filter: job_title_levels=${seniority.toLowerCase()}`);
   }
 
   // ═══════════════════════════════════════════
@@ -1018,30 +1038,60 @@ export function buildPDLQuery(
       mustNot.push({ match_phrase: { "job_title.text": "dental hygienist" } });
       console.log("Dentist intent: sub_role filter + exclude dental assistants/hygienists");
     } else {
-      // Generic healthcare search — fall back to role-level filter
-      filterClauses.push({ term: { job_title_role: "health" } });
-      console.log("Role filter (generic healthcare): job_title_role=health");
+      // NO SPECIFIC CLINICAL INTENT DETECTED.
+      // Old behavior: broad job_title_role: "health" fallback — this is what
+      // leaked risk managers, billing staff, IT, HR, etc. into results.
+      // New behavior: enforce strict clinical scope via job_title_sub_role.
+      // Keeps only the five canonical clinical sub-roles; everything else
+      // (admin, finance, ops, IT, HR, marketing, risk, compliance) drops.
+      filterClauses.push({
+        terms: { job_title_sub_role: ["doctor", "nursing", "dental", "pharmacy", "therapy"] },
+      });
+      console.log("Generic clinical fallback: restricted to sub_role ∈ {doctor,nursing,dental,pharmacy,therapy}");
     }
 
-    // FIX B (shared) — for any non-doctor clinical intent (PA/NP/RN/therapist/
-    // pharmacist/dentist), apply a smaller non-clinical exclusion list.
-    // Doctor intent already applied a fuller list above.
-    if (wantsPA || wantsNP || wantsRN || wantsTherapist || wantsPharmacist || wantsDentist) {
+    // ══════════════════════════════════════════════════════════════
+    // GLOBAL NON-CLINICAL EXCLUSIONS — applied to every clinical branch
+    // EXCEPT the doctor branch, which already applies a larger list above.
+    // This is the minimum floor for PA / NP / RN / therapist / pharmacist /
+    // dentist / generic-fallback paths.
+    // ══════════════════════════════════════════════════════════════
+    if (!wantsDoctor) {
       const sharedNonClinicalExclusions = [
+        // Engineering / IT
         "software engineer", "data engineer", "systems engineer",
         "software developer", "web developer",
         "data scientist", "machine learning engineer",
         "software architect", "solutions architect",
-        "data analyst", "business analyst",
-        "recruiter", "talent acquisition",
-        "billing specialist", "claims specialist",
+        "it support", "help desk", "system administrator",
+        // Analytics / program / product
+        "data analyst", "business analyst", "financial analyst", "systems analyst",
+        "project manager", "program manager", "product manager",
+        // People ops / revenue cycle / billing
+        "recruiter", "talent acquisition", "human resources",
+        "billing specialist", "claims specialist", "revenue cycle",
+        "coder", "medical coder", "billing manager",
+        // Risk / compliance / legal / executive / admin
+        "risk manager", "risk analyst", "compliance officer", "compliance manager",
+        "executive assistant", "administrative assistant", "office manager",
+        "chief executive", "chief financial", "chief operating",
+        "chief information", "chief technology",
+        // Sales / marketing
+        "marketing manager", "sales representative", "account executive",
+        "account manager", "business development",
       ];
       for (const exclusion of sharedNonClinicalExclusions) {
         mustNot.push({ match_phrase: { "job_title.text": exclusion } });
       }
       mustNot.push({ term: { job_title_role: "engineering" } });
       mustNot.push({ term: { job_title_role: "information_technology" } });
-      console.log(`[FIX B] non-doctor clinical intent → ${sharedNonClinicalExclusions.length} non-clinical exclusions`);
+      mustNot.push({ term: { job_title_role: "finance" } });
+      mustNot.push({ term: { job_title_role: "sales" } });
+      mustNot.push({ term: { job_title_role: "human_resources" } });
+      mustNot.push({ term: { job_title_role: "marketing" } });
+      mustNot.push({ term: { job_title_role: "legal" } });
+      mustNot.push({ term: { job_title_role: "operations" } });
+      console.log(`[NON-CLINICAL EXCLUDE] ${sharedNonClinicalExclusions.length} title exclusions + 8 role-level exclusions applied`);
     }
   }
 
