@@ -144,6 +144,101 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
 
   // Trauma
   "trauma": { specialties: ["trauma"], keywords: ["trauma", "trauma surgery"] },
+
+  // ── Compound specialty + nursing role terms ──────────────────────────
+  // These fire when a user searches "cardiology nurses", "OR nurses", etc.
+  // The specialty filter narrows the pool; the keywords reinforce title matching.
+
+  // Cardiology nurses
+  "cardiac nurse": { specialties: ["cardiology"], keywords: ["cardiac nurse", "cardiovascular nurse", "CCU nurse", "telemetry nurse", "cardiac step-down"] },
+  "cardiac nurses": { specialties: ["cardiology"], keywords: ["cardiac nurse", "cardiovascular nurse", "CCU nurse", "telemetry nurse"] },
+  "cardiology nurse": { specialties: ["cardiology"], keywords: ["cardiac nurse", "cardiology nurse", "cardiovascular nurse", "CCU nurse"] },
+  "cardiology nurses": { specialties: ["cardiology"], keywords: ["cardiac nurse", "cardiology nurse", "cardiovascular nurse", "CCU nurse"] },
+  "cardiovascular nurse": { specialties: ["cardiology"], keywords: ["cardiovascular nurse", "cardiac nurse", "CCU nurse"] },
+  "ccu nurse": { specialties: ["cardiology"], keywords: ["CCU nurse", "cardiac care unit", "cardiac nurse"] },
+  "telemetry nurse": { specialties: ["cardiology"], keywords: ["telemetry nurse", "cardiac monitor", "step-down nurse"] },
+  "cath lab nurse": { specialties: ["interventional cardiology"], keywords: ["cath lab nurse", "cardiac catheterization nurse", "interventional nurse"] },
+
+  // OR / Surgical nurses
+  "or nurse": { specialties: ["surgery"], keywords: ["OR nurse", "operating room nurse", "scrub nurse", "perioperative nurse", "circulating nurse"] },
+  "or nurses": { specialties: ["surgery"], keywords: ["OR nurse", "operating room nurse", "scrub nurse", "perioperative nurse"] },
+  "operating room nurse": { specialties: ["surgery"], keywords: ["operating room nurse", "OR nurse", "scrub nurse", "perioperative nurse"] },
+  "scrub nurse": { specialties: ["surgery"], keywords: ["scrub nurse", "OR nurse", "operating room nurse", "surgical technologist"] },
+  "perioperative nurse": { specialties: ["surgery"], keywords: ["perioperative nurse", "OR nurse", "pre-op nurse", "post-op nurse", "PACU nurse"] },
+  "surgical nurse": { specialties: ["surgery"], keywords: ["surgical nurse", "OR nurse", "scrub nurse", "perioperative nurse"] },
+  "pacu nurse": { specialties: ["surgery"], keywords: ["PACU nurse", "recovery room nurse", "post-anesthesia nurse", "post-op nurse"] },
+  "pre-op nurse": { specialties: ["surgery"], keywords: ["pre-op nurse", "pre-operative nurse", "surgical prep nurse"] },
+
+  // ICU / Critical care nurses
+  "icu nurse": { specialties: ["critical care"], keywords: ["ICU nurse", "critical care nurse", "intensive care nurse"] },
+  "icu nurses": { specialties: ["critical care"], keywords: ["ICU nurse", "critical care nurse", "intensive care nurse"] },
+  "critical care nurse": { specialties: ["critical care"], keywords: ["critical care nurse", "ICU nurse", "intensive care nurse"] },
+  "critical care nurses": { specialties: ["critical care"], keywords: ["critical care nurse", "ICU nurse", "intensive care nurse"] },
+  "micu nurse": { specialties: ["critical care"], keywords: ["MICU nurse", "medical ICU nurse", "critical care nurse"] },
+  "sicu nurse": { specialties: ["critical care"], keywords: ["SICU nurse", "surgical ICU nurse", "critical care nurse"] },
+  "cvicu nurse": { specialties: ["critical care"], keywords: ["CVICU nurse", "cardiovascular ICU nurse", "cardiac ICU nurse"] },
+
+  // ER / Emergency nurses
+  "er nurse": { specialties: ["emergency medicine"], keywords: ["ER nurse", "emergency room nurse", "emergency nurse", "trauma nurse"] },
+  "er nurses": { specialties: ["emergency medicine"], keywords: ["ER nurse", "emergency room nurse", "emergency nurse"] },
+  "emergency room nurse": { specialties: ["emergency medicine"], keywords: ["emergency room nurse", "ER nurse", "emergency nurse"] },
+  "emergency nurse": { specialties: ["emergency medicine"], keywords: ["emergency nurse", "ER nurse", "emergency room nurse"] },
+  "trauma nurse": { specialties: ["trauma"], keywords: ["trauma nurse", "ER nurse", "emergency nurse", "trauma bay"] },
+
+  // Oncology nurses
+  "oncology nurse": { specialties: ["oncology"], keywords: ["oncology nurse", "chemo nurse", "infusion nurse", "cancer nurse"] },
+  "oncology nurses": { specialties: ["oncology"], keywords: ["oncology nurse", "chemo nurse", "infusion nurse", "cancer nurse"] },
+  "chemo nurse": { specialties: ["oncology"], keywords: ["chemo nurse", "chemotherapy nurse", "oncology nurse", "infusion nurse"] },
+  "infusion nurse": { specialties: ["oncology"], keywords: ["infusion nurse", "chemo nurse", "oncology nurse", "IV infusion"] },
+  "bmt nurse": { specialties: ["oncology"], keywords: ["BMT nurse", "bone marrow transplant nurse", "oncology nurse"] },
+
+  // OB / Labor & Delivery nurses
+  "labor and delivery nurse": { specialties: ["obstetrics/gynecology"], keywords: ["labor and delivery nurse", "L&D nurse", "OB nurse", "obstetrics nurse"] },
+  "l&d nurse": { specialties: ["obstetrics/gynecology"], keywords: ["L&D nurse", "labor and delivery nurse", "OB nurse"] },
+  "ob nurse": { specialties: ["obstetrics/gynecology"], keywords: ["OB nurse", "obstetrics nurse", "labor and delivery nurse", "L&D nurse"] },
+  "postpartum nurse": { specialties: ["obstetrics/gynecology"], keywords: ["postpartum nurse", "mother baby nurse", "OB nurse", "maternity nurse"] },
+  "mother baby nurse": { specialties: ["obstetrics/gynecology"], keywords: ["mother baby nurse", "postpartum nurse", "OB nurse"] },
+
+  // Pediatric nurses
+  "pediatric nurse": { specialties: ["pediatrics"], keywords: ["pediatric nurse", "peds nurse", "children's nurse"] },
+  "pediatric nurses": { specialties: ["pediatrics"], keywords: ["pediatric nurse", "peds nurse", "children's nurse"] },
+  "peds nurse": { specialties: ["pediatrics"], keywords: ["peds nurse", "pediatric nurse", "children's nurse"] },
+  "picu nurse": { specialties: ["pediatrics"], keywords: ["PICU nurse", "pediatric ICU nurse", "pediatric critical care"] },
+
+  // Orthopedic nurses
+  "ortho nurse": { specialties: ["orthopedics"], keywords: ["ortho nurse", "orthopedic nurse", "joint replacement nurse"] },
+  "orthopedic nurse": { specialties: ["orthopedics"], keywords: ["orthopedic nurse", "ortho nurse", "joint replacement nurse", "spine nurse"] },
+  "joint replacement nurse": { specialties: ["orthopedics"], keywords: ["joint replacement nurse", "arthroplasty nurse", "orthopedic nurse"] },
+
+  // Neuro nurses
+  "neuro nurse": { specialties: ["neurology"], keywords: ["neuro nurse", "neurology nurse", "neuroscience nurse", "stroke nurse"] },
+  "neurology nurse": { specialties: ["neurology"], keywords: ["neurology nurse", "neuro nurse", "neuroscience nurse"] },
+  "stroke nurse": { specialties: ["neurology"], keywords: ["stroke nurse", "neuro nurse", "stroke certified nurse"] },
+
+  // Psychiatric nurses
+  "psych nurse": { specialties: ["psychiatry"], keywords: ["psych nurse", "psychiatric nurse", "behavioral health nurse", "mental health nurse"] },
+  "psychiatric nurse": { specialties: ["psychiatry"], keywords: ["psychiatric nurse", "psych nurse", "behavioral health nurse"] },
+  "behavioral health nurse": { specialties: ["behavioral health"], keywords: ["behavioral health nurse", "psych nurse", "mental health nurse"] },
+
+  // Dialysis / Nephrology nurses
+  "nephrology nurse": { specialties: ["nephrology"], keywords: ["nephrology nurse", "dialysis nurse", "renal nurse"] },
+
+  // GI nurses
+  "gi nurse": { specialties: ["gastroenterology"], keywords: ["GI nurse", "gastroenterology nurse", "endoscopy nurse"] },
+  "endoscopy nurse": { specialties: ["gastroenterology"], keywords: ["endoscopy nurse", "GI nurse", "colonoscopy nurse"] },
+
+  // Radiology / Imaging nurses
+  "radiology nurse": { specialties: ["radiology"], keywords: ["radiology nurse", "imaging nurse", "IR nurse", "interventional radiology nurse"] },
+  "ir nurse": { specialties: ["radiology"], keywords: ["IR nurse", "interventional radiology nurse", "radiology nurse"] },
+
+  // General nursing role terms (no specialty filter)
+  "nurses": { specialties: [], keywords: ["registered nurse", "RN", "nursing"] },
+  "nurse": { specialties: [], keywords: ["registered nurse", "RN", "nursing"] },
+  "rn": { specialties: [], keywords: ["registered nurse", "RN"] },
+  "np": { specialties: [], keywords: ["nurse practitioner", "NP", "APRN"] },
+  "aprn": { specialties: [], keywords: ["advanced practice registered nurse", "APRN", "nurse practitioner"] },
+  "pa": { specialties: [], keywords: ["physician assistant", "PA-C", "physician associate"] },
+  "pa-c": { specialties: [], keywords: ["physician assistant", "PA-C"] },
 };
 
 /* ------------------------------------------------------------------ */
