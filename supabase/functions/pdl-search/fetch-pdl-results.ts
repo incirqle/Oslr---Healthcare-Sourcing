@@ -150,15 +150,21 @@ export async function runPreview(
 export async function fetchProfiles(
   pdlQuery: Record<string, unknown>,
   size: number,
-  pdlBaseUrl = "https://api.peopledatalabs.com"
+  pdlBaseUrl = "https://api.peopledatalabs.com",
+  // required_fields: PDL only charges a credit when the returned profile has
+  // ALL of these fields populated. Defaults to ["emails"] so we never burn a
+  // credit on a profile with zero contact info. Pass an empty array to disable.
+  // Lou Tarabocchia (PDL) recommendation — April 2026 discovery call.
+  requiredFields: string[] = ["emails"]
 ): Promise<Record<string, unknown>[]> {
   const liveKey = Deno.env.get("PDL_API_KEY");
   if (!liveKey) throw new Error("PDL_API_KEY not configured");
 
-  const body = {
+  const body: Record<string, unknown> = {
     query: pdlQuery,
     dataset: "all",
     size: Math.min(size, 100),
+    ...(requiredFields.length > 0 ? { required_fields: requiredFields } : {}),
   };
 
   const result = await fetchPDLWithRetry(

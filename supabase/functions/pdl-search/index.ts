@@ -178,6 +178,9 @@ async function fetchPDLForFullSearch(
     query: pdlQuery,
     dataset: "all",
     size: Math.min(size, 100),
+    // Only charge a credit when the profile has at least one email.
+    // Lou Tarabocchia (PDL) recommendation — April 2026 discovery call.
+    required_fields: ["emails"],
   };
 
   if (page > 0 && incomingScrollToken) {
