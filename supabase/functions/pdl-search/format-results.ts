@@ -99,15 +99,18 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
   const skills = Array.isArray(p.skills) ? p.skills.map((s: unknown) => typeof s === "string" ? s : String(s)) : [];
   const clinicalSkills = skills.filter(isClinicalSkill);
 
-  // Extract emails
+  // Extract emails — normalize to { address, type } objects
   const rawEmails = Array.isArray(p.emails) ? p.emails : [];
-  const emails: { address: string }[] = rawEmails
+  const emails: { address: string; type?: string }[] = rawEmails
     .map((e: unknown) => {
       if (typeof e === "string") return { address: e };
-      if (e && typeof e === "object" && "address" in (e as Record<string, unknown>)) return { address: (e as Record<string, unknown>).address as string };
+      if (e && typeof e === "object") {
+        const obj = e as Record<string, unknown>;
+        if (typeof obj.address === "string") return { address: obj.address, type: typeof obj.type === "string" ? obj.type : undefined };
+      }
       return null;
     })
-    .filter(Boolean) as { address: string }[];
+    .filter(Boolean) as { address: string; type?: string }[];
 
   // Extract phones
   const rawPhones = Array.isArray(p.phone_numbers) ? p.phone_numbers : [];
@@ -173,10 +176,22 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
     years_experience: yearsExp,
     gender: safeString(p.gender),
     emails: emails.map(e => e.address),
-    email: emails.length > 0 ? emails[0].address : null,
-    phone: phones.length > 0 ? phones[0] : null,
+    // Contact priority: mobile_phone → recommended_personal_email → work_email → first email
+    email: (() => {
+      if (typeof p.mobile_phone === "string" && p.mobile_phone.includes("@")) return p.mobile_phone as string;
+      const recPersonal = safeString((p as Record<string, unknown>).recommended_personal_email);
+      if (recPersonal) return recPersonal;
+      const workEmail = emails.find(e => e.type === "work" || e.type === "professional");
+      if (workEmail) return workEmail.address;
+      return emails.length > 0 ? emails[0].address : null;
+    })(),
+    phone: (() => {
+      // mobile_phone is the highest-quality contact signal
+      if (typeof p.mobile_phone === "string" && !p.mobile_phone.includes("@")) return p.mobile_phone as string;
+      return phones.length > 0 ? phones[0] : null;
+    })(),
     mobile_phone: typeof p.mobile_phone === "string" ? p.mobile_phone : null,
-    has_contact_info: emails.length > 0 || phones.length > 0,
+    has_contact_info: emails.length > 0 || phones.length > 0 || typeof p.mobile_phone === "string",
     phone_numbers: phones,
     profiles: Array.isArray(p.profiles) ? p.profiles as Record<string, unknown>[] : [],
     // NEW V2 fields

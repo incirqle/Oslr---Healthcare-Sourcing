@@ -19,6 +19,7 @@ import {
 import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankResults } from "./format-results.ts";
 import { callClaude } from "./ai-router.ts";
 import { rerankWithAI } from "./ai-rerank.ts";
+import { enrichJobTitles } from "./enrich-job-titles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -784,9 +785,29 @@ Deno.serve(async (req: Request) => {
     const parsed = await parseQuery(query, lovableKey, clientParsed);
     console.log("Parsed:", JSON.stringify(parsed));
 
-    // Step 1.5: Resolve company names via PDL Company API
+    // Shared PDL credentials (used by Steps 1b, 1.5, and full search)
     const pdlApiKey = Deno.env.get("PDL_API_KEY");
     const pdlBaseUrl = "https://api.peopledatalabs.com";
+
+    // Step 1b: Job Title Enrichment — expand parsed titles via PDL Job Title Enrichment API.
+    // Slots AFTER parseQuery (so we have intent) and BEFORE buildPDLQuery (so expanded titles
+    // feed into the ES DSL). Falls back silently to original titles on any error/404/402.
+    const rawJobTitles = (parsed.job_titles as string[]) || [];
+    if (rawJobTitles.length > 0 && pdlApiKey) {
+      try {
+        const enrichedTitles = await enrichJobTitles(rawJobTitles, pdlApiKey);
+        if (enrichedTitles.length > rawJobTitles.length) {
+          (parsed as Record<string, unknown>).job_titles = enrichedTitles;
+          console.log(`[JobTitleEnrich] Titles expanded: ${rawJobTitles.length} → ${enrichedTitles.length}`);
+        }
+      } catch (enrichErr) {
+        console.warn(
+          `[JobTitleEnrich] Enrichment failed, using original titles: ${enrichErr instanceof Error ? enrichErr.message : String(enrichErr)}`
+        );
+      }
+    }
+
+    // Step 1.5: Resolve company names via PDL Company API
     const rawCompanies: string[] = (() => {
       // Bug fix: empty arrays are truthy, so `parsed.companies || parsed.current_companies`
       // would stop at `[]` and never fall through. Merge all company fields instead.
