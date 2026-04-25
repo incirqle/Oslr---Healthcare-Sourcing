@@ -969,10 +969,19 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 4: Full search
-    // Fetch a small first pool for AI reranking (10 records = 10 credits max).
-    // Kept deliberately low during testing to preserve PDL credits.
-    // Raise RERANK_POOL_SIZE toward 50 when moving to production.
-    const RERANK_POOL_SIZE = 10;
+    // Pool size controls how many PDL records we fetch for AI reranking (1 credit each).
+    //
+    // Three tiers based on what we know about the query scope:
+    //   - Small practice (single resolved entity, ≤ 2 affiliates, e.g. Panorama Orthopedics):
+    //     fetch up to 75 — the practice has a finite roster and we need all of them
+    //     so the ranker can surface the best matches across the full set.
+    //   - Health system (UMiami, Mayo, etc.) or general search with location only:
+    //     fetch 10 during testing — result sets are large and we can't enumerate them.
+    //   - No company filter at all: fetch 10 during testing.
+    //
+    // Raise the non-practice pool size toward 50 when moving to production.
+    const isSmallPractice = !!(parsed as Record<string, unknown>)._is_small_practice;
+    const RERANK_POOL_SIZE = isSmallPractice ? 75 : 10;
     const poolSize = Math.max(size, Math.ceil(RERANK_POOL_SIZE / size) * size);
     const pageStart = page * size;
     const pageEnd = pageStart + size;
