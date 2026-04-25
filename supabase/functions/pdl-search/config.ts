@@ -239,6 +239,149 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
   "aprn": { specialties: [], keywords: ["advanced practice registered nurse", "APRN", "nurse practitioner"] },
   "pa": { specialties: [], keywords: ["physician assistant", "PA-C", "physician associate"] },
   "pa-c": { specialties: [], keywords: ["physician assistant", "PA-C"] },
+
+  // ── Compound specialty + physician/doctor terms ───────────────────────
+  // "cardiology doctor", "orthopedic surgeon", "neuro physician", etc.
+
+  // General doctor shorthand
+  "doctor": { specialties: [], keywords: ["physician", "doctor", "attending", "MD", "DO"] },
+  "doctors": { specialties: [], keywords: ["physician", "doctor", "attending", "MD", "DO"] },
+  "physician": { specialties: [], keywords: ["physician", "attending physician", "MD", "DO"] },
+  "physicians": { specialties: [], keywords: ["physician", "attending physician", "MD", "DO"] },
+  "md": { specialties: [], keywords: ["MD", "physician", "medical doctor", "attending"] },
+  "do": { specialties: [], keywords: ["DO", "doctor of osteopathic medicine", "physician"] },
+  "attending": { specialties: [], keywords: ["attending physician", "attending", "staff physician"] },
+  "hospitalist": { specialties: ["hospital medicine"], keywords: ["hospitalist", "hospital medicine", "nocturnist"] },
+
+  // Cardiology physicians
+  "cardiology doctor": { specialties: ["cardiology"], keywords: ["cardiologist", "cardiac physician", "cardiovascular physician"] },
+  "cardiology doctors": { specialties: ["cardiology"], keywords: ["cardiologist", "cardiac physician", "cardiovascular physician"] },
+  "cardiology physician": { specialties: ["cardiology"], keywords: ["cardiologist", "cardiovascular physician"] },
+  "heart doctor": { specialties: ["cardiology"], keywords: ["cardiologist", "cardiac physician"] },
+  "cardiologist": { specialties: ["cardiology"], keywords: ["cardiologist", "cardiac physician", "interventional cardiologist"] },
+  "cardiologists": { specialties: ["cardiology"], keywords: ["cardiologist", "interventional cardiologist"] },
+
+  // Orthopedic physicians
+  "orthopedic doctor": { specialties: ["orthopedics"], keywords: ["orthopedic surgeon", "orthopedist", "orthopedic physician"] },
+  "orthopedic doctors": { specialties: ["orthopedics"], keywords: ["orthopedic surgeon", "orthopedist"] },
+  "orthopedic surgeon": { specialties: ["orthopedics"], keywords: ["orthopedic surgeon", "orthopedist", "sports medicine surgeon"] },
+  "orthopedic surgeons": { specialties: ["orthopedics"], keywords: ["orthopedic surgeon", "orthopedist"] },
+  "orthopedist": { specialties: ["orthopedics"], keywords: ["orthopedist", "orthopedic surgeon"] },
+
+  // Oncology physicians
+  "oncology doctor": { specialties: ["oncology"], keywords: ["oncologist", "cancer physician", "medical oncologist"] },
+  "oncologist": { specialties: ["oncology"], keywords: ["oncologist", "medical oncologist", "radiation oncologist"] },
+  "oncologists": { specialties: ["oncology"], keywords: ["oncologist", "medical oncologist"] },
+
+  // Neurology physicians
+  "neurology doctor": { specialties: ["neurology"], keywords: ["neurologist", "neurology physician"] },
+  "neurologist": { specialties: ["neurology"], keywords: ["neurologist", "neurology physician"] },
+  "neurosurgeon": { specialties: ["neurosurgery"], keywords: ["neurosurgeon", "brain surgeon", "spine surgeon"] },
+
+  // Emergency physicians
+  "er doctor": { specialties: ["emergency medicine"], keywords: ["emergency physician", "ER doctor", "emergency medicine physician"] },
+  "emergency doctor": { specialties: ["emergency medicine"], keywords: ["emergency physician", "emergency medicine physician"] },
+  "emergency physician": { specialties: ["emergency medicine"], keywords: ["emergency physician", "emergency medicine physician"] },
+
+  // Surgery physicians
+  "general surgeon": { specialties: ["general surgery"], keywords: ["general surgeon", "surgeon", "surgical physician"] },
+  "surgeon": { specialties: ["surgery"], keywords: ["surgeon", "surgical physician", "attending surgeon"] },
+  "surgeons": { specialties: ["surgery"], keywords: ["surgeon", "surgical physician"] },
+
+  // Primary care / Internal medicine physicians
+  "primary care doctor": { specialties: ["primary care"], keywords: ["primary care physician", "PCP", "family physician", "internist"] },
+  "pcp": { specialties: ["primary care"], keywords: ["primary care physician", "PCP", "family medicine"] },
+  "internist": { specialties: ["internal medicine"], keywords: ["internist", "internal medicine physician"] },
+  "family physician": { specialties: ["family medicine"], keywords: ["family physician", "family medicine physician", "family doctor"] },
+  "family doctor": { specialties: ["family medicine"], keywords: ["family doctor", "family physician", "family medicine"] },
+
+  // Radiology physicians
+  "radiologist": { specialties: ["radiology"], keywords: ["radiologist", "diagnostic radiologist", "interventional radiologist"] },
+  "radiologists": { specialties: ["radiology"], keywords: ["radiologist", "diagnostic radiologist"] },
+  "interventional radiologist": { specialties: ["radiology"], keywords: ["interventional radiologist", "IR physician"] },
+
+  // Anesthesiology physicians
+  "anesthesiologist": { specialties: ["anesthesiology"], keywords: ["anesthesiologist", "anesthesia physician", "attending anesthesiologist"] },
+  "anesthesiologists": { specialties: ["anesthesiology"], keywords: ["anesthesiologist", "anesthesia physician"] },
+
+  // Psychiatry physicians
+  "psychiatrist": { specialties: ["psychiatry"], keywords: ["psychiatrist", "psychiatric physician"] },
+  "psychiatrists": { specialties: ["psychiatry"], keywords: ["psychiatrist", "psychiatric physician"] },
+
+  // Pediatrics physicians
+  "pediatrician": { specialties: ["pediatrics"], keywords: ["pediatrician", "pediatric physician", "children's physician"] },
+  "pediatricians": { specialties: ["pediatrics"], keywords: ["pediatrician", "pediatric physician"] },
+
+  // GI physicians
+  "gastroenterologist": { specialties: ["gastroenterology"], keywords: ["gastroenterologist", "GI physician", "gastroenterology physician"] },
+  "gi doctor": { specialties: ["gastroenterology"], keywords: ["gastroenterologist", "GI physician"] },
+
+  // Urology physicians
+  "urologist": { specialties: ["urology"], keywords: ["urologist", "urology physician"] },
+
+  // Dermatology physicians
+  "dermatologist": { specialties: ["dermatology"], keywords: ["dermatologist", "dermatology physician"] },
+
+  // ── Students, Trainees, and Residents ────────────────────────────────
+  // Medical students, interns, residents, and fellows at all training stages.
+  // PDL's job_title_levels "training" canonical value covers these roles.
+
+  // Medical students
+  "medical student": { specialties: [], keywords: ["medical student", "MS1", "MS2", "MS3", "MS4", "clerkship", "clinical rotation"] },
+  "medical students": { specialties: [], keywords: ["medical student", "MS3", "MS4", "clerkship", "clinical rotation"] },
+  "ms3": { specialties: [], keywords: ["MS3", "medical student", "third year medical student", "clinical rotation"] },
+  "ms4": { specialties: [], keywords: ["MS4", "medical student", "fourth year medical student", "sub-intern"] },
+
+  // Interns (PGY-1)
+  "intern": { specialties: [], keywords: ["intern", "PGY-1", "first year resident", "internship"] },
+  "interns": { specialties: [], keywords: ["intern", "PGY-1", "first year resident", "internship"] },
+  "pgy-1": { specialties: [], keywords: ["PGY-1", "intern", "first year resident"] },
+  "pgy1": { specialties: [], keywords: ["PGY-1", "intern", "first year resident"] },
+
+  // Residents (general)
+  "resident": { specialties: [], keywords: ["resident", "medical resident", "resident physician", "PGY", "house officer"] },
+  "residents": { specialties: [], keywords: ["resident", "medical resident", "resident physician", "PGY"] },
+  "medical resident": { specialties: [], keywords: ["medical resident", "resident physician", "resident"] },
+  "resident physician": { specialties: [], keywords: ["resident physician", "medical resident", "resident"] },
+  "pgy-2": { specialties: [], keywords: ["PGY-2", "second year resident"] },
+  "pgy-3": { specialties: [], keywords: ["PGY-3", "third year resident"] },
+  "pgy-4": { specialties: [], keywords: ["PGY-4", "fourth year resident", "chief resident"] },
+  "chief resident": { specialties: [], keywords: ["chief resident", "senior resident"] },
+
+  // Fellows (general)
+  "fellow": { specialties: [], keywords: ["fellow", "clinical fellow", "fellowship", "post-residency"] },
+  "fellows": { specialties: [], keywords: ["fellow", "clinical fellow", "fellowship"] },
+  "clinical fellow": { specialties: [], keywords: ["clinical fellow", "fellow", "fellowship"] },
+
+  // Specialty-specific residents
+  "cardiology resident": { specialties: ["cardiology"], keywords: ["cardiology resident", "internal medicine resident", "cardiac resident"] },
+  "orthopedic resident": { specialties: ["orthopedics"], keywords: ["orthopedic resident", "ortho resident", "orthopedic surgery resident"] },
+  "surgery resident": { specialties: ["surgery"], keywords: ["surgery resident", "surgical resident", "general surgery resident"] },
+  "er resident": { specialties: ["emergency medicine"], keywords: ["emergency medicine resident", "ER resident"] },
+  "emergency medicine resident": { specialties: ["emergency medicine"], keywords: ["emergency medicine resident", "ER resident"] },
+  "psychiatry resident": { specialties: ["psychiatry"], keywords: ["psychiatry resident", "psychiatric resident"] },
+  "pediatric resident": { specialties: ["pediatrics"], keywords: ["pediatric resident", "pediatrics resident", "peds resident"] },
+  "neurology resident": { specialties: ["neurology"], keywords: ["neurology resident", "neurology resident physician"] },
+  "radiology resident": { specialties: ["radiology"], keywords: ["radiology resident", "diagnostic radiology resident"] },
+  "anesthesia resident": { specialties: ["anesthesiology"], keywords: ["anesthesia resident", "anesthesiology resident", "CA-1", "CA-2", "CA-3"] },
+
+  // Specialty-specific fellows
+  "cardiology fellow": { specialties: ["cardiology"], keywords: ["cardiology fellow", "cardiac fellow", "interventional cardiology fellow", "electrophysiology fellow"] },
+  "interventional cardiology fellow": { specialties: ["interventional cardiology"], keywords: ["interventional cardiology fellow", "cath lab fellow"] },
+  "orthopedic fellow": { specialties: ["orthopedics"], keywords: ["orthopedic fellow", "ortho fellow", "sports medicine fellow"] },
+  "oncology fellow": { specialties: ["oncology"], keywords: ["oncology fellow", "hematology oncology fellow", "hem onc fellow"] },
+  "neurology fellow": { specialties: ["neurology"], keywords: ["neurology fellow", "stroke fellow", "neuro fellow"] },
+  "gastroenterology fellow": { specialties: ["gastroenterology"], keywords: ["gastroenterology fellow", "GI fellow", "hepatology fellow"] },
+  "gi fellow": { specialties: ["gastroenterology"], keywords: ["GI fellow", "gastroenterology fellow"] },
+  "pulmonology fellow": { specialties: ["pulmonology"], keywords: ["pulmonology fellow", "pulmonary fellow", "critical care fellow"] },
+  "nephrology fellow": { specialties: ["nephrology"], keywords: ["nephrology fellow", "renal fellow"] },
+  "rheumatology fellow": { specialties: ["rheumatology"], keywords: ["rheumatology fellow", "rheum fellow"] },
+  "endocrinology fellow": { specialties: ["endocrinology"], keywords: ["endocrinology fellow", "endo fellow", "diabetes fellow"] },
+  "infectious disease fellow": { specialties: ["infectious disease"], keywords: ["infectious disease fellow", "ID fellow"] },
+  "geriatrics fellow": { specialties: ["geriatrics"], keywords: ["geriatrics fellow", "geriatric medicine fellow"] },
+  "palliative care fellow": { specialties: ["hospice/palliative"], keywords: ["palliative care fellow", "hospice fellow"] },
+  "sports medicine fellow": { specialties: ["orthopedics"], keywords: ["sports medicine fellow", "primary care sports medicine fellow"] },
+  "pain medicine fellow": { specialties: ["pain management"], keywords: ["pain medicine fellow", "pain management fellow"] },
 };
 
 /* ------------------------------------------------------------------ */
