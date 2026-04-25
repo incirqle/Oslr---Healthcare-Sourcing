@@ -607,6 +607,7 @@ export function buildPDLQuery(
             mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
             mustHaveSpecialty.push({ term: { skills: lower } });
             mustHaveSpecialty.push({ match: { summary: kw } });
+            mustHaveSpecialty.push({ match: { headline: kw } });
             // Title wildcard catches "interventional cardiology", "cardiac electrophysiology" etc.
             const root = lower.replace(/(s|ic|ics|y)$/i, "");
             if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
@@ -755,6 +756,41 @@ export function buildPDLQuery(
       } else {
         must.push({ bool: { should: titleClauses } });
       }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // SUMMARY / HEADLINE FREE-TEXT BOOST (Lou Tarabocchia — April 2026)
+  // Searches summary + headline with job title strings as soft should-boosts.
+  //
+  // Why this matters: Non-clinical / non-standard roles (medical device
+  // distributors, health IT reps, device reps, lab vendors) don't map to
+  // PDL's clinical taxonomy (sub_role, O*NET, skills). These professionals
+  // self-describe in profile summaries and headlines. Without this block, a
+  // search for "independent medical device distributor" only matched the
+  // job_title field — completely missing people whose PDL title is
+  // "Territory Manager" but whose summary describes distributor experience.
+  //
+  // CRITICAL: This fires even when allKeywordTerms is empty (no specialty),
+  // which was the exact gap Lou flagged. The previous code only added
+  // summary/headline to kwClauses when specialties/keywords were present.
+  // Job titles are handled in a completely separate block and were never
+  // sent to summary/headline search before this fix.
+  // ═══════════════════════════════════════════
+  if (jobTitles.length > 0) {
+    const summaryHeadlineClauses: Clause[] = [];
+    for (const t of jobTitles.slice(0, 10)) {
+      summaryHeadlineClauses.push({ match: { summary: t } });
+      summaryHeadlineClauses.push({ match: { headline: t } });
+    }
+    // Also boost on title synonyms for broader coverage
+    for (const t of titleSynonymsLower.slice(0, 5)) {
+      summaryHeadlineClauses.push({ match: { summary: t } });
+      summaryHeadlineClauses.push({ match: { headline: t } });
+    }
+    if (summaryHeadlineClauses.length > 0) {
+      should.push({ bool: { should: summaryHeadlineClauses } });
+      console.log(`[SUMMARY/HEADLINE] Soft boost for ${jobTitles.length} title(s): summary+headline search enabled`);
     }
   }
 
