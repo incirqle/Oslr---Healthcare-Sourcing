@@ -968,28 +968,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Step 4: Full search
-    // Pool size controls how many PDL records we fetch for AI reranking (1 credit each).
-    //
-    // Three tiers based on what we know about the query scope:
-    //   - Small practice (single resolved entity, ≤ 2 affiliates, e.g. Panorama Orthopedics):
-    //     fetch up to 75 — the practice has a finite roster and we need all of them
-    //     so the ranker can surface the best matches across the full set.
-    //   - Health system (UMiami, Mayo, etc.) or general search with location only:
-    //     fetch 10 during testing — result sets are large and we can't enumerate them.
-    //   - No company filter at all: fetch 10 during testing.
-    //
-    // Raise the non-practice pool size toward 50 when moving to production.
-    const isSmallPractice = !!(parsed as Record<string, unknown>)._is_small_practice;
-    const RERANK_POOL_SIZE = isSmallPractice ? 75 : 10;
-    const poolSize = Math.max(size, Math.ceil(RERANK_POOL_SIZE / size) * size);
-    const pageStart = page * size;
-    const pageEnd = pageStart + size;
-    const useRerankPool = pageStart < poolSize;
-    const fetchPage = useRerankPool ? 0 : page;
-    const fetchSize = useRerankPool ? poolSize : size;
-    const cacheScrollToken = useRerankPool ? null : scroll_token;
-    const fullCacheKey = await getPDLCacheKey(pdlQuery, fetchSize, cacheScrollToken);
+    // Step 4: Full search — fetch exactly one page at a time.
+    // The preview request (preview=true) already returned the total count to the UI.
+    // Each page fetch costs `size` credits. Users browse via pagination without
+    // burning credits they don't need. No pool logic, no special-casing by practice type.
+    const fullCacheKey = await getPDLCacheKey(pdlQuery, size, scroll_token);
     const cached = await getDBCache(adminClient, fullCacheKey);
 
     let results: Record<string, unknown>[];
@@ -998,21 +981,12 @@ Deno.serve(async (req: Request) => {
     let cascadeUsed = false;
     let cascadePlan: CascadeStep[] = [];
     let cascadeWinningStep: CascadeStep | null = null;
-    let cachedFormatted: Record<string, unknown>[] | null = null;
 
     if (cached && cached.data.length > 0) {
       console.log(`[SEARCH] Cache hit: ${cached.total} total, ${cached.data.length} results`);
       total = cached.total;
       returnScrollToken = cached.scroll_token;
-      // Cache may hold either raw PDL profiles (legacy) or already-formatted+reranked
-      // candidates. Detect by checking for the relevance_score field we add in formatting.
-      const first = cached.data[0] as Record<string, unknown>;
-      if (first && typeof first.relevance_score === "number") {
-        cachedFormatted = cached.data as Record<string, unknown>[];
-        results = [];
-      } else {
-        results = cached.data as Record<string, unknown>[];
-      }
+      results = cached.data as Record<string, unknown>[];
     } else {
       const liveKey = Deno.env.get("PDL_API_KEY");
       if (!liveKey) {
@@ -1023,7 +997,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const pdlData = await fetchPDLForFullSearch(
-        pdlQuery, liveKey, fetchPage, fetchSize, cacheScrollToken, fullCacheKey, adminClient
+        pdlQuery, liveKey, page, size, scroll_token, fullCacheKey, adminClient
       );
 
       if ((pdlData as Record<string, unknown>)._error) {
@@ -1037,43 +1011,10 @@ Deno.serve(async (req: Request) => {
       total = (pdlData.total as number) || 0;
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
-      // ════════════════════════════════════════════════════════════════
-      // SPECIALTY-MUST CASCADE FALLBACK (April 17 2026)
-      // When a multi-entity health system search returns < 40 results, the
-      // hard specialty must-clause is over-filtering (academic faculty have
-      // generic titles like "Associate Professor of Medicine" with the
-      // specialty buried in unindexed fields). Rebuild the query with
-      // specialty demoted to soft-boost only and re-fetch, then let the
-      // specialty-aware deterministic + AI ranker surface real specialists
-      // at the top. Recovers recall (25 → ~80–150 for UMiami cardiology)
-      // without sacrificing precision (ranker is now specialty-aware).
-      // ════════════════════════════════════════════════════════════════
-      // ════════════════════════════════════════════════════════════════
-      // SPECIALTY CASCADE — DISABLED (April 17 2026)
-      // ════════════════════════════════════════════════════════════════
-      // The cascade traded precision for recall and lost both. When it fired
-      // for "cardiologist at University of Miami", the soft fallback combined
-      // with experience.company.name expansion surfaced people from Mosa
-      // Surgery (Nashville) and Memorial Healthcare while also pulling in
-      // admin titles ("Director of Physician Relations", "Physician
-      // Compensation Director") because the generic "Physician" keyword
-      // expansion matched their job titles.
-      //
-      // The pre-cascade version returned ~28 results that were ALL real
-      // cardiologists. Recall was lower but precision was 100%. Recruiters
-      // strongly prefer that tradeoff. Keeping the strict specialty must.
-      //
-      // If we want to expand recall later, the right path is:
-      //   1. Strip generic "Physician" / "Cardiologist" from the keyword
-      //      cluster when a SPECIALTY is set (they're redundant noise).
-      //   2. Add a deterministic title penalty for admin/director/manager/
-      //      coordinator/relations titles in format-results.
-      //   3. THEN consider a cascade with company kept locked + admin
-      //      titles excluded via must_not.
-      // ════════════════════════════════════════════════════════════════
-
-      // Existing legacy cascade — only fires when even the soft fallback returned almost nothing
-      if (total < 2 && useRerankPool && !cascadeUsed) {
+      // Cascade — only fires when the initial query returned almost nothing (<2 results).
+      // Progressively relaxes filters (specialty → titles → metro → state) until
+      // enough results are found. Each cascade step runs its own preview before fetching.
+      if (total < 2 && !cascadeUsed) {
         console.log(`[CASCADE] Only ${results.length} results, initiating cascade...`);
         const cascadePayload: CascadePayload = {
           location: (parsed.location as CascadePayload["location"]) || {},
@@ -1084,7 +1025,7 @@ Deno.serve(async (req: Request) => {
         };
 
         const cascadeResult = await runCascade(
-          pdlQuery, cascadePayload, "clinical_search", total, fullCacheKey, adminClient, fetchSize
+          pdlQuery, cascadePayload, "clinical_search", total, fullCacheKey, adminClient, size
         );
 
         if (cascadeResult.profiles.length > results.length) {
@@ -1092,28 +1033,28 @@ Deno.serve(async (req: Request) => {
           cascadeUsed = true;
           cascadePlan = cascadeResult.plan;
           cascadeWinningStep = cascadeResult.winningStep;
-          // Surface widened total so UI doesn't say "0 results" while showing people
           if (cascadeResult.total > total) total = cascadeResult.total;
           console.log(`[CASCADE] Improved to ${results.length} results after ${cascadeResult.stepsUsed} steps (winning step: ${cascadeWinningStep})`);
         }
       }
     }
 
-    // Step 5: Format + AI rerank
+    // Step 5: Format + AI rerank the current page.
+    // Reranking runs on whatever was fetched (one page). Results are cached so
+    // repeat views of the same page don't re-burn credits or LLM tokens.
     let formattedResults: Record<string, unknown>[];
     let aiRerankMeta: Record<string, unknown> = { ai_reranked: false };
 
-    if (cachedFormatted) {
-      // Cache hit on already-formatted+reranked pool — just use it
-      formattedResults = cachedFormatted;
-      aiRerankMeta = { ai_reranked: true, ai_rerank_count: cachedFormatted.length, ai_rerank_cached: true };
+    // If cached data is already formatted (has relevance_score), serve it directly
+    const firstResult = results[0] as Record<string, unknown> | undefined;
+    if (firstResult && typeof firstResult.relevance_score === "number") {
+      formattedResults = results;
+      aiRerankMeta = { ai_reranked: true, ai_rerank_cached: true };
     } else {
       const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
       formattedResults = deterministicResults;
 
-      // AI rerank the shared first pool once, then reuse that ordering for
-      // every page that falls inside the pool window.
-      if (useRerankPool && deterministicResults.length > 0) {
+      if (deterministicResults.length > 0) {
         const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
         formattedResults = rerank.candidates as unknown as Record<string, unknown>[];
         aiRerankMeta = {
@@ -1123,19 +1064,14 @@ Deno.serve(async (req: Request) => {
           ai_rerank_error: rerank.ai_rerank_error ?? null,
         };
 
-        // Cache the full ordered pool so pagination back to page 0 (or page>0)
-        // can serve from cache without re-burning LLM tokens.
+        // Cache the formatted page to avoid re-burning credits on repeat views
         if (rerank.ai_reranked) {
           setDBCache(adminClient, fullCacheKey, total, formattedResults, returnScrollToken);
         }
       }
     }
 
-    // Only slice when we're serving from the shared rerank pool. Later pages are
-    // already fetched as page-sized windows from PDL and should be returned as-is.
-    const pagedResults = useRerankPool
-      ? formattedResults.slice(pageStart, pageEnd)
-      : formattedResults;
+    const pagedResults = formattedResults;
 
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
