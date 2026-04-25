@@ -113,7 +113,10 @@ export async function runPreview(
   pdlQuery: Record<string, unknown>,
   pdlBaseUrl = "https://api.peopledatalabs.com"
 ): Promise<number> {
-  const previewKey = Deno.env.get("PDL_API_KEY");
+  // Use the dedicated preview key (zero credit burn) when available.
+  // Lou Tarabocchia (PDL) added 2,500 preview credits to this key for
+  // count-only / size=1 queries. Falls back to PDL_API_KEY if not set.
+  const previewKey = Deno.env.get("PDL_PREVIEW_API_KEY") || Deno.env.get("PDL_API_KEY");
   if (!previewKey) throw new Error("PDL_API_KEY not configured");
 
   const body = { query: pdlQuery, dataset: "all", size: 1 };

@@ -703,7 +703,7 @@ Deno.serve(async (req: Request) => {
       filters = {},
       preview = false,
       page = 0,
-      size = 25,
+      size = 10,
       scroll_token = null,
       parsed: clientParsed = null,
     } = body;
@@ -969,9 +969,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 4: Full search
-    // Fetch a deeper first pool for AI reranking, but keep it aligned to the
-    // UI page size so page boundaries remain stable when we continue beyond it.
-    const RERANK_POOL_SIZE = 50;
+    // Fetch a small first pool for AI reranking (10 records = 10 credits max).
+    // Kept deliberately low during testing to preserve PDL credits.
+    // Raise RERANK_POOL_SIZE toward 50 when moving to production.
+    const RERANK_POOL_SIZE = 10;
     const poolSize = Math.max(size, Math.ceil(RERANK_POOL_SIZE / size) * size);
     const pageStart = page * size;
     const pageEnd = pageStart + size;
