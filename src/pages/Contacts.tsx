@@ -55,7 +55,6 @@ import {
   type MockContact,
 } from "@/data/mock-contacts";
 import { toast } from "sonner";
-import { useNavigate as useNav } from "react-router-dom";
 
 const PAGE_SIZE = 50;
 
