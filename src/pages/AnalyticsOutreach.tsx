@@ -99,9 +99,12 @@ export default function AnalyticsOutreach() {
   const days = DATE_PRESETS.find((p) => p.value === datePreset)?.days ?? 365;
   const kpis = useMemo(() => getOutreachKpis(), []);
 
-  const runsData = useMemo(() => buildRunsOverTime(days, group), [days, group]);
-  const emailsData = useMemo(() => buildEmailsSentScheduled(days, group), [days, group]);
-  const todayLabel = emailsData.find((d) => d.isToday)?.label;
+  const ratesData = useMemo(
+    () => buildEngagementRatesOverTime(days, group),
+    [days, group]
+  );
+  const funnelData = useMemo(() => getOutreachFunnel(), []);
+  const funnelMax = Math.max(...funnelData.map((s) => s.count), 1);
 
   const leaderboard = useMemo(() => getLeaderboard(), []);
   const visible = useMemo(() => {
