@@ -6,6 +6,8 @@ import {
   Settings,
   LogOut,
   Newspaper,
+  Users,
+  BarChart2,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
@@ -29,7 +31,10 @@ const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Search", url: "/search", icon: Search },
-  { title: "Campaigns", url: "/campaigns", icon: Mail },
+  { title: "Contacts", url: "/contacts", icon: Users },
+  { title: "Sequences", url: "/sequences", icon: Mail },
+  { title: "Analytics", url: "/analytics/outreach", icon: BarChart2 },
+  { title: "Campaigns", url: "/campaigns", icon: Mail, deprecated: true },
   { title: "News", url: "/news", icon: Newspaper },
 ];
 
