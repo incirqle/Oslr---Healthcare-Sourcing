@@ -63,7 +63,8 @@ export const DATE_PRESETS: { value: DateRangePreset; label: string; days: number
 ];
 
 // ---------------------------------------------------------------------------
-// Outreach KPIs (derived from mock campaigns + a noise factor)
+// Outreach KPIs — rate = distinct contacts who triggered event / total runs
+// Total runs = number of distinct contacts enrolled across all campaigns.
 // ---------------------------------------------------------------------------
 
 export interface OutreachKpis {
@@ -77,25 +78,61 @@ export interface OutreachKpis {
 }
 
 export function getOutreachKpis(): OutreachKpis {
-  const totalContacts = MOCK_CAMPAIGNS.reduce((s, c) => s + c.total, 0);
-  const totalSteps = MOCK_CAMPAIGNS.reduce((s, c) => s + c.steps.length * c.total, 0);
-  const opened = MOCK_CAMPAIGNS.reduce((s, c) => s + c.opened, 0);
-  const clicked = MOCK_CAMPAIGNS.reduce((s, c) => s + c.clicked, 0);
-  const replied = MOCK_CAMPAIGNS.reduce((s, c) => s + c.replied, 0);
-  const interested = MOCK_CAMPAIGNS.reduce((s, c) => s + c.interested, 0);
-  const bounced = MOCK_CAMPAIGNS.reduce((s, c) => s + c.bounced, 0);
+  // Distinct contacts enrolled = denominator for every rate
+  const totalRuns =
+    MOCK_CAMPAIGNS.reduce((s, c) => s + c.total, 0) + 421;
 
-  // Pad numbers so the dashboard feels populated
+  // Distinct-contact event counts — clamped to realistic targets:
+  //   Open ~60%, Click ~10%, Reply ~2%, Interest ≤ Reply (~0.5%), Bounce ~3%
+  const opens = Math.round(totalRuns * 0.598);
+  const clicks = Math.round(totalRuns * 0.103);
+  const replies = Math.round(totalRuns * 0.021);
+  const interested = Math.round(totalRuns * 0.005);
+  const bounces = Math.round(totalRuns * 0.029);
+
+  // Sent volume is informational only (not a denominator anymore)
+  const totalSteps = MOCK_CAMPAIGNS.reduce(
+    (s, c) => s + c.steps.length * c.total,
+    0
+  );
   const sent = Math.round(totalSteps * 0.62);
+
   return {
-    totalRuns: totalContacts + 421,
+    totalRuns,
     emailsSent: sent,
-    opens: { num: opened * 6 + 110, den: sent },
-    clicks: { num: clicked * 5 + 38, den: sent },
-    replies: { num: replied * 3 + 24, den: sent },
-    interested: { num: interested * 3 + 12, den: sent },
-    bounces: { num: bounced * 4 + 9, den: sent },
+    opens: { num: opens, den: totalRuns },
+    clicks: { num: clicks, den: totalRuns },
+    replies: { num: replies, den: totalRuns },
+    interested: { num: interested, den: totalRuns },
+    bounces: { num: bounces, den: totalRuns },
   };
+}
+
+// Outreach funnel stages — derived from totalRuns and the same rates
+export interface FunnelStage {
+  label: string;
+  count: number;
+  pctOfPrev: number; // 0-100
+}
+
+export function getOutreachFunnel(): FunnelStage[] {
+  const k = getOutreachKpis();
+  const sent = k.totalRuns; // every enrolled contact gets at least one email
+  const opened = k.opens.num;
+  const clicked = k.clicks.num;
+  const replied = k.replies.num;
+  const interested = k.interested.num;
+  const stages = [
+    { label: "Sent", count: sent },
+    { label: "Opened", count: opened },
+    { label: "Clicked", count: clicked },
+    { label: "Replied", count: replied },
+    { label: "Interested", count: interested },
+  ];
+  return stages.map((s, i) => ({
+    ...s,
+    pctOfPrev: i === 0 ? 100 : (s.count / Math.max(stages[i - 1].count, 1)) * 100,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -151,54 +188,36 @@ function weekNumber(d: Date) {
   return Math.ceil((diff + start.getDay() + 1) / 7);
 }
 
-// Campaign runs over time — User vs Agent
+// Campaign runs over time — single combined series (legacy email_campaigns
+// + agent_outreach_log are summed into one user-facing series).
 export function buildRunsOverTime(days: number, group: GroupBy) {
   const buckets = buildBuckets(days, group);
   const rng = seeded(`runs-${days}-${group}`);
   return buckets.map((b, i) => {
     const base = 18 + Math.round(rng() * 40);
     const trend = 1 + i / buckets.length;
+    const userPart = Math.round(base * trend);
+    const legacyPart = Math.round(base * trend * (0.35 + rng() * 0.4));
     return {
       label: b.label,
-      user: Math.round(base * trend),
-      agent: Math.round(base * trend * (0.35 + rng() * 0.4)),
+      runs: userPart + legacyPart,
     };
   });
 }
 
-// Emails sent vs scheduled — past = sent only, future = scheduled only
-export function buildEmailsSentScheduled(days: number, group: GroupBy) {
+// Engagement rates over time — 4 series, each 0-100%
+export function buildEngagementRatesOverTime(days: number, group: GroupBy) {
   const buckets = buildBuckets(days, group);
-  const rng = seeded(`emails-${days}-${group}`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Add forward-looking buckets (~30% of length) for "scheduled"
-  const future = Math.max(2, Math.round(buckets.length * 0.3));
-  const extra: TimeBucket[] = [];
-  for (let i = 1; i <= future; i++) {
-    const d = new Date(today);
-    if (group === "Days") d.setDate(d.getDate() + i);
-    else if (group === "Weeks") d.setDate(d.getDate() + i * 7);
-    else d.setMonth(d.getMonth() + i, 1);
-    extra.push({
-      date: d,
-      label:
-        group === "Months"
-          ? d.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
-          : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    });
-  }
-
-  const all = [...buckets, ...extra];
-  return all.map((b) => {
-    const isFuture = b.date.getTime() > today.getTime();
-    const base = 80 + Math.round(rng() * 120);
+  const rng = seeded(`rates-${days}-${group}`);
+  return buckets.map((_, i) => {
+    const t = i / Math.max(buckets.length - 1, 1);
+    const wob = (n: number) => +(n + (rng() - 0.5) * n * 0.25).toFixed(2);
     return {
-      label: b.label,
-      sent: isFuture ? 0 : base,
-      scheduled: isFuture ? Math.round(base * 0.7) : 0,
-      isToday: b.date.getTime() === today.getTime(),
+      label: buckets[i].label,
+      openRate: Math.max(0, Math.min(100, wob(55 + t * 10))),
+      clickRate: Math.max(0, Math.min(100, wob(8 + t * 4))),
+      replyRate: Math.max(0, Math.min(100, wob(1.5 + t * 1.2))),
+      bounceRate: Math.max(0, Math.min(100, wob(3.5 - t * 1))),
     };
   });
 }
