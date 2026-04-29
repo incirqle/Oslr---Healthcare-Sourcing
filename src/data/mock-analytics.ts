@@ -63,7 +63,8 @@ export const DATE_PRESETS: { value: DateRangePreset; label: string; days: number
 ];
 
 // ---------------------------------------------------------------------------
-// Outreach KPIs (derived from mock campaigns + a noise factor)
+// Outreach KPIs — rate = distinct contacts who triggered event / total runs
+// Total runs = number of distinct contacts enrolled across all campaigns.
 // ---------------------------------------------------------------------------
 
 export interface OutreachKpis {
@@ -77,25 +78,61 @@ export interface OutreachKpis {
 }
 
 export function getOutreachKpis(): OutreachKpis {
-  const totalContacts = MOCK_CAMPAIGNS.reduce((s, c) => s + c.total, 0);
-  const totalSteps = MOCK_CAMPAIGNS.reduce((s, c) => s + c.steps.length * c.total, 0);
-  const opened = MOCK_CAMPAIGNS.reduce((s, c) => s + c.opened, 0);
-  const clicked = MOCK_CAMPAIGNS.reduce((s, c) => s + c.clicked, 0);
-  const replied = MOCK_CAMPAIGNS.reduce((s, c) => s + c.replied, 0);
-  const interested = MOCK_CAMPAIGNS.reduce((s, c) => s + c.interested, 0);
-  const bounced = MOCK_CAMPAIGNS.reduce((s, c) => s + c.bounced, 0);
+  // Distinct contacts enrolled = denominator for every rate
+  const totalRuns =
+    MOCK_CAMPAIGNS.reduce((s, c) => s + c.total, 0) + 421;
 
-  // Pad numbers so the dashboard feels populated
+  // Distinct-contact event counts — clamped to realistic targets:
+  //   Open ~60%, Click ~10%, Reply ~2%, Interest ≤ Reply (~0.5%), Bounce ~3%
+  const opens = Math.round(totalRuns * 0.598);
+  const clicks = Math.round(totalRuns * 0.103);
+  const replies = Math.round(totalRuns * 0.021);
+  const interested = Math.round(totalRuns * 0.005);
+  const bounces = Math.round(totalRuns * 0.029);
+
+  // Sent volume is informational only (not a denominator anymore)
+  const totalSteps = MOCK_CAMPAIGNS.reduce(
+    (s, c) => s + c.steps.length * c.total,
+    0
+  );
   const sent = Math.round(totalSteps * 0.62);
+
   return {
-    totalRuns: totalContacts + 421,
+    totalRuns,
     emailsSent: sent,
-    opens: { num: opened * 6 + 110, den: sent },
-    clicks: { num: clicked * 5 + 38, den: sent },
-    replies: { num: replied * 3 + 24, den: sent },
-    interested: { num: interested * 3 + 12, den: sent },
-    bounces: { num: bounced * 4 + 9, den: sent },
+    opens: { num: opens, den: totalRuns },
+    clicks: { num: clicks, den: totalRuns },
+    replies: { num: replies, den: totalRuns },
+    interested: { num: interested, den: totalRuns },
+    bounces: { num: bounces, den: totalRuns },
   };
+}
+
+// Outreach funnel stages — derived from totalRuns and the same rates
+export interface FunnelStage {
+  label: string;
+  count: number;
+  pctOfPrev: number; // 0-100
+}
+
+export function getOutreachFunnel(): FunnelStage[] {
+  const k = getOutreachKpis();
+  const sent = k.totalRuns; // every enrolled contact gets at least one email
+  const opened = k.opens.num;
+  const clicked = k.clicks.num;
+  const replied = k.replies.num;
+  const interested = k.interested.num;
+  const stages = [
+    { label: "Sent", count: sent },
+    { label: "Opened", count: opened },
+    { label: "Clicked", count: clicked },
+    { label: "Replied", count: replied },
+    { label: "Interested", count: interested },
+  ];
+  return stages.map((s, i) => ({
+    ...s,
+    pctOfPrev: i === 0 ? 100 : (s.count / Math.max(stages[i - 1].count, 1)) * 100,
+  }));
 }
 
 // ---------------------------------------------------------------------------
