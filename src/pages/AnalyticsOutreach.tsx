@@ -359,7 +359,6 @@ export default function AnalyticsOutreach() {
             </div>
           </CardContent>
         </Card>
-        </Card>
       </div>
 
       {/* Leaderboard */}
