@@ -279,29 +279,30 @@ export default function AnalyticsOutreach() {
         ]}
       />
 
-      {/* Two charts */}
+      {/* Two charts: engagement rates over time + outreach funnel */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
         <Card className="rounded-xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Campaign runs over time</h3>
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ background: PURPLE }} />
-                  User runs
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ background: RED }} />
-                  Agent runs
-                </span>
+              <h3 className="text-sm font-semibold">Engagement rates over time</h3>
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap justify-end">
+                <LegendDot color={SERIES.open} label="Open Rate" />
+                <LegendDot color={SERIES.click} label="Click Rate" />
+                <LegendDot color={SERIES.reply} label="Reply Rate" />
+                <LegendDot color={SERIES.bounce} label="Bounce Rate" />
               </div>
             </div>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={runsData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
+                <LineChart data={ratesData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
                   <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}%`}
+                  />
                   <Tooltip
                     contentStyle={{
                       background: "hsl(var(--background))",
@@ -309,26 +310,13 @@ export default function AnalyticsOutreach() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
+                    formatter={(v: number) => `${v.toFixed(2)}%`}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="user"
-                    stroke={PURPLE}
-                    fill={PURPLE}
-                    fillOpacity={0.08}
-                    strokeWidth={2}
-                    name="User runs"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="agent"
-                    stroke={RED}
-                    fill={RED}
-                    fillOpacity={0.06}
-                    strokeWidth={2}
-                    name="Agent runs"
-                  />
-                </AreaChart>
+                  <Line type="monotone" dataKey="openRate" stroke={SERIES.open} strokeWidth={2} dot={false} name="Open Rate" />
+                  <Line type="monotone" dataKey="clickRate" stroke={SERIES.click} strokeWidth={2} dot={false} name="Click Rate" />
+                  <Line type="monotone" dataKey="replyRate" stroke={SERIES.reply} strokeWidth={2} dot={false} name="Reply Rate" />
+                  <Line type="monotone" dataKey="bounceRate" stroke={SERIES.bounce} strokeWidth={2} dot={false} name="Bounce Rate" />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -337,62 +325,40 @@ export default function AnalyticsOutreach() {
         <Card className="rounded-xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Emails sent and scheduled</h3>
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ background: PURPLE }} />
-                  Emails sent
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ background: RED }} />
-                  Emails scheduled
-                </span>
-              </div>
+              <h3 className="text-sm font-semibold">Outreach funnel</h3>
+              <span className="text-[11px] text-muted-foreground">All time</span>
             </div>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={emailsData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
-                  {todayLabel && (
-                    <ReferenceLine
-                      x={todayLabel}
-                      stroke="hsl(var(--foreground))"
-                      strokeDasharray="3 3"
-                      label={{ value: "TODAY", fontSize: 10, position: "top" }}
-                    />
-                  )}
-                  <Area
-                    type="monotone"
-                    dataKey="sent"
-                    stroke={PURPLE}
-                    fill={PURPLE}
-                    fillOpacity={0.08}
-                    strokeWidth={2}
-                    name="Emails sent"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="scheduled"
-                    stroke={RED}
-                    fill={RED}
-                    fillOpacity={0.06}
-                    strokeWidth={2}
-                    name="Emails scheduled"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="space-y-2.5">
+              {funnelData.map((s, i) => {
+                const widthPct = (s.count / funnelMax) * 100;
+                return (
+                  <div key={s.label}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-foreground">{s.label}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {s.count.toLocaleString()}
+                        {i > 0 && (
+                          <span className="ml-2 text-[11px]">
+                            {s.pctOfPrev.toFixed(1)}% of prev
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-7 rounded-md bg-secondary/40 overflow-hidden">
+                      <div
+                        className="h-full rounded-md transition-all"
+                        style={{
+                          width: `${Math.max(widthPct, 2)}%`,
+                          background: PURPLE,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
+        </Card>
         </Card>
       </div>
 
