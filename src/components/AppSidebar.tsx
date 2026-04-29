@@ -74,11 +74,6 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                      {item.deprecated && (
-                        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Deprecated
-                        </span>
-                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
