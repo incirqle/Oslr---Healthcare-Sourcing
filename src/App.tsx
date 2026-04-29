@@ -15,6 +15,9 @@ import ProjectDetail from "./pages/ProjectDetail";
 import Campaigns from "./pages/Campaigns";
 import CampaignDetail from "./pages/CampaignDetail";
 import Contacts from "./pages/Contacts";
+import AnalyticsOutreach from "./pages/AnalyticsOutreach";
+import AnalyticsUsage from "./pages/AnalyticsUsage";
+import AnalyticsProjects from "./pages/AnalyticsProjects";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import NotFound from "./pages/NotFound";
@@ -47,6 +50,10 @@ const App = () => (
             <Route path="/contacts" element={<P><Contacts /></P>} />
             <Route path="/campaigns" element={<P><Campaigns /></P>} />
             <Route path="/campaigns/:id" element={<P><CampaignDetail /></P>} />
+            <Route path="/analytics" element={<Navigate to="/analytics/outreach" replace />} />
+            <Route path="/analytics/outreach" element={<P><AnalyticsOutreach /></P>} />
+            <Route path="/analytics/usage" element={<P><AnalyticsUsage /></P>} />
+            <Route path="/analytics/projects" element={<P><AnalyticsProjects /></P>} />
             <Route path="/news" element={<P><News /></P>} />
             <Route path="/settings" element={<P><TeamSettings /></P>} />
             <Route path="/docs" element={<DocsIndex />} />
