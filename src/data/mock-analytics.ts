@@ -188,54 +188,36 @@ function weekNumber(d: Date) {
   return Math.ceil((diff + start.getDay() + 1) / 7);
 }
 
-// Campaign runs over time — User vs Agent
+// Campaign runs over time — single combined series (legacy email_campaigns
+// + agent_outreach_log are summed into one user-facing series).
 export function buildRunsOverTime(days: number, group: GroupBy) {
   const buckets = buildBuckets(days, group);
   const rng = seeded(`runs-${days}-${group}`);
   return buckets.map((b, i) => {
     const base = 18 + Math.round(rng() * 40);
     const trend = 1 + i / buckets.length;
+    const userPart = Math.round(base * trend);
+    const legacyPart = Math.round(base * trend * (0.35 + rng() * 0.4));
     return {
       label: b.label,
-      user: Math.round(base * trend),
-      agent: Math.round(base * trend * (0.35 + rng() * 0.4)),
+      runs: userPart + legacyPart,
     };
   });
 }
 
-// Emails sent vs scheduled — past = sent only, future = scheduled only
-export function buildEmailsSentScheduled(days: number, group: GroupBy) {
+// Engagement rates over time — 4 series, each 0-100%
+export function buildEngagementRatesOverTime(days: number, group: GroupBy) {
   const buckets = buildBuckets(days, group);
-  const rng = seeded(`emails-${days}-${group}`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Add forward-looking buckets (~30% of length) for "scheduled"
-  const future = Math.max(2, Math.round(buckets.length * 0.3));
-  const extra: TimeBucket[] = [];
-  for (let i = 1; i <= future; i++) {
-    const d = new Date(today);
-    if (group === "Days") d.setDate(d.getDate() + i);
-    else if (group === "Weeks") d.setDate(d.getDate() + i * 7);
-    else d.setMonth(d.getMonth() + i, 1);
-    extra.push({
-      date: d,
-      label:
-        group === "Months"
-          ? d.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
-          : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    });
-  }
-
-  const all = [...buckets, ...extra];
-  return all.map((b) => {
-    const isFuture = b.date.getTime() > today.getTime();
-    const base = 80 + Math.round(rng() * 120);
+  const rng = seeded(`rates-${days}-${group}`);
+  return buckets.map((_, i) => {
+    const t = i / Math.max(buckets.length - 1, 1);
+    const wob = (n: number) => +(n + (rng() - 0.5) * n * 0.25).toFixed(2);
     return {
-      label: b.label,
-      sent: isFuture ? 0 : base,
-      scheduled: isFuture ? Math.round(base * 0.7) : 0,
-      isToday: b.date.getTime() === today.getTime(),
+      label: buckets[i].label,
+      openRate: Math.max(0, Math.min(100, wob(55 + t * 10))),
+      clickRate: Math.max(0, Math.min(100, wob(8 + t * 4))),
+      replyRate: Math.max(0, Math.min(100, wob(1.5 + t * 1.2))),
+      bounceRate: Math.max(0, Math.min(100, wob(3.5 - t * 1))),
     };
   });
 }
