@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
-  ReferenceLine,
+  Cell,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -55,8 +57,8 @@ import {
   ANALYTICS_PROJECTS,
   ANALYTICS_USERS,
   DATE_PRESETS,
-  buildEmailsSentScheduled,
-  buildRunsOverTime,
+  buildEngagementRatesOverTime,
+  getOutreachFunnel,
   getLeaderboard,
   getOutreachKpis,
   type DateRangePreset,
@@ -68,7 +70,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const PURPLE = "#8B5CF6";
-const RED = "#EF4444";
+const SERIES = {
+  open: "#8B5CF6",
+  click: "#10B981",
+  reply: "#3B82F6",
+  bounce: "#EF4444",
+};
 
 type SortKey = keyof LeaderboardRow;
 type LeaderboardTab = "active" | "closed" | "all";
