@@ -6,6 +6,8 @@ import {
   Settings,
   LogOut,
   Newspaper,
+  Users,
+  BarChart2,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
@@ -29,7 +31,10 @@ const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Search", url: "/search", icon: Search },
-  { title: "Campaigns", url: "/campaigns", icon: Mail },
+  { title: "Contacts", url: "/contacts", icon: Users },
+  { title: "Sequences", url: "/sequences", icon: Mail },
+  { title: "Analytics", url: "/analytics/outreach", icon: BarChart2 },
+  { title: "Campaigns", url: "/campaigns", icon: Mail, deprecated: true },
   { title: "News", url: "/news", icon: Newspaper },
 ];
 
@@ -70,6 +75,11 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
+                      {item.deprecated && (
+                        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Deprecated
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
