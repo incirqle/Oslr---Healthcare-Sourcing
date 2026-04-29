@@ -46,7 +46,8 @@ import {
   ChevronRight,
   Mail as MailIcon,
 } from "lucide-react";
-import { AddFilterButton, type ContactFilter } from "@/components/contacts/AddFilterButton";
+import { AddFilterButton, type ContactFilter, getFilterMeta } from "@/components/contacts/AddFilterButton";
+import { FilterChip, type FilterValue } from "@/components/contacts/FilterChip";
 import { ContactDrawer } from "@/components/contacts/ContactDrawer";
 import {
   MOCK_CONTACTS,
@@ -195,7 +196,8 @@ export default function Contacts() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filters, setFilters] = useState<ContactFilter[]>([]);
+  const [filters, setFilters] = useState<FilterValue[]>([]);
+  const [hasShownFilterToast, setHasShownFilterToast] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -291,11 +293,21 @@ export default function Contacts() {
   };
 
   const addFilter = (f: ContactFilter) => {
-    if (filters.includes(f)) return;
-    setFilters([...filters, f]);
+    if (filters.some((x) => x.filter === f)) return;
+    const meta = getFilterMeta(f);
+    const initial: FilterValue = { filter: f };
+    if (meta.kind === "multi") initial.multi = [];
+    if (meta.kind === "text") initial.text = "";
+    setFilters([...filters, initial]);
+    if (!hasShownFilterToast) {
+      toast("Filter wiring lands next pass.");
+      setHasShownFilterToast(true);
+    }
   };
+  const updateFilter = (f: ContactFilter, value: FilterValue) =>
+    setFilters(filters.map((x) => (x.filter === f ? value : x)));
   const removeFilter = (f: ContactFilter) =>
-    setFilters(filters.filter((x) => x !== f));
+    setFilters(filters.filter((x) => x.filter !== f));
 
   const selectedCount = selected.size;
 
@@ -403,19 +415,13 @@ export default function Contacts() {
         {/* Active filter chips */}
         {filters.length > 0 && (
           <div className="flex items-center flex-wrap gap-1.5">
-            {filters.map((f) => (
-              <span
-                key={f}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[11px]"
-              >
-                {f}
-                <button
-                  onClick={() => removeFilter(f)}
-                  className="hover:text-destructive transition"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
+            {filters.map((fv) => (
+              <FilterChip
+                key={fv.filter}
+                value={fv}
+                onChange={(v) => updateFilter(fv.filter, v)}
+                onRemove={() => removeFilter(fv.filter)}
+              />
             ))}
             <button
               onClick={() => setFilters([])}
