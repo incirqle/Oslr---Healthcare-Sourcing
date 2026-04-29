@@ -13,6 +13,7 @@ import SearchEntry from "./pages/SearchEntry";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Campaigns from "./pages/Campaigns";
+import CampaignDetail from "./pages/CampaignDetail";
 import Contacts from "./pages/Contacts";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/agents/:id" element={<Navigate to="/dashboard" replace />} />
             <Route path="/contacts" element={<P><Contacts /></P>} />
             <Route path="/campaigns" element={<P><Campaigns /></P>} />
+            <Route path="/campaigns/:id" element={<P><CampaignDetail /></P>} />
             <Route path="/news" element={<P><News /></P>} />
             <Route path="/settings" element={<P><TeamSettings /></P>} />
             <Route path="/docs" element={<DocsIndex />} />
