@@ -1001,6 +1001,34 @@ Deno.serve(async (req: Request) => {
       const categories = deriveParsedCategories(parsed, filters);
       const keywords = deriveParsedKeywords(parsed, filters);
 
+      // ─── Guard C: broad-pull abort ────────────────────────────────
+      // If PDL returned a huge result set AND the query has no positive must
+      // clause (i.e. only filters + exclusions, no role/title/specialty/company
+      // anchor), the rerank will only sort noise. Skip the full fetch + rerank,
+      // surface a clear warning, and let the user refine.
+      const BROAD_PULL_THRESHOLD = 5000;
+      const _bool = (pdlQuery as { bool?: { must?: unknown[] } }).bool ?? {};
+      const _mustCount = Array.isArray(_bool.must) ? _bool.must.length : 0;
+      if (total > BROAD_PULL_THRESHOLD && _mustCount === 0) {
+        console.log(`[GUARD C] Broad-pull abort: total=${total} with must:0 — refusing rerank`);
+        return new Response(
+          JSON.stringify({
+            preview: true,
+            total,
+            parsed,
+            parsed_categories: categories,
+            parsed_keywords: keywords,
+            results: [],
+            scroll_token: null,
+            hasMore: false,
+            guard: "too_broad",
+            guard_message: `Found ${total.toLocaleString()} candidates — that's too broad to rank meaningfully. Add a specialty, title, or employer to narrow this down.`,
+            timing_ms: Date.now() - requestStart,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
           preview: true,
