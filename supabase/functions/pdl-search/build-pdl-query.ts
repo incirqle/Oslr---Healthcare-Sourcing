@@ -890,21 +890,41 @@ export function buildPDLQuery(
       ];
 
       if (hasResolvedCompanyAnchor && isSmallPractice) {
-        // SMALL-PRACTICE MODE (April 30 2026): When the anchor is a small
-        // private practice (Panorama Orthopedics, OrthoSouth, etc.), PDL
-        // role enrichment is sparse — sub_role and ONET are null on many
-        // legitimate doctor profiles. The company `must` is already a tight
-        // filter (~12-50 total), so we DROP the hard role gate entirely and
-        // rely on:
-        //   1. company must (already tight)
-        //   2. always-on PA/RN/dental must_not exclusions below
-        //   3. specialty-aware reranker in format-results.ts for ordering
-        // Diagnostic evidence: Panorama returned total=12 with the inclusive
-        // role filter; PDL's true doctor ceiling for the company is ~25-32.
+        // SMALL-PRACTICE MODE (April 30 2026, v2): The first cut dropped the
+        // role gate entirely and exploded results from 12 → 202 because the
+        // company `must` ORs `job_company_*` with `experience.company.*` —
+        // any former PT / current surgical tech / billing staff matched.
+        //
+        // Fix: keep an INCLUSIVE hard role gate (broader than non-small-practice
+        // mode) AND let the caller restrict company match to current employer
+        // only (handled in the company block via `_small_practice_current_only`).
+        // Inclusive gate accepts:
+        //   - sub_role:doctor (catches John Froelich-style "hand surgeon")
+        //   - ONET Physicians/Surgeons
+        //   - title wildcards for *surgeon*, *physician*, *, md, *, do, dr.*
+        //   - title contains "doctor" or specialty roots (orthopedic, ortho)
+        const smallPracticeDoctorGate: Clause[] = [
+          { term: { job_title_sub_role: "doctor" } },
+          { term: { job_onet_broad_occupation: "Physicians" } },
+          { term: { job_onet_broad_occupation: "Surgeons" } },
+          { terms: { job_onet_specific_occupation: PHYSICIAN_ONET_SPECIFIC } },
+          { wildcard: { job_title: "*surgeon*" } },
+          { wildcard: { job_title: "*physician*" } },
+          { wildcard: { job_title: "*, md" } },
+          { wildcard: { job_title: "*, md *" } },
+          { wildcard: { job_title: "*, do" } },
+          { wildcard: { job_title: "*, do *" } },
+          { wildcard: { job_title: "dr. *" } },
+          { wildcard: { job_title: "dr *" } },
+          { wildcard: { job_title: "*ologist*" } },     // cardiologist, radiologist, etc.
+          { wildcard: { job_title: "*orthopedi*" } },   // orthopedist, orthopedic
+          { wildcard: { job_title: "*orthopaedi*" } },
+        ];
+        filterClauses.push({ bool: { should: smallPracticeDoctorGate } });
         for (const clause of doctorRoleShould) {
           softShould.push(clause);
         }
-        console.log("[QUERY MODE] doctor + small-practice anchor → role gate DROPPED (company filter is the gate; reranker orders)");
+        console.log("[QUERY MODE] doctor + small-practice anchor → INCLUSIVE hard role gate (sub_role/ONET/title wildcards)");
       } else if (hasResolvedCompanyAnchor) {
         // COMPANY-ANCHORED MODE (health systems / large employers):
         // employer is the strong filter, but we still need to cut admin/
