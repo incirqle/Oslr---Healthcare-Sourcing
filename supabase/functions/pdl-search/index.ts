@@ -788,6 +788,52 @@ Deno.serve(async (req: Request) => {
     const parsed = await parseQuery(query, lovableKey, clientParsed);
     console.log("Parsed:", JSON.stringify(parsed));
 
+    // ─── Guard A: empty-intent abort ───────────────────────────────
+    // If the parser produced no role/title/specialty/company/credentials AND
+    // the user supplied no company filter, refuse to call PDL. A query like
+    // "people in Nashville" would otherwise fall through to the generic
+    // sub_role fallback and pull tens of thousands of irrelevant clinicians,
+    // burning PDL credits and Anthropic rerank tokens for a useless result set.
+    const _g = parsed as Record<string, unknown>;
+    const _arr = (v: unknown): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
+    const _hasIntent =
+      _arr(_g.job_titles).length > 0 ||
+      _arr(_g.title_synonyms).length > 0 ||
+      _arr(_g.specialties).length > 0 ||
+      (typeof _g.specialty === "string" && !!_g.specialty.trim()) ||
+      _arr(_g.credentials).length > 0 ||
+      _arr(_g.keywords).length > 0 ||
+      _arr(_g.required_keywords).length > 0 ||
+      _arr(_g.companies).length > 0 ||
+      _arr(_g.current_companies).length > 0 ||
+      _arr(_g.past_companies).length > 0 ||
+      _arr(_g.any_companies).length > 0 ||
+      _arr(_g.person_names).length > 0 ||
+      _arr((filters as Record<string, unknown>).companies).length > 0 ||
+      (typeof (filters as Record<string, unknown>).current_company === "string" && !!((filters as Record<string, unknown>).current_company as string).trim());
+
+    if (!_hasIntent) {
+      console.log("[GUARD A] Empty-intent query — refusing to call PDL");
+      const categories = deriveParsedCategories(parsed, filters);
+      const keywords = deriveParsedKeywords(parsed, filters);
+      return new Response(
+        JSON.stringify({
+          preview: !!preview,
+          total: 0,
+          parsed,
+          parsed_categories: categories,
+          parsed_keywords: keywords,
+          results: [],
+          scroll_token: null,
+          hasMore: false,
+          guard: "empty_intent",
+          guard_message: "Please add a clinical role, specialty, employer, or credential. Examples: 'cardiologist', 'ICU nurse', 'optometrist at LensCrafters'.",
+          timing_ms: Date.now() - requestStart,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Shared PDL credentials (used by Steps 1b, 1.5, and full search)
     const pdlApiKey = Deno.env.get("PDL_API_KEY");
     const pdlBaseUrl = "https://api.peopledatalabs.com";
@@ -954,6 +1000,34 @@ Deno.serve(async (req: Request) => {
 
       const categories = deriveParsedCategories(parsed, filters);
       const keywords = deriveParsedKeywords(parsed, filters);
+
+      // ─── Guard C: broad-pull abort ────────────────────────────────
+      // If PDL returned a huge result set AND the query has no positive must
+      // clause (i.e. only filters + exclusions, no role/title/specialty/company
+      // anchor), the rerank will only sort noise. Skip the full fetch + rerank,
+      // surface a clear warning, and let the user refine.
+      const BROAD_PULL_THRESHOLD = 5000;
+      const _bool = (pdlQuery as { bool?: { must?: unknown[] } }).bool ?? {};
+      const _mustCount = Array.isArray(_bool.must) ? _bool.must.length : 0;
+      if (total > BROAD_PULL_THRESHOLD && _mustCount === 0) {
+        console.log(`[GUARD C] Broad-pull abort: total=${total} with must:0 — refusing rerank`);
+        return new Response(
+          JSON.stringify({
+            preview: true,
+            total,
+            parsed,
+            parsed_categories: categories,
+            parsed_keywords: keywords,
+            results: [],
+            scroll_token: null,
+            hasMore: false,
+            guard: "too_broad",
+            guard_message: `Found ${total.toLocaleString()} candidates — that's too broad to rank meaningfully. Add a specialty, title, or employer to narrow this down.`,
+            timing_ms: Date.now() - requestStart,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       return new Response(
         JSON.stringify({
