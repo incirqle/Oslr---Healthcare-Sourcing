@@ -111,6 +111,7 @@ const SUB_ROLE_TERMS: Record<string, string[]> = {
   dental: ["dentist", "dental", "hygienist", "dds", "dmd", "orthodontist", "periodontist", "endodontist"],
   pharmacy: ["pharmacist", "pharmacy", "pharmd"],
   therapy: ["therapist", "pt", "ot", "slp", "rt", "dpt", "physical therapist", "occupational therapist", "speech therapist", "respiratory therapist"],
+  optometry: ["optometrist", "optometry", "doctor of optometry", "od"],
 };
 
 function detectSubRoles(titles: string[], keywords: string[]): string[] {
@@ -175,9 +176,12 @@ export function buildPDLQuery(
   // credit burn and admin-role leakage through the generic fallback.
   // ═══════════════════════════════════════════
   const searchNotesRaw = typeof parsed.search_notes === "string" ? parsed.search_notes.toLowerCase() : "";
-  const isOutOfScope = searchNotesRaw.includes("out of scope") && searchNotesRaw.includes("non-clinical");
+  // Guard B: any "out of scope" note short-circuits to match_none. Previously
+  // required "non-clinical"; now broader so any future scope rule (e.g. animal
+  // health, sales) also stops the query before PDL is hit.
+  const isOutOfScope = searchNotesRaw.includes("out of scope");
   if (isOutOfScope) {
-    console.log("[SCOPE] Non-clinical query rejected via parser search_notes — returning match_none");
+    console.log(`[SCOPE] Out-of-scope query rejected via parser search_notes ("${searchNotesRaw}") — returning match_none`);
     return {
       bool: {
         filter: [{ term: { _id: "__oslr_non_clinical_out_of_scope__" } }],
@@ -1081,9 +1085,9 @@ export function buildPDLQuery(
       // Keeps only the five canonical clinical sub-roles; everything else
       // (admin, finance, ops, IT, HR, marketing, risk, compliance) drops.
       filterClauses.push({
-        terms: { job_title_sub_role: ["doctor", "nursing", "dental", "pharmacy", "therapy"] },
+        terms: { job_title_sub_role: ["doctor", "nursing", "dental", "pharmacy", "therapy", "optometry"] },
       });
-      console.log("Generic clinical fallback: restricted to sub_role ∈ {doctor,nursing,dental,pharmacy,therapy}");
+      console.log("Generic clinical fallback: restricted to sub_role ∈ {doctor,nursing,dental,pharmacy,therapy,optometry}");
     }
 
     // ══════════════════════════════════════════════════════════════
