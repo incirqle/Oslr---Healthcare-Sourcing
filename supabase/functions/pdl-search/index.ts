@@ -1088,6 +1088,20 @@ Deno.serve(async (req: Request) => {
       total = (pdlData.total as number) || 0;
       returnScrollToken = (pdlData.scroll_token as string) || null;
 
+      // Diagnostic floor for small-practice anchored searches. The relaxed
+      // small-practice query is already in flight at this point — this is a
+      // no-op log to make under-retrieval debuggable. We do NOT trigger the
+      // broad cascade here, because the cascade can drop the company anchor
+      // and produce wildly off-target results for small private practices.
+      const _isSmallPractice = Boolean((parsed as Record<string, unknown>)._is_small_practice);
+      const _hasAnchor =
+        Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids) ||
+        Array.isArray((parsed as Record<string, unknown>)._resolved_company_names) ||
+        Array.isArray((parsed as Record<string, unknown>)._resolved_company_websites);
+      if (_isSmallPractice && _hasAnchor && total < 20) {
+        console.log(`[SMALL_PRACTICE] floor check: ${total} hits — relaxed query already active, no cascade triggered`);
+      }
+
       // Cascade — only fires when the initial query returned almost nothing (<2 results).
       // Progressively relaxes filters (specialty → titles → metro → state) until
       // enough results are found. Each cascade step runs its own preview before fetching.
