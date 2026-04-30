@@ -889,14 +889,27 @@ export function buildPDLQuery(
         { wildcard: { job_title: "dr *" } },
       ];
 
-      if (hasResolvedCompanyAnchor) {
-        // COMPANY-ANCHORED MODE (Option B): employer is the strong filter, but
-        // we still need to cut admin/billing/tech staff from the result set.
-        // Use an INCLUSIVE hard role filter — sub_role:"doctor" catches the
-        // many real doctors whose PDL profiles lack O*NET tags entirely
-        // (~18 of 32 at Panorama have onet=null but sub_role=doctor).
-        // Combined with the always-on PA/RN must_not exclusions below, this
-        // lands precisely at PDL's true doctor ceiling for the company.
+      if (hasResolvedCompanyAnchor && isSmallPractice) {
+        // SMALL-PRACTICE MODE (April 30 2026): When the anchor is a small
+        // private practice (Panorama Orthopedics, OrthoSouth, etc.), PDL
+        // role enrichment is sparse — sub_role and ONET are null on many
+        // legitimate doctor profiles. The company `must` is already a tight
+        // filter (~12-50 total), so we DROP the hard role gate entirely and
+        // rely on:
+        //   1. company must (already tight)
+        //   2. always-on PA/RN/dental must_not exclusions below
+        //   3. specialty-aware reranker in format-results.ts for ordering
+        // Diagnostic evidence: Panorama returned total=12 with the inclusive
+        // role filter; PDL's true doctor ceiling for the company is ~25-32.
+        for (const clause of doctorRoleShould) {
+          softShould.push(clause);
+        }
+        console.log("[QUERY MODE] doctor + small-practice anchor → role gate DROPPED (company filter is the gate; reranker orders)");
+      } else if (hasResolvedCompanyAnchor) {
+        // COMPANY-ANCHORED MODE (health systems / large employers):
+        // employer is the strong filter, but we still need to cut admin/
+        // billing/tech staff. Use an INCLUSIVE hard role filter —
+        // sub_role:"doctor" catches doctors whose profiles lack O*NET tags.
         filterClauses.push({
           bool: {
             should: [
@@ -907,11 +920,10 @@ export function buildPDLQuery(
             ],
           },
         });
-        // Also feed the full title/wildcard list as soft boosts for ranking.
         for (const clause of doctorRoleShould) {
           softShould.push(clause);
         }
-        console.log("[QUERY MODE] doctor + company-anchored → inclusive hard role filter (sub_role/ONET)");
+        console.log("[QUERY MODE] doctor + company-anchored (large/health system) → inclusive hard role filter (sub_role/ONET)");
       } else {
         // STRICT MODE: no company anchor, role filter is essential.
         filterClauses.push({ bool: { should: doctorRoleShould } });
