@@ -977,13 +977,23 @@ export function buildPDLQuery(
       }
       // Broad O*NET role exclusions — anything explicitly tagged engineering,
       // IT, finance, sales, HR, marketing is never a doctor.
-      mustNot.push({ term: { job_title_role: "engineering" } });
-      mustNot.push({ term: { job_title_role: "information_technology" } });
-      mustNot.push({ term: { job_title_role: "finance" } });
-      mustNot.push({ term: { job_title_role: "sales" } });
-      mustNot.push({ term: { job_title_role: "human_resources" } });
-      mustNot.push({ term: { job_title_role: "marketing" } });
-      console.log(`[FIX B] doctor intent → ${nonClinicalDoctorExclusions.length} non-clinical title exclusions + 6 role-level exclusions`);
+      // GUARD (April 30 2026): SKIP these for small-practice anchored
+      // searches. PDL's role tagger misroutes some MDs at small practices
+      // into "sales" / "marketing" (advisory boards, consultant lines), and
+      // dropping 2-3 from a 12-30 person pool is meaningful. The company
+      // filter already does the work, and the title-level exclusions above
+      // catch the unambiguous cases.
+      if (!(hasResolvedCompanyAnchor && isSmallPractice)) {
+        mustNot.push({ term: { job_title_role: "engineering" } });
+        mustNot.push({ term: { job_title_role: "information_technology" } });
+        mustNot.push({ term: { job_title_role: "finance" } });
+        mustNot.push({ term: { job_title_role: "sales" } });
+        mustNot.push({ term: { job_title_role: "human_resources" } });
+        mustNot.push({ term: { job_title_role: "marketing" } });
+        console.log(`[FIX B] doctor intent → ${nonClinicalDoctorExclusions.length} non-clinical title exclusions + 6 role-level exclusions`);
+      } else {
+        console.log(`[FIX B] doctor + small-practice → ${nonClinicalDoctorExclusions.length} title exclusions only (role-level skipped)`);
+      }
 
       // STRICT-MODE-ONLY title exclusions — these can incidentally match
       // legitimate clinical staff at an ortho practice (e.g. "physical
