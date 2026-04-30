@@ -458,11 +458,16 @@ export function buildPDLQuery(
     // (this block is inside `if (currentCompanies.length > 0)` and only fires
     // when we have a resolved anchor).
     //
-    // NOTE: This expands beyond strictly-current employees. For anchored
-    // company searches that's the right tradeoff — recruiters typically
-    // want everyone who *worked at* OrthoSouth, not just those whose stale
-    // PDL `job_company_*` field happens to be up-to-date today.
-    if (hasResolvedCompanyAnchor) {
+    // SMALL-PRACTICE EXCLUSION (April 30 2026): Skip the experience-array
+    // expansion for small private practices. Diagnostic on Panorama showed
+    // this booster pulls in former employees (PTs, surgical techs, billers)
+    // and explodes results from ~12 → 200+. For small practices, current-
+    // employer match (job_company_*) is the right precision/recall balance.
+    // Health systems and large employers keep the booster.
+    const _isSmallPracticeForCompanyExpansion = Boolean(
+      (parsed as Record<string, unknown>)._is_small_practice,
+    );
+    if (hasResolvedCompanyAnchor && !_isSmallPracticeForCompanyExpansion) {
       // Match by resolved company IDs in experience array (most precise)
       for (const id of resolvedIds) {
         companyClauses.push({ term: { "experience.company.id": id } });
@@ -480,6 +485,8 @@ export function buildPDLQuery(
       for (const affId of resolvedAffiliatedIds) {
         companyClauses.push({ term: { "experience.company.id": affId } });
       }
+    } else if (hasResolvedCompanyAnchor && _isSmallPracticeForCompanyExpansion) {
+      console.log("[COMPANY] small-practice anchor → experience-array expansion SKIPPED (current-employer only for precision)");
     }
 
     // Deduplicate clauses by serializing
