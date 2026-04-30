@@ -969,6 +969,25 @@ export function buildPDLQuery(
         "phlebotomist", "patient care technician", "patient care assistant",
         "nursing assistant", "health aide", "medical aide",
         "dental hygienist", "dental assistant",
+        // Allied-health technologists — never doctors. Added April 30 2026
+        // after Panorama search surfaced MRI/surgical techs on page 1.
+        "mri technologist", "ct technologist", "ultrasound technologist",
+        "radiologic technologist", "radiology technologist", "x-ray technologist",
+        "surgical technologist", "surgical tech", "scrub tech", "scrub technician",
+        "sterile processing technician", "ekg technician", "ecg technician",
+        "cardiovascular technologist", "lab technician", "laboratory technician",
+        "pharmacy technician",
+        // Allied-health therapists at ortho practices — common false positives.
+        "physical therapist", "occupational therapist", "athletic trainer",
+        "exercise physiologist", "kinesiologist",
+        // Front-office / billing / admin — never doctors.
+        "accounts receivable", "accounts payable", "billing specialist",
+        "billing coordinator", "medical biller", "medical coder",
+        "revenue cycle", "claims specialist", "insurance verification",
+        "medical records", "health information",
+        "front desk", "receptionist", "patient access", "patient coordinator",
+        "scheduler", "scheduling coordinator", "office manager",
+        "practice manager", "office administrator",
       ];
       for (const exclusion of alwaysOnTitleExclusions) {
         mustNot.push({ match_phrase: { "job_title.text": exclusion } });
