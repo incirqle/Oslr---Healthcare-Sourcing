@@ -458,11 +458,16 @@ export function buildPDLQuery(
     // (this block is inside `if (currentCompanies.length > 0)` and only fires
     // when we have a resolved anchor).
     //
-    // NOTE: This expands beyond strictly-current employees. For anchored
-    // company searches that's the right tradeoff — recruiters typically
-    // want everyone who *worked at* OrthoSouth, not just those whose stale
-    // PDL `job_company_*` field happens to be up-to-date today.
-    if (hasResolvedCompanyAnchor) {
+    // SMALL-PRACTICE EXCLUSION (April 30 2026): Skip the experience-array
+    // expansion for small private practices. Diagnostic on Panorama showed
+    // this booster pulls in former employees (PTs, surgical techs, billers)
+    // and explodes results from ~12 → 200+. For small practices, current-
+    // employer match (job_company_*) is the right precision/recall balance.
+    // Health systems and large employers keep the booster.
+    const _isSmallPracticeForCompanyExpansion = Boolean(
+      (parsed as Record<string, unknown>)._is_small_practice,
+    );
+    if (hasResolvedCompanyAnchor && !_isSmallPracticeForCompanyExpansion) {
       // Match by resolved company IDs in experience array (most precise)
       for (const id of resolvedIds) {
         companyClauses.push({ term: { "experience.company.id": id } });
@@ -480,6 +485,8 @@ export function buildPDLQuery(
       for (const affId of resolvedAffiliatedIds) {
         companyClauses.push({ term: { "experience.company.id": affId } });
       }
+    } else if (hasResolvedCompanyAnchor && _isSmallPracticeForCompanyExpansion) {
+      console.log("[COMPANY] small-practice anchor → experience-array expansion SKIPPED (current-employer only for precision)");
     }
 
     // Deduplicate clauses by serializing
@@ -890,21 +897,41 @@ export function buildPDLQuery(
       ];
 
       if (hasResolvedCompanyAnchor && isSmallPractice) {
-        // SMALL-PRACTICE MODE (April 30 2026): When the anchor is a small
-        // private practice (Panorama Orthopedics, OrthoSouth, etc.), PDL
-        // role enrichment is sparse — sub_role and ONET are null on many
-        // legitimate doctor profiles. The company `must` is already a tight
-        // filter (~12-50 total), so we DROP the hard role gate entirely and
-        // rely on:
-        //   1. company must (already tight)
-        //   2. always-on PA/RN/dental must_not exclusions below
-        //   3. specialty-aware reranker in format-results.ts for ordering
-        // Diagnostic evidence: Panorama returned total=12 with the inclusive
-        // role filter; PDL's true doctor ceiling for the company is ~25-32.
+        // SMALL-PRACTICE MODE (April 30 2026, v2): The first cut dropped the
+        // role gate entirely and exploded results from 12 → 202 because the
+        // company `must` ORs `job_company_*` with `experience.company.*` —
+        // any former PT / current surgical tech / billing staff matched.
+        //
+        // Fix: keep an INCLUSIVE hard role gate (broader than non-small-practice
+        // mode) AND let the caller restrict company match to current employer
+        // only (handled in the company block via `_small_practice_current_only`).
+        // Inclusive gate accepts:
+        //   - sub_role:doctor (catches John Froelich-style "hand surgeon")
+        //   - ONET Physicians/Surgeons
+        //   - title wildcards for *surgeon*, *physician*, *, md, *, do, dr.*
+        //   - title contains "doctor" or specialty roots (orthopedic, ortho)
+        const smallPracticeDoctorGate: Clause[] = [
+          { term: { job_title_sub_role: "doctor" } },
+          { term: { job_onet_broad_occupation: "Physicians" } },
+          { term: { job_onet_broad_occupation: "Surgeons" } },
+          { terms: { job_onet_specific_occupation: PHYSICIAN_ONET_SPECIFIC } },
+          { wildcard: { job_title: "*surgeon*" } },
+          { wildcard: { job_title: "*physician*" } },
+          { wildcard: { job_title: "*, md" } },
+          { wildcard: { job_title: "*, md *" } },
+          { wildcard: { job_title: "*, do" } },
+          { wildcard: { job_title: "*, do *" } },
+          { wildcard: { job_title: "dr. *" } },
+          { wildcard: { job_title: "dr *" } },
+          { wildcard: { job_title: "*ologist*" } },     // cardiologist, radiologist, etc.
+          { wildcard: { job_title: "*orthopedi*" } },   // orthopedist, orthopedic
+          { wildcard: { job_title: "*orthopaedi*" } },
+        ];
+        filterClauses.push({ bool: { should: smallPracticeDoctorGate } });
         for (const clause of doctorRoleShould) {
           softShould.push(clause);
         }
-        console.log("[QUERY MODE] doctor + small-practice anchor → role gate DROPPED (company filter is the gate; reranker orders)");
+        console.log("[QUERY MODE] doctor + small-practice anchor → INCLUSIVE hard role gate (sub_role/ONET/title wildcards)");
       } else if (hasResolvedCompanyAnchor) {
         // COMPANY-ANCHORED MODE (health systems / large employers):
         // employer is the strong filter, but we still need to cut admin/
@@ -949,6 +976,25 @@ export function buildPDLQuery(
         "phlebotomist", "patient care technician", "patient care assistant",
         "nursing assistant", "health aide", "medical aide",
         "dental hygienist", "dental assistant",
+        // Allied-health technologists — never doctors. Added April 30 2026
+        // after Panorama search surfaced MRI/surgical techs on page 1.
+        "mri technologist", "ct technologist", "ultrasound technologist",
+        "radiologic technologist", "radiology technologist", "x-ray technologist",
+        "surgical technologist", "surgical tech", "scrub tech", "scrub technician",
+        "sterile processing technician", "ekg technician", "ecg technician",
+        "cardiovascular technologist", "lab technician", "laboratory technician",
+        "pharmacy technician",
+        // Allied-health therapists at ortho practices — common false positives.
+        "physical therapist", "occupational therapist", "athletic trainer",
+        "exercise physiologist", "kinesiologist",
+        // Front-office / billing / admin — never doctors.
+        "accounts receivable", "accounts payable", "billing specialist",
+        "billing coordinator", "medical biller", "medical coder",
+        "revenue cycle", "claims specialist", "insurance verification",
+        "medical records", "health information",
+        "front desk", "receptionist", "patient access", "patient coordinator",
+        "scheduler", "scheduling coordinator", "office manager",
+        "practice manager", "office administrator",
       ];
       for (const exclusion of alwaysOnTitleExclusions) {
         mustNot.push({ match_phrase: { "job_title.text": exclusion } });
