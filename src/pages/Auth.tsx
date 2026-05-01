@@ -20,7 +20,9 @@ const features = [
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
-  const [isSignUp, setIsSignUp] = useState(!!inviteToken);
+  // Public signups are disabled — platform is invite/admin-only.
+  const SIGNUPS_DISABLED = true;
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -200,13 +202,19 @@ export default function Auth() {
                 </Button>
               </form>
               <div className="mt-4 text-center text-xs text-muted-foreground">
-                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-                <button
-                  onClick={() => setIsSignUp(!isSignUp)}
-                  className="text-primary hover:underline font-medium"
-                >
-                  {isSignUp ? "Sign in" : "Sign up"}
-                </button>
+                {SIGNUPS_DISABLED ? (
+                  <span>New sign-ups are currently closed.</span>
+                ) : (
+                  <>
+                    {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                    <button
+                      onClick={() => setIsSignUp(!isSignUp)}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      {isSignUp ? "Sign in" : "Sign up"}
+                    </button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
