@@ -870,6 +870,69 @@ export type Database = {
         }
         Relationships: []
       }
+      search_audit_logs: {
+        Row: {
+          cache_hit: boolean | null
+          cascade_steps: Json | null
+          cascade_used: boolean | null
+          created_at: string
+          error_message: string | null
+          guard: string | null
+          id: string
+          meta: Json | null
+          parsed_filters: Json | null
+          parsed_payload: Json | null
+          pdl_query: Json | null
+          phase: string
+          profiles_fetched: number | null
+          query_text: string | null
+          reported_total: number | null
+          timing_ms: number | null
+          user_id: string | null
+          winning_step: string | null
+        }
+        Insert: {
+          cache_hit?: boolean | null
+          cascade_steps?: Json | null
+          cascade_used?: boolean | null
+          created_at?: string
+          error_message?: string | null
+          guard?: string | null
+          id?: string
+          meta?: Json | null
+          parsed_filters?: Json | null
+          parsed_payload?: Json | null
+          pdl_query?: Json | null
+          phase: string
+          profiles_fetched?: number | null
+          query_text?: string | null
+          reported_total?: number | null
+          timing_ms?: number | null
+          user_id?: string | null
+          winning_step?: string | null
+        }
+        Update: {
+          cache_hit?: boolean | null
+          cascade_steps?: Json | null
+          cascade_used?: boolean | null
+          created_at?: string
+          error_message?: string | null
+          guard?: string | null
+          id?: string
+          meta?: Json | null
+          parsed_filters?: Json | null
+          parsed_payload?: Json | null
+          pdl_query?: Json | null
+          phase?: string
+          profiles_fetched?: number | null
+          query_text?: string | null
+          reported_total?: number | null
+          timing_ms?: number | null
+          user_id?: string | null
+          winning_step?: string | null
+        }
+        Relationships: []
+      }
       search_history: {
         Row: {
           company_id: string

@@ -689,6 +689,56 @@ async function resolveCompanyNames(
 }
 
 /* ------------------------------------------------------------------ */
+/* Persistent audit log — writes one row per search run for review      */
+/* well past the 24h edge-function log retention window.                */
+/* ------------------------------------------------------------------ */
+
+async function resolveUserId(
+  authHeader: string | null
+): Promise<string | null> {
+  if (!authHeader) return null;
+  try {
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data } = await userClient.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeAudit(
+  adminClient: ReturnType<typeof createClient>,
+  row: {
+    user_id: string | null;
+    phase: string;
+    query_text: string;
+    parsed_filters?: unknown;
+    parsed_payload?: unknown;
+    pdl_query?: unknown;
+    reported_total?: number | null;
+    profiles_fetched?: number | null;
+    cache_hit?: boolean;
+    cascade_used?: boolean;
+    cascade_steps?: unknown;
+    winning_step?: string | null;
+    guard?: string | null;
+    error_message?: string | null;
+    timing_ms?: number | null;
+    meta?: unknown;
+  }
+): Promise<void> {
+  try {
+    await adminClient.from("search_audit_logs").insert(row);
+  } catch (e) {
+    console.error("[AUDIT] write failed:", e);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -1001,16 +1051,26 @@ Deno.serve(async (req: Request) => {
       const categories = deriveParsedCategories(parsed, filters);
       const keywords = deriveParsedKeywords(parsed, filters);
 
-      // ─── Guard C: broad-pull abort ────────────────────────────────
-      // If PDL returned a huge result set AND the query has no positive must
-      // clause (i.e. only filters + exclusions, no role/title/specialty/company
-      // anchor), the rerank will only sort noise. Skip the full fetch + rerank,
-      // surface a clear warning, and let the user refine.
+      // ─── Guard C: broad-pull abort + audit ────────────────────────
       const BROAD_PULL_THRESHOLD = 5000;
       const _bool = (pdlQuery as { bool?: { must?: unknown[] } }).bool ?? {};
       const _mustCount = Array.isArray(_bool.must) ? _bool.must.length : 0;
+      const _userIdGuard = await resolveUserId(req.headers.get("Authorization"));
       if (total > BROAD_PULL_THRESHOLD && _mustCount === 0) {
         console.log(`[GUARD C] Broad-pull abort: total=${total} with must:0 — refusing rerank`);
+        await writeAudit(adminClient, {
+          user_id: _userIdGuard,
+          phase: "preview",
+          query_text: query,
+          parsed_filters: filters,
+          parsed_payload: parsed,
+          pdl_query: pdlQuery,
+          reported_total: total,
+          profiles_fetched: 0,
+          cache_hit: !!(cached && cached.total > 0),
+          guard: "too_broad",
+          timing_ms: Date.now() - requestStart,
+        });
         return new Response(
           JSON.stringify({
             preview: true,
@@ -1028,6 +1088,19 @@ Deno.serve(async (req: Request) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      await writeAudit(adminClient, {
+        user_id: _userIdGuard,
+        phase: "preview",
+        query_text: query,
+        parsed_filters: filters,
+        parsed_payload: parsed,
+        pdl_query: pdlQuery,
+        reported_total: total,
+        profiles_fetched: 0,
+        cache_hit: !!(cached && cached.total > 0),
+        timing_ms: Date.now() - requestStart,
+      });
 
       return new Response(
         JSON.stringify({
@@ -1167,28 +1240,37 @@ Deno.serve(async (req: Request) => {
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
 
-    // Log search
+    // Log search (legacy oslr_searches + persistent audit row)
+    const _userIdFull = await resolveUserId(req.headers.get("Authorization"));
     try {
-      const authHeader = req.headers.get("Authorization");
-      if (authHeader) {
-        const userClient = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_ANON_KEY")!,
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-          await adminClient.from("oslr_searches").insert({
-            user_id: user.id,
-            query,
-            filters,
-            result_count: total,
-          });
-        }
+      if (_userIdFull) {
+        await adminClient.from("oslr_searches").insert({
+          user_id: _userIdFull,
+          query,
+          filters,
+          result_count: total,
+        });
       }
     } catch (e) {
       console.error("Failed to log search:", e);
     }
+
+    await writeAudit(adminClient, {
+      user_id: _userIdFull,
+      phase: "full",
+      query_text: query,
+      parsed_filters: filters,
+      parsed_payload: parsed,
+      pdl_query: pdlQuery,
+      reported_total: total,
+      profiles_fetched: Array.isArray(results) ? results.length : 0,
+      cache_hit: !!(cached && cached.data && cached.data.length > 0),
+      cascade_used: cascadeUsed,
+      cascade_steps: cascadePlan,
+      winning_step: cascadeWinningStep ?? null,
+      timing_ms: Date.now() - requestStart,
+      meta: { page, size },
+    });
 
     // Build geo scope metadata for frontend transparency.
     // Use the WINNING step (what actually produced results), not the planned cascade list.
@@ -1236,6 +1318,20 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     console.error("Handler error:", err);
+    try {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const _uid = await resolveUserId(req.headers.get("Authorization"));
+      await writeAudit(adminClient, {
+        user_id: _uid,
+        phase: "error",
+        query_text: "",
+        error_message: err instanceof Error ? err.message : String(err),
+        timing_ms: Date.now() - requestStart,
+      });
+    } catch { /* swallow */ }
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
