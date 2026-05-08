@@ -7,11 +7,12 @@ export function ArticleContent({ markdown }: { markdown: string }) {
   return (
     <div
       className={cn(
-        "prose prose-invert max-w-none",
-        "prose-headings:font-display prose-headings:tracking-tight",
+        "prose prose-slate max-w-none",
+        "prose-headings:font-display prose-headings:tracking-tight prose-headings:text-foreground",
         "prose-h1:text-3xl prose-h1:mb-4",
         "prose-h2:text-2xl prose-h2:mt-10",
         "prose-h3:text-lg",
+        "prose-p:text-foreground/85 prose-li:text-foreground/85",
         "prose-a:text-primary hover:prose-a:underline",
         "prose-code:text-primary prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded",
         "prose-pre:bg-muted prose-pre:border prose-pre:border-border",
