@@ -689,6 +689,56 @@ async function resolveCompanyNames(
 }
 
 /* ------------------------------------------------------------------ */
+/* Persistent audit log — writes one row per search run for review      */
+/* well past the 24h edge-function log retention window.                */
+/* ------------------------------------------------------------------ */
+
+async function resolveUserId(
+  authHeader: string | null
+): Promise<string | null> {
+  if (!authHeader) return null;
+  try {
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data } = await userClient.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeAudit(
+  adminClient: ReturnType<typeof createClient>,
+  row: {
+    user_id: string | null;
+    phase: string;
+    query_text: string;
+    parsed_filters?: unknown;
+    parsed_payload?: unknown;
+    pdl_query?: unknown;
+    reported_total?: number | null;
+    profiles_fetched?: number | null;
+    cache_hit?: boolean;
+    cascade_used?: boolean;
+    cascade_steps?: unknown;
+    winning_step?: string | null;
+    guard?: string | null;
+    error_message?: string | null;
+    timing_ms?: number | null;
+    meta?: unknown;
+  }
+): Promise<void> {
+  try {
+    await adminClient.from("search_audit_logs").insert(row);
+  } catch (e) {
+    console.error("[AUDIT] write failed:", e);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
 
