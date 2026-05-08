@@ -1051,16 +1051,23 @@ Deno.serve(async (req: Request) => {
       const categories = deriveParsedCategories(parsed, filters);
       const keywords = deriveParsedKeywords(parsed, filters);
 
-      // ─── Guard C: broad-pull abort ────────────────────────────────
-      // If PDL returned a huge result set AND the query has no positive must
-      // clause (i.e. only filters + exclusions, no role/title/specialty/company
-      // anchor), the rerank will only sort noise. Skip the full fetch + rerank,
-      // surface a clear warning, and let the user refine.
-      const BROAD_PULL_THRESHOLD = 5000;
-      const _bool = (pdlQuery as { bool?: { must?: unknown[] } }).bool ?? {};
-      const _mustCount = Array.isArray(_bool.must) ? _bool.must.length : 0;
+      // Audit: broad-pull abort
+      const _userIdGuard = await resolveUserId(req.headers.get("Authorization"));
       if (total > BROAD_PULL_THRESHOLD && _mustCount === 0) {
         console.log(`[GUARD C] Broad-pull abort: total=${total} with must:0 — refusing rerank`);
+        await writeAudit(adminClient, {
+          user_id: _userIdGuard,
+          phase: "preview",
+          query_text: query,
+          parsed_filters: filters,
+          parsed_payload: parsed,
+          pdl_query: pdlQuery,
+          reported_total: total,
+          profiles_fetched: 0,
+          cache_hit: !!(cached && cached.total > 0),
+          guard: "too_broad",
+          timing_ms: Date.now() - requestStart,
+        });
         return new Response(
           JSON.stringify({
             preview: true,
@@ -1078,6 +1085,19 @@ Deno.serve(async (req: Request) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      await writeAudit(adminClient, {
+        user_id: _userIdGuard,
+        phase: "preview",
+        query_text: query,
+        parsed_filters: filters,
+        parsed_payload: parsed,
+        pdl_query: pdlQuery,
+        reported_total: total,
+        profiles_fetched: 0,
+        cache_hit: !!(cached && cached.total > 0),
+        timing_ms: Date.now() - requestStart,
+      });
 
       return new Response(
         JSON.stringify({
