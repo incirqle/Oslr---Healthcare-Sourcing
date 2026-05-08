@@ -1051,7 +1051,10 @@ Deno.serve(async (req: Request) => {
       const categories = deriveParsedCategories(parsed, filters);
       const keywords = deriveParsedKeywords(parsed, filters);
 
-      // Audit: broad-pull abort
+      // ─── Guard C: broad-pull abort + audit ────────────────────────
+      const BROAD_PULL_THRESHOLD = 5000;
+      const _bool = (pdlQuery as { bool?: { must?: unknown[] } }).bool ?? {};
+      const _mustCount = Array.isArray(_bool.must) ? _bool.must.length : 0;
       const _userIdGuard = await resolveUserId(req.headers.get("Authorization"));
       if (total > BROAD_PULL_THRESHOLD && _mustCount === 0) {
         console.log(`[GUARD C] Broad-pull abort: total=${total} with must:0 — refusing rerank`);
