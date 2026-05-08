@@ -56,7 +56,6 @@ const App = () => (
             <Route path="/analytics/usage" element={<P><AnalyticsUsage /></P>} />
             <Route path="/analytics/projects" element={<P><AnalyticsProjects /></P>} />
             <Route path="/news" element={<P><News /></P>} />
-            <Route path="/resources" element={<P><Resources /></P>} />
             <Route path="/resources/*" element={<P><Resources /></P>} />
             <Route path="/settings" element={<P><TeamSettings /></P>} />
             <Route path="/docs" element={<DocsIndex />} />
