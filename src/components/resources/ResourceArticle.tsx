@@ -91,8 +91,8 @@ export function ResourceArticlePage({ slug }: { slug: string }) {
         </div>
       </aside>
 
-      {/* Article content */}
-      <div className="flex-1 min-w-0 max-w-3xl">
+      {/* Article content — ~70ch reading column for legibility */}
+      <div className="flex-1 min-w-0 max-w-[680px] py-8">
         {/* Breadcrumb */}
         <nav className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground flex-wrap">
           <Link to="/resources" className="hover:text-foreground">Resources</Link>
