@@ -1318,6 +1318,20 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     console.error("Handler error:", err);
+    try {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const _uid = await resolveUserId(req.headers.get("Authorization"));
+      await writeAudit(adminClient, {
+        user_id: _uid,
+        phase: "error",
+        query_text: "",
+        error_message: err instanceof Error ? err.message : String(err),
+        timing_ms: Date.now() - requestStart,
+      });
+    } catch { /* swallow */ }
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
