@@ -17,12 +17,13 @@ const pageTitles: Record<string, string> = {
   "/agents": "Agents",
   "/contacts": "Contacts",
   "/campaigns": "Campaigns",
+  "/resources": "Resources",
   "/settings": "Team Settings",
 };
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const currentPage = pageTitles[pathname] ?? (pathname.startsWith("/projects/") ? "Project" : pathname.startsWith("/agents/") ? "Agent" : "Page");
+  const currentPage = pageTitles[pathname] ?? (pathname.startsWith("/projects/") ? "Project" : pathname.startsWith("/agents/") ? "Agent" : pathname.startsWith("/resources/") ? "Resources" : "Page");
 
   return (
     <SidebarProvider>
