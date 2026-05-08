@@ -1240,28 +1240,37 @@ Deno.serve(async (req: Request) => {
     const categories = deriveParsedCategories(parsed, filters);
     const keywords = deriveParsedKeywords(parsed, filters);
 
-    // Log search
+    // Log search (legacy oslr_searches + persistent audit row)
+    const _userIdFull = await resolveUserId(req.headers.get("Authorization"));
     try {
-      const authHeader = req.headers.get("Authorization");
-      if (authHeader) {
-        const userClient = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_ANON_KEY")!,
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-          await adminClient.from("oslr_searches").insert({
-            user_id: user.id,
-            query,
-            filters,
-            result_count: total,
-          });
-        }
+      if (_userIdFull) {
+        await adminClient.from("oslr_searches").insert({
+          user_id: _userIdFull,
+          query,
+          filters,
+          result_count: total,
+        });
       }
     } catch (e) {
       console.error("Failed to log search:", e);
     }
+
+    await writeAudit(adminClient, {
+      user_id: _userIdFull,
+      phase: "full",
+      query_text: query,
+      parsed_filters: filters,
+      parsed_payload: parsed,
+      pdl_query: pdlQuery,
+      reported_total: total,
+      profiles_fetched: Array.isArray(results) ? results.length : 0,
+      cache_hit: !!(cached && cached.data && cached.data.length > 0),
+      cascade_used: cascadeUsed,
+      cascade_steps: cascadePlan,
+      winning_step: cascadeWinningStep ?? null,
+      timing_ms: Date.now() - requestStart,
+      meta: { page, size },
+    });
 
     // Build geo scope metadata for frontend transparency.
     // Use the WINNING step (what actually produced results), not the planned cascade list.
