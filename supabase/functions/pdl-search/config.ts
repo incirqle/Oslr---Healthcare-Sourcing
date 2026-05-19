@@ -8,7 +8,7 @@
 /* ------------------------------------------------------------------ */
 export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keywords: string[] }> = {
   // Cardiology
-  "cardio": { specialties: ["cardiology"], keywords: ["cardiology", "cardiac", "cardiovascular"] },
+  "cardio": { specialties: ["cardiology"], keywrds: ["cardiology", "cardiac", "cardiovascular"] },
   "cardiac": { specialties: ["cardiology"], keywords: ["cardiology", "cardiac"] },
   "cardiology": { specialties: ["cardiology"], keywords: ["cardiology", "cardiac", "cardiovascular"] },
   "cardiovascular": { specialties: ["cardiology"], keywords: ["cardiovascular", "cardiac"] },
@@ -106,7 +106,7 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
 
   // Ophthalmology
   "ophthalmology": { specialties: ["ophthalmology"], keywords: ["ophthalmology", "eye"] },
-  "optometry": { specialties: ["ophthalmology"], keywords: ["ophthalmology", "optometry"] },
+  "optometry": { specialties: ["optometry"], keywords: ["optometry", "optometrist", "eye exam", "vision"] },
 
   // Pain Management
   "pain management": { specialties: ["pain management"], keywords: ["pain management", "pain medicine"] },
