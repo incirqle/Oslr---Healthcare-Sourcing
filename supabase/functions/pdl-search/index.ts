@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseQuery } from "./parse-query.ts";
 import { buildPDLQuery, CascadeStep, applyStep } from "./build-pdl-query.ts";
 import {
-  getPDLCacheKey,
+  getPDLCacheKey
   getDBCache,
   setDBCache,
   cleanExpiredCache,
@@ -142,7 +142,13 @@ async function runCascade(
     lastTotal = total;
     console.log(`[CASCADE] step=${step}, preview_total=${total}`);
 
-    if (total >= 3) {
+      // Bug 1 fix: cascade ceiling — skip steps returning >50x the original total
+          const ceilingExceeded = previewTotal > 0 && total > previewTotal * 50;
+          if (ceilingExceeded) {
+                    console.log(`[CASCADE] step=${step} CEILING: total=${total} vs previewTotal=${previewTotal}`);
+                    continue;
+          }
+          if (total >= 3) {
       const profiles = await fetchProfiles(stepQuery, Math.min(size, 100));
       setDBCache(adminClient, stepHash, total, profiles, null);
       return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: step, total };
