@@ -1319,6 +1319,7 @@ Deno.serve(async (req: Request) => {
         company_scope: companyScope,
         ...aiRerankMeta,
         timing_ms: Date.now() - requestStart,
+                cascade_warning: cascadeUsed && cascadeWinningStep ? `Search was broadened (${cascadeWinningStep}) to find results` : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
