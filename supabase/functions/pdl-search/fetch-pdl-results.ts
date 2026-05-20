@@ -111,7 +111,8 @@ export async function fetchPDLWithRetry(
 
 export async function runPreview(
   pdlQuery: Record<string, unknown>,
-  pdlBaseUrl = "https://api.peopledatalabs.com"
+  pdlBaseUrl = "https://api.peopledatalabs.com",
+    requiredFields: string[] = []
 ): Promise<number> {
   // Use the dedicated preview key (zero credit burn) when available.
   // Lou Tarabocchia (PDL) added 2,500 preview credits to this key for
@@ -119,7 +120,7 @@ export async function runPreview(
   const previewKey = Deno.env.get("PDL_PREVIEW_API_KEY") || Deno.env.get("PDL_API_KEY");
   if (!previewKey) throw new Error("PDL_API_KEY not configured");
 
-  const body = { query: pdlQuery, dataset: "all", size: 1 };
+  const body: Record<string, unknown> = { query: pdlQuery, dataset: "all", size: 1, ...(requiredFields.length > 0 ? { required_fields: requiredFields } : {}) };
   const result = await fetchPDLWithRetry(
     `${pdlBaseUrl}/v5/person/search`,
     {
@@ -150,7 +151,7 @@ export async function runPreview(
 export async function fetchProfiles(
   pdlQuery: Record<string, unknown>,
   size: number,
-  pdlBaseUrl = "https://api.peopledatalabs.com",
+  pdlBaseUrl = "https://api.peopledatalabs.com",  requiredFields: string[] = [],
   // required_fields: PDL only charges a credit when the returned profile has
   // ALL of these fields populated. Defaults to ["emails"] so we never burn a
   // credit on a profile with zero contact info. Pass an empty array to disable.
