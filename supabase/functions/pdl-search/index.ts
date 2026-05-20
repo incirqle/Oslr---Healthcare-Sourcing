@@ -5,7 +5,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { parseQuery } from "./parse-query.ts";
+import { parseQuery } from "./parse-qury.ts";
 import { buildPDLQuery, CascadeStep, applyStep } from "./build-pdl-query.ts";
 import {
   getPDLCacheKey
@@ -18,6 +18,7 @@ import {
 } from "./fetch-pdl-results.ts";
 import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankResults } from "./format-results.ts";
 import { callClaude } from "./ai-router.ts";
+import { resolveFromReference, isHealthRelevantToken } from "./health-system-resolver.ts";
 import { rerankWithAI } from "./ai-rerank.ts";
 import { enrichJobTitles } from "./enrich-job-titles.ts";
 
@@ -399,6 +400,14 @@ async function resolveCompanyNames(
     const affiliatedNames: string[] = [];
     const wildcards: string[] = [];
 
+      // — Step 0: Local reference file lookup (FREE, instant) —
+      const refMatch = resolveFromReference(name);
+      if (refMatch) {
+        console.log('[COMPANY RESOLVE] Step 0 Reference hit: "' + name + '" -> "' + refMatch.pdl_name + '"');
+        results.push(refMatch as any);
+        continue;
+      }
+
     try {
       // ── Step 1: Company Cleaner (free) ──
       // Try the raw name first, then try with location words stripped
@@ -600,7 +609,7 @@ async function resolveCompanyNames(
       // For health-system parents (e.g. "university of miami") we run more passes
       // because the brand harvest in extractRootNames adds sibling tokens like
       // "uhealth", "sylvester", "miller school" that don't share the parent root.
-      const rootNames = extractRootNames(altNames, pdlName);
+      const rootNames = extractRootNames(altNames, pdlName).filter(r => isHealthRelevantToken(r));
       const isHealthSystemAnchor = isHealthSystemParent(pdlName);
       const brandTokensForFilter = rootNames.filter(r => r !== pdlName);
       const autocompletePassLimit = isHealthSystemAnchor ? 8 : 3;
