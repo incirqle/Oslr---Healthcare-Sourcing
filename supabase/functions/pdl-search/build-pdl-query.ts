@@ -1216,6 +1216,22 @@ export function buildPDLQuery(
   };
 
   console.log("Final query — filter:", filterClauses.length, "| must:", must.length, "| should:", should.length + softShould.length, "| must_not:", mustNot.length, "| wildcards:", wildcardCount);
+
+    // Bug 6: Short-fetch diagnostics — structured log for debugging
+    // preview vs fetch count mismatches
+    const _diag = {
+          filter_count: filterClauses.length,
+          must_count: must.length,
+          should_count: should.length,
+          soft_should_count: softShould.length,
+          must_not_count: mustNot.length,
+          wildcard_count: wildcardCount,
+          has_company: must.some((c: any) => JSON.stringify(c).includes('job_company_name')),
+          has_title: must.some((c: any) => JSON.stringify(c).includes('job_title')),
+          has_location: filterClauses.some((c: any) => JSON.stringify(c).includes('location')),
+          has_experience: filterClauses.some((c: any) => JSON.stringify(c).includes('experience')),
+    };
+    console.log("[QUERY_DIAG]", JSON.stringify(_diag));
   return query;
 }
 
