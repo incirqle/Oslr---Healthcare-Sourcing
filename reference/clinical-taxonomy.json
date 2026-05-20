@@ -1,0 +1,3423 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "generated": "2026-05-19",
+    "source": "NUCC Taxonomy v25.1 + PDL field mapping + industry knowledge",
+    "total_specialties": 80,
+    "categories": [
+      "surgical",
+      "medical",
+      "primary-care",
+      "dental",
+      "optometry",
+      "podiatry",
+      "advanced-practice",
+      "nursing",
+      "nursing-leadership",
+      "therapy",
+      "pharmacy",
+      "behavioral-health",
+      "chiropractic",
+      "administration"
+    ],
+    "description": "Clinical taxonomy for Oslr PDL search. Maps specialties to NUCC codes and PDL ES query patterns. Core 80 specialties covering ~95% of recruiter searches.",
+    "expansion_guide": "To add a new specialty: copy an existing entry, assign a unique id, set the NUCC code (from nucc.org/taxonomy), map PDL fields using ES gotchas rules (keyword fields â term, text fields â match), and add common search_terms."
+  },
+  "specialties": [
+    {
+      "id": "orthopedic-surgery",
+      "display": "Orthopedic Surgery",
+      "nucc": [
+        "207X00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207XS0114X",
+          "name": "Adult Reconstructive Orthopedic Surgery"
+        },
+        {
+          "code": "207XX0004X",
+          "name": "Orthopedic Surgery of the Spine"
+        },
+        {
+          "code": "207XS0106X",
+          "name": "Orthopedic Hand Surgery"
+        },
+        {
+          "code": "207XX0801X",
+          "name": "Orthopedic Trauma"
+        },
+        {
+          "code": "207XP3100X",
+          "name": "Pediatric Orthopedic Surgery"
+        },
+        {
+          "code": "207XX0005X",
+          "name": "Sports Medicine (Orthopedic)"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "orthopedic surgeon",
+          "orthopaedic surgeon",
+          "orthopedic surgery",
+          "ortho surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1242.00"
+        ],
+        "skills": [
+          "orthopedic surgery",
+          "joint replacement",
+          "arthroscopy",
+          "fracture repair"
+        ],
+        "title_keywords": [
+          "orthop",
+          "orthopaed",
+          "ortho surg"
+        ]
+      },
+      "search_terms": [
+        "orthopedic surgeon",
+        "ortho surgeon",
+        "orthopedist",
+        "orthopaedic",
+        "bone surgeon",
+        "joint replacement surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "general-surgery",
+      "display": "General Surgery",
+      "nucc": [
+        "208600000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2086S0120X",
+          "name": "Pediatric Surgery"
+        },
+        {
+          "code": "2086S0122X",
+          "name": "Plastic & Reconstructive Surgery"
+        },
+        {
+          "code": "2086S0105X",
+          "name": "Surgery of the Hand"
+        },
+        {
+          "code": "2086S0127X",
+          "name": "Trauma Surgery"
+        },
+        {
+          "code": "2086X0206X",
+          "name": "Surgical Oncology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "general surgeon",
+          "general surgery",
+          "surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "general surgery",
+          "laparoscopic surgery",
+          "minimally invasive surgery"
+        ],
+        "title_keywords": [
+          "general surg"
+        ]
+      },
+      "search_terms": [
+        "general surgeon",
+        "surgeon",
+        "general surgery"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "neurosurgery",
+      "display": "Neurosurgery",
+      "nucc": [
+        "207T00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "neurosurgeon",
+          "neurosurgery",
+          "neurological surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1242.00"
+        ],
+        "skills": [
+          "neurosurgery",
+          "spine surgery",
+          "brain surgery",
+          "craniotomy"
+        ],
+        "title_keywords": [
+          "neurosurg"
+        ]
+      },
+      "search_terms": [
+        "neurosurgeon",
+        "brain surgeon",
+        "spine surgeon",
+        "neurological surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "cardiothoracic-surgery",
+      "display": "Cardiothoracic Surgery",
+      "nucc": [
+        "208G00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "cardiothoracic surgeon",
+          "cardiac surgeon",
+          "ct surgeon",
+          "heart surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "cardiac surgery",
+          "cardiothoracic surgery",
+          "open heart surgery",
+          "cabg"
+        ],
+        "title_keywords": [
+          "cardiothorac",
+          "cardiac surg",
+          "ct surg"
+        ]
+      },
+      "search_terms": [
+        "cardiothoracic surgeon",
+        "cardiac surgeon",
+        "heart surgeon",
+        "ct surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "vascular-surgery",
+      "display": "Vascular Surgery",
+      "nucc": [
+        "208VP0014X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "vascular surgeon",
+          "vascular surgery"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "vascular surgery",
+          "endovascular surgery",
+          "peripheral vascular disease"
+        ],
+        "title_keywords": [
+          "vascular surg"
+        ]
+      },
+      "search_terms": [
+        "vascular surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "plastic-surgery",
+      "display": "Plastic Surgery",
+      "nucc": [
+        "208200000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2082S0099X",
+          "name": "Plastic Surgery Within the Head & Neck"
+        },
+        {
+          "code": "2082S0105X",
+          "name": "Surgery of the Hand (Plastic)"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "plastic surgeon",
+          "plastic surgery",
+          "reconstructive surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "plastic surgery",
+          "reconstructive surgery",
+          "cosmetic surgery"
+        ],
+        "title_keywords": [
+          "plastic surg",
+          "reconstruct"
+        ]
+      },
+      "search_terms": [
+        "plastic surgeon",
+        "reconstructive surgeon",
+        "cosmetic surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "urology",
+      "display": "Urology",
+      "nucc": [
+        "208800000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2088P0231X",
+          "name": "Pediatric Urology"
+        },
+        {
+          "code": "2088F0040X",
+          "name": "Female Pelvic Medicine & Reconstructive Surgery"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "urologist",
+          "urology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "urology",
+          "urological surgery",
+          "robotic surgery"
+        ],
+        "title_keywords": [
+          "urolog"
+        ]
+      },
+      "search_terms": [
+        "urologist",
+        "urology"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "otolaryngology",
+      "display": "Otolaryngology (ENT)",
+      "nucc": [
+        "207Y00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207YS0123X",
+          "name": "Facial Plastic Surgery"
+        },
+        {
+          "code": "207YX0602X",
+          "name": "Otolaryngic Allergy"
+        },
+        {
+          "code": "207YX0905X",
+          "name": "Otology & Neurotology"
+        },
+        {
+          "code": "207YP0228X",
+          "name": "Pediatric Otolaryngology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "otolaryngologist",
+          "ent surgeon",
+          "ent physician",
+          "ear nose throat"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "otolaryngology",
+          "ent surgery",
+          "head and neck surgery"
+        ],
+        "title_keywords": [
+          "otolaryn",
+          "ent"
+        ]
+      },
+      "search_terms": [
+        "ENT",
+        "otolaryngologist",
+        "ear nose throat",
+        "ENT surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "ophthalmology",
+      "display": "Ophthalmology",
+      "nucc": [
+        "207W00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207WX0200X",
+          "name": "Ophthalmic Plastic & Reconstructive Surgery"
+        },
+        {
+          "code": "207WX0009X",
+          "name": "Glaucoma Specialist"
+        },
+        {
+          "code": "207WX0107X",
+          "name": "Retina Specialist"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "ophthalmologist",
+          "ophthalmology",
+          "eye surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1241.00"
+        ],
+        "skills": [
+          "ophthalmology",
+          "cataract surgery",
+          "lasik",
+          "retinal surgery"
+        ],
+        "title_keywords": [
+          "ophthalm"
+        ]
+      },
+      "search_terms": [
+        "ophthalmologist",
+        "eye surgeon",
+        "eye doctor",
+        "retina specialist"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "colorectal-surgery",
+      "display": "Colorectal Surgery",
+      "nucc": [
+        "208C00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "colorectal surgeon",
+          "colon and rectal surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "colorectal surgery",
+          "colonoscopy"
+        ],
+        "title_keywords": [
+          "colorectal"
+        ]
+      },
+      "search_terms": [
+        "colorectal surgeon",
+        "colon surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "oral-maxillofacial-surgery",
+      "display": "Oral & Maxillofacial Surgery",
+      "nucc": [
+        "204E00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "oral surgeon",
+          "maxillofacial surgeon",
+          "oral and maxillofacial"
+        ],
+        "job_title_sub_role": [
+          "doctor",
+          "dental"
+        ],
+        "onet_specific": [
+          "29-1024.00"
+        ],
+        "skills": [
+          "oral surgery",
+          "maxillofacial surgery",
+          "jaw surgery"
+        ],
+        "title_keywords": [
+          "oral surg",
+          "maxillofac"
+        ]
+      },
+      "search_terms": [
+        "oral surgeon",
+        "maxillofacial surgeon",
+        "oral surgery"
+      ],
+      "category": "surgical",
+      "parent_specialty": null
+    },
+    {
+      "id": "cardiology",
+      "display": "Cardiology",
+      "nucc": [
+        "207RC0000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207RI0011X",
+          "name": "Interventional Cardiology"
+        },
+        {
+          "code": "207RC0001X",
+          "name": "Clinical Cardiac Electrophysiology"
+        },
+        {
+          "code": "207RH0003X",
+          "name": "Hematology & Oncology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "cardiologist",
+          "cardiology",
+          "interventional cardiologist"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "cardiology",
+          "echocardiography",
+          "cardiac catheterization",
+          "electrophysiology"
+        ],
+        "title_keywords": [
+          "cardiolog",
+          "cardiac"
+        ]
+      },
+      "search_terms": [
+        "cardiologist",
+        "heart doctor",
+        "interventional cardiologist",
+        "electrophysiologist",
+        "EP"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "gastroenterology",
+      "display": "Gastroenterology",
+      "nucc": [
+        "207RG0100X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207RG0300X",
+          "name": "Hepatology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "gastroenterologist",
+          "gastroenterology",
+          "gi doctor"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "gastroenterology",
+          "endoscopy",
+          "colonoscopy",
+          "hepatology"
+        ],
+        "title_keywords": [
+          "gastroenter",
+          "gi "
+        ]
+      },
+      "search_terms": [
+        "gastroenterologist",
+        "GI doctor",
+        "GI specialist",
+        "hepatologist"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "pulmonology",
+      "display": "Pulmonology",
+      "nucc": [
+        "207RP1001X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "pulmonologist",
+          "pulmonology",
+          "pulmonary medicine"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "pulmonology",
+          "pulmonary medicine",
+          "critical care",
+          "bronchoscopy"
+        ],
+        "title_keywords": [
+          "pulmon"
+        ]
+      },
+      "search_terms": [
+        "pulmonologist",
+        "lung doctor",
+        "pulmonary specialist"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "nephrology",
+      "display": "Nephrology",
+      "nucc": [
+        "207RN0300X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "nephrologist",
+          "nephrology",
+          "kidney specialist"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "nephrology",
+          "dialysis",
+          "kidney transplant",
+          "renal medicine"
+        ],
+        "title_keywords": [
+          "nephrol"
+        ]
+      },
+      "search_terms": [
+        "nephrologist",
+        "kidney doctor",
+        "renal specialist"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "endocrinology",
+      "display": "Endocrinology",
+      "nucc": [
+        "207RE0101X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "endocrinologist",
+          "endocrinology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "endocrinology",
+          "diabetes management",
+          "thyroid disorders"
+        ],
+        "title_keywords": [
+          "endocrin"
+        ]
+      },
+      "search_terms": [
+        "endocrinologist",
+        "diabetes doctor",
+        "thyroid doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "rheumatology",
+      "display": "Rheumatology",
+      "nucc": [
+        "207RR0500X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "rheumatologist",
+          "rheumatology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "rheumatology",
+          "autoimmune diseases",
+          "arthritis"
+        ],
+        "title_keywords": [
+          "rheumatol"
+        ]
+      },
+      "search_terms": [
+        "rheumatologist",
+        "arthritis doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "oncology",
+      "display": "Oncology / Hematology-Oncology",
+      "nucc": [
+        "207RX0202X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207RH0003X",
+          "name": "Hematology & Oncology"
+        },
+        {
+          "code": "2086X0206X",
+          "name": "Surgical Oncology"
+        },
+        {
+          "code": "2085R0001X",
+          "name": "Radiation Oncology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "oncologist",
+          "medical oncologist",
+          "hematologist oncologist",
+          "hematology oncology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "oncology",
+          "chemotherapy",
+          "hematology",
+          "cancer treatment"
+        ],
+        "title_keywords": [
+          "oncolog",
+          "hematol"
+        ]
+      },
+      "search_terms": [
+        "oncologist",
+        "cancer doctor",
+        "hematologist",
+        "medical oncologist"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "infectious-disease",
+      "display": "Infectious Disease",
+      "nucc": [
+        "207RI0200X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "infectious disease specialist",
+          "infectious disease physician",
+          "id physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "infectious disease",
+          "antimicrobial stewardship",
+          "hiv medicine"
+        ],
+        "title_keywords": [
+          "infectious dis"
+        ]
+      },
+      "search_terms": [
+        "infectious disease doctor",
+        "ID specialist"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "neurology",
+      "display": "Neurology",
+      "nucc": [
+        "2084N0400X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2084N0402X",
+          "name": "Neuromuscular Medicine"
+        },
+        {
+          "code": "2084P0015X",
+          "name": "Pain Medicine (Neurology)"
+        },
+        {
+          "code": "2084V0102X",
+          "name": "Vascular Neurology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "neurologist",
+          "neurology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1217.00"
+        ],
+        "skills": [
+          "neurology",
+          "epilepsy",
+          "stroke",
+          "movement disorders",
+          "eeg"
+        ],
+        "title_keywords": [
+          "neurolog"
+        ]
+      },
+      "search_terms": [
+        "neurologist",
+        "brain doctor",
+        "stroke specialist"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "dermatology",
+      "display": "Dermatology",
+      "nucc": [
+        "207N00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207ND0101X",
+          "name": "Dermatopathology"
+        },
+        {
+          "code": "207NI0002X",
+          "name": "Clinical & Laboratory Dermatological Immunology"
+        },
+        {
+          "code": "207NP0225X",
+          "name": "Pediatric Dermatology"
+        },
+        {
+          "code": "207NS0135X",
+          "name": "Procedural Dermatology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "dermatologist",
+          "dermatology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1213.00"
+        ],
+        "skills": [
+          "dermatology",
+          "skin cancer",
+          "mohs surgery",
+          "cosmetic dermatology"
+        ],
+        "title_keywords": [
+          "dermatol"
+        ]
+      },
+      "search_terms": [
+        "dermatologist",
+        "skin doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "internal-medicine",
+      "display": "Internal Medicine",
+      "nucc": [
+        "207R00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "internist",
+          "internal medicine physician",
+          "internal medicine"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1216.00"
+        ],
+        "skills": [
+          "internal medicine",
+          "adult medicine"
+        ],
+        "title_keywords": [
+          "internist",
+          "internal med"
+        ]
+      },
+      "search_terms": [
+        "internist",
+        "internal medicine doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "family-medicine",
+      "display": "Family Medicine",
+      "nucc": [
+        "207Q00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207QA0401X",
+          "name": "Addiction Medicine"
+        },
+        {
+          "code": "207QA0000X",
+          "name": "Adolescent Medicine"
+        },
+        {
+          "code": "207QG0300X",
+          "name": "Geriatric Medicine"
+        },
+        {
+          "code": "207QS0010X",
+          "name": "Sports Medicine"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "family medicine physician",
+          "family physician",
+          "family doctor",
+          "family practice"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1215.00"
+        ],
+        "skills": [
+          "family medicine",
+          "primary care",
+          "preventive medicine"
+        ],
+        "title_keywords": [
+          "family med",
+          "family prac",
+          "family phys"
+        ]
+      },
+      "search_terms": [
+        "family doctor",
+        "family medicine",
+        "family physician",
+        "family practice"
+      ],
+      "category": "primary-care",
+      "parent_specialty": null
+    },
+    {
+      "id": "pediatrics",
+      "display": "Pediatrics",
+      "nucc": [
+        "208000000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2080P0006X",
+          "name": "Developmental-Behavioral Pediatrics"
+        },
+        {
+          "code": "2080N0001X",
+          "name": "Neonatal-Perinatal Medicine"
+        },
+        {
+          "code": "2080H0002X",
+          "name": "Pediatric Hospice & Palliative Medicine"
+        },
+        {
+          "code": "2080C0008X",
+          "name": "Child Abuse Pediatrics"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "pediatrician",
+          "pediatrics",
+          "pediatric physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1221.00"
+        ],
+        "skills": [
+          "pediatrics",
+          "child health",
+          "vaccination",
+          "pediatric medicine"
+        ],
+        "title_keywords": [
+          "pediatr"
+        ]
+      },
+      "search_terms": [
+        "pediatrician",
+        "children's doctor",
+        "pediatrics"
+      ],
+      "category": "primary-care",
+      "parent_specialty": null
+    },
+    {
+      "id": "emergency-medicine",
+      "display": "Emergency Medicine",
+      "nucc": [
+        "207P00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207PE0004X",
+          "name": "Emergency Medical Services"
+        },
+        {
+          "code": "207PS0010X",
+          "name": "Sports Medicine (EM)"
+        },
+        {
+          "code": "207PT0002X",
+          "name": "Medical Toxicology"
+        },
+        {
+          "code": "207PP0204X",
+          "name": "Pediatric Emergency Medicine"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "emergency medicine physician",
+          "er doctor",
+          "emergency physician",
+          "emergency room"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1214.00"
+        ],
+        "skills": [
+          "emergency medicine",
+          "trauma",
+          "acute care",
+          "critical care"
+        ],
+        "title_keywords": [
+          "emergency med",
+          "er phys",
+          "emergenc"
+        ]
+      },
+      "search_terms": [
+        "emergency medicine doctor",
+        "ER doctor",
+        "emergency physician"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "anesthesiology",
+      "display": "Anesthesiology",
+      "nucc": [
+        "207L00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207LC0200X",
+          "name": "Critical Care Medicine (Anesthesiology)"
+        },
+        {
+          "code": "207LP2900X",
+          "name": "Pain Medicine (Anesthesiology)"
+        },
+        {
+          "code": "207LP3000X",
+          "name": "Pediatric Anesthesiology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "anesthesiologist",
+          "anesthesiology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1211.00"
+        ],
+        "skills": [
+          "anesthesiology",
+          "pain management",
+          "regional anesthesia",
+          "critical care"
+        ],
+        "title_keywords": [
+          "anesthesi"
+        ]
+      },
+      "search_terms": [
+        "anesthesiologist"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "radiology",
+      "display": "Radiology",
+      "nucc": [
+        "2085R0202X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2085R0001X",
+          "name": "Radiation Oncology"
+        },
+        {
+          "code": "2085D0003X",
+          "name": "Diagnostic Neuroimaging"
+        },
+        {
+          "code": "2085N0700X",
+          "name": "Neuroradiology"
+        },
+        {
+          "code": "2085R0204X",
+          "name": "Vascular & Interventional Radiology"
+        },
+        {
+          "code": "2085P0229X",
+          "name": "Pediatric Radiology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "radiologist",
+          "radiology",
+          "diagnostic radiologist",
+          "interventional radiologist"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1224.00"
+        ],
+        "skills": [
+          "radiology",
+          "diagnostic imaging",
+          "interventional radiology",
+          "mri",
+          "ct scan"
+        ],
+        "title_keywords": [
+          "radiolog"
+        ]
+      },
+      "search_terms": [
+        "radiologist",
+        "interventional radiologist",
+        "neuroradiologist"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "pathology",
+      "display": "Pathology",
+      "nucc": [
+        "207ZP0102X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207ZC0006X",
+          "name": "Clinical Pathology"
+        },
+        {
+          "code": "207ZP0101X",
+          "name": "Anatomic Pathology"
+        },
+        {
+          "code": "207ZP0213X",
+          "name": "Dermatopathology"
+        },
+        {
+          "code": "207ZH0000X",
+          "name": "Hematopathology"
+        },
+        {
+          "code": "207ZN0500X",
+          "name": "Neuropathology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "pathologist",
+          "pathology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1222.00"
+        ],
+        "skills": [
+          "pathology",
+          "histopathology",
+          "clinical pathology",
+          "cytology"
+        ],
+        "title_keywords": [
+          "patholog"
+        ]
+      },
+      "search_terms": [
+        "pathologist"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "psychiatry",
+      "display": "Psychiatry",
+      "nucc": [
+        "2084P0800X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2084A0401X",
+          "name": "Addiction Medicine (Psychiatry)"
+        },
+        {
+          "code": "2084P0804X",
+          "name": "Child & Adolescent Psychiatry"
+        },
+        {
+          "code": "2084F0202X",
+          "name": "Forensic Psychiatry"
+        },
+        {
+          "code": "2084P0805X",
+          "name": "Geriatric Psychiatry"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "psychiatrist",
+          "psychiatry"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1223.00"
+        ],
+        "skills": [
+          "psychiatry",
+          "mental health",
+          "psychopharmacology"
+        ],
+        "title_keywords": [
+          "psychiatr"
+        ]
+      },
+      "search_terms": [
+        "psychiatrist"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "physical-medicine-rehabilitation",
+      "display": "Physical Medicine & Rehabilitation",
+      "nucc": [
+        "208100000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2081P0010X",
+          "name": "Pediatric Rehabilitation Medicine"
+        },
+        {
+          "code": "2081P2900X",
+          "name": "Pain Medicine (PM&R)"
+        },
+        {
+          "code": "2081S0010X",
+          "name": "Sports Medicine (PM&R)"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "physiatrist",
+          "physical medicine",
+          "pm&r",
+          "rehabilitation medicine"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1229.04"
+        ],
+        "skills": [
+          "physical medicine",
+          "rehabilitation",
+          "pain management",
+          "spinal cord injury"
+        ],
+        "title_keywords": [
+          "physiatr",
+          "pm&r",
+          "rehab med"
+        ]
+      },
+      "search_terms": [
+        "physiatrist",
+        "PM&R doctor",
+        "rehabilitation physician"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "obstetrics-gynecology",
+      "display": "Obstetrics & Gynecology",
+      "nucc": [
+        "207V00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207VG0400X",
+          "name": "Gynecologic Oncology"
+        },
+        {
+          "code": "207VM0101X",
+          "name": "Maternal-Fetal Medicine"
+        },
+        {
+          "code": "207VE0102X",
+          "name": "Reproductive Endocrinology & Infertility"
+        },
+        {
+          "code": "207VF0040X",
+          "name": "Female Pelvic Medicine"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "obstetrician",
+          "gynecologist",
+          "ob/gyn",
+          "obgyn"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1218.00"
+        ],
+        "skills": [
+          "obstetrics",
+          "gynecology",
+          "maternal care",
+          "reproductive medicine"
+        ],
+        "title_keywords": [
+          "ob/gyn",
+          "obgyn",
+          "obstet",
+          "gynecol"
+        ]
+      },
+      "search_terms": [
+        "OB/GYN",
+        "obstetrician",
+        "gynecologist",
+        "OBGYN"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "pain-medicine",
+      "display": "Pain Medicine",
+      "nucc": [
+        "208VP0000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "pain medicine",
+          "pain management",
+          "pain specialist",
+          "pain physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1229.04"
+        ],
+        "skills": [
+          "pain management",
+          "interventional pain",
+          "spine injections",
+          "nerve blocks"
+        ],
+        "title_keywords": [
+          "pain med",
+          "pain manage",
+          "pain spec"
+        ]
+      },
+      "search_terms": [
+        "pain management doctor",
+        "pain specialist",
+        "pain medicine physician"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "critical-care",
+      "display": "Critical Care / Intensivist",
+      "nucc": [
+        "207RC0200X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "intensivist",
+          "critical care",
+          "icu physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "critical care medicine",
+          "intensive care",
+          "mechanical ventilation",
+          "sepsis management"
+        ],
+        "title_keywords": [
+          "intensivist",
+          "critical care",
+          "icu"
+        ]
+      },
+      "search_terms": [
+        "intensivist",
+        "ICU doctor",
+        "critical care physician"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "geriatrics",
+      "display": "Geriatric Medicine",
+      "nucc": [
+        "207RG0100X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "geriatrician",
+          "geriatric medicine",
+          "geriatrics"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1216.00"
+        ],
+        "skills": [
+          "geriatric medicine",
+          "elder care",
+          "dementia care"
+        ],
+        "title_keywords": [
+          "geriatr"
+        ]
+      },
+      "search_terms": [
+        "geriatrician",
+        "geriatric doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "allergy-immunology",
+      "display": "Allergy & Immunology",
+      "nucc": [
+        "207K00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "207KA0200X",
+          "name": "Allergy"
+        },
+        {
+          "code": "207KI0005X",
+          "name": "Clinical & Laboratory Immunology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "allergist",
+          "immunologist",
+          "allergy and immunology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "allergy",
+          "immunology",
+          "asthma",
+          "immunotherapy"
+        ],
+        "title_keywords": [
+          "allerg",
+          "immunol"
+        ]
+      },
+      "search_terms": [
+        "allergist",
+        "immunologist",
+        "allergy doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "sports-medicine",
+      "display": "Sports Medicine",
+      "nucc": [
+        "204C00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "sports medicine physician",
+          "sports medicine doctor"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1229.04"
+        ],
+        "skills": [
+          "sports medicine",
+          "musculoskeletal medicine",
+          "concussion management"
+        ],
+        "title_keywords": [
+          "sports med"
+        ]
+      },
+      "search_terms": [
+        "sports medicine doctor",
+        "sports medicine physician"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "hospice-palliative",
+      "display": "Hospice & Palliative Medicine",
+      "nucc": [
+        "207RH0002X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "palliative care",
+          "hospice physician",
+          "palliative medicine"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1216.00"
+        ],
+        "skills": [
+          "palliative care",
+          "hospice",
+          "end of life care",
+          "symptom management"
+        ],
+        "title_keywords": [
+          "palliativ",
+          "hospice"
+        ]
+      },
+      "search_terms": [
+        "palliative care doctor",
+        "hospice physician"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "general-dentistry",
+      "display": "General Dentistry",
+      "nucc": [
+        "1223G0001X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "dentist",
+          "general dentist",
+          "dds",
+          "dmd"
+        ],
+        "job_title_sub_role": [
+          "dental"
+        ],
+        "onet_specific": [
+          "29-1021.00"
+        ],
+        "skills": [
+          "dentistry",
+          "restorative dentistry",
+          "oral health"
+        ],
+        "title_keywords": [
+          "dentist",
+          "dds",
+          "dmd"
+        ]
+      },
+      "search_terms": [
+        "dentist",
+        "general dentist"
+      ],
+      "category": "dental",
+      "parent_specialty": null
+    },
+    {
+      "id": "orthodontics",
+      "display": "Orthodontics",
+      "nucc": [
+        "1223X0400X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "orthodontist",
+          "orthodontics"
+        ],
+        "job_title_sub_role": [
+          "dental"
+        ],
+        "onet_specific": [
+          "29-1023.00"
+        ],
+        "skills": [
+          "orthodontics",
+          "braces",
+          "invisalign"
+        ],
+        "title_keywords": [
+          "orthodon"
+        ]
+      },
+      "search_terms": [
+        "orthodontist"
+      ],
+      "category": "dental",
+      "parent_specialty": null
+    },
+    {
+      "id": "periodontist",
+      "display": "Periodontics",
+      "nucc": [
+        "1223P0106X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "periodontist",
+          "periodontics"
+        ],
+        "job_title_sub_role": [
+          "dental"
+        ],
+        "onet_specific": [
+          "29-1029.00"
+        ],
+        "skills": [
+          "periodontics",
+          "gum surgery",
+          "dental implants"
+        ],
+        "title_keywords": [
+          "periodon"
+        ]
+      },
+      "search_terms": [
+        "periodontist",
+        "gum specialist"
+      ],
+      "category": "dental",
+      "parent_specialty": null
+    },
+    {
+      "id": "endodontics",
+      "display": "Endodontics",
+      "nucc": [
+        "1223E0200X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "endodontist",
+          "endodontics"
+        ],
+        "job_title_sub_role": [
+          "dental"
+        ],
+        "onet_specific": [
+          "29-1029.00"
+        ],
+        "skills": [
+          "endodontics",
+          "root canal"
+        ],
+        "title_keywords": [
+          "endodon"
+        ]
+      },
+      "search_terms": [
+        "endodontist",
+        "root canal specialist"
+      ],
+      "category": "dental",
+      "parent_specialty": null
+    },
+    {
+      "id": "prosthodontics",
+      "display": "Prosthodontics",
+      "nucc": [
+        "1223P0221X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "prosthodontist",
+          "prosthodontics"
+        ],
+        "job_title_sub_role": [
+          "dental"
+        ],
+        "onet_specific": [
+          "29-1029.00"
+        ],
+        "skills": [
+          "prosthodontics",
+          "dental prosthetics",
+          "dental implants",
+          "dentures"
+        ],
+        "title_keywords": [
+          "prosthodon"
+        ]
+      },
+      "search_terms": [
+        "prosthodontist"
+      ],
+      "category": "dental",
+      "parent_specialty": null
+    },
+    {
+      "id": "optometry",
+      "display": "Optometry",
+      "nucc": [
+        "152W00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "optometrist",
+          "optometry",
+          "doctor of optometry"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1041.00"
+        ],
+        "skills": [
+          "optometry",
+          "vision care",
+          "contact lenses",
+          "eye examination"
+        ],
+        "title_keywords": [
+          "optometr"
+        ]
+      },
+      "search_terms": [
+        "optometrist",
+        "eye doctor",
+        "OD"
+      ],
+      "category": "optometry",
+      "parent_specialty": null
+    },
+    {
+      "id": "podiatry",
+      "display": "Podiatry",
+      "nucc": [
+        "213E00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "213ES0103X",
+          "name": "Foot & Ankle Surgery"
+        },
+        {
+          "code": "213ES0131X",
+          "name": "Foot Surgery"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "podiatrist",
+          "podiatry",
+          "foot and ankle surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1081.00"
+        ],
+        "skills": [
+          "podiatry",
+          "foot surgery",
+          "ankle surgery",
+          "diabetic foot care"
+        ],
+        "title_keywords": [
+          "podiatr",
+          "foot and ankle"
+        ]
+      },
+      "search_terms": [
+        "podiatrist",
+        "foot doctor",
+        "foot surgeon",
+        "foot and ankle"
+      ],
+      "category": "podiatry",
+      "parent_specialty": null
+    },
+    {
+      "id": "nurse-practitioner",
+      "display": "Nurse Practitioner",
+      "nucc": [
+        "363L00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "363LA2100X",
+          "name": "Acute Care NP"
+        },
+        {
+          "code": "363LA2200X",
+          "name": "Adult Health NP"
+        },
+        {
+          "code": "363LC1500X",
+          "name": "Community Health NP"
+        },
+        {
+          "code": "363LF0000X",
+          "name": "Family NP"
+        },
+        {
+          "code": "363LP0200X",
+          "name": "Pediatric NP"
+        },
+        {
+          "code": "363LP0808X",
+          "name": "Psychiatric/Mental Health NP"
+        },
+        {
+          "code": "363LW0102X",
+          "name": "Women's Health NP"
+        },
+        {
+          "code": "363LX0001X",
+          "name": "Obstetrics & Gynecology NP"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "nurse practitioner",
+          "np",
+          "aprn",
+          "family nurse practitioner",
+          "fnp"
+        ],
+        "job_title_sub_role": [
+          "nursing"
+        ],
+        "onet_specific": [
+          "29-1171.00"
+        ],
+        "skills": [
+          "nurse practitioner",
+          "advanced practice nursing",
+          "primary care",
+          "prescriptive authority"
+        ],
+        "title_keywords": [
+          "nurse practit",
+          "fnp",
+          "aprn",
+          "np-c"
+        ]
+      },
+      "search_terms": [
+        "nurse practitioner",
+        "NP",
+        "APRN",
+        "FNP",
+        "family nurse practitioner"
+      ],
+      "category": "advanced-practice",
+      "parent_specialty": null
+    },
+    {
+      "id": "physician-assistant",
+      "display": "Physician Assistant",
+      "nucc": [
+        "363A00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "363AM0700X",
+          "name": "Medical PA"
+        },
+        {
+          "code": "363AS0400X",
+          "name": "Surgical PA"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "physician assistant",
+          "pa-c",
+          "physician associate"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1071.00"
+        ],
+        "skills": [
+          "physician assistant",
+          "pa-c",
+          "clinical medicine"
+        ],
+        "title_keywords": [
+          "physician assist",
+          "pa-c",
+          "physician assoc"
+        ]
+      },
+      "search_terms": [
+        "physician assistant",
+        "PA",
+        "PA-C",
+        "physician associate"
+      ],
+      "category": "advanced-practice",
+      "parent_specialty": null
+    },
+    {
+      "id": "crna",
+      "display": "Certified Registered Nurse Anesthetist",
+      "nucc": [
+        "367500000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "crna",
+          "nurse anesthetist",
+          "certified registered nurse anesthetist"
+        ],
+        "job_title_sub_role": [
+          "nursing"
+        ],
+        "onet_specific": [
+          "29-1151.00"
+        ],
+        "skills": [
+          "nurse anesthesia",
+          "anesthesia",
+          "crna"
+        ],
+        "title_keywords": [
+          "crna",
+          "nurse anesthe"
+        ]
+      },
+      "search_terms": [
+        "CRNA",
+        "nurse anesthetist"
+      ],
+      "category": "advanced-practice",
+      "parent_specialty": null
+    },
+    {
+      "id": "certified-nurse-midwife",
+      "display": "Certified Nurse-Midwife",
+      "nucc": [
+        "367A00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "certified nurse midwife",
+          "cnm",
+          "nurse midwife",
+          "midwife"
+        ],
+        "job_title_sub_role": [
+          "nursing"
+        ],
+        "onet_specific": [
+          "29-1161.00"
+        ],
+        "skills": [
+          "midwifery",
+          "prenatal care",
+          "labor and delivery"
+        ],
+        "title_keywords": [
+          "midwife",
+          "cnm"
+        ]
+      },
+      "search_terms": [
+        "midwife",
+        "CNM",
+        "nurse midwife"
+      ],
+      "category": "advanced-practice",
+      "parent_specialty": null
+    },
+    {
+      "id": "nursing-director",
+      "display": "Nursing Director / CNO",
+      "nucc": [
+        "163W00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "director of nursing",
+          "chief nursing officer",
+          "cno",
+          "nursing director",
+          "vp nursing"
+        ],
+        "job_title_sub_role": [
+          "nursing"
+        ],
+        "onet_specific": [
+          "11-9111.00"
+        ],
+        "skills": [
+          "nursing leadership",
+          "nursing management",
+          "healthcare administration"
+        ],
+        "title_keywords": [
+          "director of nurs",
+          "chief nurs",
+          "cno",
+          "vp nurs"
+        ]
+      },
+      "search_terms": [
+        "nursing director",
+        "CNO",
+        "chief nursing officer",
+        "VP nursing"
+      ],
+      "category": "nursing-leadership",
+      "parent_specialty": null
+    },
+    {
+      "id": "registered-nurse",
+      "display": "Registered Nurse",
+      "nucc": [
+        "163W00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "registered nurse",
+          "rn",
+          "staff nurse"
+        ],
+        "job_title_sub_role": [
+          "nursing"
+        ],
+        "onet_specific": [
+          "29-1141.00"
+        ],
+        "skills": [
+          "nursing",
+          "patient care",
+          "clinical nursing"
+        ],
+        "title_keywords": [
+          "registered nurse",
+          " rn ",
+          "staff nurse"
+        ]
+      },
+      "search_terms": [
+        "registered nurse",
+        "RN",
+        "staff nurse"
+      ],
+      "category": "nursing",
+      "parent_specialty": null
+    },
+    {
+      "id": "physical-therapy",
+      "display": "Physical Therapy",
+      "nucc": [
+        "225100000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2251S0007X",
+          "name": "Sports Physical Therapy"
+        },
+        {
+          "code": "2251X0800X",
+          "name": "Orthopedic Physical Therapy"
+        },
+        {
+          "code": "2251G0304X",
+          "name": "Geriatric Physical Therapy"
+        },
+        {
+          "code": "2251H1200X",
+          "name": "Hand Physical Therapy"
+        },
+        {
+          "code": "2251N0400X",
+          "name": "Neurology Physical Therapy"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "physical therapist",
+          "physical therapy",
+          "pt",
+          "dpt"
+        ],
+        "job_title_sub_role": [
+          "therapy"
+        ],
+        "onet_specific": [
+          "29-1123.00"
+        ],
+        "skills": [
+          "physical therapy",
+          "rehabilitation",
+          "orthopedic therapy",
+          "manual therapy"
+        ],
+        "title_keywords": [
+          "physical therap",
+          "dpt"
+        ]
+      },
+      "search_terms": [
+        "physical therapist",
+        "PT",
+        "DPT"
+      ],
+      "category": "therapy",
+      "parent_specialty": null
+    },
+    {
+      "id": "occupational-therapy",
+      "display": "Occupational Therapy",
+      "nucc": [
+        "225X00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "225XH1200X",
+          "name": "Hand Therapy"
+        },
+        {
+          "code": "225XN1300X",
+          "name": "Neurorehabilitation"
+        },
+        {
+          "code": "225XP0200X",
+          "name": "Pediatric OT"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "occupational therapist",
+          "occupational therapy",
+          "ot"
+        ],
+        "job_title_sub_role": [
+          "therapy"
+        ],
+        "onet_specific": [
+          "29-1122.00"
+        ],
+        "skills": [
+          "occupational therapy",
+          "rehabilitation",
+          "hand therapy"
+        ],
+        "title_keywords": [
+          "occupational therap"
+        ]
+      },
+      "search_terms": [
+        "occupational therapist",
+        "OT"
+      ],
+      "category": "therapy",
+      "parent_specialty": null
+    },
+    {
+      "id": "speech-language-pathology",
+      "display": "Speech-Language Pathology",
+      "nucc": [
+        "235Z00000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "speech language pathologist",
+          "slp",
+          "speech therapist"
+        ],
+        "job_title_sub_role": [
+          "therapy"
+        ],
+        "onet_specific": [
+          "29-1127.00"
+        ],
+        "skills": [
+          "speech therapy",
+          "swallowing disorders",
+          "language disorders"
+        ],
+        "title_keywords": [
+          "speech",
+          "slp"
+        ]
+      },
+      "search_terms": [
+        "speech therapist",
+        "SLP",
+        "speech language pathologist"
+      ],
+      "category": "therapy",
+      "parent_specialty": null
+    },
+    {
+      "id": "pharmacist",
+      "display": "Pharmacist",
+      "nucc": [
+        "183500000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "1835P1200X",
+          "name": "Pharmacotherapy"
+        },
+        {
+          "code": "1835N0905X",
+          "name": "Nuclear Pharmacy"
+        },
+        {
+          "code": "1835C0205X",
+          "name": "Critical Care Pharmacy"
+        },
+        {
+          "code": "1835P0018X",
+          "name": "Oncology Pharmacy"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "pharmacist",
+          "clinical pharmacist",
+          "pharmacy director"
+        ],
+        "job_title_sub_role": [
+          "pharmacy"
+        ],
+        "onet_specific": [
+          "29-1051.00"
+        ],
+        "skills": [
+          "pharmacy",
+          "clinical pharmacy",
+          "medication management",
+          "pharmacotherapy"
+        ],
+        "title_keywords": [
+          "pharmacist",
+          "pharmacy"
+        ]
+      },
+      "search_terms": [
+        "pharmacist",
+        "clinical pharmacist",
+        "pharmacy director"
+      ],
+      "category": "pharmacy",
+      "parent_specialty": null
+    },
+    {
+      "id": "interventional-radiology",
+      "display": "Interventional Radiology",
+      "nucc": [
+        "2085R0204X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "interventional radiologist",
+          "interventional radiology",
+          "ir physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1224.00"
+        ],
+        "skills": [
+          "interventional radiology",
+          "angiography",
+          "embolization",
+          "vascular access"
+        ],
+        "title_keywords": [
+          "interventional rad"
+        ]
+      },
+      "search_terms": [
+        "interventional radiologist",
+        "IR"
+      ],
+      "category": "surgical",
+      "parent_specialty": "radiology"
+    },
+    {
+      "id": "radiation-oncology",
+      "display": "Radiation Oncology",
+      "nucc": [
+        "2085R0001X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "radiation oncologist",
+          "radiation oncology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1224.00"
+        ],
+        "skills": [
+          "radiation oncology",
+          "radiation therapy",
+          "brachytherapy"
+        ],
+        "title_keywords": [
+          "radiation oncol"
+        ]
+      },
+      "search_terms": [
+        "radiation oncologist"
+      ],
+      "category": "medical",
+      "parent_specialty": "radiology"
+    },
+    {
+      "id": "neonatology",
+      "display": "Neonatology",
+      "nucc": [
+        "2080N0001X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "neonatologist",
+          "neonatology",
+          "nicu physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1221.00"
+        ],
+        "skills": [
+          "neonatology",
+          "nicu",
+          "premature infant care"
+        ],
+        "title_keywords": [
+          "neonatol",
+          "nicu"
+        ]
+      },
+      "search_terms": [
+        "neonatologist",
+        "NICU doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "pediatrics"
+    },
+    {
+      "id": "pediatric-surgery",
+      "display": "Pediatric Surgery",
+      "nucc": [
+        "2086S0120X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "pediatric surgeon",
+          "pediatric surgery"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1248.00"
+        ],
+        "skills": [
+          "pediatric surgery",
+          "neonatal surgery"
+        ],
+        "title_keywords": [
+          "pediatric surg"
+        ]
+      },
+      "search_terms": [
+        "pediatric surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "general-surgery"
+    },
+    {
+      "id": "pediatric-cardiology",
+      "display": "Pediatric Cardiology",
+      "nucc": [
+        "2080P0201X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "pediatric cardiologist",
+          "pediatric cardiology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "pediatric cardiology",
+          "congenital heart disease",
+          "fetal echocardiography"
+        ],
+        "title_keywords": [
+          "pediatric cardiol"
+        ]
+      },
+      "search_terms": [
+        "pediatric cardiologist"
+      ],
+      "category": "medical",
+      "parent_specialty": "pediatrics"
+    },
+    {
+      "id": "maternal-fetal-medicine",
+      "display": "Maternal-Fetal Medicine",
+      "nucc": [
+        "207VM0101X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "maternal fetal medicine",
+          "mfm",
+          "perinatologist",
+          "high risk obstetrician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1218.00"
+        ],
+        "skills": [
+          "maternal fetal medicine",
+          "high risk pregnancy",
+          "perinatology"
+        ],
+        "title_keywords": [
+          "maternal fetal",
+          "mfm",
+          "perinatol"
+        ]
+      },
+      "search_terms": [
+        "MFM",
+        "perinatologist",
+        "maternal fetal medicine",
+        "high-risk OB"
+      ],
+      "category": "medical",
+      "parent_specialty": "obstetrics-gynecology"
+    },
+    {
+      "id": "reproductive-endocrinology",
+      "display": "Reproductive Endocrinology & Infertility",
+      "nucc": [
+        "207VE0102X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "reproductive endocrinologist",
+          "fertility specialist",
+          "rei"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1218.00"
+        ],
+        "skills": [
+          "reproductive endocrinology",
+          "ivf",
+          "fertility treatment",
+          "infertility"
+        ],
+        "title_keywords": [
+          "reproductive endo",
+          "fertility",
+          "rei"
+        ]
+      },
+      "search_terms": [
+        "fertility doctor",
+        "REI",
+        "reproductive endocrinologist",
+        "IVF doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "obstetrics-gynecology"
+    },
+    {
+      "id": "gynecologic-oncology",
+      "display": "Gynecologic Oncology",
+      "nucc": [
+        "207VG0400X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "gynecologic oncologist",
+          "gyn oncologist",
+          "gynecologic oncology"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1218.00"
+        ],
+        "skills": [
+          "gynecologic oncology",
+          "ovarian cancer",
+          "cervical cancer",
+          "uterine cancer"
+        ],
+        "title_keywords": [
+          "gyn oncol"
+        ]
+      },
+      "search_terms": [
+        "gynecologic oncologist",
+        "GYN oncologist"
+      ],
+      "category": "surgical",
+      "parent_specialty": "obstetrics-gynecology"
+    },
+    {
+      "id": "sleep-medicine",
+      "display": "Sleep Medicine",
+      "nucc": [
+        "207RS0012X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "sleep medicine",
+          "sleep specialist",
+          "sleep physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1229.04"
+        ],
+        "skills": [
+          "sleep medicine",
+          "polysomnography",
+          "sleep apnea"
+        ],
+        "title_keywords": [
+          "sleep med",
+          "sleep spec"
+        ]
+      },
+      "search_terms": [
+        "sleep doctor",
+        "sleep medicine specialist"
+      ],
+      "category": "medical",
+      "parent_specialty": "internal-medicine"
+    },
+    {
+      "id": "clinical-genetics",
+      "display": "Clinical Genetics",
+      "nucc": [
+        "207SG0202X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "clinical geneticist",
+          "medical geneticist",
+          "genetics"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1212.00"
+        ],
+        "skills": [
+          "medical genetics",
+          "genetic counseling",
+          "genomics"
+        ],
+        "title_keywords": [
+          "geneticist",
+          "genetic"
+        ]
+      },
+      "search_terms": [
+        "geneticist",
+        "clinical geneticist",
+        "medical genetics"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "preventive-medicine",
+      "display": "Preventive Medicine",
+      "nucc": [
+        "2083P0500X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "2083A0100X",
+          "name": "Aerospace Medicine"
+        },
+        {
+          "code": "2083T0002X",
+          "name": "Medical Toxicology"
+        },
+        {
+          "code": "2083X0100X",
+          "name": "Occupational Medicine"
+        },
+        {
+          "code": "2083P0901X",
+          "name": "Public Health & General Preventive Medicine"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "preventive medicine",
+          "occupational medicine",
+          "public health physician"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1229.04"
+        ],
+        "skills": [
+          "preventive medicine",
+          "occupational health",
+          "public health"
+        ],
+        "title_keywords": [
+          "preventive med",
+          "occupational med"
+        ]
+      },
+      "search_terms": [
+        "occupational medicine doctor",
+        "preventive medicine physician"
+      ],
+      "category": "medical",
+      "parent_specialty": null
+    },
+    {
+      "id": "chiropractor",
+      "display": "Chiropractic",
+      "nucc": [
+        "111N00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "111NX0800X",
+          "name": "Orthopedic Chiropractic"
+        },
+        {
+          "code": "111NS0005X",
+          "name": "Sports Chiropractic"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "chiropractor",
+          "chiropractic",
+          "dc"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1011.00"
+        ],
+        "skills": [
+          "chiropractic",
+          "spinal adjustment",
+          "musculoskeletal"
+        ],
+        "title_keywords": [
+          "chiropract"
+        ]
+      },
+      "search_terms": [
+        "chiropractor",
+        "DC"
+      ],
+      "category": "chiropractic",
+      "parent_specialty": null
+    },
+    {
+      "id": "clinical-psychologist",
+      "display": "Clinical Psychology",
+      "nucc": [
+        "103T00000X"
+      ],
+      "nucc_subspecialties": [
+        {
+          "code": "103TC0700X",
+          "name": "Clinical Psychology"
+        },
+        {
+          "code": "103TF0000X",
+          "name": "Family Psychology"
+        },
+        {
+          "code": "103TH0100X",
+          "name": "Health Psychology"
+        }
+      ],
+      "pdl": {
+        "job_title_text": [
+          "clinical psychologist",
+          "psychologist",
+          "licensed psychologist"
+        ],
+        "job_title_sub_role": [
+          "therapy"
+        ],
+        "onet_specific": [
+          "19-3031.02"
+        ],
+        "skills": [
+          "clinical psychology",
+          "psychotherapy",
+          "psychological assessment"
+        ],
+        "title_keywords": [
+          "psychologist"
+        ]
+      },
+      "search_terms": [
+        "psychologist",
+        "clinical psychologist"
+      ],
+      "category": "behavioral-health",
+      "parent_specialty": null
+    },
+    {
+      "id": "social-worker",
+      "display": "Clinical Social Worker",
+      "nucc": [
+        "104100000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "clinical social worker",
+          "lcsw",
+          "licensed clinical social worker"
+        ],
+        "job_title_sub_role": [
+          "therapy"
+        ],
+        "onet_specific": [
+          "21-1023.00"
+        ],
+        "skills": [
+          "clinical social work",
+          "psychotherapy",
+          "crisis intervention"
+        ],
+        "title_keywords": [
+          "social worker",
+          "lcsw"
+        ]
+      },
+      "search_terms": [
+        "social worker",
+        "LCSW",
+        "clinical social worker"
+      ],
+      "category": "behavioral-health",
+      "parent_specialty": null
+    },
+    {
+      "id": "hospital-administration",
+      "display": "Hospital Administration",
+      "nucc": [
+        "310400000X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "hospital administrator",
+          "ceo hospital",
+          "hospital executive",
+          "chief medical officer"
+        ],
+        "job_title_sub_role": [],
+        "onet_specific": [
+          "11-9111.00"
+        ],
+        "skills": [
+          "healthcare administration",
+          "hospital management",
+          "healthcare leadership"
+        ],
+        "title_keywords": [
+          "hospital admin",
+          "ceo",
+          "cmo",
+          "coo",
+          "chief medical"
+        ]
+      },
+      "search_terms": [
+        "hospital administrator",
+        "hospital CEO",
+        "CMO",
+        "chief medical officer"
+      ],
+      "category": "administration",
+      "parent_specialty": null
+    },
+    {
+      "id": "medical-director",
+      "display": "Medical Director",
+      "nucc": [],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "medical director",
+          "clinical director"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "11-9111.00"
+        ],
+        "skills": [
+          "medical direction",
+          "clinical leadership",
+          "quality improvement"
+        ],
+        "title_keywords": [
+          "medical director",
+          "clinical director"
+        ]
+      },
+      "search_terms": [
+        "medical director",
+        "clinical director"
+      ],
+      "category": "administration",
+      "parent_specialty": null
+    },
+    {
+      "id": "hand-surgery",
+      "display": "Hand Surgery",
+      "nucc": [
+        "2080S0105X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "hand surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1242.00"
+        ],
+        "skills": [
+          "hand surgery",
+          "microsurgery",
+          "upper extremity surgery"
+        ],
+        "title_keywords": [
+          "hand surg"
+        ]
+      },
+      "search_terms": [
+        "hand surgeon",
+        "upper extremity surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "orthopedic-surgery"
+    },
+    {
+      "id": "bariatric-surgery",
+      "display": "Bariatric Surgery",
+      "nucc": [
+        "2080B0002X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "bariatric surgeon",
+          "weight loss surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1227.00"
+        ],
+        "skills": [
+          "bariatric surgery",
+          "gastric bypass",
+          "sleeve gastrectomy",
+          "metabolic surgery"
+        ],
+        "title_keywords": [
+          "bariatric"
+        ]
+      },
+      "search_terms": [
+        "bariatric surgeon",
+        "weight loss surgeon",
+        "metabolic surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "general-surgery"
+    },
+    {
+      "id": "trauma-surgery",
+      "display": "Trauma Surgery",
+      "nucc": [
+        "2080T0002X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "trauma surgeon",
+          "acute care surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1227.00"
+        ],
+        "skills": [
+          "trauma surgery",
+          "acute care surgery",
+          "surgical critical care"
+        ],
+        "title_keywords": [
+          "trauma surg"
+        ]
+      },
+      "search_terms": [
+        "trauma surgeon",
+        "acute care surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "general-surgery"
+    },
+    {
+      "id": "nuclear-medicine",
+      "display": "Nuclear Medicine",
+      "nucc": [
+        "207UN0903X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "nuclear medicine physician",
+          "nuclear radiologist"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1224.00"
+        ],
+        "skills": [
+          "nuclear medicine",
+          "pet scan",
+          "nuclear imaging",
+          "radionuclide therapy"
+        ],
+        "title_keywords": [
+          "nuclear med"
+        ]
+      },
+      "search_terms": [
+        "nuclear medicine physician",
+        "nuclear medicine doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "radiology"
+    },
+    {
+      "id": "pediatric-neurology",
+      "display": "Pediatric Neurology",
+      "nucc": [
+        "2080N0001X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "pediatric neurologist",
+          "child neurologist"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1217.00"
+        ],
+        "skills": [
+          "pediatric neurology",
+          "child neurology",
+          "epilepsy",
+          "pediatric epilepsy"
+        ],
+        "title_keywords": [
+          "pediatric neurol",
+          "child neurol"
+        ]
+      },
+      "search_terms": [
+        "pediatric neurologist",
+        "child neurologist"
+      ],
+      "category": "medical",
+      "parent_specialty": "neurology"
+    },
+    {
+      "id": "transplant-surgery",
+      "display": "Transplant Surgery",
+      "nucc": [
+        "204F00000X"    ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "transplant surgeon",
+          "organ transplant surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1227.00"
+        ],
+        "skills": [
+          "transplant surgery",
+          "organ transplant",
+          "kidney transplant",
+          "liver transplant"
+        ],
+        "title_keywords": [
+          "transplant surg"
+        ]
+      },
+      "search_terms": [
+        "transplant surgeon",
+        "organ transplant surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "general-surgery"
+    },
+    {
+      "id": "hematology",
+      "display": "Hematology",
+      "nucc": [
+        "207RH0003X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "hematologist",
+          "hematology oncologist"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1216.00"
+        ],
+        "skills": [
+          "hematology",
+          "blood disorders",
+          "coagulation",
+          "bone marrow transplant"
+        ],
+        "title_keywords": [
+          "hematolog"
+        ]
+      },
+      "search_terms": [
+        "hematologist",
+        "hematology oncologist",
+        "blood doctor"
+      ],
+      "category": "medical",
+      "parent_specialty": "oncology"
+    },
+    {
+      "id": "pediatric-orthopedics",
+      "display": "Pediatric Orthopedics",
+      "nucc": [
+        "207XP3100X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "pediatric orthopedic surgeon",
+          "pediatric orthopaedic surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1242.00"
+        ],
+        "skills": [
+          "pediatric orthopedics",
+          "pediatric orthopedic surgery",
+          "scoliosis",
+          "clubfoot"
+        ],
+        "title_keywords": [
+          "pediatric orthop",
+          "pediatric orthopaed"
+        ]
+      },
+      "search_terms": [
+        "pediatric orthopedic surgeon",
+        "pediatric ortho"
+      ],
+      "category": "surgical",
+      "parent_specialty": "orthopedic-surgery"
+    },
+    {
+      "id": "spine-surgery",
+      "display": "Spine Surgery",
+      "nucc": [
+        "207XS0106X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "spine surgeon",
+          "spinal surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1242.00"
+        ],
+        "skills": [
+          "spine surgery",
+          "spinal fusion",
+          "disc replacement",
+          "minimally invasive spine surgery"
+        ],
+        "title_keywords": [
+          "spine surg",
+          "spinal surg"
+        ]
+      },
+      "search_terms": [
+        "spine surgeon",
+        "spinal surgeon",
+        "back surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "orthopedic-surgery"
+    },
+    {
+      "id": "foot-ankle-surgery",
+      "display": "Foot and Ankle Surgery",
+      "nucc": [
+        "207XS0117X"
+      ],
+      "nucc_subspecialties": [],
+      "pdl": {
+        "job_title_text": [
+          "foot and ankle surgeon",
+          "foot ankle surgeon"
+        ],
+        "job_title_sub_role": [
+          "doctor"
+        ],
+        "onet_specific": [
+          "29-1242.00"
+        ],
+        "skills": [
+          "foot and ankle surgery",
+          "ankle reconstruction",
+          "foot surgery"
+        ],
+        "title_keywords": [
+          "foot and ankle",
+          "foot ankle"
+        ]
+      },
+      "search_terms": [
+        "foot and ankle surgeon",
+        "foot ankle surgeon"
+      ],
+      "category": "surgical",
+      "parent_specialty": "orthopedic-surgery"
+    }
+  ]
+}
