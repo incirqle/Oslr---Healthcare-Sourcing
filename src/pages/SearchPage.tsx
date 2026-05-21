@@ -10,7 +10,7 @@ import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate } from "@/components/search/SearchResults";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
-import { ActiveFilterBar, type ActiveFilter } from "@/components/search/ActiveFilterBar";
+import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { useProject, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
@@ -263,32 +263,6 @@ export default function SearchPage() {
     setSearchPhase("idle");
   };
 
-  const handleRemoveActiveFilter = (id: string) => {
-    // Filter id format: "<prefix>-<value>"
-    const dashIdx = id.indexOf("-");
-    if (dashIdx === -1) return;
-    const prefix = id.slice(0, dashIdx);
-    const value = id.slice(dashIdx + 1);
-
-    const next: ParsedFilters = { ...filters };
-    const drop = (arr: string[]) => arr.filter((v) => v !== value);
-    if (prefix === "co") next.companies = drop(filters.companies);
-    else if (prefix === "loc") next.locations = drop(filters.locations);
-    else if (prefix === "spec") next.specialties = drop(filters.specialties);
-    else if (prefix === "title") next.job_titles = drop(filters.job_titles);
-    else if (prefix === "kw") next.keywords = drop(filters.keywords);
-    else if (prefix === "exp") next.experience_years = null;
-
-    setFilters(next);
-    setSearchPhase("running");
-    setCandidates([]);
-    setRevealedCount(0);
-    runResultsFetch(query, next, parsedPayload, 1, null).catch((err) => {
-      console.error(err);
-      setSearchPhase("error");
-      toast.error(err instanceof Error ? err.message : "Search failed");
-    });
-  };
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -377,15 +351,6 @@ export default function SearchPage() {
               onRefine={() => setFilterEditorOpen(true)}
             />
 
-            {/* Active filter bar only while search is running — once done, the
-                condensed reasoning line shows the filter summary + Refine link. */}
-            {searchPhase === "running" && activeFilters.length > 0 && (
-              <ActiveFilterBar
-                filters={activeFilters}
-                onRemove={handleRemoveActiveFilter}
-                onAddFilter={() => setFilterEditorOpen(true)}
-              />
-            )}
 
             {/* Skeleton rows while results stream in */}
             {skeletonCount > 0 && (
@@ -436,20 +401,16 @@ export default function SearchPage() {
             {/* Zero-result helper after stream completes */}
             {searchPhase === "done" && total === 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Try removing the tightest constraint:
+                <p className="text-sm text-muted-foreground">
+                  No matches. Open{" "}
+                  <button
+                    onClick={() => setFilterEditorOpen(true)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Refine
+                  </button>{" "}
+                  to loosen your filters.
                 </p>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {activeFilters.slice(0, 4).map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => handleRemoveActiveFilter(f.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                    >
-                      Remove {f.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
           </div>
