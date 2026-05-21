@@ -1302,6 +1302,40 @@ Deno.serve(async (req: Request) => {
           ai_rerank_top_n: rerank.candidates.length,
         };
 
+        // G7 — specialty funnel diagnostics. Computes the ONET distribution
+        // and on-specialty share of the pool so we can debug precision leaks
+        // from a single audit row. Surfaces ortho_intent (and other specialty
+        // signals) and the pct of candidates tagged with the canonical ONET.
+        const _parsedSpecs = ((parsed as Record<string, unknown>).specialties as string[]) || [];
+        const _specLower = _parsedSpecs.map(s => String(s).toLowerCase());
+        const _orthoIntent = _specLower.some(s => /ortho/.test(s));
+        const _onetDist: Record<string, number> = {};
+        let _onSpecialty = 0;
+        for (const c of rerank.candidates as Array<Record<string, unknown>>) {
+          const onet = (c.job_onet_specific_occupation as string) || "Unknown";
+          _onetDist[onet] = (_onetDist[onet] || 0) + 1;
+          const onetLower = onet.toLowerCase();
+          const headline = String(c.headline || "").toLowerCase();
+          const title = String(c.job_title || "").toLowerCase();
+          if (_orthoIntent && (/ortho/.test(onetLower) || /ortho/.test(headline) || /ortho/.test(title))) {
+            _onSpecialty++;
+          } else if (!_orthoIntent && _specLower.some(s => onetLower.includes(s.replace(/y$/, "")))) {
+            _onSpecialty++;
+          }
+        }
+        const specialtyFunnel = {
+          parsed_specialties: _parsedSpecs,
+          ortho_intent: _orthoIntent,
+          onet_distribution: _onetDist,
+          on_specialty_count: _onSpecialty,
+          on_specialty_pct: rerank.candidates.length > 0
+            ? Math.round((_onSpecialty / rerank.candidates.length) * 100) / 100
+            : 0,
+          required_keywords: ((parsed as Record<string, unknown>).required_keywords as string[]) || [],
+        };
+        (aiRerankMeta as Record<string, unknown>).specialty_funnel = specialtyFunnel;
+        console.log(`[G7] specialty_funnel: ortho=${_orthoIntent}, on_specialty=${_onSpecialty}/${rerank.candidates.length} (${specialtyFunnel.on_specialty_pct})`);
+
         if (rerank.ai_reranked) {
           setDBCache(adminClient, fullCacheKey, total, formattedResults, returnScrollToken);
         }
