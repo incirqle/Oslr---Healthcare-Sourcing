@@ -559,17 +559,70 @@ export function CandidateDrawer({
     [experienceEntries],
   );
 
+  // ---------- Juicebox-style derived insights ----------
+  const achievements = useMemo(
+    () => deriveAchievements(experienceEntries, educationEntries),
+    [experienceEntries, educationEntries],
+  );
+
+  const companyGroups = useMemo(
+    () => groupExperienceByCompany(experienceEntries),
+    [experienceEntries],
+  );
+
+  const topEducation = useMemo(() => educationEntries[0] ?? null, [educationEntries]);
+
+  const languages = useMemo<string[]>(() => {
+    const raw = (enriched as { languages?: unknown } | null)?.languages
+      ?? (candidate?.raw?.languages as unknown);
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((l) => (typeof l === "string" ? l : renderNamedValue(l)))
+      .filter((v): v is string => !!v);
+  }, [enriched, candidate?.raw]);
+
+  const aboutText = useMemo<string | null>(() => {
+    const s = enriched?.summary
+      || candidate?.summary
+      || (candidate?.raw?.summary as string | undefined);
+    return typeof s === "string" && s.trim() ? s.trim() : null;
+  }, [enriched?.summary, candidate?.summary, candidate?.raw]);
+
+  function tenureMonths(start: string | null, end: string | null): number {
+    if (!start) return 0;
+    const s = new Date(start);
+    const en = end ? new Date(end) : new Date();
+    if (Number.isNaN(s.getTime()) || Number.isNaN(en.getTime()) || en < s) return 0;
+    return (en.getFullYear() - s.getFullYear()) * 12 + (en.getMonth() - s.getMonth());
+  }
+
+  const totalMonthsAll = useMemo(
+    () => experienceEntries.reduce((sum, e) => sum + tenureMonths(e.startDate, e.endDate), 0),
+    [experienceEntries],
+  );
+  const currentTenureMonths = useMemo(() => {
+    const cur = experienceEntries.find((e) => e.isCurrent);
+    return cur ? tenureMonths(cur.startDate, cur.endDate) : 0;
+  }, [experienceEntries]);
+  const avgTenureMonths = useMemo(() => {
+    const tenures = experienceEntries.map((e) => tenureMonths(e.startDate, e.endDate)).filter((m) => m > 0);
+    if (!tenures.length) return 0;
+    return tenures.reduce((a, b) => a + b, 0) / tenures.length;
+  }, [experienceEntries]);
+
   if (!candidate) return null;
 
-  const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience;
-  const profilePicture = enriched?.profile_pic_url || candidate.profile_pic_url;
   const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
   const companyName = enriched?.job_company_name || candidate.current_employer;
   const title = enriched?.job_title || candidate.title;
   const locationLabel = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location;
   const contactEmail = enriched?.work_email || enriched?.personal_emails?.[0] || candidate.email || null;
   const contactPhone = enriched?.mobile_phone || enriched?.phone_numbers?.[0] || candidate.phone || null;
+  const topCompanyDomain = companyGroups[0]?.logoDomain ?? null;
+  const topSchoolDomain = topEducation?.logoDomain ?? null;
+  const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
+
 
   const handleCopy = async (value: string, label: string) => {
     try {
