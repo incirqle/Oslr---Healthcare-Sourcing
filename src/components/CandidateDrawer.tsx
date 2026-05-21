@@ -120,6 +120,8 @@ interface EnrichedData {
     start_date: string;
     end_date: string | null;
     is_primary: boolean;
+    summary?: string | null;
+    location_names?: string[] | null;
   }[];
   education: {
     school: { name: string; website?: string | null; linkedin_url?: string | null } | null;
@@ -127,7 +129,9 @@ interface EnrichedData {
     majors: string[];
     start_date: string;
     end_date: string | null;
+    summary?: string | null;
   }[];
+  languages?: ({ name: string } | string)[];
 }
 
 interface ExperienceEntry {
@@ -137,6 +141,9 @@ interface ExperienceEntry {
   endDate: string | null;
   isCurrent: boolean;
   logoDomain: string | null;
+  location: string | null;
+  summary: string | null;
+  salary: string | null;
 }
 
 interface EducationEntry {
@@ -146,7 +153,9 @@ interface EducationEntry {
   startDate: string | null;
   endDate: string | null;
   logoDomain: string | null;
+  summary: string | null;
 }
+
 
 
 function SectionHeading({ label }: { label: string }) {
