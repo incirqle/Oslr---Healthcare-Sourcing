@@ -339,27 +339,7 @@ function CandidateRow({
           />
         </div>
 
-        {/* Avatar */}
-        {candidate.profile_pic_url ? (
-          <img
-            src={candidate.profile_pic_url}
-            alt=""
-            className="h-10 w-10 shrink-0 rounded-full object-cover"
-            onError={(event) => {
-              (event.target as HTMLImageElement).style.display = "none";
-              (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-            }}
-          />
-        ) : null}
-        <div
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-            getAvatarToneClass(displayName),
-            candidate.profile_pic_url ? "hidden" : "flex",
-          )}
-        >
-          {getInitials(displayName)}
-        </div>
+        {/* Main grid: identity + middle + chips + actions */}
 
         {/* Main grid: identity + middle + chips + actions */}
         <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 lg:grid-cols-12">
