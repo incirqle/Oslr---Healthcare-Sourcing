@@ -570,6 +570,7 @@ async function resolveCompanyNames(
         results.push({
           original: name, pdl_name: null, pdl_id: null, website: null,
           linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
+          hq_region: null, hq_locality: null,
         });
         continue;
       }
