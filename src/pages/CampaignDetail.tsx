@@ -39,6 +39,8 @@ import { CampaignBuilder } from "@/components/campaigns/CampaignBuilder";
 import { MOCK_CAMPAIGNS, type CampaignContact, type ResponseType } from "@/data/mock-campaigns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 
 const RESPONSE_OPTIONS: ResponseType[] = [
   "No response",
@@ -190,6 +192,28 @@ export default function CampaignDetail() {
                 <Filter className="h-3.5 w-3.5" />
                 Add filter
               </Button>
+              <ExportMenu
+                getCandidates={() => {
+                  const source = selected.size > 0 ? filtered.filter((c) => selected.has(c.id)) : filtered;
+                  return source.map((c) => ({
+                    id: c.id,
+                    full_name: c.fullName,
+                    title: c.role,
+                    current_employer: c.employer,
+                    location: null,
+                    linkedin_url: null,
+                    email: null,
+                    phone: null,
+                    skills: [],
+                    avg_tenure_months: null,
+                    industry: null,
+                    company_size: null,
+                  })) as unknown as AnyCandidate[];
+                }}
+                pdfDisabled
+                size="sm"
+                className="h-8 ml-auto"
+              />
             </div>
 
             <Table>
