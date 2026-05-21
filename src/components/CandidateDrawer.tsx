@@ -195,8 +195,10 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
       endDate: entry.end_date ?? null,
       isCurrent: !entry.end_date || entry.is_primary,
       logoDomain: extractDomain(entry.company?.website, entry.company?.linkedin_url),
+      location: Array.isArray(entry.location_names) && entry.location_names.length > 0 ? entry.location_names[0] : null,
+      summary: typeof entry.summary === "string" ? entry.summary : null,
+      salary: null,
     }));
-
   }
 
   if (!candidate?.raw) return [];
@@ -240,8 +242,16 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
       typeof entry.company_linkedin_url === "string" ? entry.company_linkedin_url : null,
       (entry.company as { website?: string } | null)?.website ?? null,
     ),
+    location: typeof entry.location === "string"
+      ? entry.location
+      : Array.isArray(entry.location_names) && typeof entry.location_names[0] === "string"
+        ? (entry.location_names[0] as string)
+        : null,
+    summary: typeof entry.summary === "string" ? entry.summary : null,
+    salary: null,
   }));
 }
+
 
 
 function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): EducationEntry[] {
