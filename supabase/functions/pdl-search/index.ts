@@ -394,6 +394,15 @@ async function resolveCompanyNames(
     const affiliatedIds: string[] = [];
     const affiliatedNames: string[] = [];
     const wildcards: string[] = [];
+    let hqRegion: string | null = null;
+    let hqLocality: string | null = null;
+    const captureHq = (data: any) => {
+      const loc = data?.location;
+      if (loc && typeof loc === "object") {
+        if (!hqRegion && typeof loc.region === "string") hqRegion = loc.region.toLowerCase();
+        if (!hqLocality && typeof loc.locality === "string") hqLocality = loc.locality.toLowerCase();
+      }
+    };
 
     try {
       // ── Step 1: Company Cleaner (free) ──
