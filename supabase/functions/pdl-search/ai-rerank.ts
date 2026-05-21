@@ -39,25 +39,45 @@ interface RerankResult {
 }
 
 function buildBrief(c: FormattedCandidate, idx: number): Record<string, unknown> {
+  // F3: include job_company_id + headline/summary (truncated) + sub_role across
+  // top 3 experience entries with is_current flag, so the reranker can tell
+  // CURRENT vs PAST employer and judge specialty from the bio text.
+  const topExp = (c.experience || []).slice(0, 3).map((exp) => {
+    const co = (exp.company as Record<string, unknown> | null) || null;
+    const title = (exp.title as Record<string, unknown> | null) || null;
+    return {
+      company: co?.name ?? null,
+      company_id: co?.id ?? null,
+      sub_role: title?.sub_role ?? null,
+      is_current: exp.end_date == null,
+    };
+  });
+
+  const trunc = (s: string | null | undefined, n: number) =>
+    typeof s === "string" && s.length > n ? s.slice(0, n) + "…" : (s || null);
+
   return {
     idx,
     id: c.id,
     name: c.full_name,
     title: c.job_title,
     employer: c.job_company_name,
+    employer_id: c.job_company_id,
+    headline: trunc(c.headline, 280),
+    summary: trunc(c.summary, 280),
     industry: c.job_company_industry || c.industry || null,
     onet_broad: c.job_onet_broad_occupation,
     onet_specific: c.job_onet_specific_occupation,
     sub_role: c.job_title_sub_role,
     lives: [c.location_locality, c.location_region].filter(Boolean).join(", ") || null,
     practices: [c.job_company_location_locality, c.job_company_location_region].filter(Boolean).join(", ") || null,
-    skills: (c.clinical_skills || []).slice(0, 4),
+    skills: (c.clinical_skills || []).slice(0, 8),
+    top_experience: topExp,
   };
 }
 
-function buildIntentSummary(parsed: Record<string, unknown>, query: string): string {
+function buildIntentSummary(parsed: Record<string, unknown>, query: string, anchorIds: string[]): string {
   const titles = (parsed.job_titles as string[]) || [];
-  // FIX: read both plural `specialties` array AND singular `specialty` string from L2 parser
   const specsArr = (parsed.specialties as string[]) || [];
   const singleSpec = typeof parsed.specialty === "string" ? [parsed.specialty as string] : [];
   const specs = Array.from(new Set([...specsArr, ...singleSpec].filter(Boolean)));
@@ -71,6 +91,9 @@ function buildIntentSummary(parsed: Record<string, unknown>, query: string): str
   if (specs.length) parts.push(`SPECIALTY (CRITICAL — must match): ${specs.join(", ")}`);
   if (credentials.length) parts.push(`Credentials: ${credentials.join(", ")}`);
   if (companies.length) parts.push(`Employers of interest: ${companies.join(", ")}`);
+  if (anchorIds.length) {
+    parts.push(`ANCHOR_COMPANY_IDS (current employer MUST be one of these): ${anchorIds.join(", ")}`);
+  }
   if (loc.city || loc.state) {
     parts.push(`Location: ${[loc.city, loc.state].filter(Boolean).join(", ")} (practice location matters more than residence)`);
   }
