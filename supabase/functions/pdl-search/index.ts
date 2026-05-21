@@ -534,6 +534,7 @@ async function resolveCompanyNames(
                         pdlId = e2Data.id || null;
                         website = e2Data.website || null;
                         linkedinUrl = e2Data.linkedin_url || null;
+                        captureHq(e2Data);
                         if (Array.isArray(e2Data.alternative_names)) {
                           for (const altName of e2Data.alternative_names) {
                             if (typeof altName === "string" && altName.length > 0) {
