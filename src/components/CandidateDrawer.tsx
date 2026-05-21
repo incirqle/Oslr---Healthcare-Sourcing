@@ -708,66 +708,77 @@ export function CandidateDrawer({
             </div>
           </div>
 
-          {/* Row 2: Identity — avatar + name/meta inline + fit pill */}
-          <div className="shrink-0 border-b border-ui-border-light px-5 py-3 pr-12 sm:px-6">
-            <div className="flex items-center gap-3">
-              {profilePicture ? (
-                <img
-                  src={profilePicture}
-                  alt={cleanDisplayName(candidate.full_name)}
-                  className="h-11 w-11 shrink-0 rounded-full object-cover"
-                  onError={(event) => {
-                    (event.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              ) : null}
-
-              <div className="min-w-0 flex-1">
-
-                <div className="flex items-baseline gap-2">
-                  <SheetTitle className="truncate text-[17px] font-bold text-ui-text-primary">
-                    {toTitleCase(cleanDisplayName(candidate.full_name))}
-                  </SheetTitle>
-                  {title && (
-                    <>
-                      <span className="text-ui-text-muted">·</span>
-                      <span className="truncate text-[14px] text-ui-text-secondary">{toTitleCase(title)}</span>
-                    </>
-                  )}
-                </div>
-                {/* Inline meta: company · location · LinkedIn */}
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-ui-text-tertiary">
-                  {companyName && <span className="truncate">{toTitleCase(companyName)}</span>}
-                  {companyName && locationLabel && <span aria-hidden="true">·</span>}
-                  {locationLabel && <span className="truncate">{locationLabel}</span>}
-                  {linkedinUrl && (
-                    <>
-                      <span aria-hidden="true">·</span>
-                      <a
-                        href={linkedinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-md bg-linkedin px-1.5 py-0.5 font-medium text-linkedin-foreground hover:underline"
-                        aria-label="View on LinkedIn"
-                      >
-                        <LinkedInMark className="h-3 w-3" />
-                        LinkedIn
-                      </a>
-                    </>
-                  )}
-                </div>
+          {/* Row 2: Identity — Juicebox-style: name, location, company + school chips */}
+          <div className="shrink-0 border-b border-ui-border-light px-5 py-4 pr-12 sm:px-6">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <SheetTitle className="truncate text-[20px] font-bold leading-tight text-ui-text-primary">
+                  {toTitleCase(cleanDisplayName(candidate.full_name))}
+                </SheetTitle>
+                {locationLabel && (
+                  <p className="truncate text-[13px] text-ui-text-tertiary">{locationLabel}</p>
+                )}
+                {(companyName || topEducation?.school) && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-0.5">
+                    {companyName && (
+                      <div className="inline-flex items-center gap-1.5 text-[13px] text-ui-text-secondary">
+                        <div className="relative h-4 w-4 shrink-0 overflow-hidden rounded-sm bg-white">
+                          {topCompanyDomain ? (
+                            <img
+                              src={logoUrl(topCompanyDomain) ?? ""}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <Building2 className="h-4 w-4 text-ui-text-muted" />
+                          )}
+                        </div>
+                        <span className="truncate font-medium">{toTitleCase(companyName)}</span>
+                      </div>
+                    )}
+                    {topEducation?.school && (
+                      <div className="inline-flex items-center gap-1.5 text-[13px] text-ui-text-secondary">
+                        <div className="relative h-4 w-4 shrink-0 overflow-hidden rounded-sm bg-white">
+                          {topSchoolDomain ? (
+                            <img
+                              src={logoUrl(topSchoolDomain) ?? ""}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <GraduationCap className="h-4 w-4 text-ui-text-muted" />
+                          )}
+                        </div>
+                        <span className="truncate">{toTitleCase(topEducation.school)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {title && !companyName && (
+                  <p className="truncate text-[13px] text-ui-text-secondary">{toTitleCase(title)}</p>
+                )}
               </div>
 
-              <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                <FitPill
-                  status={fitStatus}
-                  onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
-                  size="sm"
-                  stopPropagation={false}
-                />
-              </div>
+              {linkedinUrl && (
+                <a
+                  href={linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-linkedin text-linkedin-foreground hover:opacity-90"
+                  aria-label="View on LinkedIn"
+                >
+                  <LinkedInMark className="h-4 w-4" />
+                </a>
+              )}
             </div>
           </div>
+
 
           {/* Row 3: Match chip strip — single line with tooltips */}
           {matchChips.length > 0 && (
