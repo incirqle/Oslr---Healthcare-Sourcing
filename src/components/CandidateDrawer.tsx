@@ -229,12 +229,14 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
       major: entry.majors?.join(", ") || null,
       startDate: entry.start_date ?? null,
       endDate: entry.end_date ?? null,
+      logoDomain: extractDomain(entry.school?.website, entry.school?.linkedin_url),
     }));
   }
 
   if (!candidate?.raw) return [];
 
   return getRawArray<Record<string, unknown>>(candidate.raw.education).map((entry) => ({
+
     school:
       typeof entry.school_name === "string"
         ? entry.school_name
