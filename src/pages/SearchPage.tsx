@@ -263,32 +263,6 @@ export default function SearchPage() {
     setSearchPhase("idle");
   };
 
-  const handleRemoveActiveFilter = (id: string) => {
-    // Filter id format: "<prefix>-<value>"
-    const dashIdx = id.indexOf("-");
-    if (dashIdx === -1) return;
-    const prefix = id.slice(0, dashIdx);
-    const value = id.slice(dashIdx + 1);
-
-    const next: ParsedFilters = { ...filters };
-    const drop = (arr: string[]) => arr.filter((v) => v !== value);
-    if (prefix === "co") next.companies = drop(filters.companies);
-    else if (prefix === "loc") next.locations = drop(filters.locations);
-    else if (prefix === "spec") next.specialties = drop(filters.specialties);
-    else if (prefix === "title") next.job_titles = drop(filters.job_titles);
-    else if (prefix === "kw") next.keywords = drop(filters.keywords);
-    else if (prefix === "exp") next.experience_years = null;
-
-    setFilters(next);
-    setSearchPhase("running");
-    setCandidates([]);
-    setRevealedCount(0);
-    runResultsFetch(query, next, parsedPayload, 1, null).catch((err) => {
-      console.error(err);
-      setSearchPhase("error");
-      toast.error(err instanceof Error ? err.message : "Search failed");
-    });
-  };
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
