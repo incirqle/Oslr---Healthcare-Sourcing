@@ -365,6 +365,7 @@ export function SearchResults({
   pageSize = 15,
   onPageChange,
   isSaving = false,
+  isLoading = false,
   geoScope = null,
   companyScope = null,
   specialtyFunnel = null,
