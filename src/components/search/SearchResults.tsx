@@ -235,8 +235,32 @@ function CandidateRow({
 }) {
   const displayName = toTitleCase(cleanDisplayName(candidate.full_name));
 
+  // Generate AI snapshot only once the row has been visible briefly.
+  // Avoids spending tokens on rows the user never sees.
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el || visible) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          // Small delay so rapid scroll-through doesn't trigger fetches.
+          const t = setTimeout(() => setVisible(true), 350);
+          return () => clearTimeout(t);
+        }
+      },
+      { rootMargin: "120px 0px", threshold: 0.2 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  const { snapshot, loading: snapshotLoading } = useCandidateSnapshot(candidate, visible);
+
   return (
     <div
+      ref={rowRef}
       className={cn(
         "group cursor-pointer border-b border-border/40 bg-card px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/40",
         isSelected && "bg-primary/5",
