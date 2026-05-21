@@ -377,15 +377,6 @@ export default function SearchPage() {
               onRefine={() => setFilterEditorOpen(true)}
             />
 
-            {/* Active filter bar only while search is running — once done, the
-                condensed reasoning line shows the filter summary + Refine link. */}
-            {searchPhase === "running" && activeFilters.length > 0 && (
-              <ActiveFilterBar
-                filters={activeFilters}
-                onRemove={handleRemoveActiveFilter}
-                onAddFilter={() => setFilterEditorOpen(true)}
-              />
-            )}
 
             {/* Skeleton rows while results stream in */}
             {skeletonCount > 0 && (
