@@ -119,6 +119,7 @@ Hard rules:
 - If a specialty is requested, candidates of a different physician specialty (hospitalist, family medicine, internal medicine, urgent care, OB/GYN, pediatrician, emergency medicine, regenerative medicine) should score below 50 UNLESS their title/skills show the requested specialty.
 - If a location is requested, prefer candidates whose PRACTICE location matches over those who only RESIDE there.
 - Penalize candidates whose practice is in a different US state than requested (score below 30).
+- ANCHOR EMPLOYER RULE: If ANCHOR_COMPANY_IDS is provided in the intent, candidates whose \`employer_id\` is NOT in that list MUST score ≤ 25, regardless of how well their title or specialty matches. A past employee of the anchor (anchor appears only in \`top_experience\` with \`is_current: false\`) is NOT a current employee and falls under this rule.
 - Don't penalize for missing data — score on what's present.
 
 OUTPUT FORMAT — return ONLY valid JSON, no prose, no markdown fences:
