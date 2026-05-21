@@ -854,21 +854,34 @@ export function CandidateDrawer({
                             key={`${entry.title}-${entry.company}-${index}`}
                             className="relative flex gap-3"
                           >
-                            {/* Company logo placeholder + connecting line */}
+                            {/* Company logo + connecting line */}
                             <div className="relative flex w-10 flex-col items-center">
-                              <div
-                                className={cn(
-                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[11px] font-bold",
-                                  getAvatarToneClass(entry.company || entry.title || "x"),
+                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
+                                {entry.logoDomain && (
+                                  <img
+                                    src={logoUrl(entry.logoDomain) ?? ""}
+                                    alt=""
+                                    className="absolute inset-0 h-full w-full object-contain p-1"
+                                    onError={(event) => {
+                                      (event.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
                                 )}
-                                aria-hidden="true"
-                              >
-                                {companyInitials}
+                                <div
+                                  className={cn(
+                                    "flex h-full w-full items-center justify-center text-[11px] font-bold",
+                                    getAvatarToneClass(entry.company || entry.title || "x"),
+                                  )}
+                                  aria-hidden="true"
+                                >
+                                  {companyInitials}
+                                </div>
                               </div>
                               {!isLast && (
                                 <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
                               )}
                             </div>
+
 
                             <div className="min-w-0 flex-1 pb-3">
                               <div className="flex flex-wrap items-baseline gap-x-2">
