@@ -26,8 +26,6 @@ import {
 } from "lucide-react";
 import {
   cleanDisplayName,
-  getAvatarToneClass,
-  getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
   toTitleCase,
