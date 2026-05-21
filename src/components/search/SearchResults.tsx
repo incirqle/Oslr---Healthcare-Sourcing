@@ -365,6 +365,20 @@ function CandidateRow({
           </div>
         </div>
       </div>
+
+      {/* AI snapshot — one-sentence recruiter take, lazily generated when row enters viewport */}
+      {(snapshot || snapshotLoading) && (
+        <div className="mt-2 ml-[3.25rem] flex items-start gap-1.5 pr-2">
+          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
+          {snapshotLoading && !snapshot ? (
+            <span className="inline-block h-3 w-2/3 max-w-[28rem] animate-pulse rounded bg-muted/40" />
+          ) : (
+            <p className="text-[12.5px] leading-snug text-muted-foreground/90 italic line-clamp-2">
+              {snapshot}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
