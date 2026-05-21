@@ -832,8 +832,56 @@ export function CandidateDrawer({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {/* OVERVIEW — reorganized: AI summary → Current role → Quick stats → Education → Certs → Skills */}
+              {/* OVERVIEW — Juicebox-style: Status row → AI summary → Achievements → About → Stats → Current role */}
               <TabsContent value="overview" className="mt-0 space-y-5 px-5 py-5 pb-24 sm:px-6">
+                {/* Status / Contact / Activity / Fit table */}
+                <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/30">
+                  <dl className="divide-y divide-ui-border-light/60 text-[13px]">
+                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
+                      <dt className="text-ui-text-muted">Status</dt>
+                      <dd className="flex items-center gap-1.5 text-ui-text-secondary">
+                        <span className="inline-block h-2 w-2 rounded-full bg-ui-info" />
+                        Not contacted
+                      </dd>
+                    </div>
+                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
+                      <dt className="text-ui-text-muted">Contact</dt>
+                      <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ui-text-secondary">
+                        {contactEmail ? (
+                          <a href={`mailto:${contactEmail}`} className="text-ui-info hover:underline">
+                            {contactEmail}
+                          </a>
+                        ) : null}
+                        {contactPhone ? (
+                          <a href={`tel:${contactPhone}`} className="text-ui-info hover:underline">
+                            {contactPhone}
+                          </a>
+                        ) : null}
+                        {!contactEmail && !contactPhone ? (
+                          <span className="text-ui-text-muted">No contact on file</span>
+                        ) : null}
+                      </dd>
+                    </div>
+                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
+                      <dt className="text-ui-text-muted">Activity</dt>
+                      <dd className="text-ui-text-secondary">
+                        {notes.length} note{notes.length === 1 ? "" : "s"}
+                      </dd>
+                    </div>
+                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
+                      <dt className="text-ui-text-muted">Fit</dt>
+                      <dd onClick={(e) => e.stopPropagation()}>
+                        <FitPill
+                          status={fitStatus}
+                          onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
+                          size="sm"
+                          stopPropagation={false}
+                        />
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+
                 {/* AI Summary */}
                 <div className="rounded-[10px] border border-ai-border bg-ai px-4 py-4">
                   <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-ai-foreground">
@@ -852,6 +900,71 @@ export function CandidateDrawer({
                     </p>
                   )}
                 </div>
+
+                {/* Achievement badges — auto-derived signal pills */}
+                {achievements.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ui-text-muted">
+                      <TrendingUp className="h-3 w-3" />
+                      Signals
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {achievements.map((a) => (
+                        <Tooltip key={a.id}>
+                          <TooltipTrigger asChild>
+                            <span
+                              tabIndex={0}
+                              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[12px] font-medium text-ui-text-primary"
+                            >
+                              {a.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs text-xs">
+                            {a.reason}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* About — PDL summary */}
+                {aboutText && (
+                  <section className="space-y-2">
+                    <SectionHeading label="About" />
+                    <p className="whitespace-pre-line text-[14px] leading-6 text-ui-text-secondary line-clamp-5">
+                      {aboutText}
+                    </p>
+                  </section>
+                )}
+
+                {/* 3-card stat strip — Avg tenure / Current tenure / Total experience */}
+                {(avgTenureMonths > 0 || currentTenureMonths > 0 || totalMonthsAll > 0 || yearsExperience) && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
+                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Avg tenure</p>
+                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary">
+                        {avgTenureMonths > 0 ? formatMonths(Math.round(avgTenureMonths)) : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
+                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Current tenure</p>
+                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary">
+                        {currentTenureMonths > 0 ? formatMonths(currentTenureMonths) : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
+                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Total exp.</p>
+                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary">
+                        {totalMonthsAll > 0
+                          ? formatMonths(totalMonthsAll)
+                          : yearsExperience
+                            ? `${yearsExperience} yrs`
+                            : "—"}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Current Role — featured card */}
                 {currentRoleEntry && (
@@ -876,209 +989,269 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                {/* Quick Stats strip — years + avg tenure only (no salary band) */}
-                {(yearsExperience || candidate.avg_tenure_months) && (
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-4 py-2.5 text-[13px]">
-                    {yearsExperience ? (
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-ui-text-primary">{yearsExperience}y</span>
-                        <span className="text-ui-text-muted">experience</span>
-                      </div>
-                    ) : null}
-                    {candidate.avg_tenure_months ? (
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-ui-text-primary">
-                          {Math.round(candidate.avg_tenure_months / 12 * 10) / 10}y
-                        </span>
-                        <span className="text-ui-text-muted">avg tenure</span>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-
-                {/* Certifications + Skills (Education moved to Experience tab) */}
-                <div className={cn("space-y-5", isWide && "sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5 sm:space-y-0")}>
-                  {certifications.length > 0 && (
-                    <section className="space-y-2">
-                      <SectionHeading label="Certifications" />
-                      <div className="flex flex-wrap gap-1.5">
-                        {certifications.map((certification) => (
-                          <span
-                            key={certification}
-                            className="inline-flex items-center rounded-md border border-ui-border-light bg-ui-surface-subtle px-2 py-0.5 text-[12px] text-ui-text-secondary"
-                          >
-                            {certification}
-                          </span>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {primarySkills.length > 0 && (
-                    <section className={cn("space-y-2", isWide && certifications.length === 0 && "sm:col-span-2")}>
-                      <SectionHeading label="Clinical Skills" />
-                      <div className="flex flex-wrap gap-1.5">
-                        {(showAllSkills ? allSkills : primarySkills).map((skill) => (
-                          <span key={skill} className="rounded-md bg-tag px-2 py-0.5 text-[12px] text-tag-foreground">
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                      {allSkills.length > primarySkills.length && (
-                        <button
-                          type="button"
-                          className="text-[12px] font-medium text-ui-info hover:underline"
-                          onClick={() => setShowAllSkills((current) => !current)}
-                        >
-                          {showAllSkills ? "Show fewer skills" : `Show all ${allSkills.length} skills`}
-                        </button>
-                      )}
-                    </section>
-                  )}
-                </div>
-
                 {error && <p className="text-[13px] text-ui-text-muted">{error}</p>}
               </TabsContent>
 
-              {/* EXPERIENCE — LinkedIn-style: Experience section + Education section */}
+              {/* EXPERIENCE — grouped by company with sub-role timeline */}
               <TabsContent value="experience" className="mt-0 space-y-6 px-5 py-5 pb-24 sm:px-6">
-                {/* Experience */}
-                <section>
-                  <h3 className="mb-3 text-[15px] font-semibold text-ui-text-primary">Experience</h3>
-                  {experienceEntries.length > 0 ? (
-                    <div className="space-y-4">
-                      {experienceEntries.map((entry, index) => {
-                        const duration = formatExperienceDuration(entry.startDate, entry.endDate);
-                        const companyInitials = getInitials(entry.company || "?");
-                        const isLast = index === experienceEntries.length - 1;
-                        return (
+                {companyGroups.length > 0 ? (
+                  <div className="space-y-6">
+                    {companyGroups.map((group, gi) => {
+                      const companyName = group.company ? toTitleCase(group.company) : "Unknown company";
+                      const companyInitials = getInitials(group.company || "?");
+                      const totalLabel = group.totalMonths > 0 ? formatMonths(group.totalMonths) : null;
+                      return (
+                        <section key={`${group.company}-${gi}`} className="space-y-3">
+                          {/* Company header */}
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
+                              {group.logoDomain && (
+                                <img
+                                  src={logoUrl(group.logoDomain) ?? ""}
+                                  alt=""
+                                  className="absolute inset-0 h-full w-full object-contain p-1"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                  }}
+                                />
+                              )}
+                              <div
+                                className={cn(
+                                  "flex h-full w-full items-center justify-center text-[11px] font-bold",
+                                  getAvatarToneClass(group.company || "x"),
+                                )}
+                                aria-hidden="true"
+                              >
+                                {companyInitials}
+                              </div>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[15px] font-semibold text-ui-text-primary">{companyName}</p>
+                              {totalLabel && (
+                                <p className="text-[12px] text-ui-text-muted">{totalLabel}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Sub-role timeline */}
+                          <ol className="relative ml-[18px] space-y-4 border-l border-ui-border-light pl-4">
+                            {group.roles.map((role, ri) => {
+                              const duration = formatExperienceDuration(role.startDate, role.endDate);
+                              const promotion = ri < group.roles.length - 1 && isPromotion(role, group.roles[ri + 1]);
+                              const salary = role.salary || (ri === 0 ? formatSalary(inferredSalary) : null);
+                              return (
+                                <li key={`${role.title}-${ri}`} className="relative">
+                                  <span
+                                    className={cn(
+                                      "absolute -left-[22px] top-1.5 h-2 w-2 rounded-full",
+                                      role.isCurrent ? "bg-timeline-current ring-2 ring-timeline-ring" : "bg-ui-border-medium",
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                  <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-baseline gap-x-2">
+                                        <p className="text-[14px] font-semibold text-ui-text-primary">
+                                          {role.title ? toTitleCase(role.title) : "Unknown role"}
+                                        </p>
+                                        {promotion && (
+                                          <span className="rounded-[4px] bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                                            Promotion
+                                          </span>
+                                        )}
+                                        {role.isCurrent && !promotion && (
+                                          <span className="rounded-[4px] bg-current-badge px-1.5 py-0 text-[10px] font-semibold text-current-badge-foreground">
+                                            Current
+                                          </span>
+                                        )}
+                                      </div>
+                                      {role.location && (
+                                        <p className="text-[12px] text-ui-text-tertiary">{role.location}</p>
+                                      )}
+                                    </div>
+                                    <p className="shrink-0 text-[12px] text-ui-text-muted">
+                                      {formatDateLabelSmart(role.startDate)} — {formatDateLabelSmart(role.endDate) || "Present"}
+                                      {duration ? ` · ${duration}` : ""}
+                                    </p>
+                                  </div>
+                                  {salary && (
+                                    <div className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                                      {salary}
+                                    </div>
+                                  )}
+                                  {role.summary && (
+                                    <p className="mt-1.5 whitespace-pre-line text-[13px] leading-5 text-ui-text-secondary line-clamp-4">
+                                      {role.summary}
+                                    </p>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[14px] text-ui-text-tertiary">No experience history available.</p>
+                )}
+              </TabsContent>
+
+              {/* EDUCATION — dedicated tab */}
+              <TabsContent value="education" className="mt-0 space-y-4 px-5 py-5 pb-24 sm:px-6">
+                {educationEntries.length > 0 ? (
+                  educationEntries.map((entry, index) => {
+                    const degreeInfo = formatDegree(
+                      entry.degree && entry.major
+                        ? { degree: entry.degree, major: entry.major }
+                        : entry.degree ?? entry.major,
+                    );
+                    const school = entry.school ? toTitleCase(entry.school) : "Unknown school";
+                    const schoolInitials = getInitials(entry.school || "?");
+                    const startYear = formatDateLabelSmart(entry.startDate);
+                    const endYear = formatDateLabelSmart(entry.endDate);
+                    const dateLabel = startYear && endYear ? `${startYear} — ${endYear}` : endYear || startYear || null;
+                    return (
+                      <div
+                        key={`${entry.school}-${index}`}
+                        className="flex gap-3 rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/30 px-4 py-3"
+                      >
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
+                          {entry.logoDomain && (
+                            <img
+                              src={logoUrl(entry.logoDomain) ?? ""}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-contain p-1"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          )}
                           <div
-                            key={`${entry.title}-${entry.company}-${index}`}
-                            className="relative flex gap-3"
+                            className={cn(
+                              "flex h-full w-full items-center justify-center text-[11px] font-bold",
+                              getAvatarToneClass(entry.school || "edu"),
+                            )}
+                            aria-hidden="true"
                           >
-                            {/* Company logo + connecting line */}
-                            <div className="relative flex w-10 flex-col items-center">
-                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
-                                {entry.logoDomain && (
-                                  <img
-                                    src={logoUrl(entry.logoDomain) ?? ""}
-                                    alt=""
-                                    className="absolute inset-0 h-full w-full object-contain p-1"
-                                    onError={(event) => {
-                                      (event.target as HTMLImageElement).style.display = "none";
-                                    }}
-                                  />
-                                )}
-                                <div
-                                  className={cn(
-                                    "flex h-full w-full items-center justify-center text-[11px] font-bold",
-                                    getAvatarToneClass(entry.company || entry.title || "x"),
-                                  )}
-                                  aria-hidden="true"
-                                >
-                                  {companyInitials}
-                                </div>
-                              </div>
-                              {!isLast && (
-                                <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
-                              )}
-                            </div>
-
-
-                            <div className="min-w-0 flex-1 pb-3">
-                              <div className="flex flex-wrap items-baseline gap-x-2">
-                                <p className="text-[14px] font-semibold text-ui-text-primary">
-                                  {entry.title ? toTitleCase(entry.title) : "Unknown role"}
-                                </p>
-                                {entry.isCurrent && (
-                                  <span className="rounded-[4px] bg-current-badge px-1.5 py-0 text-[10px] font-semibold text-current-badge-foreground">
-                                    Current
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[13px] text-ui-text-secondary">
-                                {entry.company ? toTitleCase(entry.company) : "Unknown company"}
-                              </p>
-                              <p className="mt-0.5 text-[12px] text-ui-text-muted">
-                                {formatDateLabelSmart(entry.startDate)} — {formatDateLabelSmart(entry.endDate) || "Present"}
-                                {duration ? ` · ${duration}` : ""}
-                              </p>
-                            </div>
+                            {schoolInitials}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-[14px] text-ui-text-tertiary">No experience history available.</p>
-                  )}
-                </section>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14px] font-semibold text-ui-text-primary">{school}</p>
+                          {degreeInfo.display && (
+                            <p className="text-[13px] text-ui-text-secondary">{degreeInfo.display}</p>
+                          )}
+                          {dateLabel && (
+                            <p className="mt-0.5 text-[12px] text-ui-text-muted">{dateLabel}</p>
+                          )}
+                          {entry.summary && (
+                            <p className="mt-1.5 text-[13px] leading-5 text-ui-text-secondary line-clamp-3">
+                              {entry.summary}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-[14px] text-ui-text-tertiary">No education on file.</p>
+                )}
+              </TabsContent>
 
-                {/* Education */}
-                {educationEntries.length > 0 && (
-                  <section>
-                    <h3 className="mb-3 text-[15px] font-semibold text-ui-text-primary">Education</h3>
-                    <div className="space-y-4">
-                      {educationEntries.map((entry, index) => {
-                        const degreeInfo = formatDegree(
-                          entry.degree && entry.major
-                            ? { degree: entry.degree, major: entry.major }
-                            : entry.degree ?? entry.major,
-                        );
-                        const school = entry.school ? toTitleCase(entry.school) : "Unknown school";
-                        const schoolInitials = getInitials(entry.school || "?");
-                        const isLast = index === educationEntries.length - 1;
-                        const startYear = formatDateLabelSmart(entry.startDate);
-                        const endYear = formatDateLabelSmart(entry.endDate);
-                        const dateLabel =
-                          startYear && endYear
-                            ? `${startYear} — ${endYear}`
-                            : endYear || startYear || null;
-                        return (
-                          <div key={`${entry.school}-${index}`} className="relative flex gap-3">
-                            <div className="relative flex w-10 flex-col items-center">
-                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
-                                {entry.logoDomain && (
-                                  <img
-                                    src={logoUrl(entry.logoDomain) ?? ""}
-                                    alt=""
-                                    className="absolute inset-0 h-full w-full object-contain p-1"
-                                    onError={(event) => {
-                                      (event.target as HTMLImageElement).style.display = "none";
-                                    }}
-                                  />
-                                )}
-                                <div
-                                  className={cn(
-                                    "flex h-full w-full items-center justify-center text-[11px] font-bold",
-                                    getAvatarToneClass(entry.school || "edu"),
-                                  )}
-                                  aria-hidden="true"
-                                >
-                                  {schoolInitials}
-                                </div>
-                              </div>
-                              {!isLast && (
-                                <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
-                              )}
-                            </div>
-
-
-                            <div className="min-w-0 flex-1 pb-3">
-                              <p className="text-[14px] font-semibold text-ui-text-primary">{school}</p>
-                              {degreeInfo.display && (
-                                <p className="text-[13px] text-ui-text-secondary">{degreeInfo.display}</p>
-                              )}
-                              {dateLabel && (
-                                <p className="mt-0.5 text-[12px] text-ui-text-muted">{dateLabel}</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+              {/* SKILLS — dedicated tab with certs, clinical, additional, languages */}
+              <TabsContent value="skills" className="mt-0 space-y-6 px-5 py-5 pb-24 sm:px-6">
+                {certifications.length > 0 && (
+                  <section className="space-y-2">
+                    <SectionHeading label="Certifications" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {certifications.map((c) => (
+                        <span
+                          key={c}
+                          className="inline-flex items-center rounded-md border border-ui-border-light bg-ui-surface-subtle px-2 py-0.5 text-[12px] text-ui-text-secondary"
+                        >
+                          {c}
+                        </span>
+                      ))}
                     </div>
                   </section>
                 )}
+
+                {primarySkills.length > 0 && (
+                  <section className="space-y-2">
+                    <SectionHeading label="Clinical Skills" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {primarySkills.map((s) => (
+                        <span key={s} className="rounded-md bg-tag px-2 py-0.5 text-[12px] text-tag-foreground">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {allSkills.length > primarySkills.length && (
+                  <section className="space-y-2">
+                    <SectionHeading label="Skill Map" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {(showAllSkills ? allSkills : allSkills.slice(0, Math.max(primarySkills.length, 10))).map((s) => (
+                        <span
+                          key={s}
+                          className="inline-flex items-center rounded-md border border-ui-border-light bg-card px-2 py-0.5 text-[12px] text-ui-text-secondary"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                      {!showAllSkills && allSkills.length > Math.max(primarySkills.length, 10) && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllSkills(true)}
+                          className="rounded-md px-2 py-0.5 text-[12px] font-medium text-ui-info hover:underline"
+                        >
+                          +{allSkills.length - Math.max(primarySkills.length, 10)}
+                        </button>
+                      )}
+                      {showAllSkills && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllSkills(false)}
+                          className="rounded-md px-2 py-0.5 text-[12px] font-medium text-ui-info hover:underline"
+                        >
+                          Show less
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {languages.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <SectionHeading label="Languages" />
+                      <MessageCircle className="h-3.5 w-3.5 text-ui-text-muted" aria-hidden="true" />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {languages.map((l) => (
+                        <span
+                          key={l}
+                          className="inline-flex items-center gap-1 rounded-md border border-ui-border-light bg-card px-2 py-0.5 text-[12px] text-ui-text-secondary"
+                        >
+                          <LanguagesIcon className="h-3 w-3" aria-hidden="true" />
+                          {toTitleCase(l)}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {certifications.length === 0
+                  && primarySkills.length === 0
+                  && allSkills.length === 0
+                  && languages.length === 0 && (
+                  <p className="text-[14px] text-ui-text-tertiary">No skills on file.</p>
+                )}
               </TabsContent>
+
 
               <TabsContent value="notes" className="mt-0 space-y-5 px-6 py-6 pb-28 sm:px-7">
                 <div className="flex items-center gap-2 text-[12px] text-ui-text-muted">
