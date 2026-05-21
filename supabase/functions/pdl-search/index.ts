@@ -1269,14 +1269,33 @@ Deno.serve(async (req: Request) => {
       if (deterministicResults.length > 0) {
         const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
         formattedResults = rerank.candidates as unknown as Record<string, unknown>[];
+
+        // F6: build score histogram + anchor-mode flag so future regressions
+        // are debuggable from a single audit row.
+        const histogram = { "0-19": 0, "20-49": 0, "50-69": 0, "70-89": 0, "90-100": 0 };
+        for (const c of rerank.candidates as Array<Record<string, unknown>>) {
+          const s = typeof c.ai_score === "number" ? (c.ai_score as number) : null;
+          if (s === null) continue;
+          if (s < 20) histogram["0-19"]++;
+          else if (s < 50) histogram["20-49"]++;
+          else if (s < 70) histogram["50-69"]++;
+          else if (s < 90) histogram["70-89"]++;
+          else histogram["90-100"]++;
+        }
+        const anchorMode = Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids)
+          && ((parsed as Record<string, unknown>)._resolved_company_ids as unknown[]).length > 0;
+
         aiRerankMeta = {
           ai_reranked: rerank.ai_reranked,
           ai_rerank_count: rerank.ai_rerank_count ?? null,
           ai_rerank_ms: rerank.ai_rerank_ms ?? null,
           ai_rerank_error: rerank.ai_rerank_error ?? null,
+          ai_rerank_model: "claude-haiku",
+          ai_rerank_score_histogram: histogram,
+          ai_rerank_anchor_mode: anchorMode,
+          ai_rerank_top_n: rerank.candidates.length,
         };
 
-        // Cache the formatted page to avoid re-burning credits on repeat views
         if (rerank.ai_reranked) {
           setDBCache(adminClient, fullCacheKey, total, formattedResults, returnScrollToken);
         }
