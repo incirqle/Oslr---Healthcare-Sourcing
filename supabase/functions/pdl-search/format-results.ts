@@ -157,6 +157,7 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
     last_name: (p.last_name as string) || "",
     job_title: safeString(p.job_title) || "",
     job_company_name: safeString(p.job_company_name) || "",
+    job_company_id: safeString(p.job_company_id),
     job_company_industry: safeString(p.job_company_industry) || "",
     linkedin_url: safeString(p.linkedin_url),
     location_name: safeString(p.location_name) || "",
