@@ -39,25 +39,45 @@ interface RerankResult {
 }
 
 function buildBrief(c: FormattedCandidate, idx: number): Record<string, unknown> {
+  // F3: include job_company_id + headline/summary (truncated) + sub_role across
+  // top 3 experience entries with is_current flag, so the reranker can tell
+  // CURRENT vs PAST employer and judge specialty from the bio text.
+  const topExp = (c.experience || []).slice(0, 3).map((exp) => {
+    const co = (exp.company as Record<string, unknown> | null) || null;
+    const title = (exp.title as Record<string, unknown> | null) || null;
+    return {
+      company: co?.name ?? null,
+      company_id: co?.id ?? null,
+      sub_role: title?.sub_role ?? null,
+      is_current: exp.end_date == null,
+    };
+  });
+
+  const trunc = (s: string | null | undefined, n: number) =>
+    typeof s === "string" && s.length > n ? s.slice(0, n) + "…" : (s || null);
+
   return {
     idx,
     id: c.id,
     name: c.full_name,
     title: c.job_title,
     employer: c.job_company_name,
+    employer_id: c.job_company_id,
+    headline: trunc(c.headline, 280),
+    summary: trunc(c.summary, 280),
     industry: c.job_company_industry || c.industry || null,
     onet_broad: c.job_onet_broad_occupation,
     onet_specific: c.job_onet_specific_occupation,
     sub_role: c.job_title_sub_role,
     lives: [c.location_locality, c.location_region].filter(Boolean).join(", ") || null,
     practices: [c.job_company_location_locality, c.job_company_location_region].filter(Boolean).join(", ") || null,
-    skills: (c.clinical_skills || []).slice(0, 4),
+    skills: (c.clinical_skills || []).slice(0, 8),
+    top_experience: topExp,
   };
 }
 
-function buildIntentSummary(parsed: Record<string, unknown>, query: string): string {
+function buildIntentSummary(parsed: Record<string, unknown>, query: string, anchorIds: string[]): string {
   const titles = (parsed.job_titles as string[]) || [];
-  // FIX: read both plural `specialties` array AND singular `specialty` string from L2 parser
   const specsArr = (parsed.specialties as string[]) || [];
   const singleSpec = typeof parsed.specialty === "string" ? [parsed.specialty as string] : [];
   const specs = Array.from(new Set([...specsArr, ...singleSpec].filter(Boolean)));
@@ -71,6 +91,9 @@ function buildIntentSummary(parsed: Record<string, unknown>, query: string): str
   if (specs.length) parts.push(`SPECIALTY (CRITICAL — must match): ${specs.join(", ")}`);
   if (credentials.length) parts.push(`Credentials: ${credentials.join(", ")}`);
   if (companies.length) parts.push(`Employers of interest: ${companies.join(", ")}`);
+  if (anchorIds.length) {
+    parts.push(`ANCHOR_COMPANY_IDS (current employer MUST be one of these): ${anchorIds.join(", ")}`);
+  }
   if (loc.city || loc.state) {
     parts.push(`Location: ${[loc.city, loc.state].filter(Boolean).join(", ")} (practice location matters more than residence)`);
   }
@@ -96,6 +119,7 @@ Hard rules:
 - If a specialty is requested, candidates of a different physician specialty (hospitalist, family medicine, internal medicine, urgent care, OB/GYN, pediatrician, emergency medicine, regenerative medicine) should score below 50 UNLESS their title/skills show the requested specialty.
 - If a location is requested, prefer candidates whose PRACTICE location matches over those who only RESIDE there.
 - Penalize candidates whose practice is in a different US state than requested (score below 30).
+- ANCHOR EMPLOYER RULE: If ANCHOR_COMPANY_IDS is provided in the intent, candidates whose \`employer_id\` is NOT in that list MUST score ≤ 25, regardless of how well their title or specialty matches. A past employee of the anchor (anchor appears only in \`top_experience\` with \`is_current: false\`) is NOT a current employee and falls under this rule.
 - Don't penalize for missing data — score on what's present.
 
 OUTPUT FORMAT — return ONLY valid JSON, no prose, no markdown fences:
@@ -146,10 +170,14 @@ export async function rerankWithAI(
   parsed: Record<string, unknown>,
   query: string,
   _lovableApiKey: string | undefined,
+  opts: { anchorMode?: boolean; anchorCompanyIds?: string[] } = {},
 ): Promise<RerankResult> {
   if (!candidates || candidates.length === 0) {
     return { candidates, ai_reranked: false };
   }
+
+  const anchorIds = opts.anchorCompanyIds ?? [];
+  const anchorMode = opts.anchorMode ?? anchorIds.length > 0;
 
   const startMs = Date.now();
   const topN = Math.min(candidates.length, RERANK_TOP_N);
@@ -157,7 +185,7 @@ export async function rerankWithAI(
   const tail = candidates.slice(topN);
 
   const briefs = head.map(buildBrief);
-  const intent = buildIntentSummary(parsed, query);
+  const intent = buildIntentSummary(parsed, query, anchorIds);
 
   // Split into parallel batches
   const batches: Record<string, unknown>[][] = [];
@@ -165,7 +193,7 @@ export async function rerankWithAI(
     batches.push(briefs.slice(i, i + RERANK_BATCH_SIZE));
   }
 
-  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates in ${batches.length} parallel batches`);
+  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates in ${batches.length} parallel batches (anchorMode=${anchorMode})`);
 
   const batchResults = await Promise.all(
     batches.map((b, i) => scoreBatch(i, batches.length, b, intent)),
@@ -184,16 +212,20 @@ export async function rerankWithAI(
     return { candidates, ai_reranked: false, ai_rerank_error: errors.join("; ") || "no_scores" };
   }
 
-  // BLENDED scoring: 60% deterministic (which knows ONET specialty match = +30) + 40% Claude.
-  // Pure-replace was burying real cardiologists because Claude clusters scores 20-40 for everyone.
+  // F2: Anchor-mode blend trusts the LLM more (0.25 det / 0.75 ai) because the
+  // deterministic scorer rewards title/ONET matches at the wrong employer.
+  // Non-anchor searches keep the original 0.6/0.4 blend.
+  const detWeight = anchorMode ? 0.25 : 0.6;
+  const aiWeight = anchorMode ? 0.75 : 0.4;
   const reranked = head.map(c => {
     const aiScore = scoreById.get(c.id);
     if (typeof aiScore !== "number") return c;
-    const blended = Math.round(0.6 * c.relevance_score + 0.4 * aiScore);
+    const blended = Math.round(detWeight * c.relevance_score + aiWeight * aiScore);
     return { ...c, relevance_score: Math.max(0, Math.min(100, blended)), ai_score: aiScore };
   });
 
   reranked.sort((a, b) => b.relevance_score - a.relevance_score);
+
 
   const elapsed = Date.now() - startMs;
   const partial = scoreById.size < head.length;
