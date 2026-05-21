@@ -366,6 +366,7 @@ export function SearchResults({
   isSaving = false,
   geoScope = null,
   companyScope = null,
+  specialtyFunnel = null,
   sort = "relevance",
   onSortChange,
 }: SearchResultsProps) {
