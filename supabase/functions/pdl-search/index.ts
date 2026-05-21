@@ -229,6 +229,8 @@ interface ResolvedCompany {
   affiliated_ids: string[];
   affiliated_names: string[];
   wildcards: string[];
+  hq_region: string | null;
+  hq_locality: string | null;
 }
 
 /** Strip trailing city/state names that the parser may have accidentally merged
@@ -392,6 +394,15 @@ async function resolveCompanyNames(
     const affiliatedIds: string[] = [];
     const affiliatedNames: string[] = [];
     const wildcards: string[] = [];
+    let hqRegion: string | null = null;
+    let hqLocality: string | null = null;
+    const captureHq = (data: any) => {
+      const loc = data?.location;
+      if (loc && typeof loc === "object") {
+        if (!hqRegion && typeof loc.region === "string") hqRegion = loc.region.toLowerCase();
+        if (!hqLocality && typeof loc.locality === "string") hqLocality = loc.locality.toLowerCase();
+      }
+    };
 
     try {
       // ── Step 1: Company Cleaner (free) ──
@@ -463,6 +474,7 @@ async function resolveCompanyNames(
                 pdlId = eData.id || null;
                 website = eData.website || null;
                 linkedinUrl = eData.linkedin_url || null;
+                captureHq(eData);
                 // capture alt_names early since we already have the enrich payload
                 if (Array.isArray(eData.alternative_names)) {
                   for (const altName of eData.alternative_names) {
@@ -522,6 +534,7 @@ async function resolveCompanyNames(
                         pdlId = e2Data.id || null;
                         website = e2Data.website || null;
                         linkedinUrl = e2Data.linkedin_url || null;
+                        captureHq(e2Data);
                         if (Array.isArray(e2Data.alternative_names)) {
                           for (const altName of e2Data.alternative_names) {
                             if (typeof altName === "string" && altName.length > 0) {
@@ -557,6 +570,7 @@ async function resolveCompanyNames(
         results.push({
           original: name, pdl_name: null, pdl_id: null, website: null,
           linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
+          hq_region: null, hq_locality: null,
         });
         continue;
       }
@@ -570,6 +584,7 @@ async function resolveCompanyNames(
         });
         if (enrichResp.ok) {
           const enrichData = await enrichResp.json();
+          captureHq(enrichData);
           if (Array.isArray(enrichData.alternative_names)) {
             for (const altName of enrichData.alternative_names) {
               if (typeof altName === "string" && altName.length > 0) {
@@ -676,12 +691,15 @@ async function resolveCompanyNames(
         affiliated_ids: [...new Set(affiliatedIds)],
         affiliated_names: [...new Set(affiliatedNames)],
         wildcards: [...new Set(wildcards)],
+        hq_region: hqRegion,
+        hq_locality: hqLocality,
       });
     } catch (err) {
       console.error(`[COMPANY RESOLVE] Error resolving "${name}":`, err);
       results.push({
         original: name, pdl_name: null, pdl_id: null, website: null,
         linkedin_url: null, alt_names: [], affiliated_ids: [], affiliated_names: [], wildcards: [],
+        hq_region: null, hq_locality: null,
       });
     }
   }
@@ -971,6 +989,36 @@ Deno.serve(async (req: Request) => {
         (parsed as Record<string, unknown>)._resolved_company_wildcards = resolvedWildcards;
       }
 
+      // F4 (May 2026): if parser didn't return a state but the anchor company
+      // has an HQ region, fall back to anchor HQ. Wellspan parsed with
+      // location.state=null but search_notes knew "operates in pennsylvania";
+      // PA never made it into the PDL filter. Inferring it here lets the
+      // location filter clause fire as if the user had typed PA explicitly.
+      const _hqRegions = resolved.map(r => r.hq_region).filter((s): s is string => !!s);
+      const _hqLocalities = resolved.map(r => r.hq_locality).filter((s): s is string => !!s);
+      const _existingLoc = ((parsed as Record<string, unknown>).location as Record<string, unknown> | undefined) || {};
+      const _existingState = typeof _existingLoc.state === "string" ? _existingLoc.state : null;
+      const _existingLocations = Array.isArray((parsed as Record<string, unknown>).locations)
+        ? ((parsed as Record<string, unknown>).locations as unknown[])
+        : [];
+      if (!_existingState && _hqRegions.length > 0) {
+        const inferredState = _hqRegions[0];
+        (parsed as Record<string, unknown>).location = {
+          ..._existingLoc,
+          state: inferredState,
+          state_confidence: typeof _existingLoc.state_confidence === "number" ? _existingLoc.state_confidence : 0.6,
+        };
+        if (_existingLocations.length === 0) {
+          (parsed as Record<string, unknown>).locations = [{ state: inferredState }];
+        }
+        (parsed as Record<string, unknown>)._location_inferred_from = "anchor_company";
+        (parsed as Record<string, unknown>)._anchor_hq_region = inferredState;
+        if (_hqLocalities.length > 0) {
+          (parsed as Record<string, unknown>)._anchor_hq_locality = _hqLocalities[0];
+        }
+        console.log(`[F4] Location inferred from anchor HQ: state=${inferredState}, locality=${_hqLocalities[0] ?? "n/a"}`);
+      }
+
       // Multi-entity scope detection — used by frontend to surface a banner.
       const isHealthSystem = resolved.some(r => r.pdl_name && isHealthSystemParent(r.pdl_name));
       const uniqueAffiliates = [...new Set(resolvedAffiliatedNames)];
@@ -1221,14 +1269,33 @@ Deno.serve(async (req: Request) => {
       if (deterministicResults.length > 0) {
         const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
         formattedResults = rerank.candidates as unknown as Record<string, unknown>[];
+
+        // F6: build score histogram + anchor-mode flag so future regressions
+        // are debuggable from a single audit row.
+        const histogram = { "0-19": 0, "20-49": 0, "50-69": 0, "70-89": 0, "90-100": 0 };
+        for (const c of rerank.candidates as Array<Record<string, unknown>>) {
+          const s = typeof c.ai_score === "number" ? (c.ai_score as number) : null;
+          if (s === null) continue;
+          if (s < 20) histogram["0-19"]++;
+          else if (s < 50) histogram["20-49"]++;
+          else if (s < 70) histogram["50-69"]++;
+          else if (s < 90) histogram["70-89"]++;
+          else histogram["90-100"]++;
+        }
+        const anchorMode = Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids)
+          && ((parsed as Record<string, unknown>)._resolved_company_ids as unknown[]).length > 0;
+
         aiRerankMeta = {
           ai_reranked: rerank.ai_reranked,
           ai_rerank_count: rerank.ai_rerank_count ?? null,
           ai_rerank_ms: rerank.ai_rerank_ms ?? null,
           ai_rerank_error: rerank.ai_rerank_error ?? null,
+          ai_rerank_model: "claude-haiku",
+          ai_rerank_score_histogram: histogram,
+          ai_rerank_anchor_mode: anchorMode,
+          ai_rerank_top_n: rerank.candidates.length,
         };
 
-        // Cache the formatted page to avoid re-burning credits on repeat views
         if (rerank.ai_reranked) {
           setDBCache(adminClient, fullCacheKey, total, formattedResults, returnScrollToken);
         }
@@ -1269,7 +1336,7 @@ Deno.serve(async (req: Request) => {
       cascade_steps: cascadePlan,
       winning_step: cascadeWinningStep ?? null,
       timing_ms: Date.now() - requestStart,
-      meta: { page, size },
+      meta: { page, size, ai_rerank: aiRerankMeta },
     });
 
     // Build geo scope metadata for frontend transparency.

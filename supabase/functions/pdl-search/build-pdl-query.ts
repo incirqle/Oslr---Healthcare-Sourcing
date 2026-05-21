@@ -467,26 +467,34 @@ export function buildPDLQuery(
     const _isSmallPracticeForCompanyExpansion = Boolean(
       (parsed as Record<string, unknown>)._is_small_practice,
     );
-    if (hasResolvedCompanyAnchor && !_isSmallPracticeForCompanyExpansion) {
-      // Match by resolved company IDs in experience array (most precise)
+    // F1 (May 2026): when parser said current_role_only=true and we have a
+    // resolved anchor, do NOT add experience.company.* terms. Mixing them
+    // caused PDL to return anyone who ever worked at the anchor (e.g.
+    // Wellspan past employees now at Kadlec/UVA/Providence). The recall
+    // booster still fires for tenure-agnostic searches.
+    const _currentRoleOnly = (parsed as Record<string, unknown>).current_role_only !== false;
+    const _allowExperienceArrayBoost =
+      hasResolvedCompanyAnchor &&
+      !_isSmallPracticeForCompanyExpansion &&
+      !_currentRoleOnly;
+
+    if (_allowExperienceArrayBoost) {
       for (const id of resolvedIds) {
         companyClauses.push({ term: { "experience.company.id": id } });
       }
-      // Match by resolved canonical names in experience array
       for (const name of resolvedNames) {
         companyClauses.push({ term: { "experience.company.name": name } });
       }
-      // Match by resolved websites in experience array
-      // (websites are unique per company → high precision, high recall)
       for (const website of resolvedWebsites) {
         companyClauses.push({ term: { "experience.company.website": website } });
       }
-      // Affiliated company IDs in experience array
       for (const affId of resolvedAffiliatedIds) {
         companyClauses.push({ term: { "experience.company.id": affId } });
       }
     } else if (hasResolvedCompanyAnchor && _isSmallPracticeForCompanyExpansion) {
       console.log("[COMPANY] small-practice anchor → experience-array expansion SKIPPED (current-employer only for precision)");
+    } else if (hasResolvedCompanyAnchor && _currentRoleOnly) {
+      console.log("[COMPANY] current_role_only=true → experience-array expansion SKIPPED (anchor must be CURRENT employer)");
     }
 
     // Deduplicate clauses by serializing
