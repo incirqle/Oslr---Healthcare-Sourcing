@@ -102,13 +102,13 @@ interface EnrichedData {
   inferred_years_experience?: number;
   experience: {
     title: { name: string } | null;
-    company: { name: string } | null;
+    company: { name: string; website?: string | null; linkedin_url?: string | null } | null;
     start_date: string;
     end_date: string | null;
     is_primary: boolean;
   }[];
   education: {
-    school: { name: string } | null;
+    school: { name: string; website?: string | null; linkedin_url?: string | null } | null;
     degrees: string[];
     majors: string[];
     start_date: string;
@@ -122,6 +122,7 @@ interface ExperienceEntry {
   startDate: string | null;
   endDate: string | null;
   isCurrent: boolean;
+  logoDomain: string | null;
 }
 
 interface EducationEntry {
@@ -130,7 +131,9 @@ interface EducationEntry {
   major: string | null;
   startDate: string | null;
   endDate: string | null;
+  logoDomain: string | null;
 }
+
 
 function SectionHeading({ label }: { label: string }) {
   return <h3 className="text-[14px] font-semibold uppercase tracking-[0.5px] text-ui-text-muted">{label}</h3>;
