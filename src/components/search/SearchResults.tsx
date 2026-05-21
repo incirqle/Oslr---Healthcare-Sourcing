@@ -48,6 +48,8 @@ export interface Candidate {
   location: string | null;
   linkedin_url: string | null;
   email: string | null;
+  work_email?: string | null;
+  personal_email?: string | null;
   phone: string | null;
   skills: string[];
   avg_tenure_months: number | null;
@@ -179,21 +181,68 @@ function MiddleColumn({
 }
 
 function ContactIcons({ candidate }: { candidate: Candidate }) {
-  const hasEmail = !!candidate.email || !!candidate.has_email;
+  const workEmail = candidate.work_email || null;
+  const personalEmail = candidate.personal_email || null;
+  const legacyEmail = !workEmail && !personalEmail ? candidate.email : null;
+  const hasAnyEmail = !!(workEmail || personalEmail || legacyEmail || candidate.has_email);
   const hasPhone = !!candidate.phone || !!candidate.has_phone;
-  if (!hasEmail && !hasPhone) return null;
+  if (!hasAnyEmail && !hasPhone) return null;
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex items-center gap-1.5">
-        {hasEmail && (
+        {workEmail && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-info/10 text-info">
+              <a
+                href={`mailto:${workEmail}`}
+                onClick={stop}
+                className="inline-flex h-6 items-center gap-1 rounded-full bg-info/10 px-1.5 text-[10px] font-medium uppercase tracking-wide text-info hover:bg-info/20"
+              >
                 <Mail className="h-3 w-3" aria-hidden="true" />
-                <span className="sr-only">Email available</span>
-              </span>
+                Work
+              </a>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">Work email available</TooltipContent>
+            <TooltipContent side="top" className="text-xs">{workEmail}</TooltipContent>
+          </Tooltip>
+        )}
+        {personalEmail && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={`mailto:${personalEmail}`}
+                onClick={stop}
+                className="inline-flex h-6 items-center gap-1 rounded-full bg-info/10 px-1.5 text-[10px] font-medium uppercase tracking-wide text-info hover:bg-info/20"
+              >
+                <Mail className="h-3 w-3" aria-hidden="true" />
+                Personal
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">{personalEmail}</TooltipContent>
+          </Tooltip>
+        )}
+        {!workEmail && !personalEmail && (legacyEmail || candidate.has_email) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {legacyEmail ? (
+                <a
+                  href={`mailto:${legacyEmail}`}
+                  onClick={stop}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-info/10 text-info hover:bg-info/20"
+                >
+                  <Mail className="h-3 w-3" aria-hidden="true" />
+                  <span className="sr-only">Email available</span>
+                </a>
+              ) : (
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-info/10 text-info">
+                  <Mail className="h-3 w-3" aria-hidden="true" />
+                  <span className="sr-only">Email available</span>
+                </span>
+              )}
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">Email available</TooltipContent>
           </Tooltip>
         )}
         {hasPhone && (
