@@ -48,6 +48,8 @@ export interface FormattedCandidate {
   gender: string | null;
   emails: string[];
   email: string | null;
+  work_email: string | null;
+  personal_email: string | null;
   phone: string | null;
   mobile_phone: string | null;
   phone_numbers: string[];
@@ -178,8 +180,11 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
     years_experience: yearsExp,
     gender: safeString(p.gender),
     emails: emails.map(e => e.address),
-    // Contact priority: mobile_phone → recommended_personal_email → work_email → first email
+    work_email: typeof p.work_email === "string" ? p.work_email : null,
+    personal_email: typeof p.recommended_personal_email === "string" ? p.recommended_personal_email : null,
+    // Contact priority: work_email → mobile_phone (if email) → recommended_personal_email → typed work email → first email
     email: (() => {
+      if (typeof p.work_email === "string") return p.work_email as string;
       if (typeof p.mobile_phone === "string" && p.mobile_phone.includes("@")) return p.mobile_phone as string;
       const recPersonal = safeString((p as Record<string, unknown>).recommended_personal_email);
       if (recPersonal) return recPersonal;
@@ -193,7 +198,7 @@ export function mapPerson(raw: Record<string, unknown>): FormattedCandidate {
       return phones.length > 0 ? phones[0] : null;
     })(),
     mobile_phone: typeof p.mobile_phone === "string" ? p.mobile_phone : null,
-    has_contact_info: emails.length > 0 || phones.length > 0 || typeof p.mobile_phone === "string",
+    has_contact_info: !!(typeof p.work_email === "string" || typeof p.recommended_personal_email === "string") || emails.length > 0 || phones.length > 0 || typeof p.mobile_phone === "string",
     phone_numbers: phones,
     profiles: Array.isArray(p.profiles) ? p.profiles as Record<string, unknown>[] : [],
     // NEW V2 fields
