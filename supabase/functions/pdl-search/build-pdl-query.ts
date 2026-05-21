@@ -427,7 +427,9 @@ export function buildPDLQuery(
     }
 
     // 4. All alternative names discovered via Enrichment + Autocomplete
-    for (const altName of resolvedAltNames.slice(0, 30)) {
+    // G4 — cap at 12 (was 30): long alt-name tails were including unrelated
+    // brand aliases (e.g. shared marketing names across health systems).
+    for (const altName of resolvedAltNames.slice(0, 12)) {
       companyClauses.push({ term: { job_company_name: altName } });
     }
 
@@ -437,9 +439,16 @@ export function buildPDLQuery(
     }
 
     // 6. Wildcard patterns for root name expansion
-    for (const pattern of resolvedWildcards.slice(0, 5)) {
-      const wc = addWildcard("job_company_name", pattern);
-      if (wc) companyClauses.push(wc);
+    // G4 — when we have a resolved anchor (ID + ≥1 alt name), the wildcard
+    // adds noise (any company whose name contains the phrase matches). Skip.
+    const _skipCompanyWildcards = hasResolvedCompanyAnchor && resolvedIds.length > 0 && resolvedAltNames.length > 0;
+    if (!_skipCompanyWildcards) {
+      for (const pattern of resolvedWildcards.slice(0, 5)) {
+        const wc = addWildcard("job_company_name", pattern);
+        if (wc) companyClauses.push(wc);
+      }
+    } else if (resolvedWildcards.length > 0) {
+      console.log(`[G4] Skipped ${resolvedWildcards.length} company wildcard(s) — resolver has high-confidence ID+alt-names`);
     }
 
     // 7. Original + static variant names as fallback
@@ -619,19 +628,38 @@ export function buildPDLQuery(
         // specialty-aware ranker still surfaces real specialists at the top.
         if (!omitSpecialtyMust) {
           const mustHaveSpecialty: Clause[] = [];
-          for (const kw of allKeywordTerms.slice(0, 8)) {
+          // G2 — only the FIRST (most canonical) specialty term is broadcast
+          // across summary/headline/skills; additional terms only contribute
+          // job_title.text matching. Generic categories ("surgery", "medicine")
+          // and short roots get NO sub_role / wildcard signal — those are the
+          // exact paths that let any surgeon satisfy this gate.
+          const G2_GENERIC = new Set([
+            "surgery", "medicine", "internal medicine", "general surgery",
+            "primary care", "clinical", "medical",
+          ]);
+          for (const [idx, kw] of allKeywordTerms.slice(0, 8).entries()) {
             const lower = kw.toLowerCase();
-            // Match across the broadest possible specialty surfaces
-            mustHaveSpecialty.push({ match: { "job_title.text": kw } });
-            mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
-            mustHaveSpecialty.push({ term: { skills: lower } });
-            mustHaveSpecialty.push({ match: { summary: kw } });
-            mustHaveSpecialty.push({ match: { headline: kw } });
-            // Title wildcard catches "interventional cardiology", "cardiac electrophysiology" etc.
+            const isGeneric = G2_GENERIC.has(lower);
             const root = lower.replace(/(s|ic|ics|y)$/i, "");
-            if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
-              wildcardCount++;
-              mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+            const isTooShort = root.length < 6;
+
+            // Always allow title.text match
+            mustHaveSpecialty.push({ match: { "job_title.text": kw } });
+
+            // Bio-level signals only for the FIRST canonical term
+            if (idx === 0 && !isGeneric) {
+              mustHaveSpecialty.push({ match: { summary: kw } });
+              mustHaveSpecialty.push({ match: { headline: kw } });
+              mustHaveSpecialty.push({ term: { skills: lower } });
+            }
+
+            // sub_role + wildcard only for SPECIFIC, long-rooted specialties
+            if (!isGeneric && !isTooShort) {
+              mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
+              if (wildcardCount < MAX_WILDCARDS) {
+                wildcardCount++;
+                mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+              }
             }
           }
           if (mustHaveSpecialty.length > 0) {
@@ -675,8 +703,14 @@ export function buildPDLQuery(
   // FIX: Removed title matching from industry clauses.
   //      Role precision is handled by job_title_sub_role below.
   // ═══════════════════════════════════════════
+  // G4 — when we have a resolved healthcare-system anchor, drop the
+  // low-precision "health, wellness & fitness" industry (gyms, supplements,
+  // alt-med). The company hard filter is the strong constraint at that point.
+  const _industriesForFilter = hasResolvedCompanyAnchor
+    ? HEALTHCARE_INDUSTRIES.filter(ind => ind !== "health, wellness & fitness")
+    : HEALTHCARE_INDUSTRIES;
   const industryClauses: Clause[] = [];
-  for (const ind of HEALTHCARE_INDUSTRIES) {
+  for (const ind of _industriesForFilter) {
     industryClauses.push({ term: { industry: ind } });
     industryClauses.push({ term: { job_company_industry: ind } });
   }
@@ -964,6 +998,88 @@ export function buildPDLQuery(
         filterClauses.push({ bool: { should: doctorRoleShould } });
         console.log("[QUERY MODE] doctor + no-company → strict O*NET role filter");
       }
+
+      // ─────────────────────────────────────────────
+      // G3 — SPECIALTY-SPECIFIC ONET PRECISION GATE
+      // When the parser is confident about a physician subspecialty AND we
+      // already have a company anchor, narrow the role filter to that
+      // subspecialty's ONET buckets and exclude other surgeon/physician
+      // ONETs. Without this, a "Wellspan orthopedic surgeon" search returned
+      // every vascular/cardiothoracic/neuro surgeon at Wellspan because the
+      // role gate was wide-open (sub_role:doctor OR ONET Physicians/Surgeons).
+      // ─────────────────────────────────────────────
+      const SPECIALTY_ONET_HARD: Record<string, { include: string[]; exclude: string[]; titleWildcards: string[]; titlePhrases: string[] }> = {
+        orthopedics: {
+          include: [
+            "Orthopedic Surgeons",
+            "Orthopedic Surgeons, Except Pediatric",
+            "Surgeons, Orthopedic",
+            "Pediatric Surgeons",
+            "Surgeons, All Other",
+          ],
+          exclude: [
+            "Cardiothoracic Surgeons", "Cardiovascular Surgeons",
+            "Neurological Surgery Physicians", "Neurosurgeons",
+            "Vascular Surgeons", "Oral and Maxillofacial Surgeons",
+            "Plastic Surgeons", "Bariatric Surgeons",
+          ],
+          titleWildcards: ["*orthopedi*", "*orthopaedi*"],
+          titlePhrases: ["orthopedic surgeon", "orthopaedic surgeon", "orthopedist", "orthopaedist"],
+        },
+        cardiology: {
+          include: ["Cardiologists", "Cardiothoracic Surgeons", "Cardiovascular Surgeons"],
+          exclude: [
+            "Neurological Surgery Physicians", "Neurosurgeons",
+            "Orthopedic Surgeons", "Orthopedic Surgeons, Except Pediatric",
+            "Vascular Surgeons", "Oral and Maxillofacial Surgeons", "Plastic Surgeons",
+          ],
+          titleWildcards: ["*cardio*"],
+          titlePhrases: ["cardiologist", "cardiac surgeon", "cardiothoracic surgeon"],
+        },
+        neurology: {
+          include: ["Neurologists", "Neurological Surgery Physicians", "Neurosurgeons"],
+          exclude: [
+            "Cardiothoracic Surgeons", "Orthopedic Surgeons", "Vascular Surgeons",
+            "Oral and Maxillofacial Surgeons", "Plastic Surgeons",
+          ],
+          titleWildcards: ["*neuro*"],
+          titlePhrases: ["neurologist", "neurosurgeon", "neurological surgeon"],
+        },
+        oncology: {
+          include: ["Oncologists", "Hematologists/Oncologists", "Pathologists"],
+          exclude: [
+            "Cardiothoracic Surgeons", "Orthopedic Surgeons", "Vascular Surgeons",
+            "Neurological Surgery Physicians", "Plastic Surgeons",
+          ],
+          titleWildcards: ["*oncolog*"],
+          titlePhrases: ["oncologist", "hematologist oncologist", "medical oncologist", "surgical oncologist"],
+        },
+      };
+
+      const _specLower = specialties.map(s => s.toLowerCase());
+      const _specKey = Object.keys(SPECIALTY_ONET_HARD).find(k => _specLower.includes(k))
+        || (_specLower.some(s => /ortho/.test(s)) ? "orthopedics" : null);
+      if (_specKey && hasResolvedCompanyAnchor) {
+        const cfg = SPECIALTY_ONET_HARD[_specKey];
+        const should: Clause[] = [
+          { terms: { job_onet_specific_occupation: cfg.include } },
+          { term: { job_title_sub_role: _specKey === "orthopedics" ? "orthopedic surgeon" : _specKey } },
+        ];
+        for (const wc of cfg.titleWildcards) {
+          if (wildcardCount < MAX_WILDCARDS) { wildcardCount++; should.push({ wildcard: { job_title: wc } }); }
+        }
+        for (const phr of cfg.titlePhrases) {
+          should.push({ match_phrase: { "job_title.text": phr } });
+          should.push({ match_phrase: { headline: phr } });
+          should.push({ match_phrase: { summary: phr } });
+        }
+        filterClauses.push({ bool: { should } });
+        for (const ex of cfg.exclude) {
+          mustNot.push({ term: { job_onet_specific_occupation: ex } });
+        }
+        console.log(`[G3] specialty-specific ONET gate: "${_specKey}" → ${cfg.include.length} include, ${cfg.exclude.length} ONET exclude, ${cfg.titlePhrases.length} title phrases`);
+      }
+
 
       // ALWAYS-ON unambiguous O*NET exclusions — these are never doctors,
       // regardless of employer. Safe in both modes.

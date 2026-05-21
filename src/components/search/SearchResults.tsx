@@ -84,6 +84,14 @@ interface CompanyScope {
   multi_entity?: boolean;
 }
 
+interface SpecialtyFunnel {
+  parsed_specialties?: string[];
+  ortho_intent?: boolean;
+  on_specialty_count?: number;
+  on_specialty_pct?: number;
+  onet_distribution?: Record<string, number>;
+}
+
 export type SortOption = "relevance" | "recent" | "experienced" | "senior";
 
 interface SearchResultsProps {
@@ -110,6 +118,7 @@ interface SearchResultsProps {
   isSaving?: boolean;
   geoScope?: GeoScope | null;
   companyScope?: CompanyScope | null;
+  specialtyFunnel?: SpecialtyFunnel | null;
   sort?: SortOption;
   onSortChange?: (s: SortOption) => void;
 }
@@ -357,6 +366,7 @@ export function SearchResults({
   isSaving = false,
   geoScope = null,
   companyScope = null,
+  specialtyFunnel = null,
   sort = "relevance",
   onSortChange,
 }: SearchResultsProps) {
@@ -518,7 +528,16 @@ export function SearchResults({
           {queryContext && (
             <p className="mt-0.5 truncate text-sm text-muted-foreground">{queryContext}</p>
           )}
+          {specialtyFunnel?.parsed_specialties && specialtyFunnel.parsed_specialties.length > 0 && typeof specialtyFunnel.on_specialty_count === "number" && (
+            <p className="mt-0.5 text-xs text-muted-foreground/80">
+              Specialty: <span className="text-foreground/80">{toTitleCase(specialtyFunnel.parsed_specialties[0])}</span>
+              {" — "}
+              {specialtyFunnel.on_specialty_count} on-specialty of {candidates.length} shown
+              {typeof specialtyFunnel.on_specialty_pct === "number" && ` (${Math.round(specialtyFunnel.on_specialty_pct * 100)}%)`}
+            </p>
+          )}
         </div>
+
 
         <div className="flex flex-wrap items-center gap-2">
           {onSortChange && (

@@ -52,6 +52,7 @@ export default function SearchPage() {
   const [scrollToken, setScrollToken] = useState<string | null>(null);
   const [geoScope, setGeoScope] = useState<Record<string, unknown> | null>(null);
   const [companyScope, setCompanyScope] = useState<Record<string, unknown> | null>(null);
+  const [specialtyFunnel, setSpecialtyFunnel] = useState<Record<string, unknown> | null>(null);
   const [searchPhase, setSearchPhase] = useState<"idle" | "running" | "done" | "error">("idle");
 
   // Auto-run a search if ?q= is present (e.g. coming from onboarding step 5)

@@ -14,6 +14,18 @@ import { KEYWORD_EXPANSIONS } from "./config.ts";
 /* Post-AI keyword expansion                                           */
 /* ------------------------------------------------------------------ */
 
+// G1 — Generic specialty categories and bare role words that, when present in
+// `specialties` or `required_keywords`, OR-match every surgeon/physician and
+// destroy precision. Strip them when a more-specific signal is present.
+export const GENERIC_SPECIALTY_CATEGORIES = new Set([
+  "surgery", "medicine", "internal medicine", "general surgery",
+  "primary care", "clinical", "medical",
+]);
+const BARE_ROLE_KEYWORDS = new Set([
+  "surgeon", "physician", "attending", "attending surgeon",
+  "surgical physician", "doctor", "md", "do", "clinician",
+]);
+
 export function expandParsedKeywords(parsed: Record<string, unknown>, originalQuery: string): void {
   const specialties = (parsed.specialties as string[]) || [];
   const requiredKeywords = (parsed.required_keywords as string[]) || [];
@@ -37,8 +49,31 @@ export function expandParsedKeywords(parsed: Record<string, unknown>, originalQu
     }
   }
 
-  if (specialties.length > 0) parsed.specialties = specialties;
-  if (requiredKeywords.length > 0) parsed.required_keywords = requiredKeywords;
+  // G1 — drop generic category specialties when a specific one is present.
+  // E.g. ["orthopedics","surgery"] → ["orthopedics"]. Without this, the OR-gate
+  // built downstream is satisfied by any surgeon (vascular, neuro, cardiac…).
+  if (specialties.length > 1) {
+    const specific = specialties.filter(s => !GENERIC_SPECIALTY_CATEGORIES.has(s.toLowerCase()));
+    if (specific.length > 0 && specific.length < specialties.length) {
+      const dropped = specialties.filter(s => !specific.includes(s));
+      console.log(`[G1] Dropped generic specialty categories: ${dropped.join(", ")}`);
+      parsed.specialties = specific;
+    } else {
+      parsed.specialties = specialties;
+    }
+  } else if (specialties.length > 0) {
+    parsed.specialties = specialties;
+  }
+
+  // G1 — strip bare role words from required_keywords (already encoded as titles)
+  if (requiredKeywords.length > 0) {
+    const filtered = requiredKeywords.filter(k => !BARE_ROLE_KEYWORDS.has(k.toLowerCase().trim()));
+    if (filtered.length < requiredKeywords.length) {
+      const dropped = requiredKeywords.filter(k => !filtered.includes(k));
+      console.log(`[G1] Dropped bare role keywords: ${dropped.join(", ")}`);
+    }
+    parsed.required_keywords = filtered;
+  }
 }
 
 /* ------------------------------------------------------------------ */

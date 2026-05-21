@@ -85,10 +85,16 @@ function buildIntentSummary(parsed: Record<string, unknown>, query: string, anch
   const companies = (parsed.current_companies as string[]) || (parsed.companies as string[]) || [];
   const credentials = (parsed.credentials as string[]) || [];
 
+  // G6 — first canonical specialty drives the hard specialty rule
+  const requiredSpecialty = specs[0] || null;
+
   const parts: string[] = [];
   parts.push(`Original query: "${query}"`);
   if (titles.length) parts.push(`Roles wanted: ${titles.join(", ")}`);
   if (specs.length) parts.push(`SPECIALTY (CRITICAL — must match): ${specs.join(", ")}`);
+  if (requiredSpecialty) {
+    parts.push(`REQUIRED_SPECIALTY: ${requiredSpecialty}`);
+  }
   if (credentials.length) parts.push(`Credentials: ${credentials.join(", ")}`);
   if (companies.length) parts.push(`Employers of interest: ${companies.join(", ")}`);
   if (anchorIds.length) {
@@ -120,6 +126,7 @@ Hard rules:
 - If a location is requested, prefer candidates whose PRACTICE location matches over those who only RESIDE there.
 - Penalize candidates whose practice is in a different US state than requested (score below 30).
 - ANCHOR EMPLOYER RULE: If ANCHOR_COMPANY_IDS is provided in the intent, candidates whose \`employer_id\` is NOT in that list MUST score ≤ 25, regardless of how well their title or specialty matches. A past employee of the anchor (anchor appears only in \`top_experience\` with \`is_current: false\`) is NOT a current employee and falls under this rule.
+- REQUIRED SPECIALTY RULE: If REQUIRED_SPECIALTY is provided (e.g. "orthopedics", "cardiology", "neurology"), candidates whose \`onet_specific\`, \`onet_broad\`, \`sub_role\`, \`title\`, \`headline\`, and \`summary\` contain NO signal of that specialty MUST score ≤ 25. A vascular surgeon, cardiothoracic surgeon, or general hospitalist at the anchor employer is NOT a match when REQUIRED_SPECIALTY is "orthopedics". Specialty signal counts include subspecialties (e.g. "spine surgeon", "hand surgeon", "sports medicine" all satisfy orthopedics).
 - Don't penalize for missing data — score on what's present.
 
 OUTPUT FORMAT — return ONLY valid JSON, no prose, no markdown fences:
