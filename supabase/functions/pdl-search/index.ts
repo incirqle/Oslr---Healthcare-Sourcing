@@ -989,6 +989,36 @@ Deno.serve(async (req: Request) => {
         (parsed as Record<string, unknown>)._resolved_company_wildcards = resolvedWildcards;
       }
 
+      // F4 (May 2026): if parser didn't return a state but the anchor company
+      // has an HQ region, fall back to anchor HQ. Wellspan parsed with
+      // location.state=null but search_notes knew "operates in pennsylvania";
+      // PA never made it into the PDL filter. Inferring it here lets the
+      // location filter clause fire as if the user had typed PA explicitly.
+      const _hqRegions = resolved.map(r => r.hq_region).filter((s): s is string => !!s);
+      const _hqLocalities = resolved.map(r => r.hq_locality).filter((s): s is string => !!s);
+      const _existingLoc = ((parsed as Record<string, unknown>).location as Record<string, unknown> | undefined) || {};
+      const _existingState = typeof _existingLoc.state === "string" ? _existingLoc.state : null;
+      const _existingLocations = Array.isArray((parsed as Record<string, unknown>).locations)
+        ? ((parsed as Record<string, unknown>).locations as unknown[])
+        : [];
+      if (!_existingState && _hqRegions.length > 0) {
+        const inferredState = _hqRegions[0];
+        (parsed as Record<string, unknown>).location = {
+          ..._existingLoc,
+          state: inferredState,
+          state_confidence: typeof _existingLoc.state_confidence === "number" ? _existingLoc.state_confidence : 0.6,
+        };
+        if (_existingLocations.length === 0) {
+          (parsed as Record<string, unknown>).locations = [{ state: inferredState }];
+        }
+        (parsed as Record<string, unknown>)._location_inferred_from = "anchor_company";
+        (parsed as Record<string, unknown>)._anchor_hq_region = inferredState;
+        if (_hqLocalities.length > 0) {
+          (parsed as Record<string, unknown>)._anchor_hq_locality = _hqLocalities[0];
+        }
+        console.log(`[F4] Location inferred from anchor HQ: state=${inferredState}, locality=${_hqLocalities[0] ?? "n/a"}`);
+      }
+
       // Multi-entity scope detection — used by frontend to surface a banner.
       const isHealthSystem = resolved.some(r => r.pdl_name && isHealthSystemParent(r.pdl_name));
       const uniqueAffiliates = [...new Set(resolvedAffiliatedNames)];
