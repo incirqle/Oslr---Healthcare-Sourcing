@@ -427,20 +427,16 @@ export default function SearchPage() {
             {/* Zero-result helper after stream completes */}
             {searchPhase === "done" && total === 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Try removing the tightest constraint:
+                <p className="text-sm text-muted-foreground">
+                  No matches. Open{" "}
+                  <button
+                    onClick={() => setFilterEditorOpen(true)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Refine
+                  </button>{" "}
+                  to loosen your filters.
                 </p>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {activeFilters.slice(0, 4).map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => handleRemoveActiveFilter(f.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                    >
-                      Remove {f.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
           </div>
