@@ -36,6 +36,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 import {
   ArrowLeft,
   Building2,
@@ -384,6 +386,16 @@ export default function ProjectDetail() {
                   </Button>
                 </div>
               )}
+              <ExportMenu
+                getCandidates={() =>
+                  selectedIds.size > 0
+                    ? (filteredCandidates.filter((c) => selectedIds.has(c.id)) as unknown as AnyCandidate[])
+                    : (filteredCandidates as unknown as AnyCandidate[])
+                }
+                pdfDisabled
+                size="sm"
+                className="h-8"
+              />
               <div className="relative max-w-[220px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
