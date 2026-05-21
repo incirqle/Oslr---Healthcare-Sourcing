@@ -984,6 +984,88 @@ export function buildPDLQuery(
         console.log("[QUERY MODE] doctor + no-company → strict O*NET role filter");
       }
 
+      // ─────────────────────────────────────────────
+      // G3 — SPECIALTY-SPECIFIC ONET PRECISION GATE
+      // When the parser is confident about a physician subspecialty AND we
+      // already have a company anchor, narrow the role filter to that
+      // subspecialty's ONET buckets and exclude other surgeon/physician
+      // ONETs. Without this, a "Wellspan orthopedic surgeon" search returned
+      // every vascular/cardiothoracic/neuro surgeon at Wellspan because the
+      // role gate was wide-open (sub_role:doctor OR ONET Physicians/Surgeons).
+      // ─────────────────────────────────────────────
+      const SPECIALTY_ONET_HARD: Record<string, { include: string[]; exclude: string[]; titleWildcards: string[]; titlePhrases: string[] }> = {
+        orthopedics: {
+          include: [
+            "Orthopedic Surgeons",
+            "Orthopedic Surgeons, Except Pediatric",
+            "Surgeons, Orthopedic",
+            "Pediatric Surgeons",
+            "Surgeons, All Other",
+          ],
+          exclude: [
+            "Cardiothoracic Surgeons", "Cardiovascular Surgeons",
+            "Neurological Surgery Physicians", "Neurosurgeons",
+            "Vascular Surgeons", "Oral and Maxillofacial Surgeons",
+            "Plastic Surgeons", "Bariatric Surgeons",
+          ],
+          titleWildcards: ["*orthopedi*", "*orthopaedi*"],
+          titlePhrases: ["orthopedic surgeon", "orthopaedic surgeon", "orthopedist", "orthopaedist"],
+        },
+        cardiology: {
+          include: ["Cardiologists", "Cardiothoracic Surgeons", "Cardiovascular Surgeons"],
+          exclude: [
+            "Neurological Surgery Physicians", "Neurosurgeons",
+            "Orthopedic Surgeons", "Orthopedic Surgeons, Except Pediatric",
+            "Vascular Surgeons", "Oral and Maxillofacial Surgeons", "Plastic Surgeons",
+          ],
+          titleWildcards: ["*cardio*"],
+          titlePhrases: ["cardiologist", "cardiac surgeon", "cardiothoracic surgeon"],
+        },
+        neurology: {
+          include: ["Neurologists", "Neurological Surgery Physicians", "Neurosurgeons"],
+          exclude: [
+            "Cardiothoracic Surgeons", "Orthopedic Surgeons", "Vascular Surgeons",
+            "Oral and Maxillofacial Surgeons", "Plastic Surgeons",
+          ],
+          titleWildcards: ["*neuro*"],
+          titlePhrases: ["neurologist", "neurosurgeon", "neurological surgeon"],
+        },
+        oncology: {
+          include: ["Oncologists", "Hematologists/Oncologists", "Pathologists"],
+          exclude: [
+            "Cardiothoracic Surgeons", "Orthopedic Surgeons", "Vascular Surgeons",
+            "Neurological Surgery Physicians", "Plastic Surgeons",
+          ],
+          titleWildcards: ["*oncolog*"],
+          titlePhrases: ["oncologist", "hematologist oncologist", "medical oncologist", "surgical oncologist"],
+        },
+      };
+
+      const _specLower = specialties.map(s => s.toLowerCase());
+      const _specKey = Object.keys(SPECIALTY_ONET_HARD).find(k => _specLower.includes(k))
+        || (_specLower.some(s => /ortho/.test(s)) ? "orthopedics" : null);
+      if (_specKey && hasResolvedCompanyAnchor) {
+        const cfg = SPECIALTY_ONET_HARD[_specKey];
+        const should: Clause[] = [
+          { terms: { job_onet_specific_occupation: cfg.include } },
+          { term: { job_title_sub_role: _specKey === "orthopedics" ? "orthopedic surgeon" : _specKey } },
+        ];
+        for (const wc of cfg.titleWildcards) {
+          if (wildcardCount < MAX_WILDCARDS) { wildcardCount++; should.push({ wildcard: { job_title: wc } }); }
+        }
+        for (const phr of cfg.titlePhrases) {
+          should.push({ match_phrase: { "job_title.text": phr } });
+          should.push({ match_phrase: { headline: phr } });
+          should.push({ match_phrase: { summary: phr } });
+        }
+        filterClauses.push({ bool: { should } });
+        for (const ex of cfg.exclude) {
+          mustNot.push({ term: { job_onet_specific_occupation: ex } });
+        }
+        console.log(`[G3] specialty-specific ONET gate: "${_specKey}" → ${cfg.include.length} include, ${cfg.exclude.length} ONET exclude, ${cfg.titlePhrases.length} title phrases`);
+      }
+
+
       // ALWAYS-ON unambiguous O*NET exclusions — these are never doctors,
       // regardless of employer. Safe in both modes.
       mustNot.push({ term: { job_onet_broad_occupation:   "Physician Assistants" } });
