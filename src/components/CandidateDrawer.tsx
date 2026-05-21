@@ -57,6 +57,8 @@ import {
   isPromotion,
   type ExperienceEntryLike,
 } from "@/components/search/candidate-insights";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 
 
 interface CandidateDrawerProps {
@@ -1386,7 +1388,7 @@ export function CandidateDrawer({
           </Tabs>
 
           <div className="shrink-0 border-t border-ui-border-light bg-card px-6 py-4 sm:px-7">
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
                 type="button"
                 variant="outline"
@@ -1403,6 +1405,14 @@ export function CandidateDrawer({
               >
                 Add to Campaign
               </Button>
+              {candidate && (
+                <ExportMenu
+                  getCandidates={() => [candidate as unknown as AnyCandidate]}
+                  size="default"
+                  className="h-12 sm:w-auto"
+                  align="end"
+                />
+              )}
             </div>
           </div>
         </div>
