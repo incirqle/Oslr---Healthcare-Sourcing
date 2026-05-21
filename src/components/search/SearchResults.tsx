@@ -116,6 +116,7 @@ interface SearchResultsProps {
   pageSize?: number;
   onPageChange?: (page: number) => void;
   isSaving?: boolean;
+  isLoading?: boolean;
   geoScope?: GeoScope | null;
   companyScope?: CompanyScope | null;
   specialtyFunnel?: SpecialtyFunnel | null;
@@ -364,6 +365,7 @@ export function SearchResults({
   pageSize = 15,
   onPageChange,
   isSaving = false,
+  isLoading = false,
   geoScope = null,
   companyScope = null,
   specialtyFunnel = null,
@@ -591,7 +593,7 @@ export function SearchResults({
 
       {totalPages > 1 && onPageChange && (
         <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground tabular-nums">
             Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total.toLocaleString()}
           </p>
 
@@ -599,44 +601,48 @@ export function SearchResults({
             <Button
               variant="outline"
               size="sm"
-              disabled={page <= 1}
+              disabled={page <= 1 || isLoading}
               onClick={() => onPageChange(page - 1)}
-              className="h-9 gap-1.5"
+              className="h-9 gap-1.5 transition-opacity"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               Previous
             </Button>
 
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
-              let pageNumber = index + 1;
-              if (totalPages > 5) {
-                if (page <= 3) pageNumber = index + 1;
-                else if (page >= totalPages - 2) pageNumber = totalPages - 4 + index;
-                else pageNumber = page - 2 + index;
-              }
-              const isCurrentPage = pageNumber === page;
-              return (
-                <Button
-                  key={pageNumber}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onPageChange(pageNumber)}
-                  className={cn(
-                    "h-9 w-9 p-0 text-sm",
-                    isCurrentPage && "border-primary bg-primary/10 text-primary hover:bg-primary/15",
-                  )}
-                >
-                  {pageNumber}
-                </Button>
-              );
-            })}
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
+                let pageNumber = index + 1;
+                if (totalPages > 5) {
+                  if (page <= 3) pageNumber = index + 1;
+                  else if (page >= totalPages - 2) pageNumber = totalPages - 4 + index;
+                  else pageNumber = page - 2 + index;
+                }
+                const isCurrentPage = pageNumber === page;
+                return (
+                  <Button
+                    key={pageNumber}
+                    variant="outline"
+                    size="sm"
+                    disabled={isLoading}
+                    onClick={() => onPageChange(pageNumber)}
+                    className={cn(
+                      "h-9 w-9 shrink-0 p-0 text-sm tabular-nums transition-colors",
+                      isCurrentPage && "border-primary bg-primary/10 text-primary hover:bg-primary/15",
+                      isLoading && !isCurrentPage && "opacity-60",
+                    )}
+                  >
+                    {pageNumber}
+                  </Button>
+                );
+              })}
+            </div>
 
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages}
+              disabled={page >= totalPages || isLoading}
               onClick={() => onPageChange(page + 1)}
-              className="h-9 gap-1.5"
+              className="h-9 gap-1.5 transition-opacity"
             >
               Next
               <ChevronRight className="h-3.5 w-3.5" />
