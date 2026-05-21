@@ -118,6 +118,7 @@ interface SearchResultsProps {
   isSaving?: boolean;
   geoScope?: GeoScope | null;
   companyScope?: CompanyScope | null;
+  specialtyFunnel?: SpecialtyFunnel | null;
   sort?: SortOption;
   onSortChange?: (s: SortOption) => void;
 }
