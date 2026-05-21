@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
+import { useCandidateSnapshot } from "@/hooks/useCandidateSnapshot";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -233,8 +235,32 @@ function CandidateRow({
 }) {
   const displayName = toTitleCase(cleanDisplayName(candidate.full_name));
 
+  // Generate AI snapshot only once the row has been visible briefly.
+  // Avoids spending tokens on rows the user never sees.
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el || visible) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          // Small delay so rapid scroll-through doesn't trigger fetches.
+          const t = setTimeout(() => setVisible(true), 350);
+          return () => clearTimeout(t);
+        }
+      },
+      { rootMargin: "120px 0px", threshold: 0.2 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  const { snapshot, loading: snapshotLoading } = useCandidateSnapshot(candidate, visible);
+
   return (
     <div
+      ref={rowRef}
       className={cn(
         "group cursor-pointer border-b border-border/40 bg-card px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/40",
         isSelected && "bg-primary/5",
@@ -339,6 +365,20 @@ function CandidateRow({
           </div>
         </div>
       </div>
+
+      {/* AI snapshot — one-sentence recruiter take, lazily generated when row enters viewport */}
+      {(snapshot || snapshotLoading) && (
+        <div className="mt-2 ml-[3.25rem] flex items-start gap-1.5 pr-2">
+          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
+          {snapshotLoading && !snapshot ? (
+            <span className="inline-block h-3 w-2/3 max-w-[28rem] animate-pulse rounded bg-muted/40" />
+          ) : (
+            <p className="text-[12.5px] leading-snug text-muted-foreground/90 italic line-clamp-2">
+              {snapshot}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
