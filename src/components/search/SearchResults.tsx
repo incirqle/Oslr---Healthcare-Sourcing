@@ -116,6 +116,7 @@ interface SearchResultsProps {
   pageSize?: number;
   onPageChange?: (page: number) => void;
   isSaving?: boolean;
+  isLoading?: boolean;
   geoScope?: GeoScope | null;
   companyScope?: CompanyScope | null;
   specialtyFunnel?: SpecialtyFunnel | null;
