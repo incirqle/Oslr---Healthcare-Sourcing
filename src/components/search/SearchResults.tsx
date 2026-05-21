@@ -340,8 +340,6 @@ function CandidateRow({
         </div>
 
         {/* Main grid: identity + middle + chips + actions */}
-
-        {/* Main grid: identity + middle + chips + actions */}
         <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 lg:grid-cols-12">
           {/* Identity (name + linkedin) — col 1-3 */}
           <div className="lg:col-span-3 min-w-0">
