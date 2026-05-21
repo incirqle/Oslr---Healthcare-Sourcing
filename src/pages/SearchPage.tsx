@@ -232,6 +232,9 @@ export default function SearchPage() {
 
   const handlePageChange = (newPage: number) => {
     setSearchPhase("running");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     runResultsFetch(query, filters, parsedPayload, newPage, scrollToken).catch((err) => {
       console.error(err);
       setSearchPhase("error");
