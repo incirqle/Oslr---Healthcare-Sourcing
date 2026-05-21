@@ -7,17 +7,22 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
+  Building2,
   ChevronLeft,
   ChevronRight,
   Copy,
+  GraduationCap,
+  Languages as LanguagesIcon,
   Lock,
   Mail,
   Maximize2,
+  MessageCircle,
   Minimize2,
   Phone,
   Sparkles,
   StickyNote,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FitPill } from "@/components/search/FitPill";
@@ -36,6 +41,7 @@ import {
   formatDateLabelSmart,
   formatDegree,
   formatExperienceDuration,
+  formatSalary,
   getAvatarToneClass,
   getInitials,
   LinkedInMark,
@@ -44,6 +50,14 @@ import {
   toStringArray,
   toTitleCase,
 } from "@/components/search/candidate-ui";
+import {
+  deriveAchievements,
+  formatMonths,
+  groupExperienceByCompany,
+  isPromotion,
+  type ExperienceEntryLike,
+} from "@/components/search/candidate-insights";
+
 
 interface CandidateDrawerProps {
   open: boolean;
