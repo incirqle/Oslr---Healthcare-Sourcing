@@ -427,7 +427,9 @@ export function buildPDLQuery(
     }
 
     // 4. All alternative names discovered via Enrichment + Autocomplete
-    for (const altName of resolvedAltNames.slice(0, 30)) {
+    // G4 — cap at 12 (was 30): long alt-name tails were including unrelated
+    // brand aliases (e.g. shared marketing names across health systems).
+    for (const altName of resolvedAltNames.slice(0, 12)) {
       companyClauses.push({ term: { job_company_name: altName } });
     }
 
@@ -437,9 +439,16 @@ export function buildPDLQuery(
     }
 
     // 6. Wildcard patterns for root name expansion
-    for (const pattern of resolvedWildcards.slice(0, 5)) {
-      const wc = addWildcard("job_company_name", pattern);
-      if (wc) companyClauses.push(wc);
+    // G4 — when we have a resolved anchor (ID + ≥1 alt name), the wildcard
+    // adds noise (any company whose name contains the phrase matches). Skip.
+    const _skipCompanyWildcards = hasResolvedCompanyAnchor && resolvedIds.length > 0 && resolvedAltNames.length > 0;
+    if (!_skipCompanyWildcards) {
+      for (const pattern of resolvedWildcards.slice(0, 5)) {
+        const wc = addWildcard("job_company_name", pattern);
+        if (wc) companyClauses.push(wc);
+      }
+    } else if (resolvedWildcards.length > 0) {
+      console.log(`[G4] Skipped ${resolvedWildcards.length} company wildcard(s) — resolver has high-confidence ID+alt-names`);
     }
 
     // 7. Original + static variant names as fallback
