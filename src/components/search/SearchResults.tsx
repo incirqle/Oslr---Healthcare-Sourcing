@@ -325,7 +325,7 @@ function CandidateRow({
                   href={normalizeLinkedInUrl(candidate.linkedin_url) ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-info hover:opacity-80"
+                  className="shrink-0 text-linkedin-foreground hover:opacity-80"
                   onClick={(event) => event.stopPropagation()}
                   aria-label={`Open ${displayName} on LinkedIn`}
                 >

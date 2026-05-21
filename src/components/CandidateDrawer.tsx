@@ -102,13 +102,13 @@ interface EnrichedData {
   inferred_years_experience?: number;
   experience: {
     title: { name: string } | null;
-    company: { name: string } | null;
+    company: { name: string; website?: string | null; linkedin_url?: string | null } | null;
     start_date: string;
     end_date: string | null;
     is_primary: boolean;
   }[];
   education: {
-    school: { name: string } | null;
+    school: { name: string; website?: string | null; linkedin_url?: string | null } | null;
     degrees: string[];
     majors: string[];
     start_date: string;
@@ -122,6 +122,7 @@ interface ExperienceEntry {
   startDate: string | null;
   endDate: string | null;
   isCurrent: boolean;
+  logoDomain: string | null;
 }
 
 interface EducationEntry {
@@ -130,7 +131,9 @@ interface EducationEntry {
   major: string | null;
   startDate: string | null;
   endDate: string | null;
+  logoDomain: string | null;
 }
+
 
 function SectionHeading({ label }: { label: string }) {
   return <h3 className="text-[14px] font-semibold uppercase tracking-[0.5px] text-ui-text-muted">{label}</h3>;
@@ -140,6 +143,26 @@ function getRawArray<T = Record<string, unknown>>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+function extractDomain(...candidates: (string | null | undefined)[]): string | null {
+  for (const raw of candidates) {
+    if (!raw || typeof raw !== "string") continue;
+    let s = raw.trim();
+    if (!s) continue;
+    s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+    // Strip linkedin company/school url paths
+    if (s.startsWith("linkedin.com/")) continue;
+    const host = s.split("/")[0].split("?")[0];
+    if (host && host.includes(".")) return host.toLowerCase();
+  }
+  return null;
+}
+
+function logoUrl(domain: string | null): string | null {
+  if (!domain) return null;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+}
+
+
 function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): ExperienceEntry[] {
   if (enriched?.experience?.length) {
     return enriched.experience.map((entry) => ({
@@ -148,7 +171,9 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
       startDate: entry.start_date ?? null,
       endDate: entry.end_date ?? null,
       isCurrent: !entry.end_date || entry.is_primary,
+      logoDomain: extractDomain(entry.company?.website, entry.company?.linkedin_url),
     }));
+
   }
 
   if (!candidate?.raw) return [];
@@ -186,8 +211,15 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
           ? entry.job_end_date
           : null,
     isCurrent: Boolean(entry.is_current ?? entry.is_primary ?? !entry.end_date),
+    logoDomain: extractDomain(
+      typeof entry.company_website === "string" ? entry.company_website : null,
+      typeof entry.company_url === "string" ? entry.company_url : null,
+      typeof entry.company_linkedin_url === "string" ? entry.company_linkedin_url : null,
+      (entry.company as { website?: string } | null)?.website ?? null,
+    ),
   }));
 }
+
 
 function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): EducationEntry[] {
   if (enriched?.education?.length) {
@@ -197,12 +229,14 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
       major: entry.majors?.join(", ") || null,
       startDate: entry.start_date ?? null,
       endDate: entry.end_date ?? null,
+      logoDomain: extractDomain(entry.school?.website, entry.school?.linkedin_url),
     }));
   }
 
   if (!candidate?.raw) return [];
 
   return getRawArray<Record<string, unknown>>(candidate.raw.education).map((entry) => ({
+
     school:
       typeof entry.school_name === "string"
         ? entry.school_name
@@ -213,7 +247,14 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
     major: toStringArray(entry.majors).join(", ") || null,
     startDate: typeof entry.start_date === "string" ? entry.start_date : null,
     endDate: typeof entry.end_date === "string" ? entry.end_date : null,
+    logoDomain: extractDomain(
+      typeof entry.school_website === "string" ? entry.school_website : null,
+      typeof entry.school_url === "string" ? entry.school_url : null,
+      typeof entry.school_linkedin_url === "string" ? entry.school_linkedin_url : null,
+      (entry.school as { website?: string } | null)?.website ?? null,
+    ),
   }));
+
 }
 
 function buildSummaryPrompt(
@@ -589,21 +630,12 @@ export function CandidateDrawer({
                   className="h-11 w-11 shrink-0 rounded-full object-cover"
                   onError={(event) => {
                     (event.target as HTMLImageElement).style.display = "none";
-                    (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
                   }}
                 />
               ) : null}
-              <div
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-bold",
-                  getAvatarToneClass(candidate.full_name),
-                  profilePicture ? "hidden" : "flex",
-                )}
-              >
-                {getInitials(cleanDisplayName(candidate.full_name))}
-              </div>
 
               <div className="min-w-0 flex-1">
+
                 <div className="flex items-baseline gap-2">
                   <SheetTitle className="truncate text-[17px] font-bold text-ui-text-primary">
                     {toTitleCase(cleanDisplayName(candidate.full_name))}
@@ -627,7 +659,7 @@ export function CandidateDrawer({
                         href={linkedinUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-linkedin hover:underline"
+                        className="inline-flex items-center gap-1 rounded-md bg-linkedin px-1.5 py-0.5 font-medium text-linkedin-foreground hover:underline"
                         aria-label="View on LinkedIn"
                       >
                         <LinkedInMark className="h-3 w-3" />
@@ -822,21 +854,34 @@ export function CandidateDrawer({
                             key={`${entry.title}-${entry.company}-${index}`}
                             className="relative flex gap-3"
                           >
-                            {/* Company logo placeholder + connecting line */}
+                            {/* Company logo + connecting line */}
                             <div className="relative flex w-10 flex-col items-center">
-                              <div
-                                className={cn(
-                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[11px] font-bold",
-                                  getAvatarToneClass(entry.company || entry.title || "x"),
+                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
+                                {entry.logoDomain && (
+                                  <img
+                                    src={logoUrl(entry.logoDomain) ?? ""}
+                                    alt=""
+                                    className="absolute inset-0 h-full w-full object-contain p-1"
+                                    onError={(event) => {
+                                      (event.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
                                 )}
-                                aria-hidden="true"
-                              >
-                                {companyInitials}
+                                <div
+                                  className={cn(
+                                    "flex h-full w-full items-center justify-center text-[11px] font-bold",
+                                    getAvatarToneClass(entry.company || entry.title || "x"),
+                                  )}
+                                  aria-hidden="true"
+                                >
+                                  {companyInitials}
+                                </div>
                               </div>
                               {!isLast && (
                                 <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
                               )}
                             </div>
+
 
                             <div className="min-w-0 flex-1 pb-3">
                               <div className="flex flex-wrap items-baseline gap-x-2">
@@ -889,19 +934,32 @@ export function CandidateDrawer({
                         return (
                           <div key={`${entry.school}-${index}`} className="relative flex gap-3">
                             <div className="relative flex w-10 flex-col items-center">
-                              <div
-                                className={cn(
-                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[11px] font-bold",
-                                  getAvatarToneClass(entry.school || "edu"),
+                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
+                                {entry.logoDomain && (
+                                  <img
+                                    src={logoUrl(entry.logoDomain) ?? ""}
+                                    alt=""
+                                    className="absolute inset-0 h-full w-full object-contain p-1"
+                                    onError={(event) => {
+                                      (event.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
                                 )}
-                                aria-hidden="true"
-                              >
-                                {schoolInitials}
+                                <div
+                                  className={cn(
+                                    "flex h-full w-full items-center justify-center text-[11px] font-bold",
+                                    getAvatarToneClass(entry.school || "edu"),
+                                  )}
+                                  aria-hidden="true"
+                                >
+                                  {schoolInitials}
+                                </div>
                               </div>
                               {!isLast && (
                                 <span className="mt-1 w-0.5 flex-1 bg-ui-border-light" aria-hidden="true" />
                               )}
                             </div>
+
 
                             <div className="min-w-0 flex-1 pb-3">
                               <p className="text-[14px] font-semibold text-ui-text-primary">{school}</p>
