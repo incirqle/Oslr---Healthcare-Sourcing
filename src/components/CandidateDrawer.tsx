@@ -247,7 +247,14 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
     major: toStringArray(entry.majors).join(", ") || null,
     startDate: typeof entry.start_date === "string" ? entry.start_date : null,
     endDate: typeof entry.end_date === "string" ? entry.end_date : null,
+    logoDomain: extractDomain(
+      typeof entry.school_website === "string" ? entry.school_website : null,
+      typeof entry.school_url === "string" ? entry.school_url : null,
+      typeof entry.school_linkedin_url === "string" ? entry.school_linkedin_url : null,
+      (entry.school as { website?: string } | null)?.website ?? null,
+    ),
   }));
+
 }
 
 function buildSummaryPrompt(
