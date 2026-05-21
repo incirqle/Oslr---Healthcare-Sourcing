@@ -126,11 +126,11 @@ function renderDossier(d: Dossier): jsPDF {
   w.doc.text("oslr", PAGE_W - MARGIN_X, MARGIN_TOP - 24, { align: "right" });
 
   // Name
-  w.text(d.fullName || "Unnamed Candidate", { size: 22, bold: true, gap: 2 });
+  w.text(d.fullName || "Unnamed Candidate", { size: 24, gap: 4 });
 
   // Subline
   const subline = [d.currentTitle, d.currentOrg].filter(Boolean).join(" at ");
-  if (subline) w.text(subline, { size: 11, color: COLOR_MUTED, gap: 2 });
+  if (subline) w.text(subline, { size: 11.5, color: COLOR_MUTED, gap: 2 });
   if (d.location) w.text(d.location, { size: 10, color: COLOR_MUTED, gap: 8 });
 
   // Accent rule
@@ -155,7 +155,7 @@ function renderDossier(d: Dossier): jsPDF {
     w.sectionHeading("Experience");
     d.experience.forEach((e, idx) => {
       const heading = [e.title, e.company].filter(Boolean).join(" at ");
-      w.text(heading || "Role", { size: 11, bold: true, gap: 1 });
+      w.text(heading || "Role", { size: 11.5, color: COLOR_TEXT, gap: 1 });
       const range = dateRange(e.startDate, e.endDate, e.isCurrent);
       const meta = [range, e.location].filter(Boolean).join(" · ");
       if (meta) w.text(meta, { size: 9.5, color: COLOR_MUTED, gap: 4 });
@@ -168,7 +168,7 @@ function renderDossier(d: Dossier): jsPDF {
   if (d.education.length) {
     w.sectionHeading("Education");
     d.education.forEach((e) => {
-      w.text(e.school || "School", { size: 11, bold: true, gap: 1 });
+      w.text(e.school || "School", { size: 11.5, color: COLOR_TEXT, gap: 1 });
       const parts = [e.degree, e.major].filter(Boolean).join(", ");
       if (parts) w.text(parts, { size: 10, gap: 1 });
       const range = dateRange(e.startDate, e.endDate, false);
