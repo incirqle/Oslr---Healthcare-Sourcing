@@ -836,6 +836,27 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    /* ── ACTION: ai_snapshot — single-sentence card-level summary ─── */
+    if (action === "ai_snapshot") {
+      const prompt = typeof body.prompt === "string" ? body.prompt : "";
+      if (!prompt) {
+        return new Response(JSON.stringify({ error: "prompt required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const result = await callClaude<{ snapshot: string }>(
+        `You are a healthcare-recruiting assistant. Given a clinician's brief, write ONE crisp sentence (max 22 words) capturing what's most relevant for a recruiter — specialty, training stage or seniority, signal of fit. No filler like "is a" or "with experience in". Return ONLY valid JSON: { "snapshot": "..." }`,
+        prompt,
+        { snapshot: "" },
+        "AI-Snapshot",
+        { timeoutMs: 10000 }
+      );
+      return new Response(JSON.stringify({ snapshot: result.snapshot || "" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "Query is required" }),
