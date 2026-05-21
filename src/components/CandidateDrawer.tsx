@@ -171,7 +171,9 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
       startDate: entry.start_date ?? null,
       endDate: entry.end_date ?? null,
       isCurrent: !entry.end_date || entry.is_primary,
+      logoDomain: extractDomain(entry.company?.website, entry.company?.linkedin_url),
     }));
+
   }
 
   if (!candidate?.raw) return [];
