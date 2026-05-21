@@ -229,6 +229,8 @@ interface ResolvedCompany {
   affiliated_ids: string[];
   affiliated_names: string[];
   wildcards: string[];
+  hq_region: string | null;
+  hq_locality: string | null;
 }
 
 /** Strip trailing city/state names that the parser may have accidentally merged
