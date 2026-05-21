@@ -1,53 +1,143 @@
-# Surface dedicated PDL email fields
+# CandidateDrawer Enhancement — Juicebox-style Depth
 
-PDL returns two top-level deliverability-validated fields (`work_email`, `recommended_personal_email`) that we currently ignore in favor of the historical `emails[]` array. This plan threads them through the formatter and shows them, labeled, in the candidate row.
+Bring our profile drawer up to the visual and informational density Juicebox shows. The bones are right (header, AI summary, tabs, timeline). What's missing is the **chrome that makes a profile feel deep at a glance**: branded chips, derived achievement badges, grouped experience under a parent company, and a persistent action footer.
 
-## Scope
+---
 
-- `supabase/functions/pdl-search/format-results.ts` — extend `FormattedCandidate` + `mapPerson()`.
-- `src/components/search/SearchResults.tsx` — expose the new fields on the `Candidate` type and render Work / Personal email chips in the row.
+## 1. Identity header — add company + school chips
 
-Out of scope: `build-pdl-query.ts`, `parse-query.ts`, `index.ts`, the PDL request itself, `required_fields`, the drawer (already reads `enriched.work_email`/`personal_emails`), and `scoreAndRankResults()`.
+Currently the header shows: name · title, then company · location · LinkedIn link.
 
-## Edge function changes (`format-results.ts`)
+Juicebox moves company and school into **branded chips with favicons** directly under the location line. This gives instant brand recognition (Arthrex logo, Illinois "I" mark) without scanning text.
 
-1. Add to `FormattedCandidate` interface:
-   - `work_email: string | null`
-   - `personal_email: string | null`
+Changes:
+- Keep name as the primary line.
+- Second line: just location (`Naples, Florida, United States`).
+- Third line: two chips — **current company** (favicon + name) and **top education** (favicon + school name), each clickable to LinkedIn company/school page when we have the URL.
+- Move LinkedIn icon to the top right of the header block (Juicebox parity).
+- Keep FitPill where it is.
 
-2. In `mapPerson()`, compute:
-   ```ts
-   const workEmail = typeof p.work_email === "string" ? p.work_email : null;
-   const personalEmail = typeof p.recommended_personal_email === "string"
-     ? p.recommended_personal_email : null;
-   ```
+We already have `extractDomain` + `logoUrl` (favicon via Google s2) — reuse those.
 
-3. Return the two new fields.
+---
 
-4. Update the legacy `email` resolver so `work_email` is preferred, keeping current fallbacks (mobile-as-email, recommended_personal, typed work in array, first array entry). This stays backward-compatible with `scoreAndRankResults()` and any code reading `email`.
+## 2. Achievement badges — auto-derived signal pills
 
-5. Update `has_contact_info` to also consider the new fields:
-   ```ts
-   has_contact_info: !!(workEmail || personalEmail) || emails.length > 0 || phones.length > 0 || typeof p.mobile_phone === "string"
-   ```
+Juicebox shows pills like **Promoted Twice**, **High Avg. Tenure**, **International Exp.**, **Top 50 US Uni** in the Overview tab.
 
-## UI changes (`SearchResults.tsx`)
+These are computed from existing PDL data — no new fetch needed. Add a small `deriveAchievements()` helper:
 
-1. Extend `Candidate` interface with:
-   - `work_email?: string | null`
-   - `personal_email?: string | null`
+| Badge              | Rule                                                                 |
+|--------------------|----------------------------------------------------------------------|
+| Promoted Nx        | ≥2 sequential roles at the **same company** with ascending seniority |
+| High Avg. Tenure   | Avg tenure across roles ≥ 4 years                                    |
+| Long Tenure        | Any single role ≥ 8 years                                            |
+| International Exp. | Experience entries spanning ≥2 countries                              |
+| Top 50 US Uni      | School name matches a small static list (start with top-25 med + top-25 nursing schools) |
+| Career Switcher    | Industry change between any two consecutive roles                     |
+| Currently Hiring Mkt | Practice locality matches a requested location                      |
 
-2. Replace the single email icon in `ContactIcons` with up to two labeled `mailto:` chips:
-   - If `candidate.work_email` → small chip "Work" linking to `mailto:work_email`.
-   - If `candidate.personal_email` → small chip "Personal" linking to `mailto:personal_email`.
-   - If neither is set but `candidate.email` exists (legacy fallback) → a single unlabeled mail icon chip linking to `mailto:email` (preserves today's behavior for preview rows where the dedicated fields are absent).
-   - Phone icon chip stays unchanged.
-   - Use existing semantic tokens (`bg-info/10 text-info`, etc.) — no raw colors.
-   - Click handlers must `stopPropagation()` so opening the link doesn't also open the candidate drawer.
+Render as a horizontal chip row with a small icon per badge (lucide: `TrendingUp`, `Clock`, `Globe`, `GraduationCap`, `Repeat`, `MapPin`). Cap at 4 visible, "+N more" overflow.
 
-3. No other call sites change; `SearchPage` already spreads the formatter output into `Candidate`, so the new fields flow through automatically once both interfaces include them.
+This is the single highest-impact addition — it makes the profile feel **intelligent** instead of just listed.
 
-## Verification
+---
 
-- Re-deploy `pdl-search` and run a sample search; confirm rows show Work/Personal chips when the underlying PDL record has those fields, and fall back to the legacy mail icon otherwise.
-- Confirm the candidate drawer still works (it already reads `enriched.work_email` / `personal_emails`, untouched here).
+## 3. Experience tab — group by company with sub-role timeline
+
+Today each role is its own row. Juicebox groups multiple roles at the same company under **one company header (with logo)**, with sub-roles indented under a vertical timeline.
+
+Example:
+```text
+[Arthrex logo]  Arthrex
+                16 yrs 6 mos
+   ●─  Human Resources and Organizational Development Director  [Promotion]   Oct 2014 – Present
+   │   Naples, Florida, United States
+   │   💰 $100,000 – $160,000
+   │   HR Director for Arthrex Manufacturing Inc responsible for…
+   │
+   ●─  SR. Director Human Resources                                            Jul 2019 – Present
+   │   Naples FL
+   │
+   ●─  Human Resources Manager                                                 Oct 2009 – Sep 2014
+       HR Manager for Arthrex Manufacturing located in beautiful Naples FL…
+```
+
+Implementation:
+- Group `experienceEntries` by `company` (preserve order, merge consecutive entries with the same company).
+- Compute per-company total tenure from min(start) to max(end).
+- Detect **promotion** between consecutive same-company entries (later role has higher seniority keywords or sequential dates with no gap) → render a small green "Promotion" chip.
+- Render salary chip (`inferred_salary`) on the most recent role per company.
+- Render entry location and description (already in PDL `experience[].summary` / `experience[].location_names`).
+- Add a **3-card stat strip above the timeline**: Avg tenure · Current tenure · Total experience (mirrors Juicebox).
+
+---
+
+## 4. Add a dedicated Education tab
+
+Education currently lives nowhere user-visible (we moved it to Experience tab earlier but it's underweight). Juicebox gives it its own tab so the user can scan academic credentials cleanly.
+
+New tab order: **Overview · Experience · Education · Skills · Notes · Contact**.
+
+Education tab shows each school as a card:
+- School favicon + name
+- Degree, majors
+- Date range
+- Activities / societies (from `education[].raw` if present)
+
+---
+
+## 5. Skills tab (promote from Overview)
+
+Move the Skills section out of Overview into its own **Skills** tab so Overview stays scannable.
+
+Skills tab content:
+- **Clinical Skills** group (already derived)
+- **Additional Skills** group with all remaining skills as outlined pills
+- **+N** overflow chip that expands inline (Juicebox shows `+48`)
+- **Languages** section at the bottom (from `languages` in PDL raw, if present) with a chat-bubble icon
+- **Certifications** also lives here
+
+Overview keeps: AI Summary, Current Role card, Achievement badges, Quick stats, About/summary text from PDL with "Read more" truncation.
+
+---
+
+## 6. Sticky action footer
+
+Juicebox pins a status pill + primary CTA (Shortlisted · Add to LSI Innovator) at the bottom of the drawer so the user can act without scrolling back up.
+
+Add a 56px sticky footer at the bottom of the drawer body:
+- Left: FitPill (Shortlisted / Maybe / Not a fit dropdown)
+- Right: primary action — `Add to {Project name}` button if a project is active, otherwise `Save to project`
+
+The existing FitPill in the header becomes redundant — remove it from the header and rely on the footer one.
+
+---
+
+## 7. Overview status row
+
+Add a compact label-value strip in Overview matching Juicebox's `Status · Contact · Activity · Tags` row. This is a single table-like block:
+
+```text
+Status   ● Not contacted
+Contact  mgcwboose@comcast.net (+3)   +1 (239) 216-7084 (+2)
+Activity 1 note
+Tags     [Juicebox Agent] [+]
+```
+
+`Status` is the candidate's outreach state (we can wire this to the Fit/contact-state hook in a follow-up — initial pass just renders "Not contacted" placeholder). `Tags` is a no-op chip row for now with a `+` button stub.
+
+---
+
+## Files to touch
+
+- `src/components/CandidateDrawer.tsx` — header rework, tab reorder, sticky footer, achievement strip, status row.
+- `src/components/search/candidate-ui.tsx` — add `deriveAchievements()` helper + `<AchievementBadge />` chip component + `groupExperienceByCompany()` helper.
+- No backend, no PDL query, no schema changes.
+
+## Out of scope (next iterations)
+
+- Notes panel parity (Juicebox shows it as a right-side rail; ours stays inside a tab for now).
+- "Agent Assessment" sidebar — that's an Oslr Agents feature, separate work.
+- Salary chip styling polish — render plain for now, refine if user wants.
+- Real outreach status wiring (placeholder copy in this pass).
