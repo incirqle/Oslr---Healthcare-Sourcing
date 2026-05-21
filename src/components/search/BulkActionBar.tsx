@@ -1,4 +1,4 @@
-import { ChevronDown, Download, FolderPlus, Mail, Tag, X } from "lucide-react";
+import { ChevronDown, FolderPlus, Mail, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,6 +6,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 import type { FitStatus } from "@/hooks/useCandidateFit";
 
 interface Props {
@@ -14,7 +16,7 @@ interface Props {
   onAddToProject: () => void;
   onAddToCampaign: () => void;
   onMarkFit: (status: FitStatus) => void;
-  onExportCsv: () => void;
+  getSelectedCandidates: () => AnyCandidate[];
   onClear: () => void;
   isSaving?: boolean;
 }
