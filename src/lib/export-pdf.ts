@@ -76,12 +76,15 @@ class PdfWriter {
       color?: [number, number, number];
       gap?: number;
       maxWidth?: number;
+      family?: "helvetica" | "times";
     } = {},
   ) {
     if (!text) return;
     const size = opts.size ?? 10;
     const color = opts.color ?? COLOR_TEXT;
-    this.doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+    // Use Times for bold (Helvetica-Bold has a known rendering quirk in poppler).
+    const family = opts.family ?? (opts.bold ? "times" : "helvetica");
+    this.doc.setFont(family, opts.bold ? "bold" : "normal");
     this.doc.setFontSize(size);
     this.doc.setTextColor(...color);
     const lines = this.doc.splitTextToSize(text, opts.maxWidth ?? CONTENT_W) as string[];
@@ -105,7 +108,7 @@ class PdfWriter {
   sectionHeading(label: string) {
     this.y += 6;
     this.ensure(28);
-    this.text(label.toUpperCase(), { size: 9, bold: true, color: COLOR_MUTED, gap: 6 });
+    this.text(label.toUpperCase(), { size: 9, bold: false, color: COLOR_MUTED, gap: 6, family: "helvetica" });
     this.doc.setDrawColor(...COLOR_RULE);
     this.doc.setLineWidth(0.5);
     this.doc.line(MARGIN_X, this.y - 2, MARGIN_X + CONTENT_W, this.y - 2);
