@@ -39,6 +39,8 @@ import { CampaignBuilder } from "@/components/campaigns/CampaignBuilder";
 import { MOCK_CAMPAIGNS, type CampaignContact, type ResponseType } from "@/data/mock-campaigns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 
 const RESPONSE_OPTIONS: ResponseType[] = [
   "No response",
