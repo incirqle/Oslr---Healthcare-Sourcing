@@ -190,9 +190,10 @@ export default function SearchPage() {
     setSearchPhase("done");
     if (targetPage === 1) addEntry(q, data.total || 0);
 
-    // Progressive reveal: drip rows in over ~1.5s while reasoning streams.
+    // Progressive reveal only on the first page of a new search. Pagination
+    // jumps should feel instant — no drip, no unmount/remount of the list.
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || mapped.length === 0) {
+    if (targetPage > 1 || reduce || mapped.length === 0) {
       setRevealedCount(mapped.length);
     } else {
       setRevealedCount(0);
