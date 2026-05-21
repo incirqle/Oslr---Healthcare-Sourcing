@@ -26,8 +26,6 @@ import {
 } from "lucide-react";
 import {
   cleanDisplayName,
-  getAvatarToneClass,
-  getInitials,
   LinkedInMark,
   normalizeLinkedInUrl,
   toTitleCase,
@@ -339,28 +337,6 @@ function CandidateRow({
             aria-label={`Select ${displayName}`}
             className="h-4 w-4 rounded border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
           />
-        </div>
-
-        {/* Avatar */}
-        {candidate.profile_pic_url ? (
-          <img
-            src={candidate.profile_pic_url}
-            alt=""
-            className="h-10 w-10 shrink-0 rounded-full object-cover"
-            onError={(event) => {
-              (event.target as HTMLImageElement).style.display = "none";
-              (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-            }}
-          />
-        ) : null}
-        <div
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-            getAvatarToneClass(displayName),
-            candidate.profile_pic_url ? "hidden" : "flex",
-          )}
-        >
-          {getInitials(displayName)}
         </div>
 
         {/* Main grid: identity + middle + chips + actions */}
