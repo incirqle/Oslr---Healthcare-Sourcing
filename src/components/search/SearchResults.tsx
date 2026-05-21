@@ -33,7 +33,7 @@ import {
 import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { FitPill } from "@/components/search/FitPill";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
-import { exportCandidatesCsv } from "@/components/search/csv-export";
+
 import { buildMatchChips, queryIsCompanySpecific, type MatchChip } from "@/components/search/match-chips";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 import { useCandidateFits, useSetCandidateFit, type FitStatus } from "@/hooks/useCandidateFit";
@@ -468,12 +468,6 @@ export function SearchResults({
     onMarkFitBulk?.(status);
   };
 
-  const handleExportCsv = () => {
-    const list = candidates.filter((c) => selected.has(c.id));
-    const fitOnlyStrings = new Map<string, string>();
-    fitMap?.forEach((value, key) => fitOnlyStrings.set(key, value));
-    exportCandidatesCsv(list, matchChipsByCandidate, fitOnlyStrings);
-  };
 
   const geoBannerText = (() => {
     const scope = geoScope?.effective_scope;
@@ -580,7 +574,7 @@ export function SearchResults({
           onAddToProject={onSaveBulk}
           onAddToCampaign={() => onAddToCampaignBulk?.()}
           onMarkFit={handleMarkFitBulk}
-          onExportCsv={handleExportCsv}
+          getSelectedCandidates={() => candidates.filter((c) => selected.has(c.id))}
           onClear={() => (onClearSelection ? onClearSelection() : onToggleSelectAll())}
           isSaving={isSaving}
         />
