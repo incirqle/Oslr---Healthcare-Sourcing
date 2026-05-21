@@ -583,6 +583,7 @@ async function resolveCompanyNames(
         });
         if (enrichResp.ok) {
           const enrichData = await enrichResp.json();
+          captureHq(enrichData);
           if (Array.isArray(enrichData.alternative_names)) {
             for (const altName of enrichData.alternative_names) {
               if (typeof altName === "string" && altName.length > 0) {
