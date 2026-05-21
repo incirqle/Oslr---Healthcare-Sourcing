@@ -211,8 +211,15 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
           ? entry.job_end_date
           : null,
     isCurrent: Boolean(entry.is_current ?? entry.is_primary ?? !entry.end_date),
+    logoDomain: extractDomain(
+      typeof entry.company_website === "string" ? entry.company_website : null,
+      typeof entry.company_url === "string" ? entry.company_url : null,
+      typeof entry.company_linkedin_url === "string" ? entry.company_linkedin_url : null,
+      (entry.company as { website?: string } | null)?.website ?? null,
+    ),
   }));
 }
+
 
 function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): EducationEntry[] {
   if (enriched?.education?.length) {
