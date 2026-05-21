@@ -659,7 +659,7 @@ export function CandidateDrawer({
                         href={linkedinUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-linkedin hover:underline"
+                        className="inline-flex items-center gap-1 rounded-md bg-linkedin px-1.5 py-0.5 font-medium text-linkedin-foreground hover:underline"
                         aria-label="View on LinkedIn"
                       >
                         <LinkedInMark className="h-3 w-3" />
