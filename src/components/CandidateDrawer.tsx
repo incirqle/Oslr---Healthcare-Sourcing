@@ -143,6 +143,26 @@ function getRawArray<T = Record<string, unknown>>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+function extractDomain(...candidates: (string | null | undefined)[]): string | null {
+  for (const raw of candidates) {
+    if (!raw || typeof raw !== "string") continue;
+    let s = raw.trim();
+    if (!s) continue;
+    s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+    // Strip linkedin company/school url paths
+    if (s.startsWith("linkedin.com/")) continue;
+    const host = s.split("/")[0].split("?")[0];
+    if (host && host.includes(".")) return host.toLowerCase();
+  }
+  return null;
+}
+
+function logoUrl(domain: string | null): string | null {
+  if (!domain) return null;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+}
+
+
 function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): ExperienceEntry[] {
   if (enriched?.experience?.length) {
     return enriched.experience.map((entry) => ({
