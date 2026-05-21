@@ -37,7 +37,7 @@ export function BulkActionBar({
   onAddToProject,
   onAddToCampaign,
   onMarkFit,
-  onExportCsv,
+  getSelectedCandidates,
   onClear,
   isSaving,
 }: Props) {
@@ -84,10 +84,12 @@ export function BulkActionBar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Button size="sm" variant="outline" onClick={onExportCsv} className="h-8 gap-1.5">
-        <Download className="h-3.5 w-3.5" />
-        Export CSV
-      </Button>
+      <ExportMenu
+        getCandidates={getSelectedCandidates}
+        size="sm"
+        className="h-8"
+        align="start"
+      />
 
       <button
         type="button"
