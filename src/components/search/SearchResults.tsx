@@ -84,6 +84,14 @@ interface CompanyScope {
   multi_entity?: boolean;
 }
 
+interface SpecialtyFunnel {
+  parsed_specialties?: string[];
+  ortho_intent?: boolean;
+  on_specialty_count?: number;
+  on_specialty_pct?: number;
+  onet_distribution?: Record<string, number>;
+}
+
 export type SortOption = "relevance" | "recent" | "experienced" | "senior";
 
 interface SearchResultsProps {
