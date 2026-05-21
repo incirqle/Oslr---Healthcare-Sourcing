@@ -810,10 +810,12 @@ export function CandidateDrawer({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
             {/* Sticky tabs */}
             <div className="sticky top-0 z-10 shrink-0 border-b border-ui-border-light bg-card px-5 sm:px-6">
-              <TabsList className="h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0 text-left">
+              <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 text-left">
                 {[
                   { value: "overview", label: "Overview" },
                   { value: "experience", label: "Experience" },
+                  { value: "education", label: "Education" },
+                  { value: "skills", label: "Skills" },
                   { value: "notes", label: `Notes${notes.length > 0 ? ` (${notes.length})` : ""}` },
                   { value: "contact", label: "Contact" },
                 ].map((t) => (
@@ -826,6 +828,7 @@ export function CandidateDrawer({
                   </TabsTrigger>
                 ))}
               </TabsList>
+
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
