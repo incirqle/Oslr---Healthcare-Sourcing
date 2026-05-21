@@ -427,6 +427,7 @@ export default function SearchPage() {
                 pageSize={pageSize}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
+                isLoading={searchPhase === "running"}
                 geoScope={geoScope as any}
                 companyScope={companyScope as any}
               />
