@@ -11,6 +11,7 @@ export interface FormattedCandidate {
   last_name: string;
   job_title: string;
   job_company_name: string;
+  job_company_id: string | null;
   job_company_industry: string;
   linkedin_url: string | null;
   location_name: string;
