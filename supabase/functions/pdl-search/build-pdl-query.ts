@@ -619,19 +619,38 @@ export function buildPDLQuery(
         // specialty-aware ranker still surfaces real specialists at the top.
         if (!omitSpecialtyMust) {
           const mustHaveSpecialty: Clause[] = [];
-          for (const kw of allKeywordTerms.slice(0, 8)) {
+          // G2 — only the FIRST (most canonical) specialty term is broadcast
+          // across summary/headline/skills; additional terms only contribute
+          // job_title.text matching. Generic categories ("surgery", "medicine")
+          // and short roots get NO sub_role / wildcard signal — those are the
+          // exact paths that let any surgeon satisfy this gate.
+          const G2_GENERIC = new Set([
+            "surgery", "medicine", "internal medicine", "general surgery",
+            "primary care", "clinical", "medical",
+          ]);
+          for (const [idx, kw] of allKeywordTerms.slice(0, 8).entries()) {
             const lower = kw.toLowerCase();
-            // Match across the broadest possible specialty surfaces
-            mustHaveSpecialty.push({ match: { "job_title.text": kw } });
-            mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
-            mustHaveSpecialty.push({ term: { skills: lower } });
-            mustHaveSpecialty.push({ match: { summary: kw } });
-            mustHaveSpecialty.push({ match: { headline: kw } });
-            // Title wildcard catches "interventional cardiology", "cardiac electrophysiology" etc.
+            const isGeneric = G2_GENERIC.has(lower);
             const root = lower.replace(/(s|ic|ics|y)$/i, "");
-            if (root.length >= 4 && wildcardCount < MAX_WILDCARDS) {
-              wildcardCount++;
-              mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+            const isTooShort = root.length < 6;
+
+            // Always allow title.text match
+            mustHaveSpecialty.push({ match: { "job_title.text": kw } });
+
+            // Bio-level signals only for the FIRST canonical term
+            if (idx === 0 && !isGeneric) {
+              mustHaveSpecialty.push({ match: { summary: kw } });
+              mustHaveSpecialty.push({ match: { headline: kw } });
+              mustHaveSpecialty.push({ term: { skills: lower } });
+            }
+
+            // sub_role + wildcard only for SPECIFIC, long-rooted specialties
+            if (!isGeneric && !isTooShort) {
+              mustHaveSpecialty.push({ term: { job_title_sub_role: lower } });
+              if (wildcardCount < MAX_WILDCARDS) {
+                wildcardCount++;
+                mustHaveSpecialty.push({ wildcard: { job_title: `*${root}*` } });
+              }
             }
           }
           if (mustHaveSpecialty.length > 0) {
