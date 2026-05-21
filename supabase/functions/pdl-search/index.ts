@@ -474,6 +474,7 @@ async function resolveCompanyNames(
                 pdlId = eData.id || null;
                 website = eData.website || null;
                 linkedinUrl = eData.linkedin_url || null;
+                captureHq(eData);
                 // capture alt_names early since we already have the enrich payload
                 if (Array.isArray(eData.alternative_names)) {
                   for (const altName of eData.alternative_names) {
