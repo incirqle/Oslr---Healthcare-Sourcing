@@ -170,10 +170,14 @@ export async function rerankWithAI(
   parsed: Record<string, unknown>,
   query: string,
   _lovableApiKey: string | undefined,
+  opts: { anchorMode?: boolean; anchorCompanyIds?: string[] } = {},
 ): Promise<RerankResult> {
   if (!candidates || candidates.length === 0) {
     return { candidates, ai_reranked: false };
   }
+
+  const anchorIds = opts.anchorCompanyIds ?? [];
+  const anchorMode = opts.anchorMode ?? anchorIds.length > 0;
 
   const startMs = Date.now();
   const topN = Math.min(candidates.length, RERANK_TOP_N);
@@ -181,7 +185,7 @@ export async function rerankWithAI(
   const tail = candidates.slice(topN);
 
   const briefs = head.map(buildBrief);
-  const intent = buildIntentSummary(parsed, query);
+  const intent = buildIntentSummary(parsed, query, anchorIds);
 
   // Split into parallel batches
   const batches: Record<string, unknown>[][] = [];
@@ -189,7 +193,7 @@ export async function rerankWithAI(
     batches.push(briefs.slice(i, i + RERANK_BATCH_SIZE));
   }
 
-  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates in ${batches.length} parallel batches`);
+  console.log(`[ai-rerank] provider=anthropic model=${RERANK_MODEL} feeding ${briefs.length} candidates in ${batches.length} parallel batches (anchorMode=${anchorMode})`);
 
   const batchResults = await Promise.all(
     batches.map((b, i) => scoreBatch(i, batches.length, b, intent)),
@@ -208,16 +212,20 @@ export async function rerankWithAI(
     return { candidates, ai_reranked: false, ai_rerank_error: errors.join("; ") || "no_scores" };
   }
 
-  // BLENDED scoring: 60% deterministic (which knows ONET specialty match = +30) + 40% Claude.
-  // Pure-replace was burying real cardiologists because Claude clusters scores 20-40 for everyone.
+  // F2: Anchor-mode blend trusts the LLM more (0.25 det / 0.75 ai) because the
+  // deterministic scorer rewards title/ONET matches at the wrong employer.
+  // Non-anchor searches keep the original 0.6/0.4 blend.
+  const detWeight = anchorMode ? 0.25 : 0.6;
+  const aiWeight = anchorMode ? 0.75 : 0.4;
   const reranked = head.map(c => {
     const aiScore = scoreById.get(c.id);
     if (typeof aiScore !== "number") return c;
-    const blended = Math.round(0.6 * c.relevance_score + 0.4 * aiScore);
+    const blended = Math.round(detWeight * c.relevance_score + aiWeight * aiScore);
     return { ...c, relevance_score: Math.max(0, Math.min(100, blended)), ai_score: aiScore };
   });
 
   reranked.sort((a, b) => b.relevance_score - a.relevance_score);
+
 
   const elapsed = Date.now() - startMs;
   const partial = scoreById.size < head.length;
