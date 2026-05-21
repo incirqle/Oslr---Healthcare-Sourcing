@@ -1267,7 +1267,13 @@ Deno.serve(async (req: Request) => {
       formattedResults = deterministicResults;
 
       if (deterministicResults.length > 0) {
-        const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey);
+        const _anchorIds = Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids)
+          ? ((parsed as Record<string, unknown>)._resolved_company_ids as string[])
+          : [];
+        const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey, {
+          anchorCompanyIds: _anchorIds,
+          anchorMode: _anchorIds.length > 0,
+        });
         formattedResults = rerank.candidates as unknown as Record<string, unknown>[];
 
         // F6: build score histogram + anchor-mode flag so future regressions
