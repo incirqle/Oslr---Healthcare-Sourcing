@@ -630,21 +630,12 @@ export function CandidateDrawer({
                   className="h-11 w-11 shrink-0 rounded-full object-cover"
                   onError={(event) => {
                     (event.target as HTMLImageElement).style.display = "none";
-                    (event.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
                   }}
                 />
               ) : null}
-              <div
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-bold",
-                  getAvatarToneClass(candidate.full_name),
-                  profilePicture ? "hidden" : "flex",
-                )}
-              >
-                {getInitials(cleanDisplayName(candidate.full_name))}
-              </div>
 
               <div className="min-w-0 flex-1">
+
                 <div className="flex items-baseline gap-2">
                   <SheetTitle className="truncate text-[17px] font-bold text-ui-text-primary">
                     {toTitleCase(cleanDisplayName(candidate.full_name))}
