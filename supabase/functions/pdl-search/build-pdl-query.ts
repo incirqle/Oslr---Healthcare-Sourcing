@@ -703,8 +703,14 @@ export function buildPDLQuery(
   // FIX: Removed title matching from industry clauses.
   //      Role precision is handled by job_title_sub_role below.
   // ═══════════════════════════════════════════
+  // G4 — when we have a resolved healthcare-system anchor, drop the
+  // low-precision "health, wellness & fitness" industry (gyms, supplements,
+  // alt-med). The company hard filter is the strong constraint at that point.
+  const _industriesForFilter = hasResolvedCompanyAnchor
+    ? HEALTHCARE_INDUSTRIES.filter(ind => ind !== "health, wellness & fitness")
+    : HEALTHCARE_INDUSTRIES;
   const industryClauses: Clause[] = [];
-  for (const ind of HEALTHCARE_INDUSTRIES) {
+  for (const ind of _industriesForFilter) {
     industryClauses.push({ term: { industry: ind } });
     industryClauses.push({ term: { job_company_industry: ind } });
   }
