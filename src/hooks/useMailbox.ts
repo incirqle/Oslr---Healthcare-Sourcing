@@ -62,7 +62,17 @@ export function useConnectMailbox() {
       if (error) throw error;
       const url = (data as any)?.auth_url;
       if (!url) throw new Error("No auth URL returned");
-      window.location.href = url;
+      // Break out of the Lovable preview iframe so Nylas hosted auth loads at top-level.
+      try {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = url;
+          return;
+        }
+      } catch {
+        // Cross-origin frame access — fall through to opening in a new tab.
+      }
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) window.location.href = url;
     },
   });
 }
