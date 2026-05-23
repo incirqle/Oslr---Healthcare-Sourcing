@@ -86,6 +86,8 @@ export function CampaignBuilder({
   const insertFnRef = useRef<((text: string) => void) | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
+  const { data: mailboxes = [] } = useMyMailboxes();
+  const activeMailboxes = mailboxes.filter((m) => m.status === "active");
   const active = steps[activeIdx] ?? steps[0];
 
   const updateStep = (patch: Partial<CampaignStep>) => {
