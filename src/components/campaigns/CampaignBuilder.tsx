@@ -281,19 +281,37 @@ export function CampaignBuilder({
             {active.type === "Email" ? (
               <div className="space-y-4 max-w-3xl">
                 <FieldRow label="From">
-                  <Select
-                    value={active.fromMailbox}
-                    onValueChange={(v) => updateStep({ fromMailbox: v })}
-                  >
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MAILBOXES.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {activeMailboxes.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border bg-secondary/30 p-3 text-xs text-muted-foreground">
+                      No connected mailbox.{" "}
+                      <Link
+                        to="/settings/team"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        Connect Gmail or Outlook in Team Settings
+                      </Link>{" "}
+                      to send this campaign.
+                    </div>
+                  ) : (
+                    <Select
+                      value={active.fromMailbox}
+                      onValueChange={(v) => updateStep({ fromMailbox: v })}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Select a connected mailbox" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeMailboxes.map((m) => (
+                          <SelectItem key={m.id} value={m.email}>
+                            {m.display_name ? `${m.display_name} <${m.email}>` : m.email}
+                            <span className="ml-2 text-[10px] text-muted-foreground uppercase">
+                              {m.provider}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </FieldRow>
 
                 <FieldRow label="Subject">
