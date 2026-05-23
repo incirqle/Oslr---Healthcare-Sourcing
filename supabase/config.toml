@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.delete-domain]
 verify_jwt = false
+
+[functions.nylas-oauth-callback]
+verify_jwt = false
+
+[functions.nylas-webhook]
+verify_jwt = false
