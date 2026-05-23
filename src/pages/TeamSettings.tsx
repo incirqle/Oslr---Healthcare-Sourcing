@@ -19,6 +19,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useCompanyEmailSettings, useUpdateCompanyEmailSettings, useDailySendUsage } from "@/hooks/useCampaigns";
+import { MailboxCard } from "@/components/settings/MailboxCard";
 import { toast } from "sonner";
 
 export default function TeamSettings() {
@@ -109,6 +110,11 @@ export default function TeamSettings() {
             </div>
           </CardContent>
         </Card>
+
+        <Separator />
+
+        {/* Per-user mailbox connection (Nylas) */}
+        <MailboxCard />
 
         <Separator />
 
