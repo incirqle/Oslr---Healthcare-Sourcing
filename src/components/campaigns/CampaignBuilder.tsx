@@ -41,6 +41,8 @@ import {
 } from "@/data/mock-campaigns";
 import { CampaignSettingsModal } from "./CampaignSettingsModal";
 import { RichEmailEditor } from "./RichEmailEditor";
+import { useMyMailboxes } from "@/hooks/useMailbox";
+import { Link } from "react-router-dom";
 
 const STEP_TYPES: StepType[] = ["Email", "Connection Request", "LinkedIn Message", "Call"];
 const TIMEZONES = [
