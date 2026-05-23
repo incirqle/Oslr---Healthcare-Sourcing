@@ -113,18 +113,16 @@ export async function nylasFetch(
 export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
   "openid",
-  "email",
-  "profile",
 ];
 
 export const MICROSOFT_SCOPES = [
-  "Mail.ReadWrite",
-  "Mail.Send",
+  "https://graph.microsoft.com/Mail.ReadWrite",
+  "https://graph.microsoft.com/Mail.Send",
+  "https://graph.microsoft.com/User.Read",
   "offline_access",
-  "openid",
-  "email",
-  "profile",
 ];
 
 export function scopesFor(provider: string): string[] {
