@@ -1,38 +1,56 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendViaNylas } from "../_shared/nylas-send.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Per-provider hourly send caps (conservative defaults).
+const HOURLY_CAP: Record<string, number> = {
+  google: 80,
+  microsoft: 60,
+};
+
 function resolveMergeFields(text: string, candidate: Record<string, string | null>): string {
+  const fullName = candidate.full_name || "";
   return text
-    .replace(/\{\{full_name\}\}/g, candidate.full_name || "")
-    .replace(/\{\{first_name\}\}/g, (candidate.full_name || "").split(" ")[0] || "")
+    .replace(/\{\{full_name\}\}/g, fullName)
+    .replace(/\{\{first_name\}\}/g, fullName.split(" ")[0] || "")
     .replace(/\{\{title\}\}/g, candidate.title || "")
     .replace(/\{\{current_employer\}\}/g, candidate.current_employer || "")
     .replace(/\{\{location\}\}/g, candidate.location || "")
     .replace(/\{\{email\}\}/g, candidate.email || "");
 }
 
-function getStartOfDayUTC(): string {
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  return now.toISOString();
+function hourAgoIso(): string {
+  return new Date(Date.now() - 60 * 60 * 1000).toISOString();
+}
+
+async function genUnsubToken(
+  admin: ReturnType<typeof createClient>,
+  companyId: string,
+  email: string,
+  campaignId: string,
+): Promise<string> {
+  const token = crypto.randomUUID().replace(/-/g, "");
+  await admin.from("email_unsubscribe_tokens").insert({
+    token,
+    company_id: companyId,
+    email,
+    campaign_id: campaignId,
+  });
+  return token;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    // Verify auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -41,7 +59,6 @@ serve(async (req) => {
       });
     }
 
-    // Use authed client to validate user
     const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -53,8 +70,7 @@ serve(async (req) => {
       });
     }
 
-    // Service role for all DB operations
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const admin = createClient(supabaseUrl, serviceRoleKey);
 
     const { campaign_id } = await req.json();
     if (!campaign_id) {
@@ -64,10 +80,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch campaign with template and project
-    const { data: campaign, error: campaignError } = await adminClient
+    // Fetch campaign + template
+    const { data: campaign, error: campaignError } = await admin
       .from("email_campaigns")
-      .select("*, email_templates(name, subject, body), projects(id, name, company_id)")
+      .select("*, email_templates(name, subject, body)")
       .eq("id", campaign_id)
       .single();
 
@@ -77,76 +93,18 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    if (campaign.status !== "draft") {
-      return new Response(JSON.stringify({ error: "Campaign has already been sent" }), {
+    if (campaign.status !== "draft" && campaign.status !== "partial") {
+      return new Response(JSON.stringify({ error: "Campaign already sent" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const companyId = campaign.company_id;
-
-    // Fetch company settings (including daily limit)
-    const { data: company } = await adminClient
-      .from("companies")
-      .select("name, from_name, from_email, reply_to_email, daily_email_limit")
-      .eq("id", companyId)
-      .single();
-
-    const dailyLimit = company?.daily_email_limit ?? 200;
-    const fromName = company?.from_name || company?.name || "Recruiting Team";
-    const fromEmail = company?.from_email || "noreply@example.com";
-    const replyTo = company?.reply_to_email;
-
-    // ─── CHECK DAILY SENDING LIMIT ─────────────────────────────────────────────
-    const startOfDay = getStartOfDayUTC();
-    const { count: sentToday } = await adminClient
-      .from("email_events")
-      .select("*", { count: "exact", head: true })
-      .eq("company_id", companyId)
-      .eq("event_type", "sent")
-      .gte("created_at", startOfDay);
-
-    const currentSentToday = sentToday || 0;
-
-    // Fetch candidates in the project
-    const { data: candidates, error: candidatesError } = await adminClient
-      .from("candidates")
-      .select("id, full_name, title, current_employer, location, email")
-      .eq("project_id", campaign.project_id)
-      .not("email", "is", null);
-
-    if (candidatesError) {
-      return new Response(JSON.stringify({ error: "Failed to fetch candidates" }), {
-        status: 500,
+    if (!campaign.mailbox_id) {
+      return new Response(JSON.stringify({ error: "mailbox_required" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Check if sending this campaign would exceed daily limit
-    const wouldExceed = currentSentToday + candidates.length > dailyLimit;
-    const remainingToday = Math.max(0, dailyLimit - currentSentToday);
-
-    if (remainingToday === 0) {
-      return new Response(
-        JSON.stringify({
-          error: "Daily sending limit reached",
-          daily_limit: dailyLimit,
-          sent_today: currentSentToday,
-          remaining: 0,
-        }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Limit recipients to remaining daily quota
-    const recipientsToSend = wouldExceed ? candidates.slice(0, remainingToday) : candidates;
-    const skippedCount = candidates.length - recipientsToSend.length;
-
     const template = campaign.email_templates;
     if (!template) {
       return new Response(JSON.stringify({ error: "Template not found" }), {
@@ -155,81 +113,129 @@ serve(async (req) => {
       });
     }
 
-    let sentCount = 0;
-    const errors: string[] = [];
-    const now = new Date().toISOString();
+    const companyId = campaign.company_id as string;
 
-    if (!resendApiKey) {
-      // ─── MOCK MODE ─────────────────────────────────────────────────────────
-      console.log(`[MOCK] Would send ${recipientsToSend.length} emails for campaign ${campaign_id}`);
-      
-      const eventInserts = recipientsToSend.map((c) => ({
-        campaign_id,
-        candidate_id: c.id,
-        company_id: companyId,
-        event_type: "sent",
-        event_data: { mock: true, to: c.email },
-      }));
+    // Resolve mailbox
+    const { data: mailbox } = await admin
+      .from("user_mailboxes")
+      .select("*")
+      .eq("id", campaign.mailbox_id)
+      .eq("status", "active")
+      .single();
+    if (!mailbox) {
+      return new Response(JSON.stringify({ error: "mailbox_not_active" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      if (eventInserts.length > 0) {
-        await adminClient.from("email_events").insert(eventInserts);
-      }
-      sentCount = recipientsToSend.length;
-    } else {
-      // ─── LIVE MODE via Resend ───────────────────────────────────────────────
-      for (const candidate of recipientsToSend) {
-        const personalizedSubject = resolveMergeFields(template.subject, candidate);
-        const personalizedBody = resolveMergeFields(template.body, candidate);
+    // Per-mailbox hourly cap
+    const cap = HOURLY_CAP[mailbox.provider] ?? 60;
+    const { count: sentLastHour } = await admin
+      .from("campaign_sends")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .gte("sent_at", hourAgoIso());
+    const remaining = Math.max(0, cap - (sentLastHour ?? 0));
+    if (remaining === 0) {
+      return new Response(JSON.stringify({
+        error: "hourly_cap_reached",
+        provider: mailbox.provider,
+        cap,
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-        const htmlBody = personalizedBody.replace(/\n/g, "<br />");
+    // Candidates with an email, excluding suppressions and already-sent
+    const { data: candidates } = await admin
+      .from("candidates")
+      .select("id, full_name, title, current_employer, location, email")
+      .eq("project_id", campaign.project_id)
+      .not("email", "is", null);
+    if (!candidates || candidates.length === 0) {
+      return new Response(JSON.stringify({ error: "No recipients" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-        const emailPayload: Record<string, unknown> = {
-          from: `${fromName} <${fromEmail}>`,
-          to: [candidate.email],
+    const { data: suppressions } = await admin
+      .from("email_suppressions")
+      .select("email")
+      .eq("company_id", companyId);
+    const suppressed = new Set((suppressions ?? []).map((r) => r.email.toLowerCase()));
+
+    const { data: alreadySent } = await admin
+      .from("campaign_sends")
+      .select("recipient_email")
+      .eq("campaign_id", campaign_id);
+    const sentSet = new Set((alreadySent ?? []).map((r) => r.recipient_email.toLowerCase()));
+
+    const eligible = candidates.filter(
+      (c) => c.email && !suppressed.has(c.email.toLowerCase()) && !sentSet.has(c.email.toLowerCase()),
+    );
+    const recipients = eligible.slice(0, remaining);
+    const skipped = candidates.length - recipients.length;
+
+    const projectRef = new URL(supabaseUrl).host.split(".")[0];
+    const unsubBase = `https://${projectRef}.supabase.co/functions/v1/unsubscribe`;
+    const listUnsubscribePost = mailbox.provider === "google";
+
+    let sent = 0;
+    const errors: { email: string; error: string }[] = [];
+
+    for (const c of recipients) {
+      const personalizedSubject = resolveMergeFields(template.subject, c);
+      const personalizedBody = resolveMergeFields(template.body, c);
+      const htmlBody = personalizedBody.replace(/\n/g, "<br />");
+      const token = await genUnsubToken(admin, companyId, c.email!, campaign_id);
+      const unsubUrl = `${unsubBase}?t=${token}`;
+      const html = `<html><body style="font-family:sans-serif;line-height:1.6;max-width:600px;margin:0 auto;padding:20px;">${htmlBody}<hr style="margin-top:32px;border:none;border-top:1px solid #eee;"/><p style="font-size:11px;color:#888;">If you'd rather not hear from us, <a href="${unsubUrl}">unsubscribe</a>.</p></body></html>`;
+
+      try {
+        const result = await sendViaNylas({
+          grantId: mailbox.nylas_grant_id,
+          to: [{ email: c.email!, name: c.full_name ?? undefined }],
           subject: personalizedSubject,
-          html: `<html><body style="font-family:sans-serif;line-height:1.6;max-width:600px;margin:0 auto;padding:20px;">${htmlBody}</body></html>`,
-          text: personalizedBody,
-          tags: [
-            { name: "campaign_id", value: campaign_id },
-            { name: "candidate_id", value: candidate.id },
-          ],
-        };
-
-        if (replyTo) emailPayload.reply_to = replyTo;
-
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(emailPayload),
+          html,
+          trackingLabel: `campaign:${campaign_id}`,
+          listUnsubscribe: `<mailto:unsubscribe@${mailbox.email.split("@")[1]}?subject=unsubscribe>, <${unsubUrl}>`,
+          listUnsubscribePost,
         });
-
-        if (res.ok) {
-          sentCount++;
-          await adminClient.from("email_events").insert({
-            campaign_id,
-            candidate_id: candidate.id,
-            company_id: companyId,
-            event_type: "sent",
-            event_data: { to: candidate.email },
-          });
-        } else {
-          const errData = await res.json();
-          errors.push(`${candidate.email}: ${errData.message || "send failed"}`);
-          console.error(`Failed to send to ${candidate.email}:`, errData);
-        }
+        await admin.from("campaign_sends").insert({
+          campaign_id,
+          company_id: companyId,
+          recipient_email: c.email,
+          recipient_name: c.full_name,
+          candidate_id: c.id,
+          nylas_message_id: result.message_id,
+          nylas_thread_id: result.thread_id,
+          sent_at: new Date().toISOString(),
+        });
+        sent++;
+      } catch (e) {
+        const msg = (e as Error).message;
+        errors.push({ email: c.email!, error: msg });
+        await admin.from("campaign_sends").insert({
+          campaign_id,
+          company_id: companyId,
+          recipient_email: c.email,
+          recipient_name: c.full_name,
+          candidate_id: c.id,
+          error: msg,
+        });
       }
     }
 
-    // Update campaign status and analytics
-    await adminClient
+    const isPartial = skipped > 0 || eligible.length > recipients.length;
+    await admin
       .from("email_campaigns")
       .update({
-        status: skippedCount > 0 ? "partial" : "sent",
-        sent_at: now,
-        sent_count: sentCount,
+        status: isPartial ? "partial" : "sent",
+        sent_at: new Date().toISOString(),
+        sent_count: (campaign.sent_count ?? 0) + sent,
         recipient_count: candidates.length,
       })
       .eq("id", campaign_id);
@@ -237,19 +243,17 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        sent: sentCount,
-        total: candidates.length,
-        skipped_due_to_limit: skippedCount,
-        daily_limit: dailyLimit,
-        sent_today: currentSentToday + sentCount,
-        remaining_today: Math.max(0, dailyLimit - currentSentToday - sentCount),
-        errors: errors.length > 0 ? errors : undefined,
-        mock: !resendApiKey,
+        sent,
+        attempted: recipients.length,
+        eligible: eligible.length,
+        skipped_suppressed_or_done: candidates.length - eligible.length,
+        skipped_cap: Math.max(0, eligible.length - recipients.length),
+        hourly_cap: cap,
+        provider: mailbox.provider,
+        mailbox: mailbox.email,
+        errors: errors.length ? errors : undefined,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("send-campaign error:", err);
