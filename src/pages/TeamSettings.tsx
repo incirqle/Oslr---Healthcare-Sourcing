@@ -113,6 +113,11 @@ export default function TeamSettings() {
 
         <Separator />
 
+        {/* Per-user mailbox connection (Nylas) */}
+        <MailboxCard />
+
+        <Separator />
+
         {/* Email Sender Configuration */}
         <Card>
           <CardHeader>
