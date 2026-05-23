@@ -80,14 +80,14 @@ Deno.serve(async (req) => {
     if (upsertErr) throw new Error(`Upsert failed: ${upsertErr.message}`);
 
     return Response.redirect(
-      `${returnOrigin}/settings/team?mailbox=connected`,
+      `${returnOrigin}/settings?mailbox=connected`,
       302,
     );
   } catch (e) {
     console.error("nylas-oauth-callback error:", e);
     const msg = encodeURIComponent((e as Error).message);
     return Response.redirect(
-      `${returnOrigin}/settings/team?mailbox=error&reason=${msg}`,
+      `${returnOrigin}/settings?mailbox=error&reason=${msg}`,
       302,
     );
   }
