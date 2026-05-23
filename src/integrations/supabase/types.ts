@@ -187,6 +187,60 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_sends: {
+        Row: {
+          bounced: boolean
+          campaign_id: string
+          candidate_id: string | null
+          clicked_at: string | null
+          company_id: string
+          created_at: string
+          error: string | null
+          id: string
+          nylas_message_id: string | null
+          nylas_thread_id: string | null
+          opened_at: string | null
+          recipient_email: string
+          recipient_name: string | null
+          replied_at: string | null
+          sent_at: string | null
+        }
+        Insert: {
+          bounced?: boolean
+          campaign_id: string
+          candidate_id?: string | null
+          clicked_at?: string | null
+          company_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          nylas_message_id?: string | null
+          nylas_thread_id?: string | null
+          opened_at?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+        }
+        Update: {
+          bounced?: boolean
+          campaign_id?: string
+          candidate_id?: string | null
+          clicked_at?: string | null
+          company_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          nylas_message_id?: string | null
+          nylas_thread_id?: string | null
+          opened_at?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
       candidate_fit: {
         Row: {
           created_at: string
@@ -499,6 +553,7 @@ export type Database = {
           created_by: string | null
           delivered_count: number | null
           id: string
+          mailbox_id: string | null
           name: string
           open_count: number | null
           project_id: string | null
@@ -517,6 +572,7 @@ export type Database = {
           created_by?: string | null
           delivered_count?: number | null
           id?: string
+          mailbox_id?: string | null
           name: string
           open_count?: number | null
           project_id?: string | null
@@ -535,6 +591,7 @@ export type Database = {
           created_by?: string | null
           delivered_count?: number | null
           id?: string
+          mailbox_id?: string | null
           name?: string
           open_count?: number | null
           project_id?: string | null
@@ -551,6 +608,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaigns_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "user_mailboxes"
             referencedColumns: ["id"]
           },
           {
@@ -621,6 +685,30 @@ export type Database = {
           },
         ]
       }
+      email_suppressions: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          email: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       email_templates: {
         Row: {
           body: string
@@ -661,6 +749,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_unsubscribe_tokens: {
+        Row: {
+          campaign_id: string | null
+          company_id: string
+          created_at: string
+          email: string
+          token: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          company_id: string
+          created_at?: string
+          email: string
+          token: string
+        }
+        Update: {
+          campaign_id?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string
+          token?: string
+        }
+        Relationships: []
       }
       oslr_searches: {
         Row: {
@@ -1047,6 +1159,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_mailboxes: {
+        Row: {
+          company_id: string
+          connected_at: string
+          display_name: string | null
+          email: string
+          id: string
+          last_error: string | null
+          nylas_grant_id: string
+          provider: string
+          scopes: string[] | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          connected_at?: string
+          display_name?: string | null
+          email: string
+          id?: string
+          last_error?: string | null
+          nylas_grant_id: string
+          provider: string
+          scopes?: string[] | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          connected_at?: string
+          display_name?: string | null
+          email?: string
+          id?: string
+          last_error?: string | null
+          nylas_grant_id?: string
+          provider?: string
+          scopes?: string[] | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
