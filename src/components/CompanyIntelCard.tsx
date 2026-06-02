@@ -20,7 +20,8 @@ function formatGrowth(pct: number | null | undefined): string | null {
 }
 
 export function CompanyIntelCard({ companyName }: CompanyIntelCardProps) {
-  const { data, loading } = useCompanyEnrichment(companyName ?? null);
+  const [unlocked, setUnlocked] = useState(false);
+  const { data, loading } = useCompanyEnrichment(unlocked ? companyName ?? null : null);
 
   if (!companyName) return null;
 
