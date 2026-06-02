@@ -600,6 +600,8 @@ Deno.serve(async (req) => {
 
       competitors,
 
+      talent_flow,
+
       cached: false,
       enriched_at: new Date().toISOString(),
     };
