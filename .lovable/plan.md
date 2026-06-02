@@ -1,36 +1,78 @@
-# Subtle pulsing dots for active search step
+## Audit findings
 
-## Goal
-While the search is running, the in-progress reasoning line (e.g. "Scanning healthcare professional records…") should show a calm, modern three-dot pulse — not the current blinking caret. Completed lines stay plain text. This is the only "search is happening" indicator in the reasoning panel.
+No code was changed.
 
-## Change (single file: `src/components/search/AgentReasoningPanel.tsx`)
+### 1. Why UCHealth has no logo in Employer Intel
+- The Employer Intel card is only receiving `companyName={companyName}`.
+- The drawer already computes a better company domain as `topCompanyDomain`, but it is not passed into `CompanyIntelCard`.
+- Because no domain is passed, `CompanyIntelCard` guesses a domain from the display name:
 
-1. **Drop the typewriter caret.** In `ReasoningLineRow`, remove the `<span ... animate-pulse>` block that renders the vertical bar when `cursor` is true.
+```text
+"uchealth" -> "uchealth.com"
+```
 
-2. **Add a `PulsingDots` sub-component** — three 4px dots, `bg-muted-foreground/60`, staggered `animate-pulse` via inline `animationDelay: 0ms / 200ms / 400ms`, `gap-1`, vertically centered.
+- UCHealth’s real domain is `uchealth.org`, so the Clearbit logo request fails and the component falls back to the initial `U`.
+- That is why we keep “running in circles”: we improved the visual card, but the data contract still only sends a company name, not the known/normalized domain.
 
-3. **Render dots on the live line.** When `cursor` is true (i.e. the line currently being typed), render `<PulsingDots />` inline after the text with `ml-2 inline-flex align-middle`. They sit at the end of "Scanning healthcare professional records" while it types and after it finishes, until the next line takes over.
+### 2. Why company intel says nothing found
+Recent backend logs show this exact path:
 
-4. **Replace the empty-state "Thinking…" pulse** (line 242–245) with the same `PulsingDots` component alone (no text), keeping it left-aligned. This removes the second "words" state the user complained about earlier.
+```text
+[Company Enrich] Cache miss, calling Crustdata: uchealth
+[Company Enrich] Could not identify: uchealth
+```
 
-5. **Reduced-motion**: when `reducedMotion` is true, render the three dots statically at 60% opacity (no animation), same layout.
+So the lookup is reaching the backend, but Crustdata cannot identify the ambiguous name `uchealth` by name alone. We are not sending a better identifier like `uchealth.org` or a company LinkedIn URL.
 
-## Out of scope
-- `SearchNetworkLoader` (skeleton rows below the panel) — untouched.
-- Reasoning script copy, typing speed, header bubble, condensed done state.
-- No new files, no design tokens added.
+### 3. Crustdata connection audit
+Crustdata is configured and being reached:
 
-## Technical notes
-- Pure Tailwind + inline `style={{ animationDelay }}`. No keyframe additions needed; `animate-pulse` already exists.
-- Dot markup:
-  ```tsx
-  <span className="inline-flex items-center gap-1 ml-2 align-middle" aria-hidden>
-    {[0, 200, 400].map((d) => (
-      <span
-        key={d}
-        className="h-1 w-1 rounded-full bg-muted-foreground/60 animate-pulse"
-        style={{ animationDelay: `${d}ms` }}
-      />
-    ))}
-  </span>
-  ```
+```text
+[hybrid] config: enabled=true, has_crustdata_key=true
+```
+
+But the PersonDB search path is currently failing because our request payload shape is invalid for Crustdata:
+
+```text
+CrustData returned 400: {"filters":["Basic filter must have a 'filter_type' or 'column' field"]}
+```
+
+Root cause: our Crustdata query builder creates nested boolean filter groups like:
+
+```text
+{ type: "OR", value: [...] }
+```
+
+Crustdata is rejecting those because each basic filter/group must use the schema it expects, including a `filter_type` or `column` field. So this is not mainly a missing API key problem; it is a payload/schema bug.
+
+### 4. Cache audit
+- `company_enrichment_cache` exists.
+- Backend permissions are present.
+- It caches successful company enrichment for 7 days.
+- There is no UCHealth cache row because Crustdata identification fails before anything can be cached.
+- The UI intentionally has no visible cache badge, as requested.
+
+## Proposed implementation plan
+
+### Step 1: Stop guessing logos from company name alone
+- Pass the already-derived `topCompanyDomain` from `CandidateDrawer` into `CompanyIntelCard`.
+- Add a small healthcare alias resolver so names like `uchealth`, `UC Health`, and `University of Colorado Health` resolve to `uchealth.org`.
+- Keep the fallback initial only as a true last resort.
+
+### Step 2: Make Employer Intel lookup use stronger identifiers
+- Send `company_name` plus `company_domain` to the `company-enrichment` backend function.
+- Prefer domain-based/cache-keyed lookup when available.
+- Normalize common employer aliases before calling Crustdata.
+
+### Step 3: Fix Crustdata PersonDB query schema
+- Update `build-crustdata-query.ts` so Crustdata filters use the API’s accepted filter shape instead of the current invalid nested `OR` blocks.
+- Add explicit logging for the request category and Crustdata response status so future failures don’t collapse into “0 results.”
+
+### Step 4: Improve failure reporting without exposing internals
+- If Crustdata returns a 400/401/402/429/500, keep the user-facing UI calm, but log a specific backend reason.
+- Avoid showing “No intel found” when the real problem is an integration/query error.
+
+### Step 5: Validate with UCHealth
+- Test `company-enrichment` using `UCHealth`, `UC Health`, and `uchealth.org`.
+- Confirm the card renders the UCHealth logo.
+- Confirm successful enrichment is cached and reused for the next lookup.
