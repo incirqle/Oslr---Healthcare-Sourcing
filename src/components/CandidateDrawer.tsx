@@ -850,19 +850,40 @@ export function CandidateDrawer({
                     <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
                       <dt className="text-ui-text-muted">Contact</dt>
                       <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ui-text-secondary">
-                        {contactEmail ? (
-                          <a href={`mailto:${contactEmail}`} className="text-ui-info hover:underline">
-                            {contactEmail}
-                          </a>
-                        ) : null}
-                        {contactPhone ? (
-                          <a href={`tel:${contactPhone}`} className="text-ui-info hover:underline">
-                            {contactPhone}
-                          </a>
-                        ) : null}
                         {!contactEmail && !contactPhone ? (
                           <span className="text-ui-text-muted">No contact on file</span>
-                        ) : null}
+                        ) : contactUnlocked ? (
+                          <>
+                            {contactEmail ? (
+                              <a href={`mailto:${contactEmail}`} className="text-ui-info hover:underline">
+                                {contactEmail}
+                              </a>
+                            ) : null}
+                            {contactPhone ? (
+                              <a href={`tel:${contactPhone}`} className="text-ui-info hover:underline">
+                                {contactPhone}
+                              </a>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-ui-border-light bg-ui-surface px-2 py-0.5 text-[11px] font-medium text-ui-text-muted">
+                              <Lock className="h-3 w-3" />
+                              {contactEmail && contactPhone
+                                ? "Email & phone hidden"
+                                : contactEmail
+                                  ? "Email hidden"
+                                  : "Phone hidden"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setContactUnlocked(true)}
+                              className="text-[12px] font-medium text-primary hover:underline"
+                            >
+                              Unlock (1 credit)
+                            </button>
+                          </>
+                        )}
                       </dd>
                     </div>
                     <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
