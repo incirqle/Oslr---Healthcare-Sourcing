@@ -573,33 +573,6 @@ function FunctionTimeseriesChart({
   const [range, setRange] = useState<keyof typeof RANGES>("1Y");
   const months = RANGES[range];
 
-  // Pick top 5 departments by latest count
-  const topDepts = useMemo(() => {
-    return Object.entries(data)
-      .map(([k, v]) => [k, v[v.length - 1]?.employee_count ?? 0] as const)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([k]) => k);
-  }, [data]);
-
-  // Build merged dataset keyed by date
-  const merged = useMemo(() => {
-    const byDate: Record<string, Record<string, number | string>> = {};
-    const cutoff = Date.now() - months * 30 * 86_400_000;
-    topDepts.forEach((dept) => {
-      (data[dept] ?? []).forEach((p) => {
-        if (new Date(p.date).getTime() < cutoff) return;
-        byDate[p.date] = byDate[p.date] ?? { date: p.date };
-        byDate[p.date][dept] = p.employee_count;
-      });
-    });
-    return Object.values(byDate).sort(
-      (a, b) =>
-        new Date(a.date as string).getTime() -
-        new Date(b.date as string).getTime(),
-    );
-  }, [data, topDepts, months]);
-
   const COLORS = [
     "hsl(var(--primary))",
     "#7c5cff",
@@ -607,6 +580,24 @@ function FunctionTimeseriesChart({
     "#f59e0b",
     "#ef4444",
   ];
+
+  // Per-department filtered series + summary
+  const rows = useMemo(() => {
+    const cutoff = Date.now() - months * 30 * 86_400_000;
+    return Object.entries(data)
+      .map(([dept, series]) => {
+        const filtered = (series ?? []).filter(
+          (p) => new Date(p.date).getTime() >= cutoff,
+        );
+        const latest = filtered[filtered.length - 1]?.employee_count ?? 0;
+        const first = filtered[0]?.employee_count ?? 0;
+        const delta = latest - first;
+        const pct = first > 0 ? (delta / first) * 100 : 0;
+        return { dept, filtered, latest, first, delta, pct };
+      })
+      .sort((a, b) => b.latest - a.latest)
+      .slice(0, 5);
+  }, [data, months]);
 
   return (
     <Section
@@ -630,75 +621,77 @@ function FunctionTimeseriesChart({
         </div>
       }
     >
-      <div className="h-60 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="hsl(var(--ui-border-light))" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={(d) =>
-                new Date(d).toLocaleDateString(undefined, {
-                  month: "short",
-                  year: "2-digit",
-                })
-              }
-              tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
-              axisLine={false}
-              tickLine={false}
-              minTickGap={32}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
-              tickFormatter={(v) => formatNumber(v)}
-              axisLine={false}
-              tickLine={false}
-              width={42}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "hsl(var(--background))",
-                border: "1px solid hsl(var(--ui-border-light))",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-              labelFormatter={(d) =>
-                new Date(d as string).toLocaleDateString(undefined, {
-                  month: "short",
-                  year: "numeric",
-                })
-              }
-            />
-            {topDepts.map((dept, i) => (
-              <Line
-                key={dept}
-                type="monotone"
-                dataKey={dept}
-                stroke={COLORS[i % COLORS.length]}
-                strokeWidth={2}
-                dot={false}
-                name={titleCase(dept)}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
-        {topDepts.map((dept, i) => (
-          <li
-            key={dept}
-            className="flex items-center gap-1.5 text-[11px] text-ui-text-secondary"
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: COLORS[i % COLORS.length] }}
-            />
-            {titleCase(dept)}
-          </li>
-        ))}
+      <ul className="divide-y divide-ui-border-light">
+        {rows.map((row, i) => {
+          const color = COLORS[i % COLORS.length];
+          const positive = row.delta >= 0;
+          return (
+            <li
+              key={row.dept}
+              className="grid grid-cols-[1fr_120px_auto] items-center gap-4 py-2.5 first:pt-0 last:pb-0"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: color }}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-ui-text-primary">
+                    {titleCase(row.dept)}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-[11px] tabular-nums",
+                      positive ? "text-primary" : "text-destructive",
+                    )}
+                  >
+                    {positive ? "+" : ""}
+                    {row.delta.toLocaleString()} ({positive ? "+" : ""}
+                    {row.pct.toFixed(1)}%)
+                  </p>
+                </div>
+              </div>
+              <div className="h-10">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={row.filtered}
+                    margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id={`spark-${i}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={color} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area
+                      type="monotone"
+                      dataKey="employee_count"
+                      stroke={color}
+                      strokeWidth={1.75}
+                      fill={`url(#spark-${i})`}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="w-20 text-right text-[15px] font-semibold tabular-nums text-ui-text-primary">
+                {row.latest.toLocaleString()}
+              </p>
+            </li>
+          );
+        })}
       </ul>
     </Section>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Modal                                                                */
