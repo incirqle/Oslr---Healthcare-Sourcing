@@ -239,11 +239,11 @@ export function AgentReasoningPanel({
           )}
 
           {lines.length === 0 && !errored && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              <span>Thinking…</span>
+            <div className="flex items-center py-1">
+              <PulsingDots reducedMotion={reducedMotion} />
             </div>
           )}
+
 
           {errored && (
             <div className="flex items-center gap-2 text-sm text-amber-400">
@@ -288,7 +288,25 @@ function ReasoningLineRow({
       className={cn("text-sm leading-relaxed py-0.5", baseClass)}
     >
       {line.text}
-      {cursor && <span className="inline-block w-1.5 h-3.5 bg-primary/70 ml-0.5 animate-pulse align-baseline" />}
+      {cursor && <PulsingDots reducedMotion={reducedMotion} />}
     </motion.div>
   );
 }
+
+function PulsingDots({ reducedMotion }: { reducedMotion: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1 ml-2 align-middle" aria-hidden>
+      {[0, 200, 400].map((d) => (
+        <span
+          key={d}
+          className={cn(
+            "h-1 w-1 rounded-full bg-muted-foreground/60",
+            !reducedMotion && "animate-pulse",
+          )}
+          style={reducedMotion ? undefined : { animationDelay: `${d}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
