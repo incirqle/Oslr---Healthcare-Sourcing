@@ -10,6 +10,7 @@ import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate } from "@/components/search/SearchResults";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
+import { SearchNetworkLoader } from "@/components/search/SearchNetworkLoader";
 import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
