@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FitPill } from "@/components/search/FitPill";
+import { CompanyIntelCard } from "@/components/CompanyIntelCard";
 import { useCandidateFits, useSetCandidateFit } from "@/hooks/useCandidateFit";
 import { useDrawerSize } from "@/hooks/useDrawerSize";
 import {
@@ -990,6 +991,8 @@ export function CandidateDrawer({
                     </p>
                   </section>
                 )}
+
+                <CompanyIntelCard companyName={companyName} />
 
                 {error && <p className="text-[13px] text-ui-text-muted">{error}</p>}
               </TabsContent>
