@@ -135,13 +135,19 @@ async function identifyByName(
   name: string,
   domain?: string | null,
 ): Promise<Identified | null> {
+  // Crustdata's /screener/identify accepts EXACTLY ONE of:
+  // query_company_name, query_company_website, query_company_linkedin_url,
+  // query_company_crunchbase_url, query_company_id.
+  // Prefer name when present (best recall on partial matches), otherwise domain.
   const payload: Record<string, unknown> = { exact_match: false };
-  if (name) payload.query_company_name = name;
-  // Crustdata requires query_company_website (not _domain). Pass full URL.
-  if (domain) {
+  if (name) {
+    payload.query_company_name = name;
+  } else if (domain) {
     payload.query_company_website = domain.startsWith("http")
       ? domain
       : `https://${domain}`;
+  } else {
+    return null;
   }
   const raw = await cdPost("/screener/identify", payload);
   const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
