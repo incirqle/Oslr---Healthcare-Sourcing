@@ -352,23 +352,8 @@ export default function SearchPage() {
             />
 
 
-            {/* Skeleton rows while results stream in */}
-            {skeletonCount > 0 && (
-              <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40">
-                {Array.from({ length: skeletonCount }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-4 border-b border-border/40 px-5 py-4 last:border-b-0 animate-pulse"
-                  >
-                    <div className="h-11 w-11 rounded-full bg-muted/40" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3.5 w-1/3 rounded bg-muted/40" />
-                      <div className="h-3 w-1/2 rounded bg-muted/30" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Animated dot-network loader while results stream in */}
+            {skeletonCount > 0 && <SearchNetworkLoader />}
 
             {visibleCandidates.length > 0 && (
               <SearchResults
