@@ -269,14 +269,17 @@ async function resolveCompetitors(ids: number[]): Promise<Competitor[]> {
   const top = ids.slice(0, 6);
   const out = await Promise.all(
     top.map(async (id) => {
-      const d = await cdPost("/screener/identify", { query_company_id: id });
+      const raw = await cdPost("/screener/identify", { query_company_id: id });
+      const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      const d = list[0];
       if (!d?.company_id) return null;
       return {
         company_id: d.company_id,
         company_name: d.company_name ?? "Unknown",
         linkedin_profile_url: d.linkedin_profile_url ?? null,
         company_website_domain: d.company_website_domain ?? null,
-        headcount: d.headcount ?? null,
+        headcount:
+          typeof d.linkedin_headcount === "number" ? d.linkedin_headcount : null,
       } as Competitor;
     }),
   );
