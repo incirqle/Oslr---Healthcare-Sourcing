@@ -20,6 +20,7 @@ import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankRe
 import { callClaude } from "./ai-router.ts";
 import { rerankWithAI } from "./ai-rerank.ts";
 import { enrichJobTitles } from "./enrich-job-titles.ts";
+import { runHybridSearch, type HybridSearchResult } from "./hybrid-orchestrator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
