@@ -1278,6 +1278,7 @@ Deno.serve(async (req: Request) => {
     // repeat views of the same page don't re-burn credits or LLM tokens.
     let formattedResults: Record<string, unknown>[];
     let aiRerankMeta: Record<string, unknown> = { ai_reranked: false };
+    let hybridResult: HybridSearchResult | null = null;
 
     // If cached data is already formatted (has relevance_score), serve it directly
     const firstResult = results[0] as Record<string, unknown> | undefined;
@@ -1288,11 +1289,24 @@ Deno.serve(async (req: Request) => {
       const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
       formattedResults = deterministicResults;
 
-      if (deterministicResults.length > 0) {
+      // Hybrid: merge in CrustData candidates (feature-flagged via CRUSTDATA_ENABLED)
+      hybridResult = await runHybridSearch({
+        parsed,
+        pdlCandidates: deterministicResults,
+        pdlTotal: total,
+        pdlMs: Date.now() - requestStart,
+        size,
+      });
+      const hybridCandidates = hybridResult.candidates;
+      if (hybridResult.hybrid_meta.crustdata_net_new > 0) {
+        total = hybridResult.total;
+      }
+
+      if (hybridCandidates.length > 0) {
         const _anchorIds = Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids)
           ? ((parsed as Record<string, unknown>)._resolved_company_ids as string[])
           : [];
-        const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey, {
+        const rerank = await rerankWithAI(hybridCandidates, parsed, query, lovableKey, {
           anchorCompanyIds: _anchorIds,
           anchorMode: _anchorIds.length > 0,
         });
