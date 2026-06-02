@@ -135,13 +135,19 @@ async function identifyByName(
   name: string,
   domain?: string | null,
 ): Promise<Identified | null> {
+  // Crustdata's /screener/identify accepts EXACTLY ONE of:
+  // query_company_name, query_company_website, query_company_linkedin_url,
+  // query_company_crunchbase_url, query_company_id.
+  // Prefer name when present (best recall on partial matches), otherwise domain.
   const payload: Record<string, unknown> = { exact_match: false };
-  if (name) payload.query_company_name = name;
-  // Crustdata requires query_company_website (not _domain). Pass full URL.
-  if (domain) {
+  if (name) {
+    payload.query_company_name = name;
+  } else if (domain) {
     payload.query_company_website = domain.startsWith("http")
       ? domain
       : `https://${domain}`;
+  } else {
+    return null;
   }
   const raw = await cdPost("/screener/identify", payload);
   const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
@@ -336,7 +342,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 4) {
+      if (cached?.data && (cached.data as any)?.schema_version === 5) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -401,7 +407,7 @@ Deno.serve(async (req) => {
     const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 4 as const,
+      schema_version: 5 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
