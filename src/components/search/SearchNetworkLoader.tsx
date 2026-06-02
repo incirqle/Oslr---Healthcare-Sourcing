@@ -1,67 +1,157 @@
 /**
- * Minimal, fluid loading state for the search results canvas.
+ * Glowing-node constellation loader for the search results canvas.
  *
- * No graph metaphor, no constellation, no duplicate "searching" caption —
- * just quiet skeleton rows with a slow horizontal light sweep. Status copy
- * is owned by the AgentReasoningPanel above; this surface is purely visual.
+ * Each skeleton row is anchored by a pulsing primary-tinted node; a faint
+ * SVG overlay draws flowing connections between consecutive nodes so the
+ * surface reads as a live network discovering candidates.
  */
 
 const ROWS = 6;
+const ROW_HEIGHT = 76; // px — matches py-5 + content
+const NODE_X = 28; // px — node center from container left
 
 export function SearchNetworkLoader() {
+  const totalHeight = ROWS * ROW_HEIGHT;
+
   return (
-    <div className="relative w-full overflow-hidden">
+    <div className="relative w-full overflow-hidden" style={{ minHeight: totalHeight }}>
       <style>{`
-        @keyframes osl-sweep {
-          0%   { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+        @keyframes osl-node-pulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow:
+              0 0 0 0 hsl(var(--primary) / 0.45),
+              0 0 12px 2px hsl(var(--primary) / 0.35);
+          }
+          50% {
+            transform: scale(1.15);
+            box-shadow:
+              0 0 0 6px hsl(var(--primary) / 0),
+              0 0 22px 6px hsl(var(--primary) / 0.55);
+          }
         }
-        @keyframes osl-breathe {
-          0%, 100% { opacity: 0.55; }
-          50%      { opacity: 1; }
+        @keyframes osl-bar-shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
         }
-        .osl-sweep {
-          animation: osl-sweep 2.6s ease-in-out infinite;
+        @keyframes osl-line-flow {
+          to { stroke-dashoffset: -40; }
         }
-        .osl-breathe {
-          animation: osl-breathe 2.8s ease-in-out infinite;
+        @keyframes osl-satellite {
+          0%, 100% { opacity: 0.35; transform: scale(0.9); }
+          50%      { opacity: 1;    transform: scale(1.1); }
+        }
+        .osl-node {
+          background: radial-gradient(
+            circle at 35% 30%,
+            hsl(var(--primary) / 1) 0%,
+            hsl(var(--primary) / 0.8) 45%,
+            hsl(var(--primary) / 0.5) 100%
+          );
+          animation: osl-node-pulse 2.4s ease-in-out infinite;
+        }
+        .osl-bar {
+          background: linear-gradient(
+            90deg,
+            hsl(var(--foreground) / 0.05) 0%,
+            hsl(var(--foreground) / 0.05) 30%,
+            hsl(var(--primary) / 0.22) 50%,
+            hsl(var(--foreground) / 0.05) 70%,
+            hsl(var(--foreground) / 0.05) 100%
+          );
+          background-size: 200% 100%;
+          animation: osl-bar-shimmer 2.8s linear infinite;
+        }
+        .osl-line {
+          stroke: hsl(var(--primary) / 0.35);
+          stroke-width: 1;
+          fill: none;
+          stroke-dasharray: 4 6;
+          animation: osl-line-flow 2.2s linear infinite;
+        }
+        .osl-satellite {
+          background: hsl(var(--primary) / 0.7);
+          box-shadow: 0 0 10px 2px hsl(var(--primary) / 0.4);
+          animation: osl-satellite 2.6s ease-in-out infinite;
         }
         @media (prefers-reduced-motion: reduce) {
-          .osl-sweep, .osl-breathe { animation: none; }
+          .osl-node, .osl-bar, .osl-line, .osl-satellite { animation: none; }
         }
       `}</style>
 
-      <ul className="divide-y divide-foreground/[0.04]">
+      {/* Connecting lines behind the rows */}
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        preserveAspectRatio="none"
+      >
+        {Array.from({ length: ROWS - 1 }).map((_, i) => {
+          const y1 = i * ROW_HEIGHT + ROW_HEIGHT / 2;
+          const y2 = (i + 1) * ROW_HEIGHT + ROW_HEIGHT / 2;
+          const curve = i % 2 === 0 ? 16 : -16;
+          const path = `M ${NODE_X} ${y1} C ${NODE_X + curve} ${y1 + 24}, ${NODE_X - curve} ${y2 - 24}, ${NODE_X} ${y2}`;
+          return (
+            <path
+              key={i}
+              d={path}
+              className="osl-line"
+              style={{ animationDelay: `${i * 0.25}s` }}
+            />
+          );
+        })}
+      </svg>
+
+      <ul className="relative">
         {Array.from({ length: ROWS }).map((_, i) => (
           <li
             key={i}
-            className="osl-breathe flex items-center gap-4 px-2 py-5"
-            style={{ animationDelay: `${i * 0.18}s` }}
+            className="flex items-center gap-4 px-2"
+            style={{ height: ROW_HEIGHT }}
           >
-            <div className="h-10 w-10 shrink-0 rounded-full bg-foreground/[0.05]" />
-            <div className="flex-1 space-y-2">
+            {/* Glowing node */}
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
               <div
-                className="h-3 rounded-full bg-foreground/[0.06]"
-                style={{ width: `${42 + ((i * 7) % 28)}%` }}
-              />
-              <div
-                className="h-2.5 rounded-full bg-foreground/[0.04]"
-                style={{ width: `${22 + ((i * 11) % 24)}%` }}
+                className="osl-node h-3 w-3 rounded-full"
+                style={{ animationDelay: `${i * 0.32}s` }}
               />
             </div>
-            <div className="hidden h-6 w-16 shrink-0 rounded-full bg-foreground/[0.04] sm:block" />
+
+            {/* Shimmering text bars */}
+            <div className="flex-1 space-y-2">
+              <div
+                className="osl-bar h-3 rounded-full"
+                style={{
+                  width: `${42 + ((i * 7) % 28)}%`,
+                  animationDelay: `${i * 0.18}s`,
+                }}
+              />
+              <div
+                className="osl-bar h-2.5 rounded-full"
+                style={{
+                  width: `${22 + ((i * 11) % 24)}%`,
+                  animationDelay: `${i * 0.18 + 0.4}s`,
+                }}
+              />
+            </div>
+
+            {/* Satellite nodes on the right */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <div
+                className="osl-satellite h-1.5 w-1.5 rounded-full"
+                style={{ animationDelay: `${i * 0.4}s` }}
+              />
+              <div
+                className="osl-satellite h-2 w-2 rounded-full"
+                style={{ animationDelay: `${i * 0.4 + 0.6}s` }}
+              />
+              <div
+                className="h-6 w-16 shrink-0 rounded-full"
+                style={{ background: "hsl(var(--foreground) / 0.04)" }}
+              />
+            </div>
           </li>
         ))}
       </ul>
-
-      <div
-        aria-hidden="true"
-        className="osl-sweep pointer-events-none absolute inset-y-0 left-0 w-1/2"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.08) 50%, transparent 100%)",
-        }}
-      />
     </div>
   );
 }

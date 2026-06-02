@@ -1,78 +1,35 @@
-## Audit findings
+## Problem
 
-No code was changed.
+The current `SearchNetworkLoader` is just plain skeleton rows with a horizontal sweep — no glowing nodes, no network metaphor. You want the constellation feel back while results are loading.
 
-### 1. Why UCHealth has no logo in Employer Intel
-- The Employer Intel card is only receiving `companyName={companyName}`.
-- The drawer already computes a better company domain as `topCompanyDomain`, but it is not passed into `CompanyIntelCard`.
-- Because no domain is passed, `CompanyIntelCard` guesses a domain from the display name:
+## Plan
 
-```text
-"uchealth" -> "uchealth.com"
+Rebuild `src/components/search/SearchNetworkLoader.tsx` so each skeleton row IS a glowing node in a connected network, instead of a flat sweep.
+
+### Visual
+
+```
+ ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━●
+   ╲                                      
+    ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━●      
+        ╲                                  
+         ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━●
 ```
 
-- UCHealth’s real domain is `uchealth.org`, so the Clearbit logo request fails and the component falls back to the initial `U`.
-- That is why we keep “running in circles”: we improved the visual card, but the data contract still only sends a company name, not the known/normalized domain.
+- Replace the gray avatar circle on each row with a **glowing primary-tinted node**: solid core + soft radial halo (box-shadow blur), pulsing on a staggered delay so the column reads as a living constellation.
+- Add a thin SVG overlay layered behind the rows drawing **faint connecting lines** between consecutive node centers (slightly curved, primary color at ~10% opacity), with a moving dash offset so the signal appears to flow downward.
+- Add a couple of small "satellite" nodes floating in the right-side action slot that pulse on their own cadence — gives the impression of incoming matches.
+- Keep the skeleton text bars but tint their shimmer with a primary-mint gradient sweep (instead of plain gray) so the whole surface feels active.
+- Respect `prefers-reduced-motion`: nodes stay lit but stop pulsing, lines stop flowing.
 
-### 2. Why company intel says nothing found
-Recent backend logs show this exact path:
+### Technical
 
-```text
-[Company Enrich] Cache miss, calling Crustdata: uchealth
-[Company Enrich] Could not identify: uchealth
-```
+- Single file change: `src/components/search/SearchNetworkLoader.tsx`.
+- Pure CSS keyframes + one inline `<svg>` for the connecting lines. No new deps. No changes to `SearchResults` or `SearchPage`.
+- Use `hsl(var(--primary) / …)` tokens only — no hardcoded colors.
+- Component still renders ~6 rows so the loader occupies the same vertical space as the result list it replaces.
 
-So the lookup is reaching the backend, but Crustdata cannot identify the ambiguous name `uchealth` by name alone. We are not sending a better identifier like `uchealth.org` or a company LinkedIn URL.
+### Out of scope
 
-### 3. Crustdata connection audit
-Crustdata is configured and being reached:
-
-```text
-[hybrid] config: enabled=true, has_crustdata_key=true
-```
-
-But the PersonDB search path is currently failing because our request payload shape is invalid for Crustdata:
-
-```text
-CrustData returned 400: {"filters":["Basic filter must have a 'filter_type' or 'column' field"]}
-```
-
-Root cause: our Crustdata query builder creates nested boolean filter groups like:
-
-```text
-{ type: "OR", value: [...] }
-```
-
-Crustdata is rejecting those because each basic filter/group must use the schema it expects, including a `filter_type` or `column` field. So this is not mainly a missing API key problem; it is a payload/schema bug.
-
-### 4. Cache audit
-- `company_enrichment_cache` exists.
-- Backend permissions are present.
-- It caches successful company enrichment for 7 days.
-- There is no UCHealth cache row because Crustdata identification fails before anything can be cached.
-- The UI intentionally has no visible cache badge, as requested.
-
-## Proposed implementation plan
-
-### Step 1: Stop guessing logos from company name alone
-- Pass the already-derived `topCompanyDomain` from `CandidateDrawer` into `CompanyIntelCard`.
-- Add a small healthcare alias resolver so names like `uchealth`, `UC Health`, and `University of Colorado Health` resolve to `uchealth.org`.
-- Keep the fallback initial only as a true last resort.
-
-### Step 2: Make Employer Intel lookup use stronger identifiers
-- Send `company_name` plus `company_domain` to the `company-enrichment` backend function.
-- Prefer domain-based/cache-keyed lookup when available.
-- Normalize common employer aliases before calling Crustdata.
-
-### Step 3: Fix Crustdata PersonDB query schema
-- Update `build-crustdata-query.ts` so Crustdata filters use the API’s accepted filter shape instead of the current invalid nested `OR` blocks.
-- Add explicit logging for the request category and Crustdata response status so future failures don’t collapse into “0 results.”
-
-### Step 4: Improve failure reporting without exposing internals
-- If Crustdata returns a 400/401/402/429/500, keep the user-facing UI calm, but log a specific backend reason.
-- Avoid showing “No intel found” when the real problem is an integration/query error.
-
-### Step 5: Validate with UCHealth
-- Test `company-enrichment` using `UCHealth`, `UC Health`, and `uchealth.org`.
-- Confirm the card renders the UCHealth logo.
-- Confirm successful enrichment is cached and reused for the next lookup.
+- No changes to `AgentReasoningPanel` copy or layout above the loader.
+- No changes to skeleton row count or container padding.
