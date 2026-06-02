@@ -1,6 +1,7 @@
 import { ArrowRight, ExternalLink, Star, TrendingUp, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useCompanyEnrichment } from "@/hooks/useCompanyEnrichment";
+import { normalizeDomain, resolveCompanyDomain } from "@/lib/company-domains";
 
 interface CompanyIntelCardProps {
   companyName: string | null | undefined;
@@ -20,29 +21,19 @@ function formatGrowth(pct: number | null | undefined): string | null {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
-function slugDomain(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/[^a-z0-9]+/g, "")
-      .slice(0, 40) + ".com"
-  );
-}
-
 function CompanyLogo({
   name,
   domain,
   size = 56,
 }: {
   name: string;
-  domain: string;
+  domain: string | null;
   size?: number;
 }) {
   const [errored, setErrored] = useState(false);
   const initial = name.trim().charAt(0).toUpperCase() || "?";
 
-  if (errored) {
+  if (!domain || errored) {
     return (
       <div
         style={{ width: size, height: size }}
@@ -68,14 +59,23 @@ function CompanyLogo({
 
 export function CompanyIntelCard({ companyName, domain }: CompanyIntelCardProps) {
   const [unlocked, setUnlocked] = useState(false);
-  const { data, loading } = useCompanyEnrichment(unlocked ? companyName ?? null : null);
 
-  const resolvedDomain = useMemo(() => {
-    if (domain) return domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    if (data?.company_website_domain) return data.company_website_domain;
-    if (companyName) return slugDomain(companyName);
-    return "";
-  }, [domain, data?.company_website_domain, companyName]);
+  // Resolve a confident domain BEFORE rendering the logo so UC Health-style
+  // names don't fall back to a guessed ".com" that breaks Clearbit.
+  const seedDomain = useMemo(
+    () => normalizeDomain(domain) ?? resolveCompanyDomain(companyName),
+    [domain, companyName],
+  );
+
+  const { data, loading } = useCompanyEnrichment(
+    unlocked ? companyName ?? null : null,
+    unlocked ? seedDomain : null,
+  );
+
+  const resolvedDomain = useMemo(
+    () => normalizeDomain(data?.company_website_domain) ?? seedDomain ?? null,
+    [data?.company_website_domain, seedDomain],
+  );
 
   if (!companyName) return null;
   const displayName = companyName;
