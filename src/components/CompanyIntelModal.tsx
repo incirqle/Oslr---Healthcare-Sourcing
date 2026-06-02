@@ -33,7 +33,8 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
-  X,
+
+
 } from "lucide-react";
 import {
   useCompanyEnrichment,
@@ -99,15 +100,27 @@ function timeAgo(iso: string | null): string {
 function CompanyLogo({
   name,
   domain,
+  logoUrl,
   size = 72,
 }: {
   name: string;
   domain: string | null;
+  logoUrl?: string | null;
   size?: number;
 }) {
-  const [errored, setErrored] = useState(false);
+  const sources = useMemo(() => {
+    const list: string[] = [];
+    if (logoUrl) list.push(logoUrl);
+    if (domain) {
+      list.push(`https://logo.clearbit.com/${domain}`);
+      list.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    }
+    return list;
+  }, [logoUrl, domain]);
+  const [idx, setIdx] = useState(0);
   const initial = name.trim().charAt(0).toUpperCase() || "?";
-  if (!domain || errored) {
+  const src = sources[idx];
+  if (!src) {
     return (
       <div
         style={{ width: size, height: size, fontSize: size * 0.38 }}
@@ -119,16 +132,17 @@ function CompanyLogo({
   }
   return (
     <img
-      src={`https://logo.clearbit.com/${domain}`}
+      src={src}
       alt={`${name} logo`}
       width={size}
       height={size}
-      onError={() => setErrored(true)}
+      onError={() => setIdx((i) => i + 1)}
       className="shrink-0 rounded-2xl border border-ui-border-light/60 bg-white object-contain p-2 shadow-sm"
       style={{ width: size, height: size }}
     />
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* KPI card                                                             */
@@ -713,14 +727,14 @@ function Header({
   );
   return (
     <div className="relative bg-gradient-to-br from-ui-surface-subtle via-white to-ui-surface-subtle px-6 pb-5 pt-6">
-      <button
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-full p-1.5 text-ui-text-muted transition-colors hover:bg-ui-surface-hover hover:text-ui-text-primary"
-      >
-        <X className="h-4 w-4" />
-      </button>
       <div className="flex items-start gap-4">
-        <CompanyLogo name={displayName} domain={resolvedDomain} size={72} />
+        <CompanyLogo
+          name={displayName}
+          domain={resolvedDomain}
+          logoUrl={data?.linkedin_logo_url}
+          size={72}
+        />
+
         <div className="mt-1 min-w-0 flex-1">
           <DialogTitle className="text-[22px] font-semibold tracking-tight text-ui-text-primary">
             {displayName}
