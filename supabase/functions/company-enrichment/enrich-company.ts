@@ -75,8 +75,10 @@ async function identifyCompany(
     );
     return null;
   }
-  const data = await res.json();
-  console.log(`[Company Enrich] Identify response: ${JSON.stringify(data).slice(0, 400)}`);
+  const raw = await res.json();
+  console.log(`[Company Enrich] Identify response: ${JSON.stringify(raw).slice(0, 400)}`);
+  // Crustdata /identify returns an array of matches; take the first.
+  const data = Array.isArray(raw) ? raw[0] : raw;
   if (!data?.company_id) return null;
   return {
     company_id: data.company_id,
