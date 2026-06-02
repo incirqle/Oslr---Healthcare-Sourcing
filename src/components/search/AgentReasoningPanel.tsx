@@ -239,11 +239,11 @@ export function AgentReasoningPanel({
           )}
 
           {lines.length === 0 && !errored && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              <span>Thinking…</span>
+            <div className="flex items-center py-1">
+              <PulsingDots reducedMotion={reducedMotion} />
             </div>
           )}
+
 
           {errored && (
             <div className="flex items-center gap-2 text-sm text-amber-400">
