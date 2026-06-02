@@ -1,0 +1,1 @@
+DELETE FROM public.company_enrichment_cache;
