@@ -622,6 +622,38 @@ export function CandidateDrawer({
   const locationLabel = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location;
   const contactEmail = enriched?.work_email || enriched?.personal_emails?.[0] || candidate.email || null;
   const contactPhone = enriched?.mobile_phone || enriched?.phone_numbers?.[0] || candidate.phone || null;
+  const allEmails: { address: string; label: string }[] = (() => {
+    const out: { address: string; label: string }[] = [];
+    const seen = new Set<string>();
+    const push = (addr: string | null | undefined, label: string) => {
+      if (!addr) return;
+      const key = addr.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ address: addr, label });
+    };
+    push(enriched?.work_email, "Work");
+    (enriched?.personal_emails || []).forEach(e => push(e, "Personal"));
+    const candEmails = (candidate as unknown as { emails?: string[] }).emails;
+    if (Array.isArray(candEmails)) candEmails.forEach(e => push(e, "Other"));
+    push(candidate.email, "Other");
+    return out;
+  })();
+  const allPhones: { number: string; label: string }[] = (() => {
+    const out: { number: string; label: string }[] = [];
+    const seen = new Set<string>();
+    const push = (ph: string | null | undefined, label: string) => {
+      if (!ph) return;
+      const key = ph.replace(/\D/g, "");
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push({ number: ph, label });
+    };
+    push(enriched?.mobile_phone, "Mobile");
+    (enriched?.phone_numbers || []).forEach(p => push(p, "Phone"));
+    push(candidate.phone, "Phone");
+    return out;
+  })();
   const topCompanyDomain = companyGroups[0]?.logoDomain ?? null;
   const topSchoolDomain = topEducation?.logoDomain ?? null;
   const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
@@ -1383,26 +1415,28 @@ export function CandidateDrawer({
                       Unlock Contact Info
                     </Button>
                   </div>
-                ) : contactEmail || contactPhone ? (
+                ) : allEmails.length > 0 || allPhones.length > 0 ? (
                   <div className="space-y-3">
-                    {contactEmail && (
+                    {allEmails.map((e) => (
                       <ContactCard
+                        key={`email-${e.address}`}
                         icon={<Mail className="h-4 w-4" />}
-                        label="Email"
-                        value={contactEmail}
-                        href={`mailto:${contactEmail}`}
-                        onCopy={() => handleCopy(contactEmail, "Email")}
+                        label={`${e.label} email`}
+                        value={e.address}
+                        href={`mailto:${e.address}`}
+                        onCopy={() => handleCopy(e.address, `${e.label} email`)}
                       />
-                    )}
-                    {contactPhone && (
+                    ))}
+                    {allPhones.map((p) => (
                       <ContactCard
+                        key={`phone-${p.number}`}
                         icon={<Phone className="h-4 w-4" />}
-                        label="Phone"
-                        value={contactPhone}
-                        href={`tel:${contactPhone}`}
-                        onCopy={() => handleCopy(contactPhone, "Phone")}
+                        label={p.label}
+                        value={p.number}
+                        href={`tel:${p.number}`}
+                        onCopy={() => handleCopy(p.number, p.label)}
                       />
-                    )}
+                    ))}
                   </div>
                 ) : (
                   <p className="py-10 text-center text-[15px] text-ui-text-muted">No contact information available</p>
