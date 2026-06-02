@@ -36,7 +36,7 @@ interface CrustDataQuery {
   filters: CompoundFilter;
   sorts?: { field: string; order: "asc" | "desc" }[];
   count: number;
-  preview: boolean;
+  preview?: boolean;
   post_processing?: { exclude_profiles?: string[] };
 }
 
@@ -269,11 +269,10 @@ export function buildCrustDataQuery(
   const query: CrustDataQuery = {
     filters: { op: "and", conditions: andConditions },
     count: Math.min(size, 1000),
-    preview,
   };
 
-  if (!preview) {
-    query.sorts = [{ field: "years_of_experience_raw", order: "desc" }];
+  if (preview) {
+    query.preview = true;
   }
 
   if (excludeLinkedInUrls && excludeLinkedInUrls.length > 0) {
