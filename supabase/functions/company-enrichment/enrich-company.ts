@@ -53,17 +53,12 @@ async function identifyCompany(
     return null;
   }
 
-  const body: Record<string, unknown> = {
-    query_company_name: companyName,
-    exact_match: false,
-  };
-  if (companyDomain) {
-    // Crustdata's /screener/identify accepts domain hints under multiple
-    // historical keys. Send them all; unknown keys are ignored server-side.
-    body.query_company_website = companyDomain;
-    body.query_domain = companyDomain;
-    body.company_domain = companyDomain;
-  }
+  // Crustdata's /identify accepts exactly one of:
+  // query_company_name | query_company_website | query_company_linkedin_url | query_company_id
+  // Prefer domain when we have it (much higher hit rate for ambiguous names).
+  const body: Record<string, unknown> = companyDomain
+    ? { query_company_website: companyDomain }
+    : { query_company_name: companyName, exact_match: false };
 
   const res = await fetch(`${CRUSTDATA_BASE_URL}/screener/identify`, {
     method: "POST",
