@@ -53,6 +53,8 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
   const { parsed, pdlCandidates, pdlTotal, pdlMs, size } = input;
 
   if (!isCrustDataEnabled() || !hasCrustDataKey()) {
+    // Even when CrustData search is off, we can still attempt phone backfill
+    // ONLY if a key exists — but if the flag is off entirely, passthrough.
     return {
       candidates: pdlCandidates,
       total: pdlTotal,
@@ -65,6 +67,8 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
         crustdata_ms: 0,
         pdl_count: pdlCandidates.length,
         pdl_ms: pdlMs,
+        phone_enrichment_attempted: 0,
+        phone_enrichment_found: 0,
       },
     };
   }
@@ -90,46 +94,77 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
 
   const shouldFetch = previewTotal >= 5 || pdlCandidates.length < 20;
 
-  if (!shouldFetch) {
-    const crustMs = Date.now() - crustStart;
-    return {
-      candidates: pdlCandidates,
-      total: pdlTotal,
-      hybrid_meta: {
-        crustdata_enabled: true,
-        crustdata_preview_total: previewTotal,
-        crustdata_fetched: 0,
-        crustdata_net_new: 0,
-        crustdata_duplicates_merged: 0,
-        crustdata_ms: crustMs,
-        pdl_count: pdlCandidates.length,
-        pdl_ms: pdlMs,
-      },
+  let mergedCandidates: FormattedCandidate[] = pdlCandidates;
+  let mergeStats = {
+    net_new_from_crustdata: 0,
+    duplicates_merged: 0,
+  };
+  let fetchedCount = 0;
+
+  if (shouldFetch) {
+    const { profiles } = await fetchCrustDataProfiles(crustQuery);
+    fetchedCount = profiles.length;
+    const crustCandidates = mapCrustDataResults(profiles);
+    const mergeResult: MergeResult = mergeResults(pdlCandidates, crustCandidates);
+    mergedCandidates = mergeResult.candidates;
+    mergeStats = {
+      net_new_from_crustdata: mergeResult.stats.net_new_from_crustdata,
+      duplicates_merged: mergeResult.stats.duplicates_merged,
     };
   }
 
-  const { profiles } = await fetchCrustDataProfiles(crustQuery);
-  const crustCandidates = mapCrustDataResults(profiles);
-  const mergeResult: MergeResult = mergeResults(pdlCandidates, crustCandidates);
+  // Phone enrichment backfill — enrich ANY merged candidate missing a phone.
+  // Cost: 5 credits/profile. Capped at 25 per search (125 credits max).
+  const candidatesMissingPhone = mergedCandidates.filter(
+    c => !c.phone && (!c.phone_numbers || c.phone_numbers.length === 0) && c.linkedin_url
+  );
+
+  let phoneEnrichAttempted = 0;
+  let phoneEnrichFound = 0;
+
+  if (candidatesMissingPhone.length > 0) {
+    const toEnrich = candidatesMissingPhone.slice(0, 25);
+    const urlsToEnrich = toEnrich.map(c => c.linkedin_url!);
+    phoneEnrichAttempted = urlsToEnrich.length;
+
+    console.log(`[hybrid] Phone enrichment: attempting ${phoneEnrichAttempted} candidates missing phone`);
+
+    const phoneMap = await enrichPhoneNumbers(urlsToEnrich);
+
+    for (const candidate of mergedCandidates) {
+      if (candidate.linkedin_url && phoneMap.has(candidate.linkedin_url)) {
+        const phones = phoneMap.get(candidate.linkedin_url)!;
+        candidate.phone = phones[0] || null;
+        candidate.mobile_phone = phones.find(p => p.startsWith("+1")) || phones[0] || null;
+        candidate.phone_numbers = phones;
+        candidate.has_contact_info = true;
+        phoneEnrichFound++;
+      }
+    }
+
+    console.log(`[hybrid] Phone enrichment: found phones for ${phoneEnrichFound}/${phoneEnrichAttempted}`);
+  }
 
   const crustMs = Date.now() - crustStart;
   console.log(
-    `[hybrid] CrustData: ${profiles.length} fetched, ${mergeResult.stats.net_new_from_crustdata} net new, ` +
-    `${mergeResult.stats.duplicates_merged} enriched dupes, ${crustMs}ms`
+    `[hybrid] CrustData: ${fetchedCount} fetched, ${mergeStats.net_new_from_crustdata} net new, ` +
+    `${mergeStats.duplicates_merged} enriched dupes, phones backfilled: ${phoneEnrichFound}, ${crustMs}ms`
   );
 
   return {
-    candidates: mergeResult.candidates,
-    total: pdlTotal + mergeResult.stats.net_new_from_crustdata,
+    candidates: mergedCandidates,
+    total: pdlTotal + mergeStats.net_new_from_crustdata,
     hybrid_meta: {
       crustdata_enabled: true,
       crustdata_preview_total: previewTotal,
-      crustdata_fetched: profiles.length,
-      crustdata_net_new: mergeResult.stats.net_new_from_crustdata,
-      crustdata_duplicates_merged: mergeResult.stats.duplicates_merged,
+      crustdata_fetched: fetchedCount,
+      crustdata_net_new: mergeStats.net_new_from_crustdata,
+      crustdata_duplicates_merged: mergeStats.duplicates_merged,
       crustdata_ms: crustMs,
       pdl_count: pdlCandidates.length,
       pdl_ms: pdlMs,
+      phone_enrichment_attempted: phoneEnrichAttempted,
+      phone_enrichment_found: phoneEnrichFound,
     },
   };
 }
