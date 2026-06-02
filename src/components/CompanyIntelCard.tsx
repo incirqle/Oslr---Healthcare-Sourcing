@@ -25,6 +25,27 @@ export function CompanyIntelCard({ companyName }: CompanyIntelCardProps) {
 
   if (!companyName) return null;
 
+  if (!unlocked) {
+    return (
+      <section className="rounded-[10px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ui-text-muted">
+          <Building2 className="h-3.5 w-3.5" />
+          Employer Intel
+          <button
+            type="button"
+            onClick={() => setUnlocked(true)}
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-primary hover:bg-primary/15"
+          >
+            <Lock className="h-3 w-3" /> Unlock (1 credit)
+          </button>
+        </div>
+        <p className="mt-1.5 text-[12px] text-ui-text-muted">
+          Headcount, growth, leadership & Glassdoor for {companyName}.
+        </p>
+      </section>
+    );
+  }
+
   if (loading) {
     return (
       <section className="rounded-[10px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3">
