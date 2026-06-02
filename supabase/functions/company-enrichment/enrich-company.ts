@@ -76,6 +76,7 @@ async function identifyCompany(
     return null;
   }
   const data = await res.json();
+  console.log(`[Company Enrich] Identify response: ${JSON.stringify(data).slice(0, 400)}`);
   if (!data?.company_id) return null;
   return {
     company_id: data.company_id,
