@@ -296,3 +296,65 @@ export function mapCrustDataPerson(person: CrustDataPerson): FormattedCandidate 
 export function mapCrustDataResults(persons: CrustDataPerson[]): FormattedCandidate[] {
   return persons.map(mapCrustDataPerson);
 }
+
+/**
+ * Batch-enrich phone numbers for candidates missing them via
+ * CrustData Person Enrichment (fields=phone).
+ * Cost: 5 credits per profile (3 base + 2 phone addon).
+ * Batch limit: 25 LinkedIn URLs per request.
+ */
+export async function enrichPhoneNumbers(
+  linkedinUrls: string[]
+): Promise<Map<string, string[]>> {
+  const results = new Map<string, string[]>();
+  if (linkedinUrls.length === 0) return results;
+
+  const apiKey = Deno.env.get("CRUSTDATA_API_KEY");
+  if (!apiKey) return results;
+
+  const BATCH_SIZE = 25;
+  const batches: string[][] = [];
+  for (let i = 0; i < linkedinUrls.length; i += BATCH_SIZE) {
+    batches.push(linkedinUrls.slice(i, i + BATCH_SIZE));
+  }
+
+  for (const batch of batches) {
+    try {
+      const params = new URLSearchParams();
+      for (const url of batch) params.append("linkedin_profile_url", url);
+      params.append("fields", "phone");
+
+      const res = await fetch(
+        `${CRUSTDATA_BASE_URL}/screener/person/enrich?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        console.error(`[CrustData Phone Enrich] Error ${res.status}: ${await res.text()}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const profiles = Array.isArray(data) ? data : [data];
+
+      for (const profile of profiles) {
+        const liUrl = profile.linkedin_profile_url;
+        const phones = profile.phone_numbers;
+        if (liUrl && Array.isArray(phones) && phones.length > 0) {
+          results.set(liUrl, phones);
+        }
+      }
+    } catch (err) {
+      console.error(`[CrustData Phone Enrich] Failed:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  console.log(`[CrustData Phone Enrich] Got phones for ${results.size}/${linkedinUrls.length} profiles`);
+  return results;
+}
