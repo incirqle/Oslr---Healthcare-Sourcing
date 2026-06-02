@@ -1,15 +1,12 @@
 /**
  * build-crustdata-query.ts — Converts parsed search intent into CrustData PersonDB filter objects.
  *
- * ARCHITECTURE DIFFERENCES FROM PDL:
- * - CrustData uses JSON filter objects (binary match) vs PDL's Elasticsearch DSL (scored relevance)
- * - No job_title_sub_role taxonomy — must rely on title fuzzy matching + headline search
- * - Native geo_distance for location (no metro expansion hacks needed)
- * - Company matching via linkedin_profile_url is more precise than name matching
- * - No "should" boosting — all filters are hard AND/OR. Relevance is delegated to AI reranker.
- *
- * STRATEGY: Build a broad-but-targeted filter set. Cast a wider net than PDL
- * (since we don't have clinical taxonomy) and let the AI reranker handle precision.
+ * CRITICAL: CrustData filter shape is strict.
+ * - filters: [ { type: "AND", value: [...] } ]  — exactly one top-level wrapper
+ * - Each element in value[] is either:
+ *   - Basic: { filter_type, type, value }
+ *   - Compound: { type: "AND"|"OR", value: [...] }
+ * - Never mix filter_type with type:"AND"|"OR" on the same object
  */
 
 import {
@@ -19,14 +16,26 @@ import {
   US_STATES,
 } from "./config.ts";
 
-type CrustFilter =
-  | { filter_type: string; type: string; value: unknown }
-  | { type: "AND"; value: CrustFilter[] }
-  | { type: "OR"; value: CrustFilter[] };
+/* ------------------------------------------------------------------ */
+/* Types                                                                */
+/* ------------------------------------------------------------------ */
+
+interface BasicFilter {
+  filter_type: string;
+  type: string;
+  value: unknown;
+}
+
+interface CompoundFilter {
+  type: "AND" | "OR";
+  value: Array<BasicFilter | CompoundFilter>;
+}
+
+type CrustFilter = BasicFilter | CompoundFilter;
 
 interface CrustDataQuery {
   dataset: "people";
-  filters: CrustFilter;
+  filters: [CompoundFilter]; // EXACTLY one top-level AND/OR
   sorts?: { column: string; order: "asc" | "desc" }[];
   count: number;
   preview: boolean;
@@ -38,6 +47,10 @@ interface BuildCrustDataOptions {
   preview?: boolean;
   excludeLinkedInUrls?: string[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                              */
+/* ------------------------------------------------------------------ */
 
 const ABBREV_TO_STATE: Record<string, string> = {};
 for (const [full, abbr] of Object.entries(US_STATES)) {
@@ -80,6 +93,10 @@ function buildTitleTerms(
   }
   return Array.from(terms).filter(Boolean);
 }
+
+/* ------------------------------------------------------------------ */
+/* Coordinate maps for geo_distance                                     */
+/* ------------------------------------------------------------------ */
 
 const STATE_CENTER_COORDS: Record<string, [number, number]> = {
   "colorado": [39.5501, -105.7821],
@@ -144,51 +161,9 @@ const CITY_COORDS: Record<string, [number, number]> = {
   "baltimore": [39.2904, -76.6122],
 };
 
-interface LocationFilter {
-  city: string | null;
-  state: string | null;
-  metro: string | null;
-}
-
-function buildLocationFilter(location: LocationFilter): CrustFilter | null {
-  const { city, state } = location;
-
-  if (city) {
-    const cityLower = city.toLowerCase().trim();
-    const coords = CITY_COORDS[cityLower];
-    if (coords) {
-      return {
-        filter_type: "location",
-        type: "geo_distance",
-        value: { lat_lng: coords, distance: 50, unit: "km" },
-      };
-    }
-    return {
-      filter_type: "location",
-      type: "geo_distance",
-      value: { location: city, distance: 50, unit: "km" },
-    };
-  }
-
-  if (state) {
-    const stateLower = normalizeStateName(state);
-    const coords = STATE_CENTER_COORDS[stateLower];
-    if (coords) {
-      return {
-        filter_type: "location",
-        type: "geo_distance",
-        value: { lat_lng: coords, distance: 200, unit: "km" },
-      };
-    }
-    return {
-      filter_type: "location_details.state",
-      type: "=",
-      value: stateLower,
-    };
-  }
-
-  return null;
-}
+/* ------------------------------------------------------------------ */
+/* Main query builder                                                    */
+/* ------------------------------------------------------------------ */
 
 export function buildCrustDataQuery(
   parsed: Record<string, unknown>,
@@ -196,8 +171,10 @@ export function buildCrustDataQuery(
 ): CrustDataQuery {
   const { size = 100, preview = false, excludeLinkedInUrls } = options;
 
-  const andFilters: CrustFilter[] = [];
+  // Collect all AND conditions — each is either a BasicFilter or a CompoundFilter
+  const andConditions: CrustFilter[] = [];
 
+  // ── 1. TITLE MATCHING ─────────────────────────────────────────────
   const jobTitles = (parsed.job_titles as string[]) || [];
   const titleSynonyms = (parsed.title_synonyms as string[]) || [];
   const specialty = (parsed.specialty as string) || null;
@@ -207,101 +184,180 @@ export function buildCrustDataQuery(
   const titleTerms = buildTitleTerms(jobTitles, effectiveSpecialty, titleSynonyms);
 
   if (titleTerms.length > 0) {
-    const titleFilters: CrustFilter[] = titleTerms.slice(0, 10).map(term => ({
+    const titleBasicFilters: BasicFilter[] = titleTerms.slice(0, 10).map(term => ({
       filter_type: "current_employers.title",
       type: "(.)",
       value: term,
     }));
-    if (titleFilters.length === 1) andFilters.push(titleFilters[0]);
-    else andFilters.push({ type: "OR", value: titleFilters });
+
+    if (titleBasicFilters.length === 1) {
+      andConditions.push(titleBasicFilters[0]);
+    } else {
+      // Wrap multiple title options in an OR compound filter
+      const orBlock: CompoundFilter = {
+        type: "OR",
+        value: titleBasicFilters,
+      };
+      andConditions.push(orBlock);
+    }
   }
 
+  // ── 2. SPECIALTY via HEADLINE (when no title terms) ───────────────
   if (effectiveSpecialty && titleTerms.length === 0) {
-    andFilters.push({
+    andConditions.push({
       filter_type: "headline",
       type: "(.)",
       value: effectiveSpecialty,
     });
   }
 
+  // ── 3. COMPANY MATCHING ───────────────────────────────────────────
   const currentCompanies = (parsed.current_companies as string[]) || [];
   const companies = (parsed.companies as string[]) || [];
   const effectiveCompanies = currentCompanies.length > 0 ? currentCompanies : companies;
 
   if (effectiveCompanies.length > 0) {
-    const companyFilters: CrustFilter[] = [];
+    const companyBasicFilters: BasicFilter[] = [];
+
     for (const company of effectiveCompanies) {
       const variants = expandCompanyNames(company);
       for (const variant of variants.slice(0, 5)) {
-        companyFilters.push({
+        companyBasicFilters.push({
           filter_type: "current_employers.name",
           type: "(.)",
           value: variant,
         });
       }
     }
-    if (companyFilters.length === 1) andFilters.push(companyFilters[0]);
-    else andFilters.push({ type: "OR", value: companyFilters });
+
+    if (companyBasicFilters.length === 1) {
+      andConditions.push(companyBasicFilters[0]);
+    } else if (companyBasicFilters.length > 1) {
+      const orBlock: CompoundFilter = {
+        type: "OR",
+        value: companyBasicFilters,
+      };
+      andConditions.push(orBlock);
+    }
   }
 
-  const pastCompanies =
-    (parsed.past_companies as string[]) ||
-    (parsed.previous_companies as string[]) ||
-    [];
+  // Past companies
+  const pastCompanies = (parsed.past_companies as string[]) || (parsed.previous_companies as string[]) || [];
   if (pastCompanies.length > 0) {
-    const pastFilters: CrustFilter[] = [];
+    const pastBasicFilters: BasicFilter[] = [];
     for (const company of pastCompanies) {
       const variants = expandCompanyNames(company);
       for (const variant of variants.slice(0, 3)) {
-        pastFilters.push({
+        pastBasicFilters.push({
           filter_type: "past_employers.name",
           type: "(.)",
           value: variant,
         });
       }
     }
-    if (pastFilters.length === 1) andFilters.push(pastFilters[0]);
-    else andFilters.push({ type: "OR", value: pastFilters });
+    if (pastBasicFilters.length === 1) {
+      andConditions.push(pastBasicFilters[0]);
+    } else if (pastBasicFilters.length > 1) {
+      const orBlock: CompoundFilter = {
+        type: "OR",
+        value: pastBasicFilters,
+      };
+      andConditions.push(orBlock);
+    }
   }
 
-  const locationObj = (parsed.location as LocationFilter) || ({} as LocationFilter);
-  const locationFilter = buildLocationFilter(locationObj);
-  if (locationFilter) andFilters.push(locationFilter);
+  // ── 4. LOCATION ───────────────────────────────────────────────────
+  const locationObj = (parsed.location as { city?: string | null; state?: string | null; metro?: string | null }) || {};
 
+  if (locationObj.city) {
+    const cityLower = locationObj.city.toLowerCase().trim();
+    const coords = CITY_COORDS[cityLower];
+    if (coords) {
+      andConditions.push({
+        filter_type: "location",
+        type: "geo_distance",
+        value: { lat_lng: coords, distance: 50, unit: "km" },
+      });
+    } else {
+      andConditions.push({
+        filter_type: "location",
+        type: "geo_distance",
+        value: { location: locationObj.city, distance: 50, unit: "km" },
+      });
+    }
+  } else if (locationObj.state) {
+    const stateLower = normalizeStateName(locationObj.state);
+    const coords = STATE_CENTER_COORDS[stateLower];
+    if (coords) {
+      andConditions.push({
+        filter_type: "location",
+        type: "geo_distance",
+        value: { lat_lng: coords, distance: 200, unit: "km" },
+      });
+    } else {
+      andConditions.push({
+        filter_type: "location_details.state",
+        type: "=",
+        value: stateLower,
+      });
+    }
+  }
+
+  // ── 5. CREDENTIALS in HEADLINE ────────────────────────────────────
   const credentials = (parsed.credentials as string[]) || [];
   if (credentials.length > 0) {
-    const credFilters: CrustFilter[] = credentials.slice(0, 5).map(cred => ({
+    const credBasicFilters: BasicFilter[] = credentials.slice(0, 5).map(cred => ({
       filter_type: "headline",
       type: "(.)",
       value: cred,
     }));
-    if (credFilters.length === 1) andFilters.push(credFilters[0]);
-    else andFilters.push({ type: "OR", value: credFilters });
+    if (credBasicFilters.length === 1) {
+      andConditions.push(credBasicFilters[0]);
+    } else {
+      const orBlock: CompoundFilter = {
+        type: "OR",
+        value: credBasicFilters,
+      };
+      andConditions.push(orBlock);
+    }
   }
 
-  const keywords =
-    (parsed.keywords as string[]) ||
-    (parsed.required_keywords as string[]) ||
-    [];
+  // ── 6. SKILLS (fallback when no title/specialty) ──────────────────
+  const keywords = (parsed.keywords as string[]) || (parsed.required_keywords as string[]) || [];
   if (keywords.length > 0 && titleTerms.length === 0 && !effectiveSpecialty) {
-    const skillFilters: CrustFilter[] = keywords.slice(0, 5).map(kw => ({
+    const skillBasicFilters: BasicFilter[] = keywords.slice(0, 5).map(kw => ({
       filter_type: "skills",
       type: "(.)",
       value: kw,
     }));
-    if (skillFilters.length === 1) andFilters.push(skillFilters[0]);
-    else andFilters.push({ type: "OR", value: skillFilters });
+    if (skillBasicFilters.length === 1) {
+      andConditions.push(skillBasicFilters[0]);
+    } else {
+      const orBlock: CompoundFilter = {
+        type: "OR",
+        value: skillBasicFilters,
+      };
+      andConditions.push(orBlock);
+    }
   }
 
-  andFilters.push({
+  // ── 7. COUNTRY (always US) ────────────────────────────────────────
+  andConditions.push({
     filter_type: "location_details.country",
     type: "=",
     value: "United States",
   });
 
+  // ── BUILD FINAL QUERY ─────────────────────────────────────────────
+  // CrustData expects: filters: [ ONE top-level AND/OR wrapper ]
+  const topLevelFilter: CompoundFilter = {
+    type: "AND",
+    value: andConditions,
+  };
+
   const query: CrustDataQuery = {
     dataset: "people",
-    filters: { type: "AND", value: andFilters },
+    filters: [topLevelFilter],
     count: Math.min(size, 1000),
     preview,
   };
@@ -330,16 +386,15 @@ export function applyCascadeStep(
   step: CrustCascadeStep
 ): CrustDataQuery {
   const cloned: CrustDataQuery = JSON.parse(JSON.stringify(query));
-  const andBlock = cloned.filters as { type: "AND"; value: CrustFilter[] };
+  const andBlock = cloned.filters[0];
 
   switch (step) {
     case "drop_titles": {
       andBlock.value = andBlock.value.filter(f => {
         if ("filter_type" in f && f.filter_type === "current_employers.title") return false;
-        if ("type" in f && f.type === "OR") {
-          const inner = (f as { type: "OR"; value: CrustFilter[] }).value;
-          return !inner.some(
-            i => "filter_type" in i && (i as { filter_type: string }).filter_type === "current_employers.title"
+        if (!("filter_type" in f) && f.type === "OR") {
+          return !f.value.some(
+            i => "filter_type" in i && i.filter_type === "current_employers.title"
           );
         }
         return true;
@@ -349,7 +404,7 @@ export function applyCascadeStep(
     case "expand_geo": {
       for (const filter of andBlock.value) {
         if ("filter_type" in filter && filter.filter_type === "location" && filter.type === "geo_distance") {
-          const val = filter.value as { distance: number;[k: string]: unknown };
+          const val = filter.value as { distance: number; [k: string]: unknown };
           val.distance = Math.min(val.distance * 2, 500);
         }
       }
@@ -357,11 +412,10 @@ export function applyCascadeStep(
     }
     case "drop_company": {
       andBlock.value = andBlock.value.filter(f => {
-        if ("filter_type" in f && (f.filter_type as string).includes("employers.name")) return false;
-        if ("type" in f && f.type === "OR") {
-          const inner = (f as { type: "OR"; value: CrustFilter[] }).value;
-          return !inner.some(
-            i => "filter_type" in i && ((i as { filter_type: string }).filter_type || "").includes("employers.name")
+        if ("filter_type" in f && f.filter_type.includes("employers.name")) return false;
+        if (!("filter_type" in f) && f.type === "OR") {
+          return !f.value.some(
+            i => "filter_type" in i && i.filter_type.includes("employers.name")
           );
         }
         return true;
@@ -371,7 +425,7 @@ export function applyCascadeStep(
     case "headline_only": {
       andBlock.value = andBlock.value.filter(f => {
         if ("filter_type" in f) {
-          const ft = (f as { filter_type: string }).filter_type;
+          const ft = f.filter_type;
           return (
             ft === "headline" ||
             ft === "location" ||
@@ -388,4 +442,4 @@ export function applyCascadeStep(
   return cloned;
 }
 
-export type { CrustDataQuery, CrustFilter, BuildCrustDataOptions };
+export type { CrustDataQuery, CrustFilter, BasicFilter, CompoundFilter, BuildCrustDataOptions };

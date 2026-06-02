@@ -98,6 +98,7 @@ async function fetchCrustDataWithRetry(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      console.log(`[CrustData] Request payload:`, JSON.stringify(body, null, 2));
       const res = await fetch(`${CRUSTDATA_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: {
