@@ -37,6 +37,7 @@ import {
   type CompanyIntel,
   type HeadcountTimeseriesPoint,
 } from "@/hooks/useCompanyEnrichment";
+import { TalentFlowTab } from "./company-intel/TalentFlowTab";
 import { normalizeDomain, resolveCompanyDomain } from "@/lib/company-domains";
 import { cn } from "@/lib/utils";
 
