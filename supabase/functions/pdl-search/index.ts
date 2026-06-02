@@ -1455,6 +1455,7 @@ Deno.serve(async (req: Request) => {
         geo_scope: geoScope,
         company_scope: companyScope,
         ...aiRerankMeta,
+        hybrid_meta: hybridResult?.hybrid_meta ?? null,
         timing_ms: Date.now() - requestStart,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
