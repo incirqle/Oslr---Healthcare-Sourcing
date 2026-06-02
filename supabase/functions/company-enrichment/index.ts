@@ -588,7 +588,16 @@ Deno.serve(async (req) => {
 
       // Raw nested objects — frontend slices what it needs
       headcount: enrichment?.headcount ?? null,
-      glassdoor: enrichment?.glassdoor ?? null,
+      // Crustdata returns glassdoor fields prefixed with `glassdoor_`.
+      // Normalize to the shape the frontend expects.
+      glassdoor: (() => {
+        const g = enrichment?.glassdoor as Record<string, unknown> | null | undefined;
+        if (!g) return null;
+        const overall = (g.glassdoor_overall_rating ?? g.overall_rating ?? null) as number | null;
+        const reviews = (g.glassdoor_review_count ?? g.review_count ?? null) as number | null;
+        if (overall == null && reviews == null) return null;
+        return { overall_rating: overall, review_count: reviews };
+      })(),
       g2: enrichment?.g2 ?? null,
       web_traffic: enrichment?.web_traffic ?? null,
       funding: enrichment?.funding_and_investment ?? null,
