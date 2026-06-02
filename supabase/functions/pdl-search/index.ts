@@ -1412,7 +1412,7 @@ Deno.serve(async (req: Request) => {
       cascade_steps: cascadePlan,
       winning_step: cascadeWinningStep ?? null,
       timing_ms: Date.now() - requestStart,
-      meta: { page, size, ai_rerank: aiRerankMeta },
+      meta: { page, size, ai_rerank: aiRerankMeta, hybrid: hybridResult?.hybrid_meta ?? null },
     });
 
     // Build geo scope metadata for frontend transparency.
