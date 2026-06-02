@@ -107,7 +107,11 @@ async function fetchCompanyEnrichment(companyId: number): Promise<CompanyEnrichm
     return null;
   }
 
-  return await res.json();
+  // Crustdata /screener/company returns an array of company records — unwrap.
+  const raw = await res.json();
+  const record = Array.isArray(raw) ? raw[0] : raw;
+  if (!record || typeof record !== "object") return null;
+  return record as CompanyEnrichment;
 }
 
 /**
