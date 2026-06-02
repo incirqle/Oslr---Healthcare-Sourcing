@@ -94,22 +94,80 @@ interface Identified {
   hq_country: string | null;
 }
 
-async function identifyByName(name: string, domain?: string | null): Promise<Identified | null> {
-  const payload: Record<string, unknown> = {
-    query_company_name: name,
-    exact_match: false,
-  };
-  if (domain) payload.query_company_website_domain = domain;
-  const d = await cdPost("/screener/identify", payload);
-  if (!d?.company_id) return null;
+function headcountRank(c: any): number {
+  if (typeof c?.linkedin_headcount === "number" && c.linkedin_headcount > 0) {
+    return c.linkedin_headcount;
+  }
+  const range: string | undefined = c?.employee_count_range;
+  if (!range) return 0;
+  const m = range.match(/(\d+)/g);
+  if (!m) return 0;
+  return parseInt(m[m.length - 1], 10) || 0;
+}
+
+function pickBestCandidate(
+  candidates: any[],
+  name: string | null,
+  domain: string | null,
+): any | null {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  const wantName = (name ?? "").toLowerCase().trim();
+  const wantDomain = (domain ?? "").toLowerCase().trim().replace(/^www\./, "");
+  const scored = candidates.map((c) => {
+    let score = 0;
+    const cName = String(c?.company_name ?? "").toLowerCase().trim();
+    const cDomain = String(c?.company_website_domain ?? "")
+      .toLowerCase()
+      .trim()
+      .replace(/^www\./, "");
+    if (wantDomain && cDomain === wantDomain) score += 1000;
+    if (c?.is_full_domain_match) score += 500;
+    if (wantName && cName === wantName) score += 200;
+    if (wantName && cName.startsWith(wantName)) score += 50;
+    score += Math.min(headcountRank(c), 100_000) / 1000;
+    return { c, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].c;
+}
+
+async function identifyByName(
+  name: string,
+  domain?: string | null,
+): Promise<Identified | null> {
+  const payload: Record<string, unknown> = { exact_match: false };
+  if (name) payload.query_company_name = name;
+  // Crustdata requires query_company_website (not _domain). Pass full URL.
+  if (domain) {
+    payload.query_company_website = domain.startsWith("http")
+      ? domain
+      : `https://${domain}`;
+  }
+  const raw = await cdPost("/screener/identify", payload);
+  const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  if (list.length === 0) {
+    console.warn("[company-enrichment] identify miss", { name, domain });
+    return null;
+  }
+  const best = pickBestCandidate(list, name, domain ?? null);
+  if (!best?.company_id) {
+    console.warn("[company-enrichment] identify no usable id", { name, domain });
+    return null;
+  }
+  console.info("[company-enrichment] identified", {
+    name,
+    chosen_id: best.company_id,
+    chosen_name: best.company_name,
+    candidates: list.length,
+  });
   return {
-    company_id: d.company_id,
-    company_name: d.company_name || name,
-    linkedin_profile_url: d.linkedin_profile_url ?? null,
-    company_website_domain: d.company_website_domain ?? null,
-    headcount: d.headcount ?? null,
-    hq_city: d.hq_city ?? null,
-    hq_country: d.hq_country ?? null,
+    company_id: best.company_id,
+    company_name: best.company_name || name,
+    linkedin_profile_url: best.linkedin_profile_url ?? null,
+    company_website_domain: best.company_website_domain ?? null,
+    headcount: typeof best.linkedin_headcount === "number" ? best.linkedin_headcount : null,
+    hq_city: best.hq_city ?? null,
+    hq_country: best.hq_country ?? null,
   };
 }
 
@@ -118,9 +176,32 @@ async function identifyByName(name: string, domain?: string | null): Promise<Ide
 /* ------------------------------------------------------------------ */
 
 async function enrich(companyId: number): Promise<Record<string, unknown> | null> {
-  const fields =
-    "headcount,funding_and_investment,glassdoor,g2,cxos,decision_makers,web_traffic";
-  return await cdGet(`/screener/company?company_id=${companyId}&fields=${fields}`);
+  // Prefix-only field names hydrate every nested sub-field.
+  const fields = [
+    "company_name",
+    "company_website_domain",
+    "linkedin_profile_url",
+    "linkedin_logo_url",
+    "linkedin_company_description",
+    "headquarters",
+    "hq_state",
+    "hq_country",
+    "year_founded",
+    "employee_count_range",
+    "taxonomy",
+    "competitors",
+    "headcount",
+    "glassdoor",
+    "g2",
+    "web_traffic",
+    "funding_and_investment",
+    "cxos",
+    "decision_makers",
+  ].join(",");
+  const raw = await cdGet(`/screener/company?company_id=${companyId}&fields=${fields}`);
+  if (!raw) return null;
+  const list: any[] = Array.isArray(raw) ? raw : [raw];
+  return list[0] ?? null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -188,19 +269,27 @@ interface Competitor {
   headcount: number | null;
 }
 
-async function resolveCompetitors(ids: number[]): Promise<Competitor[]> {
-  if (!ids?.length) return [];
-  const top = ids.slice(0, 6);
+async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor[]> {
+  if (!domains?.length) return [];
+  const cleaned = domains
+    .map((d) => String(d || "").trim().replace(/^https?:\/\//, "").replace(/\/$/, ""))
+    .filter(Boolean)
+    .slice(0, 6);
   const out = await Promise.all(
-    top.map(async (id) => {
-      const d = await cdPost("/screener/identify", { query_company_id: id });
+    cleaned.map(async (domain) => {
+      const raw = await cdPost("/screener/identify", {
+        query_company_website: domain.startsWith("http") ? domain : `https://${domain}`,
+      });
+      const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      const d = list[0];
       if (!d?.company_id) return null;
       return {
         company_id: d.company_id,
-        company_name: d.company_name ?? "Unknown",
+        company_name: d.company_name ?? domain,
         linkedin_profile_url: d.linkedin_profile_url ?? null,
-        company_website_domain: d.company_website_domain ?? null,
-        headcount: d.headcount ?? null,
+        company_website_domain: d.company_website_domain ?? domain,
+        headcount:
+          typeof d.linkedin_headcount === "number" ? d.linkedin_headcount : null,
       } as Competitor;
     }),
   );
@@ -247,7 +336,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 2) {
+      if (cached?.data && (cached.data as any)?.schema_version === 4) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -287,12 +376,32 @@ Deno.serve(async (req) => {
       fetchJobs(companyId),
     ]);
 
-    // Step 4 — competitors
-    const competitorIds = (enrichment?.competitor_ids as number[]) ?? [];
-    const competitors = await resolveCompetitors(competitorIds);
+    // Step 4 — competitors (Crustdata returns domain lists, not IDs)
+    const compBlock = (enrichment?.competitors as any) ?? {};
+    const compDomains: string[] = [
+      ...((compBlock?.competitor_website_domains as string[]) ?? []),
+      ...((compBlock?.organic_seo_competitors_website_domains as string[]) ?? []),
+      ...((compBlock?.paid_seo_competitors_website_domains as string[]) ?? []),
+    ];
+    // de-dup
+    const seen = new Set<string>();
+    const uniqueDomains = compDomains.filter((d) => {
+      const k = String(d || "").trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    const competitors = await resolveCompetitorsByDomain(uniqueDomains);
+
+    // Parse "City, State, Country" from headquarters
+    const hqStr = (enrichment?.headquarters as string) || "";
+    const hqParts = hqStr.split(",").map((s) => s.trim()).filter(Boolean);
+    const parsedHqCity = hqParts[0] ?? null;
+
+    const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 2 as const,
+      schema_version: 4 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
@@ -308,16 +417,20 @@ Deno.serve(async (req) => {
         identified?.linkedin_profile_url ||
         null,
       linkedin_logo_url: (enrichment?.linkedin_logo_url as string) ?? null,
-      hq_city: (enrichment?.hq_city as string) ?? identified?.hq_city ?? null,
+      hq_city: parsedHqCity ?? identified?.hq_city ?? null,
       hq_state: (enrichment?.hq_state as string) ?? null,
       hq_country:
         (enrichment?.hq_country as string) ?? identified?.hq_country ?? null,
-      industry: (enrichment?.linkedin_industry as string) ?? null,
-      description:
-        (enrichment?.linkedin_company_description as string) ??
-        (enrichment?.description as string) ??
+      headquarters: hqStr || null,
+      industry:
+        (taxonomy?.linkedin_industry as string) ??
+        (Array.isArray(taxonomy?.linkedin_industries)
+          ? (taxonomy.linkedin_industries[0] as string)
+          : null) ??
         null,
+      description: (enrichment?.linkedin_company_description as string) ?? null,
       year_founded: (enrichment?.year_founded as string | number) ?? null,
+      employee_count_range: (enrichment?.employee_count_range as string) ?? null,
 
       // Raw nested objects — frontend slices what it needs
       headcount: enrichment?.headcount ?? null,
