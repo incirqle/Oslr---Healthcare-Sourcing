@@ -336,7 +336,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 3) {
+      if (cached?.data && (cached.data as any)?.schema_version === 4) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -401,7 +401,7 @@ Deno.serve(async (req) => {
     const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 3 as const,
+      schema_version: 4 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
