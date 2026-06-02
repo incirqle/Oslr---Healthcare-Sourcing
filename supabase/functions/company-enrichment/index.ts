@@ -94,22 +94,80 @@ interface Identified {
   hq_country: string | null;
 }
 
-async function identifyByName(name: string, domain?: string | null): Promise<Identified | null> {
-  const payload: Record<string, unknown> = {
-    query_company_name: name,
-    exact_match: false,
-  };
-  if (domain) payload.query_company_website_domain = domain;
-  const d = await cdPost("/screener/identify", payload);
-  if (!d?.company_id) return null;
+function headcountRank(c: any): number {
+  if (typeof c?.linkedin_headcount === "number" && c.linkedin_headcount > 0) {
+    return c.linkedin_headcount;
+  }
+  const range: string | undefined = c?.employee_count_range;
+  if (!range) return 0;
+  const m = range.match(/(\d+)/g);
+  if (!m) return 0;
+  return parseInt(m[m.length - 1], 10) || 0;
+}
+
+function pickBestCandidate(
+  candidates: any[],
+  name: string | null,
+  domain: string | null,
+): any | null {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  const wantName = (name ?? "").toLowerCase().trim();
+  const wantDomain = (domain ?? "").toLowerCase().trim().replace(/^www\./, "");
+  const scored = candidates.map((c) => {
+    let score = 0;
+    const cName = String(c?.company_name ?? "").toLowerCase().trim();
+    const cDomain = String(c?.company_website_domain ?? "")
+      .toLowerCase()
+      .trim()
+      .replace(/^www\./, "");
+    if (wantDomain && cDomain === wantDomain) score += 1000;
+    if (c?.is_full_domain_match) score += 500;
+    if (wantName && cName === wantName) score += 200;
+    if (wantName && cName.startsWith(wantName)) score += 50;
+    score += Math.min(headcountRank(c), 100_000) / 1000;
+    return { c, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].c;
+}
+
+async function identifyByName(
+  name: string,
+  domain?: string | null,
+): Promise<Identified | null> {
+  const payload: Record<string, unknown> = { exact_match: false };
+  if (name) payload.query_company_name = name;
+  // Crustdata requires query_company_website (not _domain). Pass full URL.
+  if (domain) {
+    payload.query_company_website = domain.startsWith("http")
+      ? domain
+      : `https://${domain}`;
+  }
+  const raw = await cdPost("/screener/identify", payload);
+  const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  if (list.length === 0) {
+    console.warn("[company-enrichment] identify miss", { name, domain });
+    return null;
+  }
+  const best = pickBestCandidate(list, name, domain ?? null);
+  if (!best?.company_id) {
+    console.warn("[company-enrichment] identify no usable id", { name, domain });
+    return null;
+  }
+  console.info("[company-enrichment] identified", {
+    name,
+    chosen_id: best.company_id,
+    chosen_name: best.company_name,
+    candidates: list.length,
+  });
   return {
-    company_id: d.company_id,
-    company_name: d.company_name || name,
-    linkedin_profile_url: d.linkedin_profile_url ?? null,
-    company_website_domain: d.company_website_domain ?? null,
-    headcount: d.headcount ?? null,
-    hq_city: d.hq_city ?? null,
-    hq_country: d.hq_country ?? null,
+    company_id: best.company_id,
+    company_name: best.company_name || name,
+    linkedin_profile_url: best.linkedin_profile_url ?? null,
+    company_website_domain: best.company_website_domain ?? null,
+    headcount: typeof best.linkedin_headcount === "number" ? best.linkedin_headcount : null,
+    hq_city: best.hq_city ?? null,
+    hq_country: best.hq_country ?? null,
   };
 }
 
