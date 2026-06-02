@@ -17,10 +17,18 @@ function CompanyLogo({
   domain: string | null;
   size?: number;
 }) {
-  const [errored, setErrored] = useState(false);
+  const sources = useMemo(() => {
+    if (!domain) return [] as string[];
+    return [
+      `https://logo.clearbit.com/${domain}`,
+      `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+    ];
+  }, [domain]);
+  const [idx, setIdx] = useState(0);
   const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const src = sources[idx];
 
-  if (!domain || errored) {
+  if (!src) {
     return (
       <div
         style={{ width: size, height: size }}
@@ -33,11 +41,11 @@ function CompanyLogo({
 
   return (
     <img
-      src={`https://logo.clearbit.com/${domain}`}
+      src={src}
       alt={`${name} logo`}
       width={size}
       height={size}
-      onError={() => setErrored(true)}
+      onError={() => setIdx((i) => i + 1)}
       className="shrink-0 rounded-xl border border-ui-border-light/60 bg-white object-contain p-1.5 shadow-sm"
       style={{ width: size, height: size }}
     />
