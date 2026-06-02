@@ -127,6 +127,9 @@ export interface CompanyIntel {
 
   competitors: CompetitorEntry[];
 
+  talent_flow?: TalentFlowAggregate | null;
+
+
   cached?: boolean;
   enriched_at?: string;
 }
