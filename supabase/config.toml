@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.unsubscribe]
 verify_jwt = false
+
+[functions.company-enrichment]
+verify_jwt = false
