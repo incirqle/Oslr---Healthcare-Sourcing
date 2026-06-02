@@ -1,72 +1,124 @@
-## Goals
+## Goal
 
-1. The "Employer intel" row card on the candidate drawer should show the real company logo (not the "U" letter fallback) whenever a candidate-row logo elsewhere on the page can.
-2. The charts inside the Company Intel modal must be **legible without hovering** — a user should immediately know what they are looking at, what the current value is, and what the trend is.
-
----
-
-## 1. Logo fix in `CompanyIntelCard`
-
-The drawer's company-row chip already renders the logo via Google's favicon endpoint (`s2/favicons?...&sz=128`), which works for `uchealth.org`. The `CompanyIntelCard` only tries Clearbit, which returns 404 for many healthcare domains, so it falls back to the "U" initial.
-
-Change `CompanyLogo` inside `src/components/CompanyIntelCard.tsx` to use the same fallback chain we already use in the modal:
-
-  1. Clearbit (`logo.clearbit.com/<domain>`)
-  2. Google favicons (`www.google.com/s2/favicons?domain=<domain>&sz=128`)
-  3. Initial letter
-
-Pattern: maintain an `idx` state, increment on `onError`, render the initial only when all sources are exhausted. (No new props, no enrichment fetch.)
+Add a third **Talent Flow** tab to the Company Intel modal showing where recent hires came from and where recent departures went — a Sankey diagram on the left, a filterable people list on the right, with role and time-range filters.
 
 ---
 
-## 2. Chart redesign in `CompanyIntelModal`
+## 1. Edge function — `supabase/functions/company-enrichment/index.ts`
 
-The current charts (`HeadcountChart`, `FunctionTimeseriesChart`, `DepartmentDonut`) require the user to hover to see anything meaningful. Rebuild each so the key information is **visible up front**.
+Reuse the `companyId` already resolved by the identify step. No new API key.
 
-### 2a. Headcount over time (`HeadcountChart`)
+**Add `fetchTalentFlow(companyId, direction)`** that POSTs to `/screener/persondb/search` using the spec'd filters:
+- `hires` → `current_employers.company_id` in `[companyId]` + `recently_changed_jobs = true`
+- `departures` → `past_employers.company_id` in `[companyId]` + `recently_changed_jobs = true`
+- `count: 100`, sorted by `current_employers.start_date desc`
 
-Replace the "tooltip-only" area chart with a **summary header + annotated chart**:
+Map each result into `TalentFlowPerson` (name, linkedin url, profile picture, current/previous title + company + dates, `function_category`, `seniority_level`). For departures, find the target company inside `past_employers` to pick up `end_date`.
 
-- Header strip above the chart shows three big stats inline:
-  - **Now** — latest employee count (large)
-  - **vs start of range** — absolute delta + % delta, colored green/red (e.g. `+1,122  (+5.1%)`)
-  - **Range min / max** — small muted text
-- On the chart itself:
-  - Plot a visible **end-point dot** with a label callout (`"Oct 2025 · 22,780"`) anchored to the right edge so the user sees the current value without hovering.
-  - Show **first and last X-axis ticks** explicitly (formatted `MMM YYYY`, not just year), plus 2–3 evenly spaced interior ticks. No more "2025 2025 2025 2025 …" repeats.
-  - Keep gradient fill but darken stroke for contrast.
-  - Tooltip stays for power users but is no longer the only source of truth.
+**Add `aggregateTalentFlow(hires, departures)`** that builds `top_hire_sources` / `top_departure_destinations` (top 10 each, with count + LinkedIn URL).
 
-### 2b. Hiring by department (`FunctionTimeseriesChart`)
+**Wire into the main `Promise.all`** alongside `enrich` and `fetchJobs`:
 
-Today this is 5 thin lines with a legend below — unreadable without hover.
+```ts
+const [enrichment, jobsResult, hires, departures] = await Promise.all([
+  enrich(companyId),
+  fetchJobs(companyId),
+  fetchTalentFlow(companyId, "hires"),
+  fetchTalentFlow(companyId, "departures"),
+]);
+const talent_flow = aggregateTalentFlow(hires, departures);
+```
 
-Replace with a **department leaderboard + sparklines** layout:
+Add `talent_flow` to the response object. **Bump `schema_version` from 5 → 6** so stale cache entries are invalidated (the cache check already gates on schema version).
 
-- For each of the top 5 departments, render a row containing:
-  - Color dot + department name
-  - Current count (large, right-aligned)
-  - Delta over the selected range (`+312` and `+2.4%`, colored)
-  - A small inline **sparkline** (~120px wide) showing that department's trend
-- Keep the range toggle (`6mo / 1Y / 2Y`).
-- Drop the shared multi-line chart entirely — it never communicated anything useful at this scale because Healthcare Services dwarfs every other line.
+Failures from either talent-flow query are non-fatal — return `{ hires: [], departures: [], ... }` so the rest of the modal still renders.
 
-### 2c. Department breakdown donut (`DepartmentDonut`)
+---
 
-- Add a **center label** inside the donut showing the largest segment's name + percentage (e.g. `Healthcare · 62%`), so the chart communicates its headline at rest.
-- Keep the side legend with percentages (already there).
+## 2. Hook + types — `src/hooks/useCompanyEnrichment.ts`
 
-### 2d. Region distribution & department growth bars
+Add `TalentFlowPerson` and `TalentFlowResult` interfaces (mirroring the edge response). Add `talent_flow?: TalentFlowResult | null` to `CompanyIntel`. No logic changes — the hook already forwards the full payload.
 
-These already show all values inline — no chart changes needed, only minor polish:
-- Right-align numeric columns consistently.
-- Use `tabular-nums` so percentages line up.
+---
+
+## 3. Sankey dependency
+
+Install `d3-sankey` + `d3-shape` (already a Recharts transitive dep, but we'll import directly):
+
+```
+bun add d3-sankey d3-shape
+bun add -D @types/d3-sankey @types/d3-shape
+```
+
+Renders inside our own SVG — no CDN, no runtime fetch. Recharts has no Sankey, so this is the cleanest path.
+
+---
+
+## 4. New components
+
+### `src/components/company-intel/TalentFlowTab.tsx`
+Top-level tab. Holds local state:
+- `direction: "hires" | "departures"` (right-panel toggle)
+- `roleFilter: string | "all"`
+- `rangeFilter: "3M" | "6M" | "1Y" | "2Y"`
+
+Derives:
+- `filteredHires`, `filteredDepartures` — apply role + date filter client-side. Hires use `current_company_start_date`; departures use `previous_end_date`.
+- `roleOptions` — unique `function_category` across both lists.
+- Recomputed `topHireSources` / `topDepDests` after filtering (so the Sankey reflects active filters).
+
+Layout (CSS grid `1fr 320px` on desktop, stacks on mobile):
+- Header row: title + Role select + Date select (right-aligned chips, matching modal style).
+- Left: `<TalentFlowSankey />` inside a `Section` card.
+- Right: `<TalentFlowPeopleList />` with Hires/Departures toggle pill.
+
+### `src/components/company-intel/TalentFlowSankey.tsx`
+Pure SVG using `d3-sankey`:
+- Nodes: source companies (left), target company (center, with logo / initial), destination companies (right).
+- Links: hire sources → target (indigo gradient `--chart-1`), target → destinations (coral gradient `--chart-3`).
+- Node labels: company name + count badge. Center node uses larger badge and the company's logo via the existing favicon fallback chain.
+- Tooltip on hover (simple absolutely-positioned div) showing "8 people moved from X to Stryker".
+- Responsive: ResizeObserver → re-layout on container resize. Height ~ `max(360, nodeCount * 38)`.
+- Empty state when both sides are empty: a centered "No recent hires or departures in this range" panel.
+
+### `src/components/company-intel/TalentFlowPeopleList.tsx`
+- Pill toggle at top: `Hires (N)` / `Departures (N)`, indigo for hires, coral for departures.
+- Sorted by relevant date desc, first 10 shown, "Show all" expands the rest.
+- Row: initials/profile avatar (24px), name + LinkedIn icon link, secondary line `Title at Company`, right-aligned `MMM YYYY` from the relevant date.
+
+### `src/components/company-intel/PersonAvatar.tsx`
+Small shared avatar: profile picture with onError → colored initials circle. Matches existing `CompanyLogo` fallback pattern.
+
+---
+
+## 5. Modal wiring — `src/components/CompanyIntelModal.tsx`
+
+- Add a new `TabsTrigger value="talent"` labeled **Talent Flow** between Insights and Hiring, styled identically.
+- Add matching `<TabsContent value="talent">` rendering `<TalentFlowTab data={data} />`.
+- If `data.talent_flow` is missing or both arrays are empty, render the same `<Empty />` pattern with a "Talent flow data unavailable for this company" message.
+
+---
+
+## 6. Styling
+
+Reuses existing `Section`, semantic tokens, and the `--chart-1..6` palette (already planned in the prior premium-look pass; if not yet present, add `--chart-1: 238 84% 67%` indigo and `--chart-3: 0 84% 67%` coral to `src/index.css` as part of this change so the Sankey gradients render correctly).
 
 ---
 
 ## Files touched
 
-- `src/components/CompanyIntelCard.tsx` — logo fallback chain.
-- `src/components/CompanyIntelModal.tsx` — rewrite `HeadcountChart`, replace `FunctionTimeseriesChart` body with leaderboard + sparklines, add center label to `DepartmentDonut`, minor polish on `RegionDistribution` / `DepartmentGrowth`.
+- `supabase/functions/company-enrichment/index.ts` — add `fetchTalentFlow`, `aggregateTalentFlow`, wire into `Promise.all`, bump `schema_version` to 6, add `talent_flow` to response.
+- `src/hooks/useCompanyEnrichment.ts` — add `TalentFlowPerson`, `TalentFlowResult`, extend `CompanyIntel`.
+- `src/components/CompanyIntelModal.tsx` — add third tab + content.
+- `src/components/company-intel/TalentFlowTab.tsx` *(new)*
+- `src/components/company-intel/TalentFlowSankey.tsx` *(new)*
+- `src/components/company-intel/TalentFlowPeopleList.tsx` *(new)*
+- `src/components/company-intel/PersonAvatar.tsx` *(new)*
+- `src/index.css` — chart palette tokens (only if not already added).
+- `package.json` — `d3-sankey`, `d3-shape`, plus `@types/*`.
 
-No backend, hook, or data-shape changes. All work is presentation-only and uses existing semantic tokens.
+## Out of scope
+
+- Real company logos for Sankey nodes (would cost N extra identify calls per render — initials only, per the brief).
+- Watchers / live updates — initial build is the cached 7-day enrichment payload only.
+- Compensation tab.
