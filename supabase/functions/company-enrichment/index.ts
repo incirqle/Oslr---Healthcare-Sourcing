@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 2) {
+      if (cached?.data && (cached.data as any)?.schema_version === 3) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
