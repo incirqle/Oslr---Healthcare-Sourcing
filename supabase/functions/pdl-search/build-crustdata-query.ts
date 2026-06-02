@@ -35,7 +35,7 @@ type CrustFilter = BasicFilter | CompoundFilter;
 
 interface CrustDataQuery {
   dataset: "people";
-  filters: [CompoundFilter]; // EXACTLY one top-level AND/OR
+  filters: CompoundFilter; // EXACTLY one top-level AND/OR wrapper object
   sorts?: { column: string; order: "asc" | "desc" }[];
   count: number;
   preview: boolean;
@@ -349,7 +349,7 @@ export function buildCrustDataQuery(
   });
 
   // ── BUILD FINAL QUERY ─────────────────────────────────────────────
-  // CrustData expects: filters: [ ONE top-level AND/OR wrapper ]
+  // CrustData expects one top-level AND/OR wrapper object.
   const topLevelFilter: CompoundFilter = {
     type: "AND",
     value: andConditions,
@@ -357,7 +357,7 @@ export function buildCrustDataQuery(
 
   const query: CrustDataQuery = {
     dataset: "people",
-    filters: [topLevelFilter],
+    filters: topLevelFilter,
     count: Math.min(size, 1000),
     preview,
   };
@@ -386,7 +386,7 @@ export function applyCascadeStep(
   step: CrustCascadeStep
 ): CrustDataQuery {
   const cloned: CrustDataQuery = JSON.parse(JSON.stringify(query));
-  const andBlock = cloned.filters[0];
+  const andBlock = cloned.filters;
 
   switch (step) {
     case "drop_titles": {
