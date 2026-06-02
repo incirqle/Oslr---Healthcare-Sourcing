@@ -176,8 +176,26 @@ async function identifyByName(
 /* ------------------------------------------------------------------ */
 
 async function enrich(companyId: number): Promise<Record<string, unknown> | null> {
-  const fields =
-    "headcount,funding_and_investment,glassdoor,g2,cxos,decision_makers,web_traffic";
+  const fields = [
+    "company_name",
+    "company_website_domain",
+    "linkedin_profile_url",
+    "linkedin_logo_url",
+    "linkedin_industry",
+    "linkedin_company_description",
+    "hq_city",
+    "hq_state",
+    "hq_country",
+    "year_founded",
+    "competitor_ids",
+    "headcount",
+    "funding_and_investment",
+    "glassdoor",
+    "g2",
+    "cxos",
+    "decision_makers",
+    "web_traffic",
+  ].join(",");
   return await cdGet(`/screener/company?company_id=${companyId}&fields=${fields}`);
 }
 
