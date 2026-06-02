@@ -27,6 +27,8 @@ export interface HybridSearchResult {
     crustdata_ms: number;
     pdl_count: number;
     pdl_ms: number;
+    phone_enrichment_attempted: number;
+    phone_enrichment_found: number;
   };
 }
 
