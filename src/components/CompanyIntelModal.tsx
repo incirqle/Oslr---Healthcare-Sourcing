@@ -755,6 +755,12 @@ export function CompanyIntelModal({
                     </span>
                   )}
                 </TabsTrigger>
+                <TabsTrigger
+                  value="talent"
+                  className="rounded-none border-b-2 border-transparent bg-transparent px-3 py-2.5 text-[13px] font-medium text-ui-text-secondary data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-ui-text-primary data-[state=active]:shadow-none"
+                >
+                  Talent flow
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -768,6 +774,9 @@ export function CompanyIntelModal({
                   showAllJobs={showAllJobs}
                   onToggleJobs={() => setShowAllJobs((v) => !v)}
                 />
+              </TabsContent>
+              <TabsContent value="talent" className="mt-0">
+                <TalentFlowTab data={data} />
               </TabsContent>
             </div>
           </Tabs>
