@@ -104,6 +104,7 @@ async function fetchCrustDataWithRetry(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
+          "x-api-version": "2025-11-01",
         },
         body: JSON.stringify(body),
       });
@@ -140,7 +141,7 @@ async function fetchCrustDataWithRetry(
         };
       }
 
-      const data = await res.json();
+      const data = normalizeCrustDataResponse(await res.json());
       return { ok: true, data };
     } catch (err) {
       lastError = err;
@@ -163,9 +164,140 @@ async function fetchCrustDataWithRetry(
   };
 }
 
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function normalizeEmployer(raw: unknown): CrustDataEmployer {
+  const emp = asRecord(raw);
+  return {
+    name: (emp.name ?? emp.company_name) as string | null ?? null,
+    linkedin_id: (emp.linkedin_id ?? null) as string | null,
+    company_id: typeof emp.company_id === "number" ? emp.company_id : null,
+    company_website_domain: (emp.company_website_domain ?? null) as string | null,
+    company_linkedin_profile_url: (emp.company_professional_network_profile_url ?? emp.company_linkedin_profile_url ?? null) as string | null,
+    title: (emp.title ?? null) as string | null,
+    description: (emp.description ?? null) as string | null,
+    location: (emp.location ?? null) as string | null,
+    start_date: (emp.start_date ?? null) as string | null,
+    end_date: (emp.end_date ?? null) as string | null,
+    company_headquarters_country: (emp.company_headquarters_country ?? null) as string | null,
+    company_headcount_latest: typeof emp.company_headcount_latest === "number" ? emp.company_headcount_latest : null,
+    company_industries: Array.isArray(emp.company_industries) ? emp.company_industries as string[] : null,
+    company_type: (emp.company_type ?? null) as string | null,
+    seniority_level: (emp.seniority_level ?? null) as string | null,
+    function_category: (emp.function_category ?? null) as string | null,
+    years_at_company_raw: typeof emp.years_at_company_raw === "number" ? emp.years_at_company_raw : null,
+    business_email_verified: typeof emp.business_email_verified === "boolean" ? emp.business_email_verified : null,
+  };
+}
+
+function normalizeCrustDataPerson(raw: unknown): CrustDataPerson {
+  const profile = asRecord(raw);
+  const basic = asRecord(profile.basic_profile);
+  const location = asRecord(basic.location);
+  const social = asRecord(profile.social_handles);
+  const professionalNetworkIdentifier = asRecord(social.professional_network_identifier);
+  const professionalNetwork = asRecord(profile.professional_network);
+  const skills = asRecord(profile.skills);
+  const experience = asRecord(profile.experience);
+  const employmentDetails = asRecord(experience.employment_details);
+  const education = asRecord(profile.education);
+
+  const current = Array.isArray(employmentDetails.current) ? employmentDetails.current.map(normalizeEmployer) : [];
+  const past = Array.isArray(employmentDetails.past) ? employmentDetails.past.map(normalizeEmployer) : [];
+  const all = Array.isArray(employmentDetails.all)
+    ? employmentDetails.all.map(normalizeEmployer)
+    : [...current, ...past];
+  const name = (basic.name ?? profile.name ?? "Unknown") as string;
+  const linkedinUrl = (
+    professionalNetworkIdentifier.profile_url ??
+    professionalNetwork.profile_url ??
+    profile.linkedin_profile_url ??
+    null
+  ) as string | null;
+
+  return {
+    person_id: typeof profile.crustdata_person_id === "number"
+      ? profile.crustdata_person_id
+      : typeof profile.person_id === "number"
+        ? profile.person_id
+        : hashString(linkedinUrl || name),
+    name,
+    first_name: (basic.first_name ?? profile.first_name ?? "") as string,
+    last_name: (basic.last_name ?? profile.last_name ?? "") as string,
+    headline: (basic.headline ?? profile.headline ?? null) as string | null,
+    summary: (basic.summary ?? profile.summary ?? null) as string | null,
+    region: (location.full_location ?? basic.location ?? profile.region ?? "") as string,
+    profile_picture_url: (basic.profile_picture_url ?? profile.profile_picture_url ?? null) as string | null,
+    linkedin_profile_url: linkedinUrl,
+    flagship_profile_url: (profile.flagship_profile_url ?? null) as string | null,
+    emails: Array.isArray(profile.emails) ? profile.emails as string[] : null,
+    twitter_handle: (social.twitter_handle ?? profile.twitter_handle ?? null) as string | null,
+    skills: Array.isArray(skills.professional_network_skills) ? skills.professional_network_skills as string[] : null,
+    languages: Array.isArray(basic.languages) ? basic.languages as string[] : null,
+    num_of_connections: typeof professionalNetwork.connections === "number" ? professionalNetwork.connections : null,
+    years_of_experience_raw: typeof profile.years_of_experience_raw === "number" ? profile.years_of_experience_raw : null,
+    recently_changed_jobs: typeof profile.recently_changed_jobs === "boolean" ? profile.recently_changed_jobs : null,
+    current_employers: current,
+    past_employers: past,
+    all_employers: all,
+    education_background: Array.isArray(education.schools)
+      ? education.schools.map((school: unknown) => {
+          const item = asRecord(school);
+          return {
+            degree_name: (item.degree ?? null) as string | null,
+            institute_name: (item.school ?? null) as string | null,
+            field_of_study: (item.field_of_study ?? null) as string | null,
+            start_date: null,
+            end_date: null,
+          };
+        })
+      : null,
+    certifications: Array.isArray(profile.certifications)
+      ? profile.certifications.map((cert: unknown) => {
+          const item = asRecord(cert);
+          return {
+            name: (item.name ?? "") as string,
+            issued_date: (item.issue_date ?? null) as string | null,
+            issuer_organization: (item.issuing_organization ?? null) as string | null,
+          };
+        })
+      : null,
+    location_details: {
+      city: (location.city ?? null) as string | null,
+      state: (location.state ?? null) as string | null,
+      country: (location.country ?? null) as string | null,
+      continent: (location.continent ?? null) as string | null,
+    },
+  };
+}
+
+function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
+  const data = asRecord(raw);
+  if (Array.isArray(data.results)) {
+    return data as unknown as CrustDataResponse;
+  }
+
+  const profiles = Array.isArray(data.profiles) ? data.profiles.map(normalizeCrustDataPerson) : [];
+  return {
+    total_results: typeof data.total_count === "number" ? data.total_count : profiles.length,
+    next_cursor: (data.next_cursor ?? null) as string | null,
+    results: profiles,
+  };
+}
+
 export async function runCrustDataPreview(query: CrustDataQuery): Promise<number> {
   const previewQuery = { ...query, preview: true, count: 1 };
-  const result = await fetchCrustDataWithRetry("/screener/persondb/search", previewQuery);
+  const result = await fetchCrustDataWithRetry("/person/search", previewQuery);
   if (!result.ok) {
     console.error("[CrustData Preview] Failed:", result.error);
     return 0;
@@ -176,7 +308,7 @@ export async function runCrustDataPreview(query: CrustDataQuery): Promise<number
 export async function fetchCrustDataProfiles(
   query: CrustDataQuery
 ): Promise<{ total: number; profiles: CrustDataPerson[]; cursor: string | null }> {
-  const result = await fetchCrustDataWithRetry("/screener/persondb/search", query);
+  const result = await fetchCrustDataWithRetry("/person/search", query);
   if (!result.ok) {
     console.error("[CrustData Search] Failed:", result.error);
     return { total: 0, profiles: [], cursor: null };
