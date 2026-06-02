@@ -33,10 +33,16 @@ export interface CompanyEnrichment {
 }
 
 /**
- * Fetches CrustData company enrichment for a given employer name.
- * Returns null gracefully when the company can't be resolved.
+ * Fetches CrustData company enrichment for a given employer.
+ *
+ * Pass `companyDomain` whenever known (e.g. "uchealth.org") — it makes
+ * Crustdata's identify step far more reliable for ambiguous names like
+ * "UCHealth" and is used as the cache key when present.
  */
-export function useCompanyEnrichment(companyName: string | null | undefined) {
+export function useCompanyEnrichment(
+  companyName: string | null | undefined,
+  companyDomain?: string | null,
+) {
   const [data, setData] = useState<CompanyEnrichment | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +61,12 @@ export function useCompanyEnrichment(companyName: string | null | undefined) {
       try {
         const { data: res, error: invokeErr } = await supabase.functions.invoke(
           "company-enrichment",
-          { body: { company_name: companyName } }
+          {
+            body: {
+              company_name: companyName,
+              company_domain: companyDomain ?? null,
+            },
+          },
         );
         if (cancelled) return;
         if (invokeErr) {
@@ -74,7 +85,7 @@ export function useCompanyEnrichment(companyName: string | null | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [companyName]);
+  }, [companyName, companyDomain]);
 
   return { data, loading, error };
 }
