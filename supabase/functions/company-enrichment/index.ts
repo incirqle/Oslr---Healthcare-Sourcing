@@ -376,9 +376,29 @@ Deno.serve(async (req) => {
       fetchJobs(companyId),
     ]);
 
-    // Step 4 — competitors
-    const competitorIds = (enrichment?.competitor_ids as number[]) ?? [];
-    const competitors = await resolveCompetitors(competitorIds);
+    // Step 4 — competitors (Crustdata returns domain lists, not IDs)
+    const compBlock = (enrichment?.competitors as any) ?? {};
+    const compDomains: string[] = [
+      ...((compBlock?.competitor_website_domains as string[]) ?? []),
+      ...((compBlock?.organic_seo_competitors_website_domains as string[]) ?? []),
+      ...((compBlock?.paid_seo_competitors_website_domains as string[]) ?? []),
+    ];
+    // de-dup
+    const seen = new Set<string>();
+    const uniqueDomains = compDomains.filter((d) => {
+      const k = String(d || "").trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    const competitors = await resolveCompetitorsByDomain(uniqueDomains);
+
+    // Parse "City, State, Country" from headquarters
+    const hqStr = (enrichment?.headquarters as string) || "";
+    const hqParts = hqStr.split(",").map((s) => s.trim()).filter(Boolean);
+    const parsedHqCity = hqParts[0] ?? null;
+
+    const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
       schema_version: 3 as const,
@@ -397,16 +417,20 @@ Deno.serve(async (req) => {
         identified?.linkedin_profile_url ||
         null,
       linkedin_logo_url: (enrichment?.linkedin_logo_url as string) ?? null,
-      hq_city: (enrichment?.hq_city as string) ?? identified?.hq_city ?? null,
+      hq_city: parsedHqCity ?? identified?.hq_city ?? null,
       hq_state: (enrichment?.hq_state as string) ?? null,
       hq_country:
         (enrichment?.hq_country as string) ?? identified?.hq_country ?? null,
-      industry: (enrichment?.linkedin_industry as string) ?? null,
-      description:
-        (enrichment?.linkedin_company_description as string) ??
-        (enrichment?.description as string) ??
+      headquarters: hqStr || null,
+      industry:
+        (taxonomy?.linkedin_industry as string) ??
+        (Array.isArray(taxonomy?.linkedin_industries)
+          ? (taxonomy.linkedin_industries[0] as string)
+          : null) ??
         null,
+      description: (enrichment?.linkedin_company_description as string) ?? null,
       year_founded: (enrichment?.year_founded as string | number) ?? null,
+      employee_count_range: (enrichment?.employee_count_range as string) ?? null,
 
       // Raw nested objects — frontend slices what it needs
       headcount: enrichment?.headcount ?? null,
