@@ -1043,7 +1043,7 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                <CompanyIntelCard companyName={companyName} />
+                <CompanyIntelCard companyName={companyName} domain={topCompanyDomain} />
 
                 {error && <p className="text-[13px] text-ui-text-muted">{error}</p>}
               </TabsContent>
