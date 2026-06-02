@@ -371,7 +371,7 @@ Deno.serve(async (req) => {
     const competitors = await resolveCompetitors(competitorIds);
 
     const company = {
-      schema_version: 2 as const,
+      schema_version: 3 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
