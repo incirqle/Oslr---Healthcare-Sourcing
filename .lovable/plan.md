@@ -1,41 +1,77 @@
-## Problem
+## Problems
 
-Two issues with the current search loading state:
-
-1. **Duplicate status copy.** The AgentReasoningPanel already streams "Scanning healthcare professional records…" while the SearchNetworkLoader simultaneously shows "SEARCHING / Reranking by clinical fit…" — two competing live captions saying the same thing.
-2. **Visual is dated.** The connected-dots constellation reads as busy and "data-vizzy," the opposite of the minimal, fluid feel of Claude Cowork (calm whitespace, a single breathing element, restrained typography).
+1. **Status block is bloated.** Status, Contact, Activity, Fit each get their own full-width row in a bordered card — eating ~200px before the AI Summary appears.
+2. **Employer Intel is gated like a paywall.** The "Unlock (1 credit)" lock chip mirrors the contact-info pattern, which feels punitive for company data. User wants a soft, premium, user-initiated lookup that leads with the company's actual brand — not a generic building icon.
+3. **Caching should be silent.** Cache exists server-side (7-day TTL); keep it working but do not surface a "Cached · Xd ago" badge in the UI.
 
 ## Direction
 
-Lean into one quiet motion, lots of negative space, no graph metaphor.
+### A. Compact status into a single horizontal meta row
 
-- Single thinking surface: subtle skeleton rows where results will appear, gently shimmering with a slow horizontal light sweep (think Linear / Vercel skeleton, not constellation).
-- One small status line, left-aligned, that rotates copy slowly — but only inside the reasoning panel, never duplicated on the canvas.
-- Soft, very low-contrast mint primary on near-white; no boxes, no badges, no "SEARCHING" all-caps chip.
-- Respects `prefers-reduced-motion` (shimmer freezes to a static low-opacity state).
+Replace the 4-row stacked dl with one inline meta strip directly above the AI Summary:
+
+```
+●  Not contacted    •    🔒 Email hidden  Unlock    •    0 notes    •    Fit: Unreviewed ▾
+```
+
+- Single row, ~32px tall, no card border — sits as a quiet meta line, not a table.
+- Wraps to two rows on narrow widths.
+- Contact stays gated (still 1 credit, sensitive PII) but reads as one chip, not a labeled table row.
+- Fit pill becomes inline, not a `dd` cell.
+
+### B. Employer Intel — premium, brand-led lookup
+
+Reframe the locked card as a soft, branded call to action. No lock icon. No "1 credit" chip. The company's own logo is the visual anchor.
+
+Default (not-yet-fetched) state:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  [LOGO]   UCHealth                                       │
+│           Look up company intel              [Look up →] │
+│                                                          │
+│   Headcount · growth · leadership · Glassdoor            │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Logo first.** Resolve a high-quality company mark via Clearbit Logo API (`https://logo.clearbit.com/{domain}`). Use `job_company_website` when present; otherwise slug company name (lowercase, strip non-alphanumerics, append `.com`). On 404, fall back to a colored monogram tile (first letter, `bg-primary/10`, primary letter) — never a generic building icon.
+- 56×56 rounded-[12px] logo with `border border-ui-border-light/60` and subtle shadow.
+- Heading: company name in `text-[15px] font-semibold` (Comfortaa via existing heading class).
+- Subheading: small muted "Look up company intel".
+- Primary action: right-aligned text button **"Look up →"** in primary color, `hover:underline` — feels editorial, not transactional.
+- Footer line: `text-[11px] text-ui-text-muted` "Headcount · growth · leadership · Glassdoor."
+- On click → existing `useCompanyEnrichment` hook fires; card morphs into the full intel layout in place (no layout shift).
+
+Loaded state:
+- Same logo + name header stays at top, intel content below.
+- **No cache badge** — caching is invisible to the user.
+
+### C. Caching stays server-side and silent
+
+- Existing 7-day TTL in `company_enrichment_cache` (`getCompanyEnrichment`) is correct — no changes required to the edge function or the hook.
+- Do not surface `cached_at` to the UI.
 
 ## Changes
 
-**1. `src/components/search/SearchNetworkLoader.tsx` — full rewrite**
-- Remove the constellation SVG, dots, lines, and all the random-graph math.
-- Remove the centered "SEARCHING" chip and the rotating CAPTIONS array (the reasoning panel above already owns status copy).
-- Render 5–6 skeleton candidate rows (avatar circle + two text bars) at very low opacity.
-- Apply a single full-width gradient sweep animation (`translateX(-100%) → translateX(100%)`, ~2.4s ease-in-out infinite) using `linear-gradient(90deg, transparent, hsl(var(--primary)/0.08), transparent)` as a `::before`-style overlay.
-- No border, no card background — blends into the page so it feels like the page is breathing, not a widget loading.
-- Keep export name `SearchNetworkLoader` so `SearchPage.tsx` doesn't need to change.
+**1. `src/components/CandidateDrawer.tsx`**
+- Replace lines 873–939 (the bordered `dl` block) with the inline meta strip from direction A.
+- Pass a `domain` prop to `CompanyIntelCard` (from `candidate.job_company_website` when available).
 
-**2. No other files touched.** The AgentReasoningPanel keeps its existing streamed reasoning lines — that becomes the single source of "what's happening right now" text.
+**2. `src/components/CompanyIntelCard.tsx`**
+- Rewrite the not-yet-fetched branch per direction B (logo-led, no Lock icon, no credit chip, "Look up →" action).
+- Add a small inline `CompanyLogo` helper that tries Clearbit and falls back to a colored monogram tile on `onError`.
+- After fetch: keep the logo + name header; render intel content; no cache badge.
 
-## Technical notes
-
-- Pure CSS keyframes inlined via `<style>` (same pattern as today).
-- Skeleton rows use `bg-foreground/[0.04]` and `bg-foreground/[0.06]` so they sit quietly on both light and dark.
-- Sweep overlay is `pointer-events-none absolute inset-0` with `mix-blend-mode: normal` and the gradient above.
-- Height matches roughly one viewport of result rows (~360px) so the layout doesn't jump when real results arrive.
-- Reduced-motion: sweep `animation: none`, skeletons stay at static opacity.
+**3. No backend or hook changes.**
 
 ## Out of scope
 
-- Reasoning panel copy, timing, or layout.
-- The results page header, breadcrumb, or chat bubble styling.
-- Any backend / search behavior.
+- Removing the Contact unlock gate (still 1 credit, still locked — only the Employer Intel framing changes).
+- Tab structure, AI Summary card, Signals chips, stat strip, Current Role card.
+- Any results-page or loader changes.
+
+## Technical notes
+
+- Clearbit logo endpoint is public, unauthenticated, free for branding lookups, returns 404 cleanly → easy `onError` fallback.
+- Monogram fallback: `bg-primary/10 text-primary font-semibold text-[20px]` on the same 56×56 rounded tile.
+- Cache TTL stays 7 days, server-side only.
