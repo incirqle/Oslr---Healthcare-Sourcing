@@ -10,6 +10,7 @@ import {
   runCrustDataPreview,
   fetchCrustDataProfiles,
   mapCrustDataResults,
+  enrichPhoneNumbers,
 } from "./fetch-crustdata-results.ts";
 import { mergeResults, type MergeResult } from "./hybrid-merge.ts";
 import type { FormattedCandidate } from "./format-results.ts";
