@@ -2,12 +2,10 @@ import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
-} from "/components/ui/dialog";
-import { Skeleton } from "/components/ui/skeleton";
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowRight,
   ArrowUpRight,
   ExternalLink,
   Globe,
@@ -16,8 +14,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCompanyEnrichment } from "/hooks/useCompanyEnrichment";
-import { normalizeDomain, resolveCompanyDomain } from "/lib/company-domains";
+import { useCompanyEnrichment } from "@/hooks/useCompanyEnrichment";
+import { normalizeDomain, resolveCompanyDomain } from "@/lib/company-domains";
 
 interface CompanyIntelModalProps {
   open: boolean;
