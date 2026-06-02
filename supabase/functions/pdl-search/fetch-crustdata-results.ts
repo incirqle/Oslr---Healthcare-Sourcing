@@ -322,7 +322,7 @@ export async function enrichPhoneNumbers(
     try {
       const params = new URLSearchParams();
       for (const url of batch) params.append("linkedin_profile_url", url);
-      params.append("fields", "phone");
+      params.append("fields", "personal_contact_info.phone_numbers");
 
       const res = await fetch(
         `${CRUSTDATA_BASE_URL}/screener/person/enrich?${params.toString()}`,
@@ -345,7 +345,7 @@ export async function enrichPhoneNumbers(
 
       for (const profile of profiles) {
         const liUrl = profile.linkedin_profile_url;
-        const phones = profile.phone_numbers;
+        const phones = profile.phone_numbers ?? profile.personal_contact_info?.phone_numbers;
         if (liUrl && Array.isArray(phones) && phones.length > 0) {
           results.set(liUrl, phones);
         }
