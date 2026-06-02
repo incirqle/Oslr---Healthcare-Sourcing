@@ -42,8 +42,8 @@ interface HybridOrchestratorInput {
 
 function isCrustDataEnabled(): boolean {
   const flag = Deno.env.get("CRUSTDATA_ENABLED");
-  // Default ON when CRUSTDATA_API_KEY exists. Only an explicit off value disables it.
-  return !flag || !["false", "0", "off", "disabled"].includes(flag.toLowerCase().trim());
+  // Default ON when CRUSTDATA_API_KEY exists. Only explicit "off"/"disabled" disables it.
+  return !flag || !["off", "disabled"].includes(flag.toLowerCase().trim());
 }
 
 function hasCrustDataKey(): boolean {
