@@ -264,6 +264,151 @@ async function fetchJobs(companyId: number): Promise<{ jobs: JobListing[]; total
 }
 
 /* ------------------------------------------------------------------ */
+/* Step 3b — talent flow (recent hires / departures)                    */
+/* ------------------------------------------------------------------ */
+
+interface TalentFlowPerson {
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  linkedin_profile_url: string | null;
+  profile_picture_url: string | null;
+  headline: string | null;
+  current_title: string | null;
+  current_company: string | null;
+  current_company_linkedin_url: string | null;
+  current_company_start_date: string | null;
+  previous_company: string | null;
+  previous_company_linkedin_url: string | null;
+  previous_title: string | null;
+  previous_end_date: string | null;
+  function_category: string | null;
+  seniority_level: string | null;
+}
+
+interface TalentFlowAggregate {
+  hires: TalentFlowPerson[];
+  departures: TalentFlowPerson[];
+  hire_count: number;
+  departure_count: number;
+  top_hire_sources: { company: string; count: number; linkedin_url: string | null }[];
+  top_departure_destinations: { company: string; count: number; linkedin_url: string | null }[];
+}
+
+async function fetchTalentFlow(
+  companyId: number,
+  direction: "hires" | "departures",
+): Promise<TalentFlowPerson[]> {
+  const employerField =
+    direction === "hires"
+      ? "current_employers.company_id"
+      : "past_employers.company_id";
+
+  const body = {
+    dataset: "people",
+    filters: [
+      {
+        type: "AND",
+        value: [
+          { filter_type: employerField, type: "in", value: [companyId] },
+          { filter_type: "recently_changed_jobs", type: "=", value: true },
+        ],
+      },
+    ],
+    sorts: [{ column: "current_employers.start_date", order: "desc" }],
+    count: 100,
+  };
+
+  const data = await cdPost("/screener/persondb/search", body);
+  if (!data) return [];
+  const results: any[] = (data as { results?: unknown[] }).results ?? [];
+
+  return results.map((person: any) => {
+    const currentEmp = person.current_employers?.[0] || {};
+    const targetPast =
+      direction === "departures"
+        ? (person.past_employers || []).find(
+            (e: any) => e.company_id === companyId,
+          ) || person.past_employers?.[0] || {}
+        : {};
+
+    return {
+      name: person.name || "Unknown",
+      first_name: person.first_name || null,
+      last_name: person.last_name || null,
+      linkedin_profile_url: person.linkedin_profile_url || null,
+      profile_picture_url: person.profile_picture_url || null,
+      headline: person.headline || null,
+      current_title: currentEmp.title || null,
+      current_company: currentEmp.name || null,
+      current_company_linkedin_url:
+        currentEmp.company_linkedin_profile_url || null,
+      current_company_start_date: currentEmp.start_date || null,
+      previous_company:
+        direction === "hires"
+          ? person.past_employers?.[0]?.name || null
+          : currentEmp.name || null,
+      previous_company_linkedin_url:
+        direction === "hires"
+          ? person.past_employers?.[0]?.company_linkedin_profile_url || null
+          : currentEmp.company_linkedin_profile_url || null,
+      previous_title:
+        direction === "hires"
+          ? person.past_employers?.[0]?.title || null
+          : targetPast.title || null,
+      previous_end_date:
+        direction === "hires"
+          ? person.past_employers?.[0]?.end_date || null
+          : targetPast.end_date || null,
+      function_category: currentEmp.function_category || null,
+      seniority_level: currentEmp.seniority_level || null,
+    };
+  });
+}
+
+function aggregateTalentFlow(
+  hires: TalentFlowPerson[],
+  departures: TalentFlowPerson[],
+): TalentFlowAggregate {
+  const hireSources = new Map<string, { count: number; linkedin_url: string | null }>();
+  for (const h of hires) {
+    if (h.previous_company) {
+      const ex = hireSources.get(h.previous_company) || {
+        count: 0,
+        linkedin_url: h.previous_company_linkedin_url,
+      };
+      ex.count++;
+      hireSources.set(h.previous_company, ex);
+    }
+  }
+  const depDests = new Map<string, { count: number; linkedin_url: string | null }>();
+  for (const d of departures) {
+    if (d.current_company) {
+      const ex = depDests.get(d.current_company) || {
+        count: 0,
+        linkedin_url: d.current_company_linkedin_url,
+      };
+      ex.count++;
+      depDests.set(d.current_company, ex);
+    }
+  }
+  const top = (m: Map<string, { count: number; linkedin_url: string | null }>) =>
+    Array.from(m.entries())
+      .map(([company, { count, linkedin_url }]) => ({ company, count, linkedin_url }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+  return {
+    hires,
+    departures,
+    hire_count: hires.length,
+    departure_count: departures.length,
+    top_hire_sources: top(hireSources),
+    top_departure_destinations: top(depDests),
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Step 4 — competitor resolution                                       */
 /* ------------------------------------------------------------------ */
 
@@ -342,7 +487,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 5) {
+      if (cached?.data && (cached.data as any)?.schema_version === 6) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -377,10 +522,13 @@ Deno.serve(async (req) => {
     }
 
     // Steps 2–3 in parallel
-    const [enrichment, jobsResult] = await Promise.all([
+    const [enrichment, jobsResult, hiresList, departuresList] = await Promise.all([
       enrich(companyId),
       fetchJobs(companyId),
+      fetchTalentFlow(companyId, "hires"),
+      fetchTalentFlow(companyId, "departures"),
     ]);
+    const talent_flow = aggregateTalentFlow(hiresList, departuresList);
 
     // Step 4 — competitors (Crustdata returns domain lists, not IDs)
     const compBlock = (enrichment?.competitors as any) ?? {};
@@ -407,7 +555,7 @@ Deno.serve(async (req) => {
     const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 5 as const,
+      schema_version: 6 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
@@ -451,6 +599,8 @@ Deno.serve(async (req) => {
       jobs_total: jobsResult.total,
 
       competitors,
+
+      talent_flow,
 
       cached: false,
       enriched_at: new Date().toISOString(),

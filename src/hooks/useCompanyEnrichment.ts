@@ -72,6 +72,34 @@ export interface CompetitorEntry {
   headcount: number | null;
 }
 
+export interface TalentFlowPerson {
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  linkedin_profile_url: string | null;
+  profile_picture_url: string | null;
+  headline: string | null;
+  current_title: string | null;
+  current_company: string | null;
+  current_company_linkedin_url: string | null;
+  current_company_start_date: string | null;
+  previous_company: string | null;
+  previous_company_linkedin_url: string | null;
+  previous_title: string | null;
+  previous_end_date: string | null;
+  function_category: string | null;
+  seniority_level: string | null;
+}
+
+export interface TalentFlowAggregate {
+  hires: TalentFlowPerson[];
+  departures: TalentFlowPerson[];
+  hire_count: number;
+  departure_count: number;
+  top_hire_sources: { company: string; count: number; linkedin_url: string | null }[];
+  top_departure_destinations: { company: string; count: number; linkedin_url: string | null }[];
+}
+
 export interface CompanyIntel {
   schema_version?: 2;
   company_id: number;
@@ -98,6 +126,9 @@ export interface CompanyIntel {
   jobs_total: number;
 
   competitors: CompetitorEntry[];
+
+  talent_flow?: TalentFlowAggregate | null;
+
 
   cached?: boolean;
   enriched_at?: string;
