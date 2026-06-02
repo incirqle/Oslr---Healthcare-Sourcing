@@ -233,12 +233,46 @@ function filterTimeseries(
   return ts.filter((p) => new Date(p.date).getTime() >= cutoff);
 }
 
+function formatMonthYear(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
   const [range, setRange] = useState<keyof typeof RANGE_MONTHS>("1Y");
   const filtered = useMemo(
     () => filterTimeseries(data, RANGE_MONTHS[range]),
     [data, range],
   );
+
+  const summary = useMemo(() => {
+    if (!filtered.length) return null;
+    const first = filtered[0];
+    const last = filtered[filtered.length - 1];
+    const counts = filtered.map((p) => p.employee_count);
+    const min = Math.min(...counts);
+    const max = Math.max(...counts);
+    const delta = last.employee_count - first.employee_count;
+    const pct =
+      first.employee_count > 0 ? (delta / first.employee_count) * 100 : 0;
+    return { first, last, min, max, delta, pct };
+  }, [filtered]);
+
+  // 4 evenly-spaced ticks across the range, always including first + last
+  const xTicks = useMemo(() => {
+    if (filtered.length <= 1) return filtered.map((p) => p.date);
+    const n = Math.min(4, filtered.length);
+    const step = (filtered.length - 1) / (n - 1);
+    return Array.from(
+      new Set(
+        Array.from({ length: n }, (_, i) =>
+          filtered[Math.round(i * step)].date,
+        ),
+      ),
+    );
+  }, [filtered]);
 
   return (
     <Section
@@ -264,23 +298,61 @@ function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
         </div>
       }
     >
+      {summary && (
+        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-1">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">
+              Now · {formatMonthYear(summary.last.date)}
+            </p>
+            <p className="text-[26px] font-semibold leading-tight tracking-tight text-ui-text-primary tabular-nums">
+              {summary.last.employee_count.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">
+              vs {formatMonthYear(summary.first.date)}
+            </p>
+            <p
+              className={cn(
+                "text-[16px] font-semibold tabular-nums",
+                summary.delta >= 0 ? "text-primary" : "text-destructive",
+              )}
+            >
+              {summary.delta >= 0 ? "+" : ""}
+              {summary.delta.toLocaleString()}
+              <span className="ml-1.5 text-[12px] font-medium">
+                ({summary.delta >= 0 ? "+" : ""}
+                {summary.pct.toFixed(1)}%)
+              </span>
+            </p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">
+              Range
+            </p>
+            <p className="text-[12px] text-ui-text-secondary tabular-nums">
+              {summary.min.toLocaleString()} – {summary.max.toLocaleString()}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <AreaChart data={filtered} margin={{ top: 16, right: 64, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="hcGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.45} />
                 <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="hsl(var(--ui-border-light))" vertical={false} />
             <XAxis
               dataKey="date"
-              tickFormatter={(d) => new Date(d).getFullYear().toString()}
+              ticks={xTicks}
+              tickFormatter={(d) => formatMonthYear(d as string)}
               tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
               axisLine={false}
               tickLine={false}
-              minTickGap={32}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
@@ -288,6 +360,7 @@ function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
               axisLine={false}
               tickLine={false}
               width={42}
+              domain={["auto", "auto"]}
             />
             <Tooltip
               contentStyle={{
@@ -296,20 +369,17 @@ function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              labelFormatter={(d) =>
-                new Date(d as string).toLocaleDateString(undefined, {
-                  month: "short",
-                  year: "numeric",
-                })
-              }
+              labelFormatter={(d) => formatMonthYear(d as string)}
               formatter={(v: number) => [v.toLocaleString(), "Employees"]}
             />
             <Area
               type="monotone"
               dataKey="employee_count"
               stroke="hsl(var(--primary))"
-              strokeWidth={2}
+              strokeWidth={2.5}
               fill="url(#hcGrad)"
+              dot={false}
+              activeDot={{ r: 4 }}
             />
           </AreaChart>
         </ResponsiveContainer>
