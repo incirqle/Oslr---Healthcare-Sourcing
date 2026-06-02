@@ -1415,26 +1415,28 @@ export function CandidateDrawer({
                       Unlock Contact Info
                     </Button>
                   </div>
-                ) : contactEmail || contactPhone ? (
+                ) : allEmails.length > 0 || allPhones.length > 0 ? (
                   <div className="space-y-3">
-                    {contactEmail && (
+                    {allEmails.map((e) => (
                       <ContactCard
+                        key={`email-${e.address}`}
                         icon={<Mail className="h-4 w-4" />}
-                        label="Email"
-                        value={contactEmail}
-                        href={`mailto:${contactEmail}`}
-                        onCopy={() => handleCopy(contactEmail, "Email")}
+                        label={`${e.label} email`}
+                        value={e.address}
+                        href={`mailto:${e.address}`}
+                        onCopy={() => handleCopy(e.address, `${e.label} email`)}
                       />
-                    )}
-                    {contactPhone && (
+                    ))}
+                    {allPhones.map((p) => (
                       <ContactCard
+                        key={`phone-${p.number}`}
                         icon={<Phone className="h-4 w-4" />}
-                        label="Phone"
-                        value={contactPhone}
-                        href={`tel:${contactPhone}`}
-                        onCopy={() => handleCopy(contactPhone, "Phone")}
+                        label={p.label}
+                        value={p.number}
+                        href={`tel:${p.number}`}
+                        onCopy={() => handleCopy(p.number, p.label)}
                       />
-                    )}
+                    ))}
                   </div>
                 ) : (
                   <p className="py-10 text-center text-[15px] text-ui-text-muted">No contact information available</p>
