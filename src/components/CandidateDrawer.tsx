@@ -869,74 +869,72 @@ export function CandidateDrawer({
             <div className="min-h-0 flex-1 overflow-y-auto">
               {/* OVERVIEW — Juicebox-style: Status row → AI summary → Achievements → About → Stats → Current role */}
               <TabsContent value="overview" className="mt-0 space-y-5 px-5 py-5 pb-24 sm:px-6">
-                {/* Status / Contact / Activity / Fit table */}
-                <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/30">
-                  <dl className="divide-y divide-ui-border-light/60 text-[13px]">
-                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
-                      <dt className="text-ui-text-muted">Status</dt>
-                      <dd className="flex items-center gap-1.5 text-ui-text-secondary">
-                        <span className="inline-block h-2 w-2 rounded-full bg-ui-info" />
-                        Not contacted
-                      </dd>
-                    </div>
-                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
-                      <dt className="text-ui-text-muted">Contact</dt>
-                      <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ui-text-secondary">
-                        {!contactEmail && !contactPhone ? (
-                          <span className="text-ui-text-muted">No contact on file</span>
-                        ) : contactUnlocked ? (
-                          <>
-                            {contactEmail ? (
-                              <a href={`mailto:${contactEmail}`} className="text-ui-info hover:underline">
-                                {contactEmail}
-                              </a>
-                            ) : null}
-                            {contactPhone ? (
-                              <a href={`tel:${contactPhone}`} className="text-ui-info hover:underline">
-                                {contactPhone}
-                              </a>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-ui-border-light bg-ui-surface px-2 py-0.5 text-[11px] font-medium text-ui-text-muted">
-                              <Lock className="h-3 w-3" />
-                              {contactEmail && contactPhone
-                                ? "Email & phone hidden"
-                                : contactEmail
-                                  ? "Email hidden"
-                                  : "Phone hidden"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setContactUnlocked(true)}
-                              className="text-[12px] font-medium text-primary hover:underline"
-                            >
-                              Unlock (1 credit)
-                            </button>
-                          </>
-                        )}
-                      </dd>
-                    </div>
-                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
-                      <dt className="text-ui-text-muted">Activity</dt>
-                      <dd className="text-ui-text-secondary">
-                        {notes.length} note{notes.length === 1 ? "" : "s"}
-                      </dd>
-                    </div>
-                    <div className="grid grid-cols-[88px_1fr] items-center gap-3 px-4 py-2.5">
-                      <dt className="text-ui-text-muted">Fit</dt>
-                      <dd onClick={(e) => e.stopPropagation()}>
-                        <FitPill
-                          status={fitStatus}
-                          onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
-                          size="sm"
-                          stopPropagation={false}
-                        />
-                      </dd>
-                    </div>
-                  </dl>
+                {/* Inline meta strip — Status · Contact · Notes · Fit */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px] text-ui-text-secondary">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-ui-info" />
+                    Not contacted
+                  </span>
+
+                  <span className="text-ui-text-muted/50">·</span>
+
+                  {!contactEmail && !contactPhone ? (
+                    <span className="text-ui-text-muted">No contact on file</span>
+                  ) : contactUnlocked ? (
+                    <span className="inline-flex items-center gap-2 truncate">
+                      {contactEmail && (
+                        <a
+                          href={`mailto:${contactEmail}`}
+                          className="max-w-[220px] truncate text-ui-info hover:underline"
+                        >
+                          {contactEmail}
+                        </a>
+                      )}
+                      {contactPhone && (
+                        <a href={`tel:${contactPhone}`} className="text-ui-info hover:underline">
+                          {contactPhone}
+                        </a>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-ui-text-muted">
+                        <Lock className="h-3 w-3" />
+                        {contactEmail && contactPhone
+                          ? "Email & phone hidden"
+                          : contactEmail
+                            ? "Email hidden"
+                            : "Phone hidden"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setContactUnlocked(true)}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Unlock
+                      </button>
+                    </span>
+                  )}
+
+                  <span className="text-ui-text-muted/50">·</span>
+
+                  <span>
+                    {notes.length} note{notes.length === 1 ? "" : "s"}
+                  </span>
+
+                  <span className="text-ui-text-muted/50">·</span>
+
+                  <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-ui-text-muted">Fit</span>
+                    <FitPill
+                      status={fitStatus}
+                      onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
+                      size="sm"
+                      stopPropagation={false}
+                    />
+                  </span>
                 </div>
+
 
                 {/* AI Summary */}
                 <div className="rounded-[10px] border border-ai-border bg-ai px-4 py-4">
