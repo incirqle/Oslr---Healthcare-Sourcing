@@ -20,6 +20,7 @@ import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankRe
 import { callClaude } from "./ai-router.ts";
 import { rerankWithAI } from "./ai-rerank.ts";
 import { enrichJobTitles } from "./enrich-job-titles.ts";
+import { runHybridSearch, type HybridSearchResult } from "./hybrid-orchestrator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1277,6 +1278,7 @@ Deno.serve(async (req: Request) => {
     // repeat views of the same page don't re-burn credits or LLM tokens.
     let formattedResults: Record<string, unknown>[];
     let aiRerankMeta: Record<string, unknown> = { ai_reranked: false };
+    let hybridResult: HybridSearchResult | null = null;
 
     // If cached data is already formatted (has relevance_score), serve it directly
     const firstResult = results[0] as Record<string, unknown> | undefined;
@@ -1287,11 +1289,24 @@ Deno.serve(async (req: Request) => {
       const deterministicResults = scoreAndRankResults(results.map(mapPerson), parsed);
       formattedResults = deterministicResults;
 
-      if (deterministicResults.length > 0) {
+      // Hybrid: merge in CrustData candidates (feature-flagged via CRUSTDATA_ENABLED)
+      hybridResult = await runHybridSearch({
+        parsed,
+        pdlCandidates: deterministicResults,
+        pdlTotal: total,
+        pdlMs: Date.now() - requestStart,
+        size,
+      });
+      const hybridCandidates = hybridResult.candidates;
+      if (hybridResult.hybrid_meta.crustdata_net_new > 0) {
+        total = hybridResult.total;
+      }
+
+      if (hybridCandidates.length > 0) {
         const _anchorIds = Array.isArray((parsed as Record<string, unknown>)._resolved_company_ids)
           ? ((parsed as Record<string, unknown>)._resolved_company_ids as string[])
           : [];
-        const rerank = await rerankWithAI(deterministicResults, parsed, query, lovableKey, {
+        const rerank = await rerankWithAI(hybridCandidates, parsed, query, lovableKey, {
           anchorCompanyIds: _anchorIds,
           anchorMode: _anchorIds.length > 0,
         });
@@ -1397,7 +1412,7 @@ Deno.serve(async (req: Request) => {
       cascade_steps: cascadePlan,
       winning_step: cascadeWinningStep ?? null,
       timing_ms: Date.now() - requestStart,
-      meta: { page, size, ai_rerank: aiRerankMeta },
+      meta: { page, size, ai_rerank: aiRerankMeta, hybrid: hybridResult?.hybrid_meta ?? null },
     });
 
     // Build geo scope metadata for frontend transparency.
@@ -1440,6 +1455,7 @@ Deno.serve(async (req: Request) => {
         geo_scope: geoScope,
         company_scope: companyScope,
         ...aiRerankMeta,
+        hybrid_meta: hybridResult?.hybrid_meta ?? null,
         timing_ms: Date.now() - requestStart,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
