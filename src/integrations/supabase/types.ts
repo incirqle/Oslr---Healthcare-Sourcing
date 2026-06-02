@@ -427,6 +427,27 @@ export type Database = {
         }
         Relationships: []
       }
+      company_enrichment_cache: {
+        Row: {
+          cache_key: string
+          company_id: number
+          created_at: string
+          data: Json
+        }
+        Insert: {
+          cache_key: string
+          company_id: number
+          created_at?: string
+          data: Json
+        }
+        Update: {
+          cache_key?: string
+          company_id?: number
+          created_at?: string
+          data?: Json
+        }
+        Relationships: []
+      }
       company_invites: {
         Row: {
           accepted_at: string | null
