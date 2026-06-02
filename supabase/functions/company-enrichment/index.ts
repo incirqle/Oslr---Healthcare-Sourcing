@@ -487,7 +487,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 6) {
+      if (cached?.data && (cached.data as any)?.schema_version === 7) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -555,7 +555,7 @@ Deno.serve(async (req) => {
     const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 6 as const,
+      schema_version: 7 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
@@ -588,7 +588,16 @@ Deno.serve(async (req) => {
 
       // Raw nested objects — frontend slices what it needs
       headcount: enrichment?.headcount ?? null,
-      glassdoor: enrichment?.glassdoor ?? null,
+      // Crustdata returns glassdoor fields prefixed with `glassdoor_`.
+      // Normalize to the shape the frontend expects.
+      glassdoor: (() => {
+        const g = enrichment?.glassdoor as Record<string, unknown> | null | undefined;
+        if (!g) return null;
+        const overall = (g.glassdoor_overall_rating ?? g.overall_rating ?? null) as number | null;
+        const reviews = (g.glassdoor_review_count ?? g.review_count ?? null) as number | null;
+        if (overall == null && reviews == null) return null;
+        return { overall_rating: overall, review_count: reviews };
+      })(),
       g2: enrichment?.g2 ?? null,
       web_traffic: enrichment?.web_traffic ?? null,
       funding: enrichment?.funding_and_investment ?? null,
