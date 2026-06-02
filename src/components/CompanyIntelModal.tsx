@@ -405,18 +405,19 @@ function DepartmentDonut({ data }: { data: Record<string, number> }) {
     ...top.map(([name, value]) => ({ name: titleCase(name), value })),
     ...(restPct > 0.5 ? [{ name: "Other", value: restPct }] : []),
   ];
+  const leader = slices[0];
   return (
     <Section title="Department breakdown">
       <div className="flex items-center gap-4">
-        <div className="h-44 w-44 shrink-0">
+        <div className="relative h-44 w-44 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={slices}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={42}
-                outerRadius={72}
+                innerRadius={48}
+                outerRadius={76}
                 paddingAngle={2}
                 strokeWidth={0}
               >
@@ -435,6 +436,16 @@ function DepartmentDonut({ data }: { data: Record<string, number> }) {
               />
             </PieChart>
           </ResponsiveContainer>
+          {leader && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-[18px] font-semibold leading-none text-ui-text-primary tabular-nums">
+                {leader.value.toFixed(0)}%
+              </p>
+              <p className="mt-1 max-w-[90px] truncate text-center text-[10px] uppercase tracking-wide text-ui-text-muted">
+                {leader.name}
+              </p>
+            </div>
+          )}
         </div>
         <ul className="flex-1 space-y-1.5">
           {slices.map((s, i) => (
@@ -449,7 +460,7 @@ function DepartmentDonut({ data }: { data: Record<string, number> }) {
                 />
                 {s.name}
               </span>
-              <span className="font-medium text-ui-text-primary">
+              <span className="font-medium text-ui-text-primary tabular-nums">
                 {s.value.toFixed(1)}%
               </span>
             </li>
