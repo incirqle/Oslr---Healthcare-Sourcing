@@ -522,10 +522,13 @@ Deno.serve(async (req) => {
     }
 
     // Steps 2–3 in parallel
-    const [enrichment, jobsResult] = await Promise.all([
+    const [enrichment, jobsResult, hiresList, departuresList] = await Promise.all([
       enrich(companyId),
       fetchJobs(companyId),
+      fetchTalentFlow(companyId, "hires"),
+      fetchTalentFlow(companyId, "departures"),
     ]);
+    const talent_flow = aggregateTalentFlow(hiresList, departuresList);
 
     // Step 4 — competitors (Crustdata returns domain lists, not IDs)
     const compBlock = (enrichment?.competitors as any) ?? {};
