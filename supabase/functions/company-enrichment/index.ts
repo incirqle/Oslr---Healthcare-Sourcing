@@ -555,7 +555,7 @@ Deno.serve(async (req) => {
     const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 6 as const,
+      schema_version: 7 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
