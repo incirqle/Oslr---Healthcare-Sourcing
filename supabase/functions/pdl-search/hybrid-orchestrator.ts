@@ -42,7 +42,8 @@ interface HybridOrchestratorInput {
 
 function isCrustDataEnabled(): boolean {
   const flag = Deno.env.get("CRUSTDATA_ENABLED");
-  return flag === "true" || flag === "1";
+  // Default ON when CRUSTDATA_API_KEY exists. Only explicit "off"/"disabled" disables it.
+  return !flag || !["off", "disabled"].includes(flag.toLowerCase().trim());
 }
 
 function hasCrustDataKey(): boolean {
@@ -52,7 +53,11 @@ function hasCrustDataKey(): boolean {
 export async function runHybridSearch(input: HybridOrchestratorInput): Promise<HybridSearchResult> {
   const { parsed, pdlCandidates, pdlTotal, pdlMs, size } = input;
 
-  if (!isCrustDataEnabled() || !hasCrustDataKey()) {
+  const enabled = isCrustDataEnabled();
+  const hasKey = hasCrustDataKey();
+  console.log(`[hybrid] config: enabled=${enabled}, has_crustdata_key=${hasKey}, pdl_count=${pdlCandidates.length}, pdl_total=${pdlTotal}, size=${size}`);
+
+  if (!enabled || !hasKey) {
     // Even when CrustData search is off, we can still attempt phone backfill
     // ONLY if a key exists — but if the flag is off entirely, passthrough.
     return {
@@ -93,6 +98,7 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
   );
 
   const shouldFetch = previewTotal >= 5 || pdlCandidates.length < 20;
+  console.log(`[hybrid] fetch decision: should_fetch=${shouldFetch}, preview_total=${previewTotal}, pdl_page_count=${pdlCandidates.length}`);
 
   let mergedCandidates: FormattedCandidate[] = pdlCandidates;
   let mergeStats = {

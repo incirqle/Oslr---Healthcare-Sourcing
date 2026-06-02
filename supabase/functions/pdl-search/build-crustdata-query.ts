@@ -26,7 +26,7 @@ type CrustFilter =
 
 interface CrustDataQuery {
   dataset: "people";
-  filters: CrustFilter[];
+  filters: CrustFilter;
   sorts?: { column: string; order: "asc" | "desc" }[];
   count: number;
   preview: boolean;
@@ -299,11 +299,9 @@ export function buildCrustDataQuery(
     value: "United States",
   });
 
-  const filters: CrustFilter[] = [{ type: "AND", value: andFilters }];
-
   const query: CrustDataQuery = {
     dataset: "people",
-    filters,
+    filters: { type: "AND", value: andFilters },
     count: Math.min(size, 1000),
     preview,
   };
@@ -332,7 +330,7 @@ export function applyCascadeStep(
   step: CrustCascadeStep
 ): CrustDataQuery {
   const cloned: CrustDataQuery = JSON.parse(JSON.stringify(query));
-  const andBlock = cloned.filters[0] as { type: "AND"; value: CrustFilter[] };
+  const andBlock = cloned.filters as { type: "AND"; value: CrustFilter[] };
 
   switch (step) {
     case "drop_titles": {

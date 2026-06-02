@@ -9,7 +9,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCompanyEnrichment } from "../pdl-search/enrich-company.ts";
+import { getCompanyEnrichment } from "./enrich-company.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
