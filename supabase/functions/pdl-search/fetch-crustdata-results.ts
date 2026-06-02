@@ -296,7 +296,8 @@ function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
 }
 
 export async function runCrustDataPreview(query: CrustDataQuery): Promise<number> {
-  const previewQuery = { ...query, preview: true, count: 1 };
+  const { preview: _preview, sorts: _sorts, ...baseQuery } = query;
+  const previewQuery = { ...baseQuery, count: 1 };
   const result = await fetchCrustDataWithRetry("/person/search", previewQuery);
   if (!result.ok) {
     console.error("[CrustData Preview] Failed:", result.error);
