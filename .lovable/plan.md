@@ -1,36 +1,41 @@
-## Add an animated "network of dots" loader to the search results area
+## Problem
 
-While a search is in flight, the blank area under the reasoning panel currently shows generic gray skeleton rows. Replace that with a subtle, on-brand animated visualization that signals "we're scanning the network" — a faint constellation of dots connected by thin lines, gently pulsing in the mint primary color.
+Two issues with the current search loading state:
 
-### What the user will see
+1. **Duplicate status copy.** The AgentReasoningPanel already streams "Scanning healthcare professional records…" while the SearchNetworkLoader simultaneously shows "SEARCHING / Reranking by clinical fit…" — two competing live captions saying the same thing.
+2. **Visual is dated.** The connected-dots constellation reads as busy and "data-vizzy," the opposite of the minimal, fluid feel of Claude Cowork (calm whitespace, a single breathing element, restrained typography).
 
-- The moment the reasoning panel starts streaming ("Parsed your query… Scanning healthcare professional records…"), the area below shows a soft animated dot network instead of bare skeleton bars.
-- Dots fade in/out at staggered intervals; thin connecting lines pulse softly.
-- A short caption underneath ("Searching across millions of clinical profiles…") rotates through 2–3 phrases.
-- As soon as the first real candidates arrive, the loader fades out and the result rows take over — no jarring transition.
+## Direction
 
-### Files to change
+Lean into one quiet motion, lots of negative space, no graph metaphor.
 
-1. **`src/components/search/SearchNetworkLoader.tsx`** (new)
-   - SVG-based component, ~360px tall, full width, centered.
-   - ~24 dots positioned on a loose grid with slight random offsets, rendered as `<circle>` elements with `fill="hsl(var(--primary) / 0.35)"`.
-   - ~30 thin lines (`<line>` with `stroke="hsl(var(--primary) / 0.12)"`) connecting nearby dots.
-   - Two CSS keyframe animations defined inline via a `<style>` tag (scoped class names): `dot-pulse` (opacity 0.2 → 0.9 → 0.2, 2.4s) and `line-pulse` (opacity 0.05 → 0.25 → 0.05, 3.2s). Each element gets a random `animation-delay` so the network breathes rather than blinks in unison.
-   - Below the SVG, a small `<p>` showing a rotating caption (state-driven, swaps every 2.5s with a fade).
-   - All colors use semantic tokens (`--primary`, `--muted-foreground`) so it works in light and dark themes.
+- Single thinking surface: subtle skeleton rows where results will appear, gently shimmering with a slow horizontal light sweep (think Linear / Vercel skeleton, not constellation).
+- One small status line, left-aligned, that rotates copy slowly — but only inside the reasoning panel, never duplicated on the canvas.
+- Soft, very low-contrast mint primary on near-white; no boxes, no badges, no "SEARCHING" all-caps chip.
+- Respects `prefers-reduced-motion` (shimmer freezes to a static low-opacity state).
 
-2. **`src/pages/SearchPage.tsx`**
-   - Replace the `{skeletonCount > 0 && …}` block (lines ~355–371) with `{skeletonCount > 0 && <SearchNetworkLoader />}`.
-   - Import the new component.
+## Changes
 
-### Technical notes
+**1. `src/components/search/SearchNetworkLoader.tsx` — full rewrite**
+- Remove the constellation SVG, dots, lines, and all the random-graph math.
+- Remove the centered "SEARCHING" chip and the rotating CAPTIONS array (the reasoning panel above already owns status copy).
+- Render 5–6 skeleton candidate rows (avatar circle + two text bars) at very low opacity.
+- Apply a single full-width gradient sweep animation (`translateX(-100%) → translateX(100%)`, ~2.4s ease-in-out infinite) using `linear-gradient(90deg, transparent, hsl(var(--primary)/0.08), transparent)` as a `::before`-style overlay.
+- No border, no card background — blends into the page so it feels like the page is breathing, not a widget loading.
+- Keep export name `SearchNetworkLoader` so `SearchPage.tsx` doesn't need to change.
 
-- Pure CSS animations (no framer-motion needed) — keeps it lightweight and avoids any new deps.
-- Uses `prefers-reduced-motion: reduce` to disable animation for accessibility.
-- The loader only renders while `skeletonCount > 0`, which is already controlled by `searchPhase === "running"` and the absence of streamed candidates, so it disappears the instant real rows arrive.
-- No backend, hook, or query changes — purely a presentation swap.
+**2. No other files touched.** The AgentReasoningPanel keeps its existing streamed reasoning lines — that becomes the single source of "what's happening right now" text.
 
-### Out of scope
+## Technical notes
 
-- No changes to the reasoning panel itself (it already animates nicely).
-- No changes to the post-results skeleton inside `SearchResults.tsx` (those are for pagination transitions).
+- Pure CSS keyframes inlined via `<style>` (same pattern as today).
+- Skeleton rows use `bg-foreground/[0.04]` and `bg-foreground/[0.06]` so they sit quietly on both light and dark.
+- Sweep overlay is `pointer-events-none absolute inset-0` with `mix-blend-mode: normal` and the gradient above.
+- Height matches roughly one viewport of result rows (~360px) so the layout doesn't jump when real results arrive.
+- Reduced-motion: sweep `animation: none`, skeletons stay at static opacity.
+
+## Out of scope
+
+- Reasoning panel copy, timing, or layout.
+- The results page header, breadcrumb, or chat bubble styling.
+- Any backend / search behavior.
