@@ -9,12 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -233,12 +229,46 @@ function filterTimeseries(
   return ts.filter((p) => new Date(p.date).getTime() >= cutoff);
 }
 
+function formatMonthYear(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
   const [range, setRange] = useState<keyof typeof RANGE_MONTHS>("1Y");
   const filtered = useMemo(
     () => filterTimeseries(data, RANGE_MONTHS[range]),
     [data, range],
   );
+
+  const summary = useMemo(() => {
+    if (!filtered.length) return null;
+    const first = filtered[0];
+    const last = filtered[filtered.length - 1];
+    const counts = filtered.map((p) => p.employee_count);
+    const min = Math.min(...counts);
+    const max = Math.max(...counts);
+    const delta = last.employee_count - first.employee_count;
+    const pct =
+      first.employee_count > 0 ? (delta / first.employee_count) * 100 : 0;
+    return { first, last, min, max, delta, pct };
+  }, [filtered]);
+
+  // 4 evenly-spaced ticks across the range, always including first + last
+  const xTicks = useMemo(() => {
+    if (filtered.length <= 1) return filtered.map((p) => p.date);
+    const n = Math.min(4, filtered.length);
+    const step = (filtered.length - 1) / (n - 1);
+    return Array.from(
+      new Set(
+        Array.from({ length: n }, (_, i) =>
+          filtered[Math.round(i * step)].date,
+        ),
+      ),
+    );
+  }, [filtered]);
 
   return (
     <Section
@@ -264,23 +294,61 @@ function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
         </div>
       }
     >
+      {summary && (
+        <div className="mb-3 flex flex-wrap items-end gap-x-6 gap-y-1">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">
+              Now · {formatMonthYear(summary.last.date)}
+            </p>
+            <p className="text-[26px] font-semibold leading-tight tracking-tight text-ui-text-primary tabular-nums">
+              {summary.last.employee_count.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">
+              vs {formatMonthYear(summary.first.date)}
+            </p>
+            <p
+              className={cn(
+                "text-[16px] font-semibold tabular-nums",
+                summary.delta >= 0 ? "text-primary" : "text-destructive",
+              )}
+            >
+              {summary.delta >= 0 ? "+" : ""}
+              {summary.delta.toLocaleString()}
+              <span className="ml-1.5 text-[12px] font-medium">
+                ({summary.delta >= 0 ? "+" : ""}
+                {summary.pct.toFixed(1)}%)
+              </span>
+            </p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">
+              Range
+            </p>
+            <p className="text-[12px] text-ui-text-secondary tabular-nums">
+              {summary.min.toLocaleString()} – {summary.max.toLocaleString()}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <AreaChart data={filtered} margin={{ top: 16, right: 64, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="hcGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.45} />
                 <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="hsl(var(--ui-border-light))" vertical={false} />
             <XAxis
               dataKey="date"
-              tickFormatter={(d) => new Date(d).getFullYear().toString()}
+              ticks={xTicks}
+              tickFormatter={(d) => formatMonthYear(d as string)}
               tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
               axisLine={false}
               tickLine={false}
-              minTickGap={32}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
@@ -288,6 +356,7 @@ function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
               axisLine={false}
               tickLine={false}
               width={42}
+              domain={["auto", "auto"]}
             />
             <Tooltip
               contentStyle={{
@@ -296,20 +365,17 @@ function HeadcountChart({ data }: { data: HeadcountTimeseriesPoint[] }) {
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              labelFormatter={(d) =>
-                new Date(d as string).toLocaleDateString(undefined, {
-                  month: "short",
-                  year: "numeric",
-                })
-              }
+              labelFormatter={(d) => formatMonthYear(d as string)}
               formatter={(v: number) => [v.toLocaleString(), "Employees"]}
             />
             <Area
               type="monotone"
               dataKey="employee_count"
               stroke="hsl(var(--primary))"
-              strokeWidth={2}
+              strokeWidth={2.5}
               fill="url(#hcGrad)"
+              dot={false}
+              activeDot={{ r: 4 }}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -335,18 +401,19 @@ function DepartmentDonut({ data }: { data: Record<string, number> }) {
     ...top.map(([name, value]) => ({ name: titleCase(name), value })),
     ...(restPct > 0.5 ? [{ name: "Other", value: restPct }] : []),
   ];
+  const leader = slices[0];
   return (
     <Section title="Department breakdown">
       <div className="flex items-center gap-4">
-        <div className="h-44 w-44 shrink-0">
+        <div className="relative h-44 w-44 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={slices}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={42}
-                outerRadius={72}
+                innerRadius={48}
+                outerRadius={76}
                 paddingAngle={2}
                 strokeWidth={0}
               >
@@ -365,6 +432,16 @@ function DepartmentDonut({ data }: { data: Record<string, number> }) {
               />
             </PieChart>
           </ResponsiveContainer>
+          {leader && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-[18px] font-semibold leading-none text-ui-text-primary tabular-nums">
+                {leader.value.toFixed(0)}%
+              </p>
+              <p className="mt-1 max-w-[90px] truncate text-center text-[10px] uppercase tracking-wide text-ui-text-muted">
+                {leader.name}
+              </p>
+            </div>
+          )}
         </div>
         <ul className="flex-1 space-y-1.5">
           {slices.map((s, i) => (
@@ -379,7 +456,7 @@ function DepartmentDonut({ data }: { data: Record<string, number> }) {
                 />
                 {s.name}
               </span>
-              <span className="font-medium text-ui-text-primary">
+              <span className="font-medium text-ui-text-primary tabular-nums">
                 {s.value.toFixed(1)}%
               </span>
             </li>
@@ -492,33 +569,6 @@ function FunctionTimeseriesChart({
   const [range, setRange] = useState<keyof typeof RANGES>("1Y");
   const months = RANGES[range];
 
-  // Pick top 5 departments by latest count
-  const topDepts = useMemo(() => {
-    return Object.entries(data)
-      .map(([k, v]) => [k, v[v.length - 1]?.employee_count ?? 0] as const)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([k]) => k);
-  }, [data]);
-
-  // Build merged dataset keyed by date
-  const merged = useMemo(() => {
-    const byDate: Record<string, Record<string, number | string>> = {};
-    const cutoff = Date.now() - months * 30 * 86_400_000;
-    topDepts.forEach((dept) => {
-      (data[dept] ?? []).forEach((p) => {
-        if (new Date(p.date).getTime() < cutoff) return;
-        byDate[p.date] = byDate[p.date] ?? { date: p.date };
-        byDate[p.date][dept] = p.employee_count;
-      });
-    });
-    return Object.values(byDate).sort(
-      (a, b) =>
-        new Date(a.date as string).getTime() -
-        new Date(b.date as string).getTime(),
-    );
-  }, [data, topDepts, months]);
-
   const COLORS = [
     "hsl(var(--primary))",
     "#7c5cff",
@@ -526,6 +576,24 @@ function FunctionTimeseriesChart({
     "#f59e0b",
     "#ef4444",
   ];
+
+  // Per-department filtered series + summary
+  const rows = useMemo(() => {
+    const cutoff = Date.now() - months * 30 * 86_400_000;
+    return Object.entries(data)
+      .map(([dept, series]) => {
+        const filtered = (series ?? []).filter(
+          (p) => new Date(p.date).getTime() >= cutoff,
+        );
+        const latest = filtered[filtered.length - 1]?.employee_count ?? 0;
+        const first = filtered[0]?.employee_count ?? 0;
+        const delta = latest - first;
+        const pct = first > 0 ? (delta / first) * 100 : 0;
+        return { dept, filtered, latest, first, delta, pct };
+      })
+      .sort((a, b) => b.latest - a.latest)
+      .slice(0, 5);
+  }, [data, months]);
 
   return (
     <Section
@@ -549,75 +617,77 @@ function FunctionTimeseriesChart({
         </div>
       }
     >
-      <div className="h-60 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="hsl(var(--ui-border-light))" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={(d) =>
-                new Date(d).toLocaleDateString(undefined, {
-                  month: "short",
-                  year: "2-digit",
-                })
-              }
-              tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
-              axisLine={false}
-              tickLine={false}
-              minTickGap={32}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "hsl(var(--ui-text-muted))" }}
-              tickFormatter={(v) => formatNumber(v)}
-              axisLine={false}
-              tickLine={false}
-              width={42}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "hsl(var(--background))",
-                border: "1px solid hsl(var(--ui-border-light))",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-              labelFormatter={(d) =>
-                new Date(d as string).toLocaleDateString(undefined, {
-                  month: "short",
-                  year: "numeric",
-                })
-              }
-            />
-            {topDepts.map((dept, i) => (
-              <Line
-                key={dept}
-                type="monotone"
-                dataKey={dept}
-                stroke={COLORS[i % COLORS.length]}
-                strokeWidth={2}
-                dot={false}
-                name={titleCase(dept)}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
-        {topDepts.map((dept, i) => (
-          <li
-            key={dept}
-            className="flex items-center gap-1.5 text-[11px] text-ui-text-secondary"
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: COLORS[i % COLORS.length] }}
-            />
-            {titleCase(dept)}
-          </li>
-        ))}
+      <ul className="divide-y divide-ui-border-light">
+        {rows.map((row, i) => {
+          const color = COLORS[i % COLORS.length];
+          const positive = row.delta >= 0;
+          return (
+            <li
+              key={row.dept}
+              className="grid grid-cols-[1fr_120px_auto] items-center gap-4 py-2.5 first:pt-0 last:pb-0"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: color }}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-ui-text-primary">
+                    {titleCase(row.dept)}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-[11px] tabular-nums",
+                      positive ? "text-primary" : "text-destructive",
+                    )}
+                  >
+                    {positive ? "+" : ""}
+                    {row.delta.toLocaleString()} ({positive ? "+" : ""}
+                    {row.pct.toFixed(1)}%)
+                  </p>
+                </div>
+              </div>
+              <div className="h-10">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={row.filtered}
+                    margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id={`spark-${i}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={color} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area
+                      type="monotone"
+                      dataKey="employee_count"
+                      stroke={color}
+                      strokeWidth={1.75}
+                      fill={`url(#spark-${i})`}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="w-20 text-right text-[15px] font-semibold tabular-nums text-ui-text-primary">
+                {row.latest.toLocaleString()}
+              </p>
+            </li>
+          );
+        })}
       </ul>
     </Section>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Modal                                                                */
