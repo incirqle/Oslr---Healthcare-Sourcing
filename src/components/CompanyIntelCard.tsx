@@ -1,9 +1,10 @@
-import { Building2, ExternalLink, Lock, Star, TrendingUp, Users } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, ExternalLink, Star, TrendingUp, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useCompanyEnrichment } from "@/hooks/useCompanyEnrichment";
 
 interface CompanyIntelCardProps {
   companyName: string | null | undefined;
+  domain?: string | null;
 }
 
 function formatNumber(n: number | null | undefined): string {
@@ -19,28 +20,91 @@ function formatGrowth(pct: number | null | undefined): string | null {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
-export function CompanyIntelCard({ companyName }: CompanyIntelCardProps) {
+function slugDomain(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "")
+      .slice(0, 40) + ".com"
+  );
+}
+
+function CompanyLogo({
+  name,
+  domain,
+  size = 56,
+}: {
+  name: string;
+  domain: string;
+  size?: number;
+}) {
+  const [errored, setErrored] = useState(false);
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+
+  if (errored) {
+    return (
+      <div
+        style={{ width: size, height: size }}
+        className="flex shrink-0 items-center justify-center rounded-[12px] border border-ui-border-light/60 bg-primary/10 text-[20px] font-semibold text-primary shadow-sm"
+      >
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`https://logo.clearbit.com/${domain}`}
+      alt={`${name} logo`}
+      width={size}
+      height={size}
+      onError={() => setErrored(true)}
+      className="shrink-0 rounded-[12px] border border-ui-border-light/60 bg-white object-contain p-1.5 shadow-sm"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+export function CompanyIntelCard({ companyName, domain }: CompanyIntelCardProps) {
   const [unlocked, setUnlocked] = useState(false);
   const { data, loading } = useCompanyEnrichment(unlocked ? companyName ?? null : null);
 
-  if (!companyName) return null;
+  const resolvedDomain = useMemo(() => {
+    if (domain) return domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (data?.company_website_domain) return data.company_website_domain;
+    if (companyName) return slugDomain(companyName);
+    return "";
+  }, [domain, data?.company_website_domain, companyName]);
 
+  if (!companyName) return null;
+  const displayName = companyName;
+
+  // Default: premium, brand-led lookup card
   if (!unlocked) {
     return (
-      <section className="rounded-[10px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ui-text-muted">
-          <Building2 className="h-3.5 w-3.5" />
-          Employer Intel
+      <section className="rounded-[12px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3.5">
+        <div className="flex items-center gap-3.5">
+          <CompanyLogo name={displayName} domain={resolvedDomain} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold text-ui-text-primary">
+              {displayName}
+            </p>
+            <p className="mt-0.5 text-[12px] text-ui-text-muted">
+              Look up company intel
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setUnlocked(true)}
-            className="ml-auto inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-primary hover:bg-primary/15"
+            className="group inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary hover:underline"
           >
-            <Lock className="h-3 w-3" /> Unlock (1 credit)
+            Look up
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>
-        <p className="mt-1.5 text-[12px] text-ui-text-muted">
-          Headcount, growth, leadership & Glassdoor for {companyName}.
+        <p className="mt-3 text-[11px] text-ui-text-muted">
+          Headcount · growth · leadership · Glassdoor
         </p>
       </section>
     );
@@ -48,39 +112,68 @@ export function CompanyIntelCard({ companyName }: CompanyIntelCardProps) {
 
   if (loading) {
     return (
-      <section className="rounded-[10px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3">
-        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ui-text-muted">
-          <Building2 className="h-3.5 w-3.5" />
-          Employer Intel
+      <section className="rounded-[12px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3.5">
+        <div className="flex items-center gap-3.5">
+          <CompanyLogo name={displayName} domain={resolvedDomain} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold text-ui-text-primary">
+              {displayName}
+            </p>
+            <p className="mt-0.5 text-[12px] text-ui-text-muted">Loading intel…</p>
+          </div>
         </div>
-        <p className="text-[13px] text-ui-text-muted">Loading…</p>
+        <div className="mt-3 space-y-2">
+          <div className="h-3 w-2/3 animate-pulse rounded bg-ui-border-light" />
+          <div className="h-3 w-1/2 animate-pulse rounded bg-ui-border-light" />
+        </div>
       </section>
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <section className="rounded-[12px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3.5">
+        <div className="flex items-center gap-3.5">
+          <CompanyLogo name={displayName} domain={resolvedDomain} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold text-ui-text-primary">
+              {displayName}
+            </p>
+            <p className="mt-0.5 text-[12px] text-ui-text-muted">
+              No intel found for this company.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const growth = formatGrowth(data.headcount?.growth_12m_percent);
   const leadership = (data.cxos ?? []).slice(0, 4);
 
   return (
-    <section className="rounded-[10px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3">
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ui-text-muted">
-        <Building2 className="h-3.5 w-3.5" />
-        Employer Intel
+    <section className="rounded-[12px] border border-ui-border-light bg-ui-surface-elevated px-4 py-3.5">
+      <div className="flex items-center gap-3.5">
+        <CompanyLogo name={displayName} domain={resolvedDomain} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-ui-text-primary">
+            {displayName}
+          </p>
+          <p className="mt-0.5 text-[12px] text-ui-text-muted">Employer intel</p>
+        </div>
         {data.linkedin_profile_url && (
           <a
             href={data.linkedin_profile_url}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium normal-case tracking-normal text-primary hover:underline"
+            className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-primary hover:underline"
           >
             LinkedIn <ExternalLink className="h-3 w-3" />
           </a>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="mt-3.5 grid grid-cols-3 gap-3">
         {data.headcount?.latest_count !== null &&
           data.headcount?.latest_count !== undefined && (
             <div>
