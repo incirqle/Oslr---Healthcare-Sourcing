@@ -33,7 +33,7 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
-  X,
+
 } from "lucide-react";
 import {
   useCompanyEnrichment,
