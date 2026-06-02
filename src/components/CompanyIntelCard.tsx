@@ -1,4 +1,5 @@
-import { Building2, ExternalLink, Star, TrendingUp, Users } from "lucide-react";
+import { Building2, ExternalLink, Lock, Star, TrendingUp, Users } from "lucide-react";
+import { useState } from "react";
 import { useCompanyEnrichment } from "@/hooks/useCompanyEnrichment";
 
 interface CompanyIntelCardProps {
