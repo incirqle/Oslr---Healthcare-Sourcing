@@ -294,7 +294,6 @@ async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; to
         op: "and",
         conditions: [{ column: "company_id", type: "in", value: companyIds }],
       },
-      offset: 0,
       limit: 50,
       sorts: [{ column: "date_added", type: "desc" }],
     },
@@ -391,7 +390,7 @@ async function fetchTalentFlow(
       op: "and",
       conditions: [
         { column: employerField, type: "in", value: companyIds },
-        { column: dateField, type: ">=", value: sinceDate },
+        { column: dateField, type: "=>", value: sinceDate },
       ],
     },
     limit: 50,
