@@ -10,7 +10,6 @@ import {
   runCrustDataPreview,
   fetchCrustDataProfiles,
   mapCrustDataResults,
-  enrichPhoneNumbers,
 } from "./fetch-crustdata-results.ts";
 import { mergeResults, type MergeResult } from "./hybrid-merge.ts";
 import type { FormattedCandidate } from "./format-results.ts";
@@ -85,7 +84,7 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
     .filter((url): url is string => !!url);
 
   const crustQuery = buildCrustDataQuery(parsed, {
-    size: Math.min(size, 100),
+    size: 100,
     preview: false,
     excludeLinkedInUrls: pdlLinkedInUrls,
   });
@@ -119,37 +118,10 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
     };
   }
 
-  // Phone enrichment backfill — enrich ANY merged candidate missing a phone.
-  // Cost: 5 credits/profile. Capped at 25 per search (125 credits max).
-  const candidatesMissingPhone = mergedCandidates.filter(
-    c => !c.phone && (!c.phone_numbers || c.phone_numbers.length === 0) && c.linkedin_url
-  );
-
-  let phoneEnrichAttempted = 0;
-  let phoneEnrichFound = 0;
-
-  if (candidatesMissingPhone.length > 0) {
-    const toEnrich = candidatesMissingPhone.slice(0, 25);
-    const urlsToEnrich = toEnrich.map(c => c.linkedin_url!);
-    phoneEnrichAttempted = urlsToEnrich.length;
-
-    console.log(`[hybrid] Phone enrichment: attempting ${phoneEnrichAttempted} candidates missing phone`);
-
-    const phoneMap = await enrichPhoneNumbers(urlsToEnrich);
-
-    for (const candidate of mergedCandidates) {
-      if (candidate.linkedin_url && phoneMap.has(candidate.linkedin_url)) {
-        const phones = phoneMap.get(candidate.linkedin_url)!;
-        candidate.phone = phones[0] || null;
-        candidate.mobile_phone = phones.find(p => p.startsWith("+1")) || phones[0] || null;
-        candidate.phone_numbers = phones;
-        candidate.has_contact_info = true;
-        phoneEnrichFound++;
-      }
-    }
-
-    console.log(`[hybrid] Phone enrichment: found phones for ${phoneEnrichFound}/${phoneEnrichAttempted}`);
-  }
+  // Phone enrichment DISABLED — account currently has no access, was returning 0/25
+  // and adding ~12s per search. Re-enable once phone enrichment is provisioned.
+  const phoneEnrichAttempted = 0;
+  const phoneEnrichFound = 0;
 
   const crustMs = Date.now() - crustStart;
   console.log(

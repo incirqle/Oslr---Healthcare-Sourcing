@@ -287,8 +287,23 @@ function normalizeCrustDataPerson(raw: unknown): CrustDataPerson {
 
 function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
   const data = asRecord(raw);
+
+  // PersonDB flat shape: { results: [...], total_results, next_cursor }
   if (Array.isArray(data.results)) {
-    return data as unknown as CrustDataResponse;
+    const results = data.results.map((item: unknown) => {
+      const rec = asRecord(item);
+      // If already flat (has current_employers at top level), pass through.
+      // Otherwise normalize nested enrichment shape.
+      if ("current_employers" in rec || "past_employers" in rec) {
+        return rec as unknown as CrustDataPerson;
+      }
+      return normalizeCrustDataPerson(item);
+    });
+    return {
+      total_results: typeof data.total_results === "number" ? data.total_results : results.length,
+      next_cursor: (data.next_cursor ?? null) as string | null,
+      results,
+    };
   }
 
   const profiles = Array.isArray(data.profiles) ? data.profiles.map(normalizeCrustDataPerson) : [];
@@ -437,7 +452,21 @@ export function mapCrustDataPerson(person: CrustDataPerson): FormattedCandidate 
 }
 
 export function mapCrustDataResults(persons: CrustDataPerson[]): FormattedCandidate[] {
-  return persons.map(mapCrustDataPerson);
+  const mapped = persons.map(mapCrustDataPerson);
+  if (mapped.length > 0) {
+    const sample = mapped[0];
+    console.log("[CRUSTDATA SAMPLE]", JSON.stringify({
+      name: sample.full_name,
+      title: sample.job_title,
+      company: sample.job_company_name,
+      experience_count: sample.experience_history?.length ?? 0,
+      education_count: sample.education?.length ?? 0,
+      skills_count: sample.skills?.length ?? 0,
+      has_headline: !!sample.headline,
+      has_summary: !!sample.summary,
+    }));
+  }
+  return mapped;
 }
 
 /**
