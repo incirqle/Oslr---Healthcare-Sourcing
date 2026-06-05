@@ -879,6 +879,23 @@ Deno.serve(async (req: Request) => {
     const parsed = await parseQuery(query, lovableKey, clientParsed);
     console.log("Parsed:", JSON.stringify(parsed));
 
+    // Step 1a: Resolve health system entities (free CrustData /screener/identify).
+    // Runs ONCE per search; cached permanently. Feeds BOTH PDL and CrustData
+    // company matching via _resolved_company_* fields on `parsed`.
+    try {
+      const _companies = ((parsed.current_companies as string[]) || (parsed.companies as string[]) || []);
+      if (_companies.length > 0) {
+        const resolved = await resolveHealthSystem(_companies[0], adminClient);
+        const _p = parsed as Record<string, unknown>;
+        _p._resolved_company_names = resolved.all_names;
+        _p._resolved_company_ids = resolved.all_ids;
+        _p._resolved_company_domains = resolved.domains;
+        _p._resolved_company_linkedin_urls = resolved.linkedin_urls;
+      }
+    } catch (err) {
+      console.warn("[RESOLVE] failed (non-fatal):", err instanceof Error ? err.message : String(err));
+    }
+
     // ─── Guard A: empty-intent abort ───────────────────────────────
     // If the parser produced no role/title/specialty/company/credentials AND
     // the user supplied no company filter, refuse to call PDL. A query like
