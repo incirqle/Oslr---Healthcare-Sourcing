@@ -98,7 +98,11 @@ async function fetchCrustDataWithRetry(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[CrustData] Request payload:`, JSON.stringify(body, null, 2));
+      // Strip any stray `count` field — PersonDB rejects when both `count` and `limit` are present.
+      if (body && typeof body === "object") {
+        delete (body as Record<string, unknown>).count;
+      }
+      console.log(`[CRUSTDATA PAYLOAD] ${endpoint}`, JSON.stringify(body));
       const res = await fetch(`${CRUSTDATA_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: {
@@ -296,8 +300,13 @@ function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
 }
 
 export async function runCrustDataPreview(query: CrustDataQuery): Promise<number> {
-  // PersonDB Search uses `limit`. For preview, request 1 row and read total_results.
-  const previewQuery = { ...query, limit: 1 };
+  // PersonDB requires ONLY `limit` (not `count`). Send a clean minimal body —
+  // no `sorts`, no `post_processing`, no inherited fields that could trip validation.
+  const previewQuery: Record<string, unknown> = {
+    dataset: query.dataset,
+    filters: query.filters,
+    limit: 1,
+  };
   const result = await fetchCrustDataWithRetry("/screener/persondb/search", previewQuery);
   if (!result.ok) {
     console.error("[CrustData Preview] Failed:", result.error);
