@@ -307,7 +307,7 @@ function resolveCompanyFilters(parsed: Record<string, unknown>): BasicFilter[] {
       filters.push(f("current_employers.company_id", "in", resolvedIds));
     }
     for (const domain of resolvedDomains) {
-      filters.push(f("current_employers.company_website_domain", "=", domain));
+      filters.push(f("current_employers.company_website_domain", "(.)", domain));
     }
     // Add a few fuzzy name fallbacks too (capped)
     for (const name of resolvedNames.slice(0, 10)) {
@@ -332,7 +332,7 @@ function resolveCompanyFilters(parsed: Record<string, unknown>): BasicFilter[] {
       const allIds = [...systemEntry.entity_ids, ...systemEntry.academic_ids];
       filters.push(f("current_employers.company_id", "in", allIds));
       for (const domain of systemEntry.domains) {
-        filters.push(f("current_employers.company_website_domain", "=", domain));
+        filters.push(f("current_employers.company_website_domain", "(.)", domain));
       }
       console.log(`[CRUSTDATA] Resolved health system "${company}" → ${allIds.length} entity IDs + ${systemEntry.domains.length} domain fallbacks`);
     } else {
@@ -440,24 +440,16 @@ export function buildCrustDataQuery(
   }
 
   // ── LOCATION ──────────────────────────────────────────────────────
+  // PersonDB uses `region` as a partial-match free-text field
+  // (e.g. "Denver, Colorado, United States"). The `location_state` /
+  // `location_country` columns with `=` operator cause 500 errors.
   const locationObj = (parsed.location as { city?: string | null; state?: string | null }) || {};
 
-  if (locationObj.city && locationObj.state) {
-    andConditions.push({
-      op: "and",
-      conditions: [
-        f("location_state", "=", normalizeStateName(locationObj.state)),
-        f("region", "(.)", locationObj.city),
-      ],
-    });
-  } else if (locationObj.state) {
-    andConditions.push(f("location_state", "=", normalizeStateName(locationObj.state)));
-  } else if (locationObj.city) {
+  if (locationObj.city) {
     andConditions.push(f("region", "(.)", locationObj.city));
+  } else if (locationObj.state) {
+    andConditions.push(f("region", "(.)", normalizeStateName(locationObj.state)));
   }
-
-  // ── COUNTRY ────────────────────────────────────────────────────────
-  andConditions.push(f("location_country", "=", "United States"));
 
   // ── BUILD ─────────────────────────────────────────────────────────
   const query: CrustDataQuery = {
