@@ -743,7 +743,7 @@ Deno.serve(async (req) => {
     const sortedIds = [...allIds].sort((a, b) => a - b);
     const cacheKey = `${canonical.toLowerCase().trim()}:${sortedIds.join(",")}`;
 
-    // Cache check (7 days, schema_version 9)
+    // Cache check (7 days, schema_version 10)
     try {
       const { data: cached } = await supabase
         .from("company_enrichment_cache")
@@ -751,7 +751,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 9) {
+      if (cached?.data && (cached.data as any)?.schema_version === 10) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
