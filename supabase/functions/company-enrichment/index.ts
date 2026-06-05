@@ -397,7 +397,10 @@ async function fetchTalentFlow(
 
   const data = await cdPost("/screener/persondb/search", body, { "x-api-version": "2025-11-01" });
   if (!data) return [];
-  const results: any[] = (data as { results?: unknown[] }).results ?? [];
+  const results: any[] =
+    (data as { profiles?: unknown[]; results?: unknown[] }).profiles ??
+    (data as { results?: unknown[] }).results ??
+    [];
   console.log(
     `[talent-flow ${direction}] entity_ids=${companyIds.length} since=${sinceDate} got=${results.length}`,
   );
@@ -573,10 +576,10 @@ function mapGlassdoor(e: Record<string, any> | null) {
   const g = (e.glassdoor as Record<string, any>) ?? e;
   const overall = num(pick(g, ["overall_rating", "glassdoor_overall_rating"]));
   const reviews = num(pick(g, ["review_count", "glassdoor_review_count"]));
-  const ceo = num(pick(g, ["ceo_approval", "glassdoor_ceo_approval"]));
-  const outlook = num(pick(g, ["business_outlook", "glassdoor_business_outlook"]));
+  const ceo = num(pick(g, ["ceo_approval", "glassdoor_ceo_approval_pct", "glassdoor_ceo_approval"]));
+  const outlook = num(pick(g, ["business_outlook", "glassdoor_business_outlook_pct", "glassdoor_business_outlook"]));
   const recommend = num(
-    pick(g, ["recommend_to_friend_percent", "glassdoor_recommend_to_friend_percent", "recommend_to_friend"]),
+    pick(g, ["recommend_to_friend", "glassdoor_recommend_to_friend_pct", "glassdoor_recommend_to_friend_percent"]),
   );
   if ([overall, reviews, ceo, outlook, recommend].every((v) => v == null)) return null;
   return {
