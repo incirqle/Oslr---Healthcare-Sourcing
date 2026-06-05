@@ -598,7 +598,7 @@ function FunctionTimeseriesChart({
 
   return (
     <Section
-      title="Hiring by department"
+      title="Headcount by department"
       action={
         <div className="flex items-center gap-1 rounded-full border border-ui-border-light bg-ui-surface-subtle p-0.5">
           {(Object.keys(RANGES) as Array<keyof typeof RANGES>).map((r) => (
@@ -810,7 +810,7 @@ function Header({
     Boolean,
   );
   return (
-    <div className="relative bg-gradient-to-br from-ui-surface-subtle via-white to-ui-surface-subtle px-6 pb-5 pt-6">
+    <div className="relative shrink-0 bg-gradient-to-br from-ui-surface-subtle via-white to-ui-surface-subtle px-6 pb-5 pt-6 pr-14">
       <div className="flex items-start gap-4">
         <CompanyLogo
           name={displayName}
