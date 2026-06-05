@@ -448,6 +448,27 @@ export type Database = {
         }
         Relationships: []
       }
+      company_entity_cache: {
+        Row: {
+          canonical_name: string
+          created_at: string
+          data: Json
+          updated_at: string
+        }
+        Insert: {
+          canonical_name: string
+          created_at?: string
+          data: Json
+          updated_at?: string
+        }
+        Update: {
+          canonical_name?: string
+          created_at?: string
+          data?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       company_invites: {
         Row: {
           accepted_at: string | null

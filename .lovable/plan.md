@@ -1,124 +1,92 @@
-## Goal
+# Fix CrustData PersonDB Query Builder + Unified Company Resolution
 
-Add a third **Talent Flow** tab to the Company Intel modal showing where recent hires came from and where recent departures went — a Sankey diagram on the left, a filterable people list on the right, with role and time-range filters.
+## Problem
 
----
+`build-crustdata-query.ts` is sending Realtime Person Search field names (`experience.employment_details.current.title`, `basic_profile.headline`, `professional_network.location.raw`) to the PersonDB Search endpoint, which expects entirely different field names (`current_employers.title`, `headline`, `region`). Fields silently don't match, so results are garbage. Live testing shows UCHealth orthopedic search returns ~29 instead of ~129.
 
-## 1. Edge function — `supabase/functions/company-enrichment/index.ts`
+Additionally, PDL and CrustData each resolve company entities independently. We need a single resolution step that feeds both.
 
-Reuse the `companyId` already resolved by the identify step. No new API key.
+## Implementation
 
-**Add `fetchTalentFlow(companyId, direction)`** that POSTs to `/screener/persondb/search` using the spec'd filters:
-- `hires` → `current_employers.company_id` in `[companyId]` + `recently_changed_jobs = true`
-- `departures` → `past_employers.company_id` in `[companyId]` + `recently_changed_jobs = true`
-- `count: 100`, sorted by `current_employers.start_date desc`
+### 1. New file: `supabase/functions/pdl-search/resolve-company.ts`
 
-Map each result into `TalentFlowPerson` (name, linkedin url, profile picture, current/previous title + company + dates, `function_category`, `seniority_level`). For departures, find the target company inside `past_employers` to pick up `end_date`.
+Unified health system entity resolver that runs ONCE per search, before both PDL and CrustData query builders.
 
-**Add `aggregateTalentFlow(hires, departures)`** that builds `top_hire_sources` / `top_departure_destinations` (top 10 each, with count + LinkedIn URL).
+- `resolveHealthSystem(name, supabase)` returns `{ entity_ids, academic_ids, all_ids, domains, all_names, linkedin_urls }`
+- Pre-mapped table for known systems (UCHealth first)
+- Cache hit on `company_entity_cache` Supabase table
+- Live fallback: calls CrustData `/screener/identify` by name, then by each returned domain to gather ALL entities sharing that domain (free, 0 credits)
+- Upserts resolution into cache permanently
 
-**Wire into the main `Promise.all`** alongside `enrich` and `fetchJobs`:
+### 2. New migration: `company_entity_cache` table
 
-```ts
-const [enrichment, jobsResult, hires, departures] = await Promise.all([
-  enrich(companyId),
-  fetchJobs(companyId),
-  fetchTalentFlow(companyId, "hires"),
-  fetchTalentFlow(companyId, "departures"),
-]);
-const talent_flow = aggregateTalentFlow(hires, departures);
+```sql
+CREATE TABLE public.company_entity_cache (
+  canonical_name TEXT PRIMARY KEY,
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+GRANT SELECT, INSERT, UPDATE ON public.company_entity_cache TO service_role;
+ALTER TABLE public.company_entity_cache ENABLE ROW LEVEL SECURITY;
+-- service-role only (edge function), no anon/authenticated policies
 ```
 
-Add `talent_flow` to the response object. **Bump `schema_version` from 5 → 6** so stale cache entries are invalidated (the cache check already gates on schema version).
+### 3. Replace `build-crustdata-query.ts` entirely
 
-Failures from either talent-flow query are non-fatal — return `{ hires: [], departures: [], ... }` so the rest of the modal still renders.
+Implements three-AND PersonDB pattern with correct field names:
 
----
+- **AND #1 Company**: `current_employers.company_id` (in entity IDs) OR `current_employers.company_website_domain` (=domain) OR `current_employers.name` (fuzzy fallback)
+- **AND #2 Specialty**: OR across `current_employers.title`, `headline`, `summary`, `skills`, `education_background.field_of_study` — 24 specialty keyword library (ortho, cardio, neuro, etc.)
+- **AND #3 Clinical role**: OR across `current_employers.title`, `headline`, `education_background.degree_name` — 8 role profiles (physician, nurse, resident, fellow, student, PA, therapist, all_clinical)
+- Location uses `region`, `location_state`, `location_country`
+- Filter syntax uses `column`/`type`/`value` (not `field`/`type`/`value`) and `(.)` partial / `[.]` exact / `=` / `in` types
+- Sort by `years_of_experience_raw` desc
+- Cascade steps: `expand_geo`, `drop_role`, `drop_specialty`
 
-## 2. Hook + types — `src/hooks/useCompanyEnrichment.ts`
+### 4. Update `fetch-crustdata-results.ts`
 
-Add `TalentFlowPerson` and `TalentFlowResult` interfaces (mirroring the edge response). Add `talent_flow?: TalentFlowResult | null` to `CompanyIntel`. No logic changes — the hook already forwards the full payload.
+- Change endpoint from `/person/search` to `/screener/persondb/search` in both `runCrustDataPreview` and `fetchCrustDataProfiles`
+- Drop the `x-api-version: 2025-11-01` header (PersonDB doesn't use it; Bearer auth is already correct)
+- Update the request body shape: `dataset: "people"`, `filters`, `limit`, `sorts`, `post_processing` (drop `count`/`preview` fields)
+- For preview: send same query with `limit: 1`, read `total_results` from response
+- Adjust `normalizeCrustDataResponse` if PersonDB response shape differs from current Realtime shape (verify by inspecting actual response)
 
----
+### 5. Update `supabase/functions/pdl-search/index.ts`
 
-## 3. Sankey dependency
+After `parseQuery()`, before `buildPDLQuery()`:
 
-Install `d3-sankey` + `d3-shape` (already a Recharts transitive dep, but we'll import directly):
+- Call `resolveHealthSystem(currentCompanies[0], adminClient)` when companies are present
+- Attach resolved data to parsed object: `_resolved_company_names`, `_resolved_company_ids`, `_resolved_company_domains`, `_resolved_company_linkedin_urls`
+- New CrustData builder reads these via the existing entity map; PDL builder can opt into `_resolved_company_names` for broader matching (verify current behavior — leave PDL untouched if it already works well)
 
-```
-bun add d3-sankey d3-shape
-bun add -D @types/d3-sankey @types/d3-shape
-```
+### 6. Update `config.ts`
 
-Renders inside our own SVG — no CDN, no runtime fetch. Recharts has no Sankey, so this is the cleanest path.
+Append `CRUSTDATA_COMPANY_ALIASES` map for user-input → canonical name (uc health → uchealth, etc.). Do not modify existing exports.
 
----
+### 7. Verification (after deploy)
 
-## 4. New components
+Run "orthopedic surgeons at UCHealth in Colorado" and confirm logs show:
 
-### `src/components/company-intel/TalentFlowTab.tsx`
-Top-level tab. Holds local state:
-- `direction: "hires" | "departures"` (right-panel toggle)
-- `roleFilter: string | "all"`
-- `rangeFilter: "3M" | "6M" | "1Y" | "2Y"`
+- `[RESOLVE] Pre-mapped: "UCHealth" → 11 entities`
+- `[CRUSTDATA] Resolved health system → 11 entity IDs + 3 domain fallbacks`
+- `[CRUSTDATA] Specialty "orthopedics": ~25 signals`
+- `[CRUSTDATA] Role "physician": ~30 signals`
+- CrustData returns ≥100 profiles
+- Merged total ≥120
 
-Derives:
-- `filteredHires`, `filteredDepartures` — apply role + date filter client-side. Hires use `current_company_start_date`; departures use `previous_end_date`.
-- `roleOptions` — unique `function_category` across both lists.
-- Recomputed `topHireSources` / `topDepDests` after filtering (so the Sankey reflects active filters).
+Then sanity-check: "orthopedic nurses at UCHealth" (role flips to nurse), "cardiology fellows" (specialty + fellow role).
 
-Layout (CSS grid `1fr 320px` on desktop, stacks on mobile):
-- Header row: title + Role select + Date select (right-aligned chips, matching modal style).
-- Left: `<TalentFlowSankey />` inside a `Section` card.
-- Right: `<TalentFlowPeopleList />` with Hires/Departures toggle pill.
+## Out of scope (do not touch)
 
-### `src/components/company-intel/TalentFlowSankey.tsx`
-Pure SVG using `d3-sankey`:
-- Nodes: source companies (left), target company (center, with logo / initial), destination companies (right).
-- Links: hire sources → target (indigo gradient `--chart-1`), target → destinations (coral gradient `--chart-3`).
-- Node labels: company name + count badge. Center node uses larger badge and the company's logo via the existing favicon fallback chain.
-- Tooltip on hover (simple absolutely-positioned div) showing "8 people moved from X to Stryker".
-- Responsive: ResizeObserver → re-layout on container resize. Height ~ `max(360, nodeCount * 38)`.
-- Empty state when both sides are empty: a centered "No recent hires or departures in this range" panel.
+- `parse-query.ts`, `build-pdl-query.ts`, `hybrid-orchestrator.ts`, `hybrid-merge.ts`, `ai-rerank.ts`, `format-results.ts`
+- Existing `COMPANY_ALIASES` and `HEALTH_SYSTEM_DIVISIONS` in config.ts (only append new alias map)
+- Phone enrichment flow
 
-### `src/components/company-intel/TalentFlowPeopleList.tsx`
-- Pill toggle at top: `Hires (N)` / `Departures (N)`, indigo for hires, coral for departures.
-- Sorted by relevant date desc, first 10 shown, "Show all" expands the rest.
-- Row: initials/profile avatar (24px), name + LinkedIn icon link, secondary line `Title at Company`, right-aligned `MMM YYYY` from the relevant date.
+## Files changed
 
-### `src/components/company-intel/PersonAvatar.tsx`
-Small shared avatar: profile picture with onError → colored initials circle. Matches existing `CompanyLogo` fallback pattern.
-
----
-
-## 5. Modal wiring — `src/components/CompanyIntelModal.tsx`
-
-- Add a new `TabsTrigger value="talent"` labeled **Talent Flow** between Insights and Hiring, styled identically.
-- Add matching `<TabsContent value="talent">` rendering `<TalentFlowTab data={data} />`.
-- If `data.talent_flow` is missing or both arrays are empty, render the same `<Empty />` pattern with a "Talent flow data unavailable for this company" message.
-
----
-
-## 6. Styling
-
-Reuses existing `Section`, semantic tokens, and the `--chart-1..6` palette (already planned in the prior premium-look pass; if not yet present, add `--chart-1: 238 84% 67%` indigo and `--chart-3: 0 84% 67%` coral to `src/index.css` as part of this change so the Sankey gradients render correctly).
-
----
-
-## Files touched
-
-- `supabase/functions/company-enrichment/index.ts` — add `fetchTalentFlow`, `aggregateTalentFlow`, wire into `Promise.all`, bump `schema_version` to 6, add `talent_flow` to response.
-- `src/hooks/useCompanyEnrichment.ts` — add `TalentFlowPerson`, `TalentFlowResult`, extend `CompanyIntel`.
-- `src/components/CompanyIntelModal.tsx` — add third tab + content.
-- `src/components/company-intel/TalentFlowTab.tsx` *(new)*
-- `src/components/company-intel/TalentFlowSankey.tsx` *(new)*
-- `src/components/company-intel/TalentFlowPeopleList.tsx` *(new)*
-- `src/components/company-intel/PersonAvatar.tsx` *(new)*
-- `src/index.css` — chart palette tokens (only if not already added).
-- `package.json` — `d3-sankey`, `d3-shape`, plus `@types/*`.
-
-## Out of scope
-
-- Real company logos for Sankey nodes (would cost N extra identify calls per render — initials only, per the brief).
-- Watchers / live updates — initial build is the cached 7-day enrichment payload only.
-- Compensation tab.
+- **new** `supabase/functions/pdl-search/resolve-company.ts`
+- **new** migration creating `company_entity_cache`
+- **rewrite** `supabase/functions/pdl-search/build-crustdata-query.ts`
+- **edit** `supabase/functions/pdl-search/fetch-crustdata-results.ts` (endpoint + body shape)
+- **edit** `supabase/functions/pdl-search/index.ts` (insert resolution step)
+- **edit** `supabase/functions/pdl-search/config.ts` (append alias map)

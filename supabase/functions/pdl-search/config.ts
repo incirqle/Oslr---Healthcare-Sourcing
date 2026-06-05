@@ -693,3 +693,14 @@ export const NEARBY_CITIES: Record<string, { radius: number; cities: string[] }[
     { radius: 25, cities: ["salt lake city", "sandy", "provo", "orem"] },
   ],
 };
+
+/* ------------------------------------------------------------------ */
+/* CrustData health system aliases                                       */
+/* User input → canonical name for HEALTH_SYSTEM_ENTITIES lookup.       */
+/* ------------------------------------------------------------------ */
+export const CRUSTDATA_COMPANY_ALIASES: Record<string, string> = {
+  "uc health": "uchealth",
+  "university of colorado health": "uchealth",
+  "university of colorado hospital": "uchealth",
+  "uch": "uchealth",
+};

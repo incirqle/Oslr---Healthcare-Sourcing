@@ -296,9 +296,9 @@ function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
 }
 
 export async function runCrustDataPreview(query: CrustDataQuery): Promise<number> {
-  const { preview: _preview, sorts: _sorts, ...baseQuery } = query;
-  const previewQuery = { ...baseQuery, count: 1 };
-  const result = await fetchCrustDataWithRetry("/person/search", previewQuery);
+  // PersonDB Search uses `limit`. For preview, request 1 row and read total_results.
+  const previewQuery = { ...query, limit: 1 };
+  const result = await fetchCrustDataWithRetry("/screener/persondb/search", previewQuery);
   if (!result.ok) {
     console.error("[CrustData Preview] Failed:", result.error);
     return 0;
@@ -309,7 +309,7 @@ export async function runCrustDataPreview(query: CrustDataQuery): Promise<number
 export async function fetchCrustDataProfiles(
   query: CrustDataQuery
 ): Promise<{ total: number; profiles: CrustDataPerson[]; cursor: string | null }> {
-  const result = await fetchCrustDataWithRetry("/person/search", query);
+  const result = await fetchCrustDataWithRetry("/screener/persondb/search", query);
   if (!result.ok) {
     console.error("[CrustData Search] Failed:", result.error);
     return { total: 0, profiles: [], cursor: null };
