@@ -26,6 +26,7 @@ interface CrustDataEmployer {
   company_id: number | null;
   company_website_domain: string | null;
   company_linkedin_profile_url: string | null;
+  company_logo_url: string | null;
   title: string | null;
   description: string | null;
   location: string | null;
@@ -39,6 +40,10 @@ interface CrustDataEmployer {
   function_category: string | null;
   years_at_company_raw: number | null;
   business_email_verified: boolean | null;
+  // Frontend aliases — CandidateDrawer's extractDomain reads these names
+  company_website: string | null;
+  company_url: string | null;
+  company_linkedin_url: string | null;
 }
 
 interface CrustDataEducation {
@@ -164,6 +169,10 @@ async function fetchCrustDataWithRetry(
           (first.employers as unknown[] | undefined)?.[0] ??
           ("NOT FOUND - employer-ish keys: " + Object.keys(first).filter(k => k.toLowerCase().includes("employ") || k.toLowerCase().includes("experience") || k.toLowerCase().includes("job")).join(","));
         console.log("[CRUSTDATA RAW EMPLOYER]", JSON.stringify(employerSample));
+        if (employerSample && typeof employerSample === "object") {
+          const empKeys = Object.keys(employerSample as Record<string, unknown>);
+          console.log("[CRUSTDATA LOGO FIELDS]", JSON.stringify(empKeys.filter(k => k.includes("logo") || k.includes("image") || k.includes("picture"))));
+        }
       } else {
         console.log("[CRUSTDATA RAW KEYS] no results array found");
       }
@@ -204,12 +213,16 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function normalizeEmployer(raw: unknown): CrustDataEmployer {
   const emp = asRecord(raw);
+  const domain = (emp.company_website_domain ?? null) as string | null;
+  const liUrl = (emp.company_professional_network_profile_url ?? emp.company_linkedin_profile_url ?? null) as string | null;
+  const logo = (emp.company_logo_url ?? emp.company_logo_permalink ?? emp.logo_url ?? emp.logo ?? null) as string | null;
   return {
     name: (emp.name ?? emp.company_name) as string | null ?? null,
     linkedin_id: (emp.linkedin_id ?? null) as string | null,
     company_id: typeof emp.company_id === "number" ? emp.company_id : null,
-    company_website_domain: (emp.company_website_domain ?? null) as string | null,
-    company_linkedin_profile_url: (emp.company_professional_network_profile_url ?? emp.company_linkedin_profile_url ?? null) as string | null,
+    company_website_domain: domain,
+    company_linkedin_profile_url: liUrl,
+    company_logo_url: logo,
     title: (emp.title ?? null) as string | null,
     description: (emp.description ?? null) as string | null,
     location: (emp.location ?? null) as string | null,
@@ -223,6 +236,10 @@ function normalizeEmployer(raw: unknown): CrustDataEmployer {
     function_category: (emp.function_category ?? null) as string | null,
     years_at_company_raw: typeof emp.years_at_company_raw === "number" ? emp.years_at_company_raw : null,
     business_email_verified: typeof emp.business_email_verified === "boolean" ? emp.business_email_verified : null,
+    // Aliases so frontend extractDomain()/logoUrl() picks them up
+    company_website: domain,
+    company_url: domain,
+    company_linkedin_url: liUrl,
   };
 }
 
@@ -314,10 +331,13 @@ function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
   if (Array.isArray(data.results)) {
     const results = data.results.map((item: unknown) => {
       const rec = asRecord(item);
-      // If already flat (has current_employers at top level), pass through.
-      // Otherwise normalize nested enrichment shape.
+      // If already flat (has current_employers at top level), normalize employers
+      // so frontend aliases (company_website, company_url, company_linkedin_url) are present.
       if ("current_employers" in rec || "past_employers" in rec) {
-        return rec as unknown as CrustDataPerson;
+        const current = Array.isArray(rec.current_employers) ? (rec.current_employers as unknown[]).map(normalizeEmployer) : [];
+        const past = Array.isArray(rec.past_employers) ? (rec.past_employers as unknown[]).map(normalizeEmployer) : [];
+        const all = Array.isArray(rec.all_employers) ? (rec.all_employers as unknown[]).map(normalizeEmployer) : [...current, ...past];
+        return { ...rec, current_employers: current, past_employers: past, all_employers: all } as unknown as CrustDataPerson;
       }
       return normalizeCrustDataPerson(item);
     });

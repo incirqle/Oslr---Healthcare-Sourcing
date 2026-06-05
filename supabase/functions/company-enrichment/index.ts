@@ -306,22 +306,20 @@ async function fetchTalentFlow(
 
   const body = {
     dataset: "people",
-    filters: [
-      {
-        type: "AND",
-        value: [
-          { filter_type: employerField, type: "in", value: [companyId] },
-          { filter_type: "recently_changed_jobs", type: "=", value: true },
-        ],
-      },
-    ],
-    sorts: [{ column: "current_employers.start_date", order: "desc" }],
-    count: 100,
+    filters: {
+      op: "and",
+      conditions: [
+        { column: employerField, type: "in", value: [companyId] },
+        { column: "recently_changed_jobs", type: "=", value: true },
+      ],
+    },
+    limit: 50,
   };
 
-  const data = await cdPost("/screener/persondb/search", body);
+  const data = await cdPost("/screener/persondb/search", body, { "x-api-version": "2025-11-01" });
   if (!data) return [];
   const results: any[] = (data as { results?: unknown[] }).results ?? [];
+  console.log(`[talent-flow ${direction}] companyId=${companyId} got ${results.length} profiles`);
 
   return results.map((person: any) => {
     const currentEmp = person.current_employers?.[0] || {};
@@ -487,7 +485,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 7) {
+      if (cached?.data && (cached.data as any)?.schema_version === 8) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -555,7 +553,7 @@ Deno.serve(async (req) => {
     const taxonomy = (enrichment?.taxonomy as any) ?? {};
 
     const company = {
-      schema_version: 7 as const,
+      schema_version: 8 as const,
       company_id: companyId,
       company_name:
         (enrichment?.company_name as string) ||
