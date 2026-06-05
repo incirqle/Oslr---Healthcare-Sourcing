@@ -557,13 +557,28 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function mapGlassdoor(e: Record<string, unknown> | null) {
+// Helpers: read a value that may live at `e.key`, `e.prefix.key`, or
+// `e.prefix.prefix_key` — CrustData nests sub-objects but field naming
+// differs (e.g. `glassdoor.overall_rating` vs `glassdoor.glassdoor_overall_rating`).
+function pick(obj: any, keys: string[]): unknown {
+  if (!obj) return null;
+  for (const k of keys) {
+    const v = obj[k];
+    if (v !== undefined && v !== null) return v;
+  }
+  return null;
+}
+
+function mapGlassdoor(e: Record<string, any> | null) {
   if (!e) return null;
-  const overall = num(e.glassdoor_overall_rating);
-  const reviews = num(e.glassdoor_review_count);
-  const ceo = num(e.glassdoor_ceo_approval);
-  const outlook = num(e.glassdoor_business_outlook);
-  const recommend = num(e.glassdoor_recommend_to_friend_percent);
+  const g = (e.glassdoor as Record<string, any>) ?? e;
+  const overall = num(pick(g, ["overall_rating", "glassdoor_overall_rating"]));
+  const reviews = num(pick(g, ["review_count", "glassdoor_review_count"]));
+  const ceo = num(pick(g, ["ceo_approval", "glassdoor_ceo_approval"]));
+  const outlook = num(pick(g, ["business_outlook", "glassdoor_business_outlook"]));
+  const recommend = num(
+    pick(g, ["recommend_to_friend_percent", "glassdoor_recommend_to_friend_percent", "recommend_to_friend"]),
+  );
   if ([overall, reviews, ceo, outlook, recommend].every((v) => v == null)) return null;
   return {
     overall_rating: overall,
@@ -574,18 +589,22 @@ function mapGlassdoor(e: Record<string, unknown> | null) {
   };
 }
 
-function mapG2(e: Record<string, unknown> | null) {
+function mapG2(e: Record<string, any> | null) {
   if (!e) return null;
-  const reviews = num(e.g2_review_count);
-  const rating = num(e.g2_average_rating);
+  const g = (e.g2 as Record<string, any>) ?? e;
+  const reviews = num(pick(g, ["review_count", "g2_review_count"]));
+  const rating = num(pick(g, ["average_rating", "g2_average_rating"]));
   if (reviews == null && rating == null) return null;
   return { review_count: reviews, average_rating: rating };
 }
 
-function mapWebTraffic(e: Record<string, unknown> | null) {
+function mapWebTraffic(e: Record<string, any> | null) {
   if (!e) return null;
-  const visitors = num(e.monthly_visitors);
-  const mom = num(e.monthly_visitors_mom_pct);
+  const w = (e.web_traffic as Record<string, any>) ?? e;
+  const visitors = num(pick(w, ["monthly_visitors"]));
+  const mom = num(
+    pick(w, ["monthly_visitor_mom_pct", "monthly_visitors_mom_pct", "growth_mom_percent"]),
+  );
   if (visitors == null && mom == null) return null;
   return { monthly_visitors: visitors, growth_mom_percent: mom };
 }
