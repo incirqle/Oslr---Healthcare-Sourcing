@@ -146,9 +146,15 @@ async function fetchCrustDataWithRetry(
       }
 
       const rawJson = await res.json();
-      const rawResults = (rawJson && typeof rawJson === "object" && Array.isArray((rawJson as Record<string, unknown>).results))
-        ? ((rawJson as Record<string, unknown>).results as unknown[])
-        : [];
+      const rj = (rawJson && typeof rawJson === "object") ? (rawJson as Record<string, unknown>) : {};
+      console.log("[CRUSTDATA RAW TOP KEYS]", JSON.stringify(Object.keys(rj)));
+      const rawResults: unknown[] = Array.isArray(rj.results)
+        ? (rj.results as unknown[])
+        : Array.isArray(rj.profiles)
+          ? (rj.profiles as unknown[])
+          : Array.isArray(rj.data)
+            ? (rj.data as unknown[])
+            : [];
       if (rawResults.length > 0) {
         const first = rawResults[0] as Record<string, unknown>;
         console.log("[CRUSTDATA RAW KEYS]", JSON.stringify(Object.keys(first)));
@@ -156,8 +162,10 @@ async function fetchCrustDataWithRetry(
           (first.current_employers as unknown[] | undefined)?.[0] ??
           (first.currentEmployers as unknown[] | undefined)?.[0] ??
           (first.employers as unknown[] | undefined)?.[0] ??
-          ("NOT FOUND - employer keys: " + Object.keys(first).filter(k => k.toLowerCase().includes("employ")).join(","));
+          ("NOT FOUND - employer-ish keys: " + Object.keys(first).filter(k => k.toLowerCase().includes("employ") || k.toLowerCase().includes("experience") || k.toLowerCase().includes("job")).join(","));
         console.log("[CRUSTDATA RAW EMPLOYER]", JSON.stringify(employerSample));
+      } else {
+        console.log("[CRUSTDATA RAW KEYS] no results array found");
       }
       const data = normalizeCrustDataResponse(rawJson);
       return { ok: true, data };
