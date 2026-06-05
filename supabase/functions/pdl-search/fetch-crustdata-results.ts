@@ -145,7 +145,21 @@ async function fetchCrustDataWithRetry(
         };
       }
 
-      const data = normalizeCrustDataResponse(await res.json());
+      const rawJson = await res.json();
+      const rawResults = (rawJson && typeof rawJson === "object" && Array.isArray((rawJson as Record<string, unknown>).results))
+        ? ((rawJson as Record<string, unknown>).results as unknown[])
+        : [];
+      if (rawResults.length > 0) {
+        const first = rawResults[0] as Record<string, unknown>;
+        console.log("[CRUSTDATA RAW KEYS]", JSON.stringify(Object.keys(first)));
+        const employerSample =
+          (first.current_employers as unknown[] | undefined)?.[0] ??
+          (first.currentEmployers as unknown[] | undefined)?.[0] ??
+          (first.employers as unknown[] | undefined)?.[0] ??
+          ("NOT FOUND - employer keys: " + Object.keys(first).filter(k => k.toLowerCase().includes("employ")).join(","));
+        console.log("[CRUSTDATA RAW EMPLOYER]", JSON.stringify(employerSample));
+      }
+      const data = normalizeCrustDataResponse(rawJson);
       return { ok: true, data };
     } catch (err) {
       lastError = err;
