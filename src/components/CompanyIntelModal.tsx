@@ -722,7 +722,7 @@ export function CompanyIntelModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[64rem] gap-0 overflow-hidden border border-ui-border-light bg-white p-0 shadow-2xl sm:rounded-2xl max-h-[92vh]">
+      <DialogContent className="max-w-[64rem] gap-0 overflow-hidden border border-ui-border-light bg-white p-0 shadow-2xl sm:rounded-2xl max-h-[92vh] !grid-cols-none !grid-rows-none !flex !flex-col">
         <Header
           data={data}
           displayName={displayName}
@@ -731,12 +731,16 @@ export function CompanyIntelModal({
         />
 
         {loading ? (
-          <Loading />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <Loading />
+          </div>
         ) : !data ? (
-          <Empty name={displayName} />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <Empty name={displayName} />
+          </div>
         ) : (
-          <Tabs defaultValue="insights" className="flex flex-1 flex-col overflow-hidden">
-            <div className="border-b border-ui-border-light px-6">
+          <Tabs defaultValue="insights" className="flex flex-1 min-h-0 flex-col overflow-hidden">
+            <div className="shrink-0 border-b border-ui-border-light px-6">
               <TabsList className="h-11 bg-transparent p-0">
                 <TabsTrigger
                   value="insights"
@@ -764,7 +768,7 @@ export function CompanyIntelModal({
               </TabsList>
             </div>
 
-            <div className="overflow-y-auto px-6 py-5">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
               <TabsContent value="insights" className="mt-0 space-y-4">
                 <InsightsTab data={data} />
               </TabsContent>
