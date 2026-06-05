@@ -519,17 +519,25 @@ interface Competitor {
   company_id: number;
   company_name: string;
   linkedin_profile_url: string | null;
+  linkedin_logo_url: string | null;
   company_website_domain: string | null;
   headcount: number | null;
 }
 
+/**
+ * Resolve competitor display data. /screener/identify does NOT return
+ * headcount or logo, so we identify per-domain to get the IDs, then make
+ * a single bulk GET /screener/company call to fetch logo + headcount.
+ */
 async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor[]> {
   if (!domains?.length) return [];
   const cleaned = domains
     .map((d) => String(d || "").trim().replace(/^https?:\/\//, "").replace(/\/$/, ""))
     .filter(Boolean)
     .slice(0, 6);
-  const out = await Promise.all(
+
+  // Step 1: identify each domain → (id, name, domain)
+  const identified = await Promise.all(
     cleaned.map(async (domain) => {
       const raw = await cdPost("/screener/identify", {
         query_company_website: domain.startsWith("http") ? domain : `https://${domain}`,
@@ -538,16 +546,52 @@ async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor
       const d = list[0];
       if (!d?.company_id) return null;
       return {
-        company_id: d.company_id,
-        company_name: d.company_name ?? domain,
-        linkedin_profile_url: d.linkedin_profile_url ?? null,
-        company_website_domain: d.company_website_domain ?? domain,
-        headcount:
-          typeof d.linkedin_headcount === "number" ? d.linkedin_headcount : null,
-      } as Competitor;
+        company_id: d.company_id as number,
+        company_name: (d.company_name as string) ?? domain,
+        company_website_domain: (d.company_website_domain as string) ?? domain,
+        linkedin_profile_url: (d.linkedin_profile_url as string) ?? null,
+      };
     }),
   );
-  return out.filter((c): c is Competitor => c !== null);
+  const seeds = identified.filter((c): c is NonNullable<typeof c> => c !== null);
+  if (!seeds.length) return [];
+
+  // Step 2: bulk hydrate logo + headcount
+  const ids = seeds.map((s) => s.company_id).join(",");
+  const fields = [
+    "company_id",
+    "company_name",
+    "company_website_domain",
+    "linkedin_profile_url",
+    "linkedin_logo_url",
+    "headcount",
+  ].join(",");
+  const raw = await cdGet(`/screener/company?company_id=${ids}&fields=${fields}`);
+  const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const byId = new Map<number, any>();
+  for (const r of list) {
+    if (r?.company_id) byId.set(r.company_id, r);
+  }
+
+  return seeds.map((s) => {
+    const r = byId.get(s.company_id);
+    const hc =
+      typeof r?.headcount?.linkedin_headcount === "number"
+        ? r.headcount.linkedin_headcount
+        : typeof r?.linkedin_headcount === "number"
+          ? r.linkedin_headcount
+          : null;
+    return {
+      company_id: s.company_id,
+      company_name: (r?.company_name as string) || s.company_name,
+      linkedin_profile_url:
+        (r?.linkedin_profile_url as string) || s.linkedin_profile_url,
+      linkedin_logo_url: (r?.linkedin_logo_url as string) ?? null,
+      company_website_domain:
+        (r?.company_website_domain as string) || s.company_website_domain,
+      headcount: hc,
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */
