@@ -10,7 +10,7 @@
  *   3. POST /job/search                 — 1 credit, open jobs
  *   4. POST /screener/persondb/search   — 3 credits each, talent flow
  *
- * Cached 7 days in company_enrichment_cache (schema_version 9).
+ * Cached 7 days in company_enrichment_cache (schema_version 10).
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
