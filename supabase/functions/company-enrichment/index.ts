@@ -1,18 +1,16 @@
 /**
  * company-enrichment edge function — full company intelligence endpoint.
  *
- * Called from the candidate drawer when the user opens the Company Intel
- * view. Returns the rich payload required for the "Company insights" +
- * "Hiring activity" tabs.
+ * Returns the rich payload required for the "Company insights" / "Hiring
+ * activity" / "Talent flow" tabs in the Company Intel modal.
  *
  * Data sources (all CrustData):
- *   1. POST /screener/identify          — FREE, resolves name → company_id
+ *   1. POST /screener/identify          — FREE, resolves name → ALL entity IDs
  *   2. GET  /screener/company?fields=…  — 1 credit, full enrichment
  *   3. POST /job/search                 — 1 credit, open jobs
- *   4. POST /screener/identify (batched) — FREE, resolves competitor ids
+ *   4. POST /screener/persondb/search   — 3 credits each, talent flow
  *
- * Cached 7 days in company_enrichment_cache, keyed on the canonical
- * company name (or domain when provided).
+ * Cached 7 days in company_enrichment_cache (schema_version 9).
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -25,6 +23,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+/* ------------------------------------------------------------------ */
+/* Pre-mapped health systems (parity with pdl-search/resolve-company)   */
+/* ------------------------------------------------------------------ */
+
+const COMPANY_ALIASES: Record<string, string> = {
+  "uc health": "uchealth",
+  "uchealth": "uchealth",
+  "university of colorado health": "uchealth",
+  "uch": "uchealth",
+  "university of colorado hospital": "uchealth",
+  "university of colorado anschutz": "uchealth",
+  "university of colorado anschutz medical campus": "uchealth",
+  "university of colorado school of medicine": "uchealth",
+};
+
+const PREMAPPED_ENTITY_IDS: Record<string, number[]> = {
+  uchealth: [
+    1304813, 6259524, 6524064, 9255529, 12929305, 10791937, 9819138, 6644127,
+    670107, 6041104, 2056710,
+  ],
+};
+
+function resolveCanonical(name: string | null): string | null {
+  if (!name) return null;
+  const lower = name.toLowerCase().trim();
+  return COMPANY_ALIASES[lower] ?? lower;
+}
 
 /* ------------------------------------------------------------------ */
 /* CrustData helpers                                                    */
@@ -81,7 +107,7 @@ async function cdPost(
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 1 — identify                                                    */
+/* Step 1 — identify (collects ALL entity IDs for a health system)      */
 /* ------------------------------------------------------------------ */
 
 interface Identified {
@@ -92,6 +118,7 @@ interface Identified {
   headcount: number | null;
   hq_city: string | null;
   hq_country: string | null;
+  all_ids: number[];
 }
 
 function headcountRank(c: any): number {
@@ -135,11 +162,12 @@ async function identifyByName(
   name: string,
   domain?: string | null,
 ): Promise<Identified | null> {
-  // Crustdata's /screener/identify accepts EXACTLY ONE of:
-  // query_company_name, query_company_website, query_company_linkedin_url,
-  // query_company_crunchbase_url, query_company_id.
-  // Prefer name when present (best recall on partial matches), otherwise domain.
-  const payload: Record<string, unknown> = { exact_match: false };
+  const canonical = resolveCanonical(name);
+
+  // 1. Pre-mapped systems return a curated, complete entity list.
+  const premapped = canonical ? PREMAPPED_ENTITY_IDS[canonical] : null;
+
+  const payload: Record<string, unknown> = { exact_match: false, count: 25 };
   if (name) {
     payload.query_company_name = name;
   } else if (domain) {
@@ -151,29 +179,52 @@ async function identifyByName(
   }
   const raw = await cdPost("/screener/identify", payload);
   const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  if (list.length === 0) {
+  if (list.length === 0 && !premapped) {
     console.warn("[company-enrichment] identify miss", { name, domain });
     return null;
   }
-  const best = pickBestCandidate(list, name, domain ?? null);
-  if (!best?.company_id) {
+  const best = pickBestCandidate(list, name, domain ?? null) ?? null;
+  const primaryId = best?.company_id ?? premapped?.[0] ?? null;
+  if (!primaryId) {
     console.warn("[company-enrichment] identify no usable id", { name, domain });
     return null;
   }
+
+  // 2. Combine all returned IDs whose name closely overlaps the canonical
+  //    name with the curated pre-map. This is the entity set used for
+  //    talent flow / jobs queries.
+  const tokens = (canonical ?? name).toLowerCase().split(/\W+/).filter(Boolean);
+  const liveIds: number[] = [];
+  for (const c of list) {
+    if (!c?.company_id) continue;
+    const cName = String(c.company_name ?? "").toLowerCase();
+    const overlap = tokens.filter((t) => t.length >= 4 && cName.includes(t)).length;
+    // Always include the best match; otherwise require at least one
+    // distinctive token overlap to avoid pulling in unrelated companies.
+    if (c.company_id === primaryId || overlap >= 1) liveIds.push(c.company_id);
+  }
+
+  const allIds = Array.from(
+    new Set<number>([primaryId, ...(premapped ?? []), ...liveIds]),
+  );
+
   console.info("[company-enrichment] identified", {
     name,
-    chosen_id: best.company_id,
-    chosen_name: best.company_name,
+    canonical,
+    primary_id: primaryId,
+    chosen_name: best?.company_name ?? null,
     candidates: list.length,
+    all_ids: allIds.length,
   });
   return {
-    company_id: best.company_id,
-    company_name: best.company_name || name,
-    linkedin_profile_url: best.linkedin_profile_url ?? null,
-    company_website_domain: best.company_website_domain ?? null,
-    headcount: typeof best.linkedin_headcount === "number" ? best.linkedin_headcount : null,
-    hq_city: best.hq_city ?? null,
-    hq_country: best.hq_country ?? null,
+    company_id: primaryId,
+    company_name: best?.company_name || name,
+    linkedin_profile_url: best?.linkedin_profile_url ?? null,
+    company_website_domain: best?.company_website_domain ?? null,
+    headcount: typeof best?.linkedin_headcount === "number" ? best.linkedin_headcount : null,
+    hq_city: best?.hq_city ?? null,
+    hq_country: best?.hq_country ?? null,
+    all_ids: allIds,
   };
 }
 
@@ -182,7 +233,8 @@ async function identifyByName(
 /* ------------------------------------------------------------------ */
 
 async function enrich(companyId: number): Promise<Record<string, unknown> | null> {
-  // Prefix-only field names hydrate every nested sub-field.
+  // CrustData returns flat columns for glassdoor/g2/web-traffic, NESTED
+  // objects for headcount/taxonomy/competitors/funding_and_investment.
   const fields = [
     "company_name",
     "company_website_domain",
@@ -197,9 +249,23 @@ async function enrich(companyId: number): Promise<Record<string, unknown> | null
     "taxonomy",
     "competitors",
     "headcount",
-    "glassdoor",
-    "g2",
-    "web_traffic",
+    // Glassdoor (flat)
+    "glassdoor_overall_rating",
+    "glassdoor_review_count",
+    "glassdoor_ceo_approval",
+    "glassdoor_business_outlook",
+    "glassdoor_recommend_to_friend_percent",
+    // G2 (flat)
+    "g2_review_count",
+    "g2_average_rating",
+    // Web traffic (flat)
+    "monthly_visitors",
+    "monthly_visitors_mom_pct",
+    "traffic_source_search",
+    "traffic_source_paid_search",
+    "traffic_source_direct",
+    "traffic_source_social",
+    // Funding (nested)
     "funding_and_investment",
     "cxos",
     "decision_makers",
@@ -223,13 +289,14 @@ interface JobListing {
   category: string | null;
 }
 
-async function fetchJobs(companyId: number): Promise<{ jobs: JobListing[]; total: number }> {
+async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; total: number }> {
+  if (!companyIds.length) return { jobs: [], total: 0 };
   const d = await cdPost(
     "/job/search",
     {
       filters: {
         op: "and",
-        conditions: [{ column: "company_id", type: "in", value: [companyId] }],
+        conditions: [{ column: "company_id", type: "in", value: companyIds }],
       },
       offset: 0,
       limit: 50,
@@ -295,22 +362,40 @@ interface TalentFlowAggregate {
   top_departure_destinations: { company: string; count: number; linkedin_url: string | null }[];
 }
 
+function isoMonthsAgo(months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
+function idSet(ids: number[]): Set<number> {
+  return new Set(ids);
+}
+
 async function fetchTalentFlow(
-  companyId: number,
+  companyIds: number[],
   direction: "hires" | "departures",
+  monthsBack: number,
 ): Promise<TalentFlowPerson[]> {
+  if (!companyIds.length) return [];
+
+  const sinceDate = isoMonthsAgo(monthsBack);
   const employerField =
     direction === "hires"
       ? "current_employers.company_id"
       : "past_employers.company_id";
+  const dateField =
+    direction === "hires"
+      ? "current_employers.start_date"
+      : "past_employers.end_date";
 
   const body = {
     dataset: "people",
     filters: {
       op: "and",
       conditions: [
-        { column: employerField, type: "in", value: [companyId] },
-        { column: "recently_changed_jobs", type: "=", value: true },
+        { column: employerField, type: "in", value: companyIds },
+        { column: dateField, type: ">=", value: sinceDate },
       ],
     },
     limit: 50,
@@ -319,16 +404,29 @@ async function fetchTalentFlow(
   const data = await cdPost("/screener/persondb/search", body, { "x-api-version": "2025-11-01" });
   if (!data) return [];
   const results: any[] = (data as { results?: unknown[] }).results ?? [];
-  console.log(`[talent-flow ${direction}] companyId=${companyId} got ${results.length} profiles`);
+  console.log(
+    `[talent-flow ${direction}] entity_ids=${companyIds.length} since=${sinceDate} got=${results.length}`,
+  );
+
+  const targetIds = idSet(companyIds);
 
   return results.map((person: any) => {
-    const currentEmp = person.current_employers?.[0] || {};
+    const currentEmployers: any[] = person.current_employers || [];
+    const pastEmployers: any[] = person.past_employers || [];
+
+    // Find the row for the company we asked about, on the correct side.
+    const targetCurrent =
+      direction === "hires"
+        ? currentEmployers.find((e: any) => targetIds.has(e.company_id)) ||
+          currentEmployers[0] ||
+          {}
+        : currentEmployers[0] || {};
     const targetPast =
       direction === "departures"
-        ? (person.past_employers || []).find(
-            (e: any) => e.company_id === companyId,
-          ) || person.past_employers?.[0] || {}
-        : {};
+        ? pastEmployers.find((e: any) => targetIds.has(e.company_id)) ||
+          pastEmployers[0] ||
+          {}
+        : pastEmployers[0] || {};
 
     return {
       name: person.name || "Unknown",
@@ -337,29 +435,38 @@ async function fetchTalentFlow(
       linkedin_profile_url: person.linkedin_profile_url || null,
       profile_picture_url: person.profile_picture_url || null,
       headline: person.headline || null,
-      current_title: currentEmp.title || null,
-      current_company: currentEmp.name || null,
+      current_title: targetCurrent.title || currentEmployers[0]?.title || null,
+      current_company: targetCurrent.name || currentEmployers[0]?.name || null,
       current_company_linkedin_url:
-        currentEmp.company_linkedin_profile_url || null,
-      current_company_start_date: currentEmp.start_date || null,
+        targetCurrent.company_linkedin_profile_url ||
+        currentEmployers[0]?.company_linkedin_profile_url ||
+        null,
+      current_company_start_date:
+        targetCurrent.start_date || currentEmployers[0]?.start_date || null,
       previous_company:
         direction === "hires"
-          ? person.past_employers?.[0]?.name || null
-          : currentEmp.name || null,
+          ? pastEmployers[0]?.name || null
+          : targetPast.name || pastEmployers[0]?.name || null,
       previous_company_linkedin_url:
         direction === "hires"
-          ? person.past_employers?.[0]?.company_linkedin_profile_url || null
-          : currentEmp.company_linkedin_profile_url || null,
+          ? pastEmployers[0]?.company_linkedin_profile_url || null
+          : targetPast.company_linkedin_profile_url || null,
       previous_title:
         direction === "hires"
-          ? person.past_employers?.[0]?.title || null
+          ? pastEmployers[0]?.title || null
           : targetPast.title || null,
       previous_end_date:
         direction === "hires"
-          ? person.past_employers?.[0]?.end_date || null
+          ? pastEmployers[0]?.end_date || null
           : targetPast.end_date || null,
-      function_category: currentEmp.function_category || null,
-      seniority_level: currentEmp.seniority_level || null,
+      function_category:
+        targetCurrent.function_category ||
+        currentEmployers[0]?.function_category ||
+        null,
+      seniority_level:
+        targetCurrent.seniority_level ||
+        currentEmployers[0]?.seniority_level ||
+        null,
     };
   });
 }
@@ -446,6 +553,63 @@ async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor
 }
 
 /* ------------------------------------------------------------------ */
+/* Mappers                                                              */
+/* ------------------------------------------------------------------ */
+
+function num(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "string" ? parseFloat(v) : (v as number);
+  return Number.isFinite(n) ? n : null;
+}
+
+function mapGlassdoor(e: Record<string, unknown> | null) {
+  if (!e) return null;
+  const overall = num(e.glassdoor_overall_rating);
+  const reviews = num(e.glassdoor_review_count);
+  const ceo = num(e.glassdoor_ceo_approval);
+  const outlook = num(e.glassdoor_business_outlook);
+  const recommend = num(e.glassdoor_recommend_to_friend_percent);
+  if ([overall, reviews, ceo, outlook, recommend].every((v) => v == null)) return null;
+  return {
+    overall_rating: overall,
+    review_count: reviews,
+    ceo_approval: ceo,
+    business_outlook: outlook,
+    recommend_to_friend: recommend,
+  };
+}
+
+function mapG2(e: Record<string, unknown> | null) {
+  if (!e) return null;
+  const reviews = num(e.g2_review_count);
+  const rating = num(e.g2_average_rating);
+  if (reviews == null && rating == null) return null;
+  return { review_count: reviews, average_rating: rating };
+}
+
+function mapWebTraffic(e: Record<string, unknown> | null) {
+  if (!e) return null;
+  const visitors = num(e.monthly_visitors);
+  const mom = num(e.monthly_visitors_mom_pct);
+  if (visitors == null && mom == null) return null;
+  return { monthly_visitors: visitors, growth_mom_percent: mom };
+}
+
+function mapIndustry(taxonomy: any): string | null {
+  if (!taxonomy) return null;
+  if (typeof taxonomy.linkedin_industry === "string") return taxonomy.linkedin_industry;
+  const arr = taxonomy.linkedin_industries;
+  if (Array.isArray(arr) && arr.length) {
+    const first = arr[0];
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object") {
+      return (first.industry as string) ?? (first.name as string) ?? null;
+    }
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -460,10 +624,19 @@ Deno.serve(async (req) => {
       typeof body?.company_domain === "string" ? body.company_domain : null;
     const provided_id: number | null =
       typeof body?.company_id === "number" ? body.company_id : null;
+    const provided_ids: number[] = Array.isArray(body?.crustdata_entity_ids)
+      ? (body.crustdata_entity_ids as unknown[]).filter(
+          (n): n is number => typeof n === "number" && Number.isFinite(n),
+        )
+      : [];
+    const canonical_company_name: string | null =
+      typeof body?.canonical_company_name === "string"
+        ? body.canonical_company_name
+        : null;
 
-    if (!company_name && !provided_id) {
+    if (!company_name && !provided_id && provided_ids.length === 0) {
       return new Response(
-        JSON.stringify({ error: "company_name or company_id required" }),
+        JSON.stringify({ error: "company_name, company_id or crustdata_entity_ids required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -473,11 +646,43 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const cacheKey = (
-      company_domain ?? company_name ?? String(provided_id)
-    ).toLowerCase().trim();
+    // Resolve entity set first so the cache key is canonical across all
+    // entry points (name-only lookups and IDs-provided lookups converge).
+    let identified: Identified | null = null;
+    let allIds: number[] = [];
+    let primaryId: number | null = provided_id;
 
-    // Cache check (7 days)
+    if (provided_ids.length > 0) {
+      allIds = Array.from(new Set(provided_ids));
+      primaryId = primaryId ?? allIds[0];
+    } else if (provided_id) {
+      allIds = [provided_id];
+    } else if (company_name) {
+      identified = await identifyByName(company_name, company_domain);
+      if (!identified) {
+        return new Response(
+          JSON.stringify({ company: null, error: "Company not found" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      primaryId = identified.company_id;
+      allIds = identified.all_ids;
+    }
+
+    if (!primaryId) {
+      return new Response(JSON.stringify({ company: null }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (allIds.length === 0) allIds = [primaryId];
+
+    const canonical =
+      canonical_company_name ?? resolveCanonical(company_name) ?? String(primaryId);
+    const sortedIds = [...allIds].sort((a, b) => a - b);
+    const cacheKey = `${canonical.toLowerCase().trim()}:${sortedIds.join(",")}`;
+
+    // Cache check (7 days, schema_version 9)
     try {
       const { data: cached } = await supabase
         .from("company_enrichment_cache")
@@ -485,7 +690,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 8) {
+      if (cached?.data && (cached.data as any)?.schema_version === 9) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -498,44 +703,36 @@ Deno.serve(async (req) => {
       /* miss */
     }
 
-    // Step 1 — identify
-    let companyId = provided_id;
-    let identified: Identified | null = null;
-    if (!companyId && company_name) {
-      identified = await identifyByName(company_name, company_domain);
-      if (!identified) {
-        return new Response(
-          JSON.stringify({ company: null, error: "Company not found" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      companyId = identified.company_id;
-    }
-
-    if (!companyId) {
-      return new Response(JSON.stringify({ company: null }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Steps 2–3 in parallel
-    const [enrichment, jobsResult, hiresList, departuresList] = await Promise.all([
-      enrich(companyId),
-      fetchJobs(companyId),
-      fetchTalentFlow(companyId, "hires"),
-      fetchTalentFlow(companyId, "departures"),
+    // Steps 2–3 in parallel (talent flow widens to 24mo on its own if 12mo is too sparse)
+    const [enrichment, jobsResult, hiresList12, departuresList12] = await Promise.all([
+      enrich(primaryId),
+      fetchJobs(allIds),
+      fetchTalentFlow(allIds, "hires", 12),
+      fetchTalentFlow(allIds, "departures", 12),
     ]);
+
+    let hiresList = hiresList12;
+    let departuresList = departuresList12;
+    if (hiresList.length + departuresList.length < 5) {
+      console.log(
+        `[talent-flow] sparse @12mo (h=${hiresList.length} d=${departuresList.length}), widening to 24mo`,
+      );
+      const [h24, d24] = await Promise.all([
+        fetchTalentFlow(allIds, "hires", 24),
+        fetchTalentFlow(allIds, "departures", 24),
+      ]);
+      hiresList = h24;
+      departuresList = d24;
+    }
     const talent_flow = aggregateTalentFlow(hiresList, departuresList);
 
-    // Step 4 — competitors (Crustdata returns domain lists, not IDs)
+    // Step 4 — competitors (CrustData returns domain lists)
     const compBlock = (enrichment?.competitors as any) ?? {};
     const compDomains: string[] = [
       ...((compBlock?.competitor_website_domains as string[]) ?? []),
       ...((compBlock?.organic_seo_competitors_website_domains as string[]) ?? []),
       ...((compBlock?.paid_seo_competitors_website_domains as string[]) ?? []),
     ];
-    // de-dup
     const seen = new Set<string>();
     const uniqueDomains = compDomains.filter((d) => {
       const k = String(d || "").trim().toLowerCase();
@@ -550,15 +747,15 @@ Deno.serve(async (req) => {
     const hqParts = hqStr.split(",").map((s) => s.trim()).filter(Boolean);
     const parsedHqCity = hqParts[0] ?? null;
 
-    const taxonomy = (enrichment?.taxonomy as any) ?? {};
-
     const company = {
-      schema_version: 8 as const,
-      company_id: companyId,
+      schema_version: 9 as const,
+      company_id: primaryId,
+      crustdata_entity_ids: allIds,
       company_name:
         (enrichment?.company_name as string) ||
         identified?.company_name ||
-        company_name,
+        company_name ||
+        canonical,
       company_website_domain:
         (enrichment?.company_website_domain as string) ||
         identified?.company_website_domain ||
@@ -574,30 +771,15 @@ Deno.serve(async (req) => {
       hq_country:
         (enrichment?.hq_country as string) ?? identified?.hq_country ?? null,
       headquarters: hqStr || null,
-      industry:
-        (taxonomy?.linkedin_industry as string) ??
-        (Array.isArray(taxonomy?.linkedin_industries)
-          ? (taxonomy.linkedin_industries[0] as string)
-          : null) ??
-        null,
+      industry: mapIndustry(enrichment?.taxonomy),
       description: (enrichment?.linkedin_company_description as string) ?? null,
       year_founded: (enrichment?.year_founded as string | number) ?? null,
       employee_count_range: (enrichment?.employee_count_range as string) ?? null,
 
-      // Raw nested objects — frontend slices what it needs
       headcount: enrichment?.headcount ?? null,
-      // Crustdata returns glassdoor fields prefixed with `glassdoor_`.
-      // Normalize to the shape the frontend expects.
-      glassdoor: (() => {
-        const g = enrichment?.glassdoor as Record<string, unknown> | null | undefined;
-        if (!g) return null;
-        const overall = (g.glassdoor_overall_rating ?? g.overall_rating ?? null) as number | null;
-        const reviews = (g.glassdoor_review_count ?? g.review_count ?? null) as number | null;
-        if (overall == null && reviews == null) return null;
-        return { overall_rating: overall, review_count: reviews };
-      })(),
-      g2: enrichment?.g2 ?? null,
-      web_traffic: enrichment?.web_traffic ?? null,
+      glassdoor: mapGlassdoor((enrichment ?? null) as Record<string, unknown> | null),
+      g2: mapG2((enrichment ?? null) as Record<string, unknown> | null),
+      web_traffic: mapWebTraffic((enrichment ?? null) as Record<string, unknown> | null),
       funding: enrichment?.funding_and_investment ?? null,
       cxos: enrichment?.cxos ?? [],
       decision_makers: enrichment?.decision_makers ?? [],
@@ -613,11 +795,10 @@ Deno.serve(async (req) => {
       enriched_at: new Date().toISOString(),
     };
 
-    // Cache
     try {
       await supabase.from("company_enrichment_cache").upsert({
         cache_key: cacheKey,
-        company_id: companyId,
+        company_id: primaryId,
         data: company,
         created_at: new Date().toISOString(),
       });
