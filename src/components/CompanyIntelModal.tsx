@@ -1048,39 +1048,69 @@ function InsightsTab({ data }: { data: CompanyIntel }) {
       {(data.cxos?.length ?? 0) > 0 && (
         <Section title="Leadership">
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {data.cxos.slice(0, 8).map((p, i) => (
-              <li
-                key={`${p.name}-${i}`}
-                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-ui-surface-subtle"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[12px] font-semibold text-primary">
-                  {p.name
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-ui-text-primary">
-                    {p.name}
-                  </p>
-                  <p className="truncate text-[12px] text-ui-text-muted">
-                    {p.title}
-                  </p>
-                </div>
-                {p.linkedin_url && (
-                  <a
-                    href={p.linkedin_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 text-ui-text-muted transition-colors hover:text-[#0A66C2]"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </li>
-            ))}
+            {[...data.cxos]
+              .sort((a, b) => {
+                const rank = (t: string) => {
+                  const s = (t || "").toLowerCase();
+                  if (/\bceo\b|chief executive/.test(s)) return 0;
+                  if (/president/.test(s)) return 1;
+                  if (/\bcoo\b|chief operating/.test(s)) return 2;
+                  if (/\bcfo\b|chief financial/.test(s)) return 3;
+                  if (/\bcmo\b|chief medical|chief marketing/.test(s)) return 4;
+                  if (/\bcto\b|chief technology/.test(s)) return 5;
+                  if (/chief/.test(s)) return 6;
+                  return 9;
+                };
+                const r = rank(a.title) - rank(b.title);
+                return r !== 0 ? r : a.name.localeCompare(b.name);
+              })
+              .slice(0, 8)
+              .map((p, i) => (
+                <li
+                  key={`${p.name}-${i}`}
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-ui-surface-subtle"
+                >
+                  {p.profile_picture_url ? (
+                    <img
+                      src={p.profile_picture_url}
+                      alt={p.name}
+                      width={32}
+                      height={32}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                      className="h-8 w-8 shrink-0 rounded-lg border border-ui-border-light/60 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[12px] font-semibold text-primary">
+                      {p.name
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-ui-text-primary">
+                      {p.name}
+                    </p>
+                    <p className="truncate text-[12px] text-ui-text-muted">
+                      {p.title}
+                    </p>
+                  </div>
+                  {p.linkedin_url && (
+                    <a
+                      href={p.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-ui-text-muted transition-colors hover:text-[#0A66C2]"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </li>
+              ))}
           </ul>
         </Section>
       )}
@@ -1099,13 +1129,14 @@ function InsightsTab({ data }: { data: CompanyIntel }) {
                   <CompanyLogo
                     name={c.company_name}
                     domain={cDomain}
+                    logoUrl={c.linkedin_logo_url}
                     size={32}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12.5px] font-medium text-ui-text-primary">
                       {c.company_name}
                     </p>
-                    {c.headcount != null && (
+                    {c.headcount != null && c.headcount > 0 && (
                       <p className="text-[11px] text-ui-text-muted">
                         {formatNumber(c.headcount)} employees
                       </p>
