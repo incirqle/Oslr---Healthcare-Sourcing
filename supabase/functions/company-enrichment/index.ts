@@ -291,10 +291,10 @@ async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; to
     {
       filters: {
         op: "and",
-        conditions: [{ column: "company_id", type: "in", value: companyIds }],
+        conditions: [{ field: "company_id", op: "in", value: companyIds }],
       },
+      sorts: [{ field: "date_added", order: "desc" }],
       limit: 50,
-      sorts: [{ column: "date_added", type: "desc" }],
     },
     { "x-api-version": "2025-11-01" },
   );
@@ -321,6 +321,7 @@ async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; to
         ? ((rows[0][rows[0].length - 1] as number) ?? rows.length)
         : 0;
 
+  console.log(`[jobs] entity_ids=${companyIds.length} got=${jobs.length} total=${total}`);
   return { jobs, total };
 }
 
