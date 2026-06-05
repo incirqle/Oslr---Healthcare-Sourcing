@@ -437,7 +437,21 @@ export function mapCrustDataPerson(person: CrustDataPerson): FormattedCandidate 
 }
 
 export function mapCrustDataResults(persons: CrustDataPerson[]): FormattedCandidate[] {
-  return persons.map(mapCrustDataPerson);
+  const mapped = persons.map(mapCrustDataPerson);
+  if (mapped.length > 0) {
+    const sample = mapped[0];
+    console.log("[CRUSTDATA SAMPLE]", JSON.stringify({
+      name: sample.full_name,
+      title: sample.job_title,
+      company: sample.job_company_name,
+      experience_count: sample.experience_history?.length ?? 0,
+      education_count: sample.education?.length ?? 0,
+      skills_count: sample.skills?.length ?? 0,
+      has_headline: !!sample.headline,
+      has_summary: !!sample.summary,
+    }));
+  }
+  return mapped;
 }
 
 /**
