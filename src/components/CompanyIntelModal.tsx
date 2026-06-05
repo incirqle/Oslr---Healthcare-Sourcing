@@ -1173,17 +1173,32 @@ function HiringTab({
   const rolesYoy = data.headcount?.linkedin_headcount_by_role_yoy_growth_percent;
   const rolesSixMo =
     data.headcount?.linkedin_headcount_by_role_six_months_growth_percent;
+  const hasGrowth = !!(rolesYoy || rolesSixMo);
+  const hasAny = jobs.length > 0 || hasFnTs || hasGrowth;
+
+  if (!hasAny) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ui-border-light bg-ui-surface-subtle py-14 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white">
+          <Briefcase className="h-5 w-5 text-ui-text-muted" />
+        </div>
+        <p className="mt-3 text-[14px] font-medium text-ui-text-primary">
+          No hiring data published
+        </p>
+        <p className="mt-1 max-w-sm text-[12.5px] text-ui-text-muted">
+          We couldn't find open positions or department-level growth for this
+          company.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
-      <Section
-        title={`Open positions${data.jobs_total ? ` · ${data.jobs_total}` : ""}`}
-      >
-        {jobs.length === 0 ? (
-          <p className="py-3 text-[13px] text-ui-text-muted">
-            No public job listings found.
-          </p>
-        ) : (
+      {jobs.length > 0 && (
+        <Section
+          title={`Open positions${data.jobs_total ? ` · ${data.jobs_total}` : ""}`}
+        >
           <ul className="divide-y divide-ui-border-light">
             {visibleJobs.map((job, i) => (
               <li
@@ -1223,37 +1238,26 @@ function HiringTab({
               </li>
             ))}
           </ul>
-        )}
-        {jobs.length > 5 && (
-          <button
-            onClick={onToggleJobs}
-            className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
-          >
-            {showAllJobs ? "Show less" : `Show all ${jobs.length}`}
-            <ArrowUpRight className="h-3 w-3" />
-          </button>
-        )}
-      </Section>
+          {jobs.length > 5 && (
+            <button
+              onClick={onToggleJobs}
+              className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+            >
+              {showAllJobs ? "Show less" : `Show all ${jobs.length}`}
+              <ArrowUpRight className="h-3 w-3" />
+            </button>
+          )}
+        </Section>
+      )}
 
       {hasFnTs && <FunctionTimeseriesChart data={fnTs!} />}
 
-      {(rolesYoy || rolesSixMo) && (
+      {hasGrowth && (
         <DepartmentGrowth
           yoy={rolesYoy}
           sixMo={rolesSixMo}
           title="Growth by department"
         />
-      )}
-
-      {!hasFnTs && jobs.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-surface-subtle">
-            <Briefcase className="h-5 w-5 text-ui-text-muted" />
-          </div>
-          <p className="mt-3 text-[13px] font-medium text-ui-text-primary">
-            No hiring data available
-          </p>
-        </div>
       )}
     </>
   );
