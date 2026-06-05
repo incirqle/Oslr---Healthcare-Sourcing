@@ -269,8 +269,7 @@ async function enrich(companyId: number): Promise<Record<string, unknown> | null
   }
   return row;
 }
-  return list[0] ?? null;
-}
+
 
 /* ------------------------------------------------------------------ */
 /* Step 3 — job listings                                                */
