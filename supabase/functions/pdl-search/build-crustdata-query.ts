@@ -440,24 +440,16 @@ export function buildCrustDataQuery(
   }
 
   // ── LOCATION ──────────────────────────────────────────────────────
+  // PersonDB uses `region` as a partial-match free-text field
+  // (e.g. "Denver, Colorado, United States"). The `location_state` /
+  // `location_country` columns with `=` operator cause 500 errors.
   const locationObj = (parsed.location as { city?: string | null; state?: string | null }) || {};
 
-  if (locationObj.city && locationObj.state) {
-    andConditions.push({
-      op: "and",
-      conditions: [
-        f("location_state", "=", normalizeStateName(locationObj.state)),
-        f("region", "(.)", locationObj.city),
-      ],
-    });
-  } else if (locationObj.state) {
-    andConditions.push(f("location_state", "=", normalizeStateName(locationObj.state)));
-  } else if (locationObj.city) {
+  if (locationObj.city) {
     andConditions.push(f("region", "(.)", locationObj.city));
+  } else if (locationObj.state) {
+    andConditions.push(f("region", "(.)", normalizeStateName(locationObj.state)));
   }
-
-  // ── COUNTRY ────────────────────────────────────────────────────────
-  andConditions.push(f("location_country", "=", "United States"));
 
   // ── BUILD ─────────────────────────────────────────────────────────
   const query: CrustDataQuery = {
