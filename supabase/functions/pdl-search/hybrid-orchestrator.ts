@@ -84,7 +84,7 @@ export async function runHybridSearch(input: HybridOrchestratorInput): Promise<H
     .filter((url): url is string => !!url);
 
   const crustQuery = buildCrustDataQuery(parsed, {
-    size: 100,
+    size: 225,
     preview: false,
     excludeLinkedInUrls: pdlLinkedInUrls,
   });
