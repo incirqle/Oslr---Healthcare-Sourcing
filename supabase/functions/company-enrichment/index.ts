@@ -809,7 +809,7 @@ Deno.serve(async (req) => {
     const parsedHqCity = hqParts[0] ?? null;
 
     const company = {
-      schema_version: 9 as const,
+      schema_version: 10 as const,
       company_id: primaryId,
       crustdata_entity_ids: allIds,
       company_name:
