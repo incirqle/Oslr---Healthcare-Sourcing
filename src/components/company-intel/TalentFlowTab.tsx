@@ -47,7 +47,10 @@ function topN(
 
 export function TalentFlowTab({ data }: { data: CompanyIntel }) {
   const tf = data.talent_flow;
-  const [range, setRange] = useState<RangeKey>("1Y");
+  const totalCount = (tf?.hire_count ?? 0) + (tf?.departure_count ?? 0);
+  const [range, setRange] = useState<RangeKey>(
+    totalCount > 0 && totalCount < 5 ? "2Y" : "1Y",
+  );
   const [role, setRole] = useState<string>("all");
 
   const roleOptions = useMemo(() => {
@@ -77,7 +80,9 @@ export function TalentFlowTab({ data }: { data: CompanyIntel }) {
     [data.company_name, filteredHires, filteredDeps],
   );
 
-  if (!tf || (tf.hires.length === 0 && tf.departures.length === 0)) {
+  const hiresLen = tf?.hires?.length ?? 0;
+  const depsLen = tf?.departures?.length ?? 0;
+  if (!tf || (hiresLen === 0 && depsLen === 0)) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ui-border-light bg-ui-surface-subtle py-14 text-center">
         <p className="text-[14px] font-medium text-ui-text-primary">
