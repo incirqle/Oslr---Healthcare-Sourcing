@@ -887,10 +887,10 @@ Deno.serve(async (req: Request) => {
       if (_companies.length > 0) {
         const resolved = await resolveHealthSystem(_companies[0], adminClient);
         const _p = parsed as Record<string, unknown>;
-        _p._resolved_company_names = resolved.all_names;
-        _p._resolved_company_ids = resolved.all_ids;
-        _p._resolved_company_domains = resolved.domains;
-        _p._resolved_company_linkedin_urls = resolved.linkedin_urls;
+        _p._crustdata_company_names = resolved.all_names;
+        _p._crustdata_entity_ids = resolved.all_ids;
+        _p._crustdata_domains = resolved.domains;
+        _p._crustdata_linkedin_urls = resolved.linkedin_urls;
       }
     } catch (err) {
       console.warn("[RESOLVE] failed (non-fatal):", err instanceof Error ? err.message : String(err));

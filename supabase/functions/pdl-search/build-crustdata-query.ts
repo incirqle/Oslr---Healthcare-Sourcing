@@ -289,16 +289,20 @@ function normalizeStateName(s: string): string {
 /* ------------------------------------------------------------------ */
 
 function resolveCompanyFilters(parsed: Record<string, unknown>): BasicFilter[] {
-  // Prefer pre-resolved data injected by index.ts (resolveHealthSystem)
-  const resolvedIds = Array.isArray(parsed._resolved_company_ids)
-    ? parsed._resolved_company_ids as number[]
+  // Prefer pre-resolved data injected by index.ts (resolveHealthSystem).
+  // CrustData uses dedicated `_crustdata_*` fields so PDL's string IDs on
+  // `_resolved_company_*` never leak into the PersonDB query (PersonDB
+  // requires integer company_ids and 500s on strings).
+  const resolvedIds = Array.isArray(parsed._crustdata_entity_ids)
+    ? parsed._crustdata_entity_ids as number[]
     : [];
-  const resolvedDomains = Array.isArray(parsed._resolved_company_domains)
-    ? parsed._resolved_company_domains as string[]
+  const resolvedDomains = Array.isArray(parsed._crustdata_domains)
+    ? parsed._crustdata_domains as string[]
     : [];
-  const resolvedNames = Array.isArray(parsed._resolved_company_names)
-    ? parsed._resolved_company_names as string[]
+  const resolvedNames = Array.isArray(parsed._crustdata_company_names)
+    ? parsed._crustdata_company_names as string[]
     : [];
+
 
   const filters: BasicFilter[] = [];
 
