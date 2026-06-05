@@ -307,7 +307,7 @@ function resolveCompanyFilters(parsed: Record<string, unknown>): BasicFilter[] {
       filters.push(f("current_employers.company_id", "in", resolvedIds));
     }
     for (const domain of resolvedDomains) {
-      filters.push(f("current_employers.company_website_domain", "=", domain));
+      filters.push(f("current_employers.company_website_domain", "(.)", domain));
     }
     // Add a few fuzzy name fallbacks too (capped)
     for (const name of resolvedNames.slice(0, 10)) {
