@@ -842,8 +842,8 @@ Deno.serve(async (req) => {
       g2: mapG2((enrichment ?? null) as Record<string, unknown> | null),
       web_traffic: mapWebTraffic((enrichment ?? null) as Record<string, unknown> | null),
       funding: enrichment?.funding_and_investment ?? null,
-      cxos: enrichment?.cxos ?? [],
-      decision_makers: enrichment?.decision_makers ?? [],
+      cxos: mapLeaders(enrichment?.cxos),
+      decision_makers: mapLeaders(enrichment?.decision_makers),
 
       jobs: jobsResult.jobs,
       jobs_total: jobsResult.total,
