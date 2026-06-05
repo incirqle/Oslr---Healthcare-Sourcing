@@ -331,10 +331,13 @@ function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
   if (Array.isArray(data.results)) {
     const results = data.results.map((item: unknown) => {
       const rec = asRecord(item);
-      // If already flat (has current_employers at top level), pass through.
-      // Otherwise normalize nested enrichment shape.
+      // If already flat (has current_employers at top level), normalize employers
+      // so frontend aliases (company_website, company_url, company_linkedin_url) are present.
       if ("current_employers" in rec || "past_employers" in rec) {
-        return rec as unknown as CrustDataPerson;
+        const current = Array.isArray(rec.current_employers) ? (rec.current_employers as unknown[]).map(normalizeEmployer) : [];
+        const past = Array.isArray(rec.past_employers) ? (rec.past_employers as unknown[]).map(normalizeEmployer) : [];
+        const all = Array.isArray(rec.all_employers) ? (rec.all_employers as unknown[]).map(normalizeEmployer) : [...current, ...past];
+        return { ...rec, current_employers: current, past_employers: past, all_employers: all } as unknown as CrustDataPerson;
       }
       return normalizeCrustDataPerson(item);
     });
