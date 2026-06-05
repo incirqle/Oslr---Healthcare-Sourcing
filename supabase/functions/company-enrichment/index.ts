@@ -10,7 +10,7 @@
  *   3. POST /job/search                 — 1 credit, open jobs
  *   4. POST /screener/persondb/search   — 3 credits each, talent flow
  *
- * Cached 7 days in company_enrichment_cache (schema_version 9).
+ * Cached 7 days in company_enrichment_cache (schema_version 10).
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -291,10 +291,10 @@ async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; to
     {
       filters: {
         op: "and",
-        conditions: [{ column: "company_id", type: "in", value: companyIds }],
+        conditions: [{ field: "company_id", op: "in", value: companyIds }],
       },
+      sorts: [{ field: "date_added", order: "desc" }],
       limit: 50,
-      sorts: [{ column: "date_added", type: "desc" }],
     },
     { "x-api-version": "2025-11-01" },
   );
@@ -321,6 +321,7 @@ async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; to
         ? ((rows[0][rows[0].length - 1] as number) ?? rows.length)
         : 0;
 
+  console.log(`[jobs] entity_ids=${companyIds.length} got=${jobs.length} total=${total}`);
   return { jobs, total };
 }
 
@@ -518,17 +519,25 @@ interface Competitor {
   company_id: number;
   company_name: string;
   linkedin_profile_url: string | null;
+  linkedin_logo_url: string | null;
   company_website_domain: string | null;
   headcount: number | null;
 }
 
+/**
+ * Resolve competitor display data. /screener/identify does NOT return
+ * headcount or logo, so we identify per-domain to get the IDs, then make
+ * a single bulk GET /screener/company call to fetch logo + headcount.
+ */
 async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor[]> {
   if (!domains?.length) return [];
   const cleaned = domains
     .map((d) => String(d || "").trim().replace(/^https?:\/\//, "").replace(/\/$/, ""))
     .filter(Boolean)
     .slice(0, 6);
-  const out = await Promise.all(
+
+  // Step 1: identify each domain → (id, name, domain)
+  const identified = await Promise.all(
     cleaned.map(async (domain) => {
       const raw = await cdPost("/screener/identify", {
         query_company_website: domain.startsWith("http") ? domain : `https://${domain}`,
@@ -537,16 +546,52 @@ async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor
       const d = list[0];
       if (!d?.company_id) return null;
       return {
-        company_id: d.company_id,
-        company_name: d.company_name ?? domain,
-        linkedin_profile_url: d.linkedin_profile_url ?? null,
-        company_website_domain: d.company_website_domain ?? domain,
-        headcount:
-          typeof d.linkedin_headcount === "number" ? d.linkedin_headcount : null,
-      } as Competitor;
+        company_id: d.company_id as number,
+        company_name: (d.company_name as string) ?? domain,
+        company_website_domain: (d.company_website_domain as string) ?? domain,
+        linkedin_profile_url: (d.linkedin_profile_url as string) ?? null,
+      };
     }),
   );
-  return out.filter((c): c is Competitor => c !== null);
+  const seeds = identified.filter((c): c is NonNullable<typeof c> => c !== null);
+  if (!seeds.length) return [];
+
+  // Step 2: bulk hydrate logo + headcount
+  const ids = seeds.map((s) => s.company_id).join(",");
+  const fields = [
+    "company_id",
+    "company_name",
+    "company_website_domain",
+    "linkedin_profile_url",
+    "linkedin_logo_url",
+    "headcount",
+  ].join(",");
+  const raw = await cdGet(`/screener/company?company_id=${ids}&fields=${fields}`);
+  const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const byId = new Map<number, any>();
+  for (const r of list) {
+    if (r?.company_id) byId.set(r.company_id, r);
+  }
+
+  return seeds.map((s) => {
+    const r = byId.get(s.company_id);
+    const hc =
+      typeof r?.headcount?.linkedin_headcount === "number"
+        ? r.headcount.linkedin_headcount
+        : typeof r?.linkedin_headcount === "number"
+          ? r.linkedin_headcount
+          : null;
+    return {
+      company_id: s.company_id,
+      company_name: (r?.company_name as string) || s.company_name,
+      linkedin_profile_url:
+        (r?.linkedin_profile_url as string) || s.linkedin_profile_url,
+      linkedin_logo_url: (r?.linkedin_logo_url as string) ?? null,
+      company_website_domain:
+        (r?.company_website_domain as string) || s.company_website_domain,
+      headcount: hc,
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -625,6 +670,40 @@ function mapIndustry(taxonomy: any): string | null {
   return null;
 }
 
+interface Leader {
+  name: string;
+  title: string;
+  linkedin_url: string | null;
+  profile_picture_url: string | null;
+}
+
+function mapLeaders(arr: unknown): Leader[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((raw: any) => {
+      const name: string =
+        raw?.name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" ").trim();
+      const title: string = raw?.title || raw?.role || raw?.position || "";
+      if (!name) return null;
+      return {
+        name,
+        title,
+        linkedin_url:
+          raw?.linkedin_url ||
+          raw?.linkedin_profile_url ||
+          raw?.profile_url ||
+          null,
+        profile_picture_url:
+          raw?.profile_picture_url ||
+          raw?.picture_url ||
+          raw?.image_url ||
+          raw?.profile_image_url ||
+          null,
+      } as Leader;
+    })
+    .filter((l): l is Leader => l !== null);
+}
+
 /* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
@@ -698,7 +777,7 @@ Deno.serve(async (req) => {
     const sortedIds = [...allIds].sort((a, b) => a - b);
     const cacheKey = `${canonical.toLowerCase().trim()}:${sortedIds.join(",")}`;
 
-    // Cache check (7 days, schema_version 9)
+    // Cache check (7 days, schema_version 10)
     try {
       const { data: cached } = await supabase
         .from("company_enrichment_cache")
@@ -706,7 +785,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 9) {
+      if (cached?.data && (cached.data as any)?.schema_version === 10) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -764,7 +843,7 @@ Deno.serve(async (req) => {
     const parsedHqCity = hqParts[0] ?? null;
 
     const company = {
-      schema_version: 9 as const,
+      schema_version: 10 as const,
       company_id: primaryId,
       crustdata_entity_ids: allIds,
       company_name:
@@ -797,8 +876,8 @@ Deno.serve(async (req) => {
       g2: mapG2((enrichment ?? null) as Record<string, unknown> | null),
       web_traffic: mapWebTraffic((enrichment ?? null) as Record<string, unknown> | null),
       funding: enrichment?.funding_and_investment ?? null,
-      cxos: enrichment?.cxos ?? [],
-      decision_makers: enrichment?.decision_makers ?? [],
+      cxos: mapLeaders(enrichment?.cxos),
+      decision_makers: mapLeaders(enrichment?.decision_makers),
 
       jobs: jobsResult.jobs,
       jobs_total: jobsResult.total,

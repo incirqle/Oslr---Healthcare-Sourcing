@@ -1048,39 +1048,69 @@ function InsightsTab({ data }: { data: CompanyIntel }) {
       {(data.cxos?.length ?? 0) > 0 && (
         <Section title="Leadership">
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {data.cxos.slice(0, 8).map((p, i) => (
-              <li
-                key={`${p.name}-${i}`}
-                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-ui-surface-subtle"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[12px] font-semibold text-primary">
-                  {p.name
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-ui-text-primary">
-                    {p.name}
-                  </p>
-                  <p className="truncate text-[12px] text-ui-text-muted">
-                    {p.title}
-                  </p>
-                </div>
-                {p.linkedin_url && (
-                  <a
-                    href={p.linkedin_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 text-ui-text-muted transition-colors hover:text-[#0A66C2]"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </li>
-            ))}
+            {[...data.cxos]
+              .sort((a, b) => {
+                const rank = (t: string) => {
+                  const s = (t || "").toLowerCase();
+                  if (/\bceo\b|chief executive/.test(s)) return 0;
+                  if (/president/.test(s)) return 1;
+                  if (/\bcoo\b|chief operating/.test(s)) return 2;
+                  if (/\bcfo\b|chief financial/.test(s)) return 3;
+                  if (/\bcmo\b|chief medical|chief marketing/.test(s)) return 4;
+                  if (/\bcto\b|chief technology/.test(s)) return 5;
+                  if (/chief/.test(s)) return 6;
+                  return 9;
+                };
+                const r = rank(a.title) - rank(b.title);
+                return r !== 0 ? r : a.name.localeCompare(b.name);
+              })
+              .slice(0, 8)
+              .map((p, i) => (
+                <li
+                  key={`${p.name}-${i}`}
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-ui-surface-subtle"
+                >
+                  {p.profile_picture_url ? (
+                    <img
+                      src={p.profile_picture_url}
+                      alt={p.name}
+                      width={32}
+                      height={32}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                      className="h-8 w-8 shrink-0 rounded-lg border border-ui-border-light/60 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[12px] font-semibold text-primary">
+                      {p.name
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-ui-text-primary">
+                      {p.name}
+                    </p>
+                    <p className="truncate text-[12px] text-ui-text-muted">
+                      {p.title}
+                    </p>
+                  </div>
+                  {p.linkedin_url && (
+                    <a
+                      href={p.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-ui-text-muted transition-colors hover:text-[#0A66C2]"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </li>
+              ))}
           </ul>
         </Section>
       )}
@@ -1099,13 +1129,14 @@ function InsightsTab({ data }: { data: CompanyIntel }) {
                   <CompanyLogo
                     name={c.company_name}
                     domain={cDomain}
+                    logoUrl={c.linkedin_logo_url}
                     size={32}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12.5px] font-medium text-ui-text-primary">
                       {c.company_name}
                     </p>
-                    {c.headcount != null && (
+                    {c.headcount != null && c.headcount > 0 && (
                       <p className="text-[11px] text-ui-text-muted">
                         {formatNumber(c.headcount)} employees
                       </p>
@@ -1142,17 +1173,32 @@ function HiringTab({
   const rolesYoy = data.headcount?.linkedin_headcount_by_role_yoy_growth_percent;
   const rolesSixMo =
     data.headcount?.linkedin_headcount_by_role_six_months_growth_percent;
+  const hasGrowth = !!(rolesYoy || rolesSixMo);
+  const hasAny = jobs.length > 0 || hasFnTs || hasGrowth;
+
+  if (!hasAny) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ui-border-light bg-ui-surface-subtle py-14 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white">
+          <Briefcase className="h-5 w-5 text-ui-text-muted" />
+        </div>
+        <p className="mt-3 text-[14px] font-medium text-ui-text-primary">
+          No hiring data published
+        </p>
+        <p className="mt-1 max-w-sm text-[12.5px] text-ui-text-muted">
+          We couldn't find open positions or department-level growth for this
+          company.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
-      <Section
-        title={`Open positions${data.jobs_total ? ` · ${data.jobs_total}` : ""}`}
-      >
-        {jobs.length === 0 ? (
-          <p className="py-3 text-[13px] text-ui-text-muted">
-            No public job listings found.
-          </p>
-        ) : (
+      {jobs.length > 0 && (
+        <Section
+          title={`Open positions${data.jobs_total ? ` · ${data.jobs_total}` : ""}`}
+        >
           <ul className="divide-y divide-ui-border-light">
             {visibleJobs.map((job, i) => (
               <li
@@ -1192,37 +1238,26 @@ function HiringTab({
               </li>
             ))}
           </ul>
-        )}
-        {jobs.length > 5 && (
-          <button
-            onClick={onToggleJobs}
-            className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
-          >
-            {showAllJobs ? "Show less" : `Show all ${jobs.length}`}
-            <ArrowUpRight className="h-3 w-3" />
-          </button>
-        )}
-      </Section>
+          {jobs.length > 5 && (
+            <button
+              onClick={onToggleJobs}
+              className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+            >
+              {showAllJobs ? "Show less" : `Show all ${jobs.length}`}
+              <ArrowUpRight className="h-3 w-3" />
+            </button>
+          )}
+        </Section>
+      )}
 
       {hasFnTs && <FunctionTimeseriesChart data={fnTs!} />}
 
-      {(rolesYoy || rolesSixMo) && (
+      {hasGrowth && (
         <DepartmentGrowth
           yoy={rolesYoy}
           sixMo={rolesSixMo}
           title="Growth by department"
         />
-      )}
-
-      {!hasFnTs && jobs.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-surface-subtle">
-            <Briefcase className="h-5 w-5 text-ui-text-muted" />
-          </div>
-          <p className="mt-3 text-[13px] font-medium text-ui-text-primary">
-            No hiring data available
-          </p>
-        </div>
       )}
     </>
   );
