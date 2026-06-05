@@ -53,6 +53,7 @@ export interface LeaderEntry {
   name: string;
   title: string;
   linkedin_url?: string | null;
+  profile_picture_url?: string | null;
 }
 
 export interface JobListing {
@@ -68,6 +69,7 @@ export interface CompetitorEntry {
   company_id: number;
   company_name: string;
   linkedin_profile_url: string | null;
+  linkedin_logo_url?: string | null;
   company_website_domain: string | null;
   headcount: number | null;
 }
