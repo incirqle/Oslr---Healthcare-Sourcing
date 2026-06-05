@@ -328,7 +328,15 @@ function normalizeCrustDataResponse(raw: unknown): CrustDataResponse {
     };
   }
 
-  const profiles = Array.isArray(data.profiles) ? data.profiles.map(normalizeCrustDataPerson) : [];
+  const profiles = Array.isArray(data.profiles)
+    ? (data.profiles as unknown[]).map((item) => {
+        const rec = asRecord(item);
+        if ("current_employers" in rec || "past_employers" in rec || "all_employers" in rec) {
+          return rec as unknown as CrustDataPerson;
+        }
+        return normalizeCrustDataPerson(item);
+      })
+    : [];
   return {
     total_results: typeof data.total_count === "number" ? data.total_count : profiles.length,
     next_cursor: (data.next_cursor ?? null) as string | null,
