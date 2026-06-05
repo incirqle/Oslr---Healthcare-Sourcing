@@ -1,4 +1,39 @@
-import { useMemo, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useMemo, useState } from "react";
+
+class TabErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[CompanyIntelModal tab error]", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-ui-border-light bg-ui-surface-subtle py-14 text-center">
+          <p className="text-[14px] font-medium text-ui-text-primary">
+            We hit a snag rendering this section
+          </p>
+          <p className="mt-1 max-w-sm text-[12.5px] text-ui-text-muted">
+            Try switching tabs or reopening this company.
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ error: null })}
+            className="mt-3 rounded-full border border-ui-border-light bg-white px-3 py-1 text-[12px] font-medium text-ui-text-primary hover:bg-ui-surface-subtle"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import {
   Dialog,
   DialogContent,
