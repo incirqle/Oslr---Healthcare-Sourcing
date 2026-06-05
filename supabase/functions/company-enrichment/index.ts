@@ -233,8 +233,9 @@ async function identifyByName(
 /* ------------------------------------------------------------------ */
 
 async function enrich(companyId: number): Promise<Record<string, unknown> | null> {
-  // CrustData returns flat columns for glassdoor/g2/web-traffic, NESTED
-  // objects for headcount/taxonomy/competitors/funding_and_investment.
+  // CrustData returns NESTED objects under glassdoor / g2 / web_traffic /
+  // headcount / taxonomy / competitors / funding_and_investment. Using a
+  // top-level prefix hydrates every sub-field.
   const fields = [
     "company_name",
     "company_website_domain",
@@ -249,23 +250,9 @@ async function enrich(companyId: number): Promise<Record<string, unknown> | null
     "taxonomy",
     "competitors",
     "headcount",
-    // Glassdoor (flat)
-    "glassdoor_overall_rating",
-    "glassdoor_review_count",
-    "glassdoor_ceo_approval",
-    "glassdoor_business_outlook",
-    "glassdoor_recommend_to_friend_percent",
-    // G2 (flat)
-    "g2_review_count",
-    "g2_average_rating",
-    // Web traffic (flat)
-    "monthly_visitors",
-    "monthly_visitors_mom_pct",
-    "traffic_source_search",
-    "traffic_source_paid_search",
-    "traffic_source_direct",
-    "traffic_source_social",
-    // Funding (nested)
+    "glassdoor",
+    "g2",
+    "web_traffic",
     "funding_and_investment",
     "cxos",
     "decision_makers",
@@ -273,6 +260,15 @@ async function enrich(companyId: number): Promise<Record<string, unknown> | null
   const raw = await cdGet(`/screener/company?company_id=${companyId}&fields=${fields}`);
   if (!raw) return null;
   const list: any[] = Array.isArray(raw) ? raw : [raw];
+  const row = list[0] ?? null;
+  if (row) {
+    console.log("[company-enrichment] enrichment keys:", Object.keys(row));
+    if (row.glassdoor) console.log("[glassdoor keys]", Object.keys(row.glassdoor));
+    if (row.g2) console.log("[g2 keys]", Object.keys(row.g2));
+    if (row.web_traffic) console.log("[web_traffic keys]", Object.keys(row.web_traffic));
+  }
+  return row;
+}
   return list[0] ?? null;
 }
 
