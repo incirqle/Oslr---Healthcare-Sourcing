@@ -808,14 +808,18 @@ export function CompanyIntelModal({
                 <InsightsTab data={data} />
               </TabsContent>
               <TabsContent value="hiring" className="mt-0 space-y-4">
-                <HiringTab
-                  data={data}
-                  showAllJobs={showAllJobs}
-                  onToggleJobs={() => setShowAllJobs((v) => !v)}
-                />
+                <TabErrorBoundary>
+                  <HiringTab
+                    data={data}
+                    showAllJobs={showAllJobs}
+                    onToggleJobs={() => setShowAllJobs((v) => !v)}
+                  />
+                </TabErrorBoundary>
               </TabsContent>
               <TabsContent value="talent" className="mt-0">
-                <TalentFlowTab data={data} />
+                <TabErrorBoundary>
+                  <TalentFlowTab data={data} />
+                </TabErrorBoundary>
               </TabsContent>
             </div>
           </Tabs>
