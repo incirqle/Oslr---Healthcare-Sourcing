@@ -670,6 +670,40 @@ function mapIndustry(taxonomy: any): string | null {
   return null;
 }
 
+interface Leader {
+  name: string;
+  title: string;
+  linkedin_url: string | null;
+  profile_picture_url: string | null;
+}
+
+function mapLeaders(arr: unknown): Leader[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((raw: any) => {
+      const name: string =
+        raw?.name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" ").trim();
+      const title: string = raw?.title || raw?.role || raw?.position || "";
+      if (!name) return null;
+      return {
+        name,
+        title,
+        linkedin_url:
+          raw?.linkedin_url ||
+          raw?.linkedin_profile_url ||
+          raw?.profile_url ||
+          null,
+        profile_picture_url:
+          raw?.profile_picture_url ||
+          raw?.picture_url ||
+          raw?.image_url ||
+          raw?.profile_image_url ||
+          null,
+      } as Leader;
+    })
+    .filter((l): l is Leader => l !== null);
+}
+
 /* ------------------------------------------------------------------ */
 /* Main handler                                                         */
 /* ------------------------------------------------------------------ */
