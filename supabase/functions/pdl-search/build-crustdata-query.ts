@@ -332,7 +332,7 @@ function resolveCompanyFilters(parsed: Record<string, unknown>): BasicFilter[] {
       const allIds = [...systemEntry.entity_ids, ...systemEntry.academic_ids];
       filters.push(f("current_employers.company_id", "in", allIds));
       for (const domain of systemEntry.domains) {
-        filters.push(f("current_employers.company_website_domain", "=", domain));
+        filters.push(f("current_employers.company_website_domain", "(.)", domain));
       }
       console.log(`[CRUSTDATA] Resolved health system "${company}" → ${allIds.length} entity IDs + ${systemEntry.domains.length} domain fallbacks`);
     } else {
