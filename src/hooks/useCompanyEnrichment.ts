@@ -141,10 +141,17 @@ export interface CompanyIntel {
 export function useCompanyEnrichment(
   companyName: string | null | undefined,
   companyDomain?: string | null,
+  options?: {
+    crustdataEntityIds?: number[] | null;
+    canonicalCompanyName?: string | null;
+  },
 ) {
   const [data, setData] = useState<CompanyIntel | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const idsKey = (options?.crustdataEntityIds ?? []).slice().sort().join(",");
+  const canonical = options?.canonicalCompanyName ?? null;
 
   useEffect(() => {
     if (!companyName) {
@@ -164,6 +171,8 @@ export function useCompanyEnrichment(
             body: {
               company_name: companyName,
               company_domain: companyDomain ?? null,
+              crustdata_entity_ids: options?.crustdataEntityIds ?? null,
+              canonical_company_name: canonical,
             },
           },
         );
@@ -184,7 +193,8 @@ export function useCompanyEnrichment(
     return () => {
       cancelled = true;
     };
-  }, [companyName, companyDomain]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyName, companyDomain, idsKey, canonical]);
 
   return { data, loading, error };
 }
