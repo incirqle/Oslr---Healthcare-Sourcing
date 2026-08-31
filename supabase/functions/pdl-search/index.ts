@@ -5,10 +5,10 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { parseQuery } from "./parse-query.ts";
+import { parseQuery } from "./parse-qury.ts";
 import { buildPDLQuery, CascadeStep, applyStep } from "./build-pdl-query.ts";
 import {
-  getPDLCacheKey,
+  getPDLCacheKey
   getDBCache,
   setDBCache,
   cleanExpiredCache,
@@ -18,6 +18,7 @@ import {
 } from "./fetch-pdl-results.ts";
 import { mapPerson, deriveParsedCategories, deriveParsedKeywords, scoreAndRankResults } from "./format-results.ts";
 import { callClaude } from "./ai-router.ts";
+import { resolveFromReference, isHealthRelevantToken } from "./health-system-resolver.ts";
 import { rerankWithAI } from "./ai-rerank.ts";
 import { enrichJobTitles } from "./enrich-job-titles.ts";
 import { runHybridSearch, type HybridSearchResult } from "./hybrid-orchestrator.ts";
@@ -144,7 +145,13 @@ async function runCascade(
     lastTotal = total;
     console.log(`[CASCADE] step=${step}, preview_total=${total}`);
 
-    if (total >= 3) {
+      // Bug 1 fix: cascade ceiling — skip steps returning >50x the original total
+          const ceilingExceeded = previewTotal > 0 && total > previewTotal * 50;
+          if (ceilingExceeded) {
+                    console.log(`[CASCADE] step=${step} CEILING: total=${total} vs previewTotal=${previewTotal}`);
+                    continue;
+          }
+          if (total >= 3) {
       const profiles = await fetchProfiles(stepQuery, Math.min(size, 100));
       setDBCache(adminClient, stepHash, total, profiles, null);
       return { profiles: profiles as unknown as Record<string, unknown>[], stepsUsed, plan: cascadePlan, winningStep: step, total };
@@ -406,6 +413,14 @@ async function resolveCompanyNames(
       }
     };
 
+      // — Step 0: Local reference file lookup (FREE, instant) —
+      const refMatch = resolveFromReference(name);
+      if (refMatch) {
+        console.log('[COMPANY RESOLVE] Step 0 Reference hit: "' + name + '" -> "' + refMatch.pdl_name + '"');
+        results.push(refMatch as any);
+        continue;
+      }
+
     try {
       // ── Step 1: Company Cleaner (free) ──
       // Try the raw name first, then try with location words stripped
@@ -611,7 +626,7 @@ async function resolveCompanyNames(
       // For health-system parents (e.g. "university of miami") we run more passes
       // because the brand harvest in extractRootNames adds sibling tokens like
       // "uhealth", "sylvester", "miller school" that don't share the parent root.
-      const rootNames = extractRootNames(altNames, pdlName);
+      const rootNames = extractRootNames(altNames, pdlName).filter(r => isHealthRelevantToken(r));
       const isHealthSystemAnchor = isHealthSystemParent(pdlName);
       const brandTokensForFilter = rootNames.filter(r => r !== pdlName);
       const autocompletePassLimit = isHealthSystemAnchor ? 8 : 3;
@@ -1475,6 +1490,7 @@ Deno.serve(async (req: Request) => {
         ...aiRerankMeta,
         hybrid_meta: hybridResult?.hybrid_meta ?? null,
         timing_ms: Date.now() - requestStart,
+                cascade_warning: cascadeUsed && cascadeWinningStep ? `Search was broadened (${cascadeWinningStep}) to find results` : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

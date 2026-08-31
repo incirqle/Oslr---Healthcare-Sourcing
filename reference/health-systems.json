@@ -1,0 +1,3457 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "generated": "2026-05-19",
+    "source": "Becker's Hospital Review 2026 + industry research",
+    "total_systems": 133,
+    "description": "Health system org chart for Oslr PDL search company resolution. Each entry maps common search terms to PDL-compatible canonical names, aliases, subsidiaries, and operating regions.",
+    "usage": "During company resolution, look up user-supplied company name against canonical + aliases fields. If matched, use the canonical name for PDL queries and subsidiaries for wildcard expansion."
+  },
+  "systems": [
+    {
+      "id": "hca-healthcare",
+      "canonical": "hca healthcare",
+      "display_name": "HCA Healthcare",
+      "aliases": [
+        "hca",
+        "hospital corporation of america",
+        "hca hospitals"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TX",
+        "FL",
+        "TN",
+        "CO",
+        "VA",
+        "GA",
+        "SC",
+        "NC",
+        "KS",
+        "MO",
+        "NH",
+        "NV",
+        "UT",
+        "ID",
+        "IN",
+        "KY",
+        "LA",
+        "MS",
+        "AK"
+      ],
+      "hospitals": 190,
+      "type": "for-profit",
+      "subsidiaries": [
+        "tristar health",
+        "medical city healthcare",
+        "mission health",
+        "parallon",
+        "healthtrust",
+        "sarah cannon research institute"
+      ],
+      "website": "hcahealthcare.com"
+    },
+    {
+      "id": "commonspirit-health",
+      "canonical": "commonspirit health",
+      "display_name": "CommonSpirit Health",
+      "aliases": [
+        "commonspirit",
+        "common spirit",
+        "dignity health",
+        "chi",
+        "catholic health initiatives"
+      ],
+      "hq_state": "IL",
+      "regions": [
+        "CA",
+        "TX",
+        "AZ",
+        "NE",
+        "CO",
+        "WA",
+        "OR",
+        "KY",
+        "TN",
+        "OH",
+        "MN",
+        "ND",
+        "AR",
+        "IA",
+        "KS",
+        "NV",
+        "NM"
+      ],
+      "hospitals": 158,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "dignity health",
+        "catholic health initiatives",
+        "virginia mason franciscan health",
+        "chi health",
+        "centura health",
+        "st. luke's health"
+      ],
+      "website": "commonspirit.org"
+    },
+    {
+      "id": "lifepoint-health",
+      "canonical": "lifepoint health",
+      "display_name": "Lifepoint Health",
+      "aliases": [
+        "lifepoint",
+        "lifepoint hospitals"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TN",
+        "VA",
+        "WV",
+        "KY",
+        "AL",
+        "GA",
+        "NC",
+        "SC",
+        "LA",
+        "IN",
+        "KS",
+        "CO",
+        "NV",
+        "WY",
+        "MI",
+        "PA",
+        "NM"
+      ],
+      "hospitals": 135,
+      "type": "for-profit",
+      "subsidiaries": [
+        "kindred healthcare",
+        "kindred hospital"
+      ],
+      "website": "lifepointhealth.net"
+    },
+    {
+      "id": "ascension",
+      "canonical": "ascension",
+      "display_name": "Ascension",
+      "aliases": [
+        "ascension health",
+        "ascension healthcare"
+      ],
+      "hq_state": "MO",
+      "regions": [
+        "WI",
+        "MI",
+        "IN",
+        "TN",
+        "TX",
+        "FL",
+        "AL",
+        "OK",
+        "KS",
+        "MD",
+        "DC",
+        "NY",
+        "CT"
+      ],
+      "hospitals": 119,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ascension st. vincent",
+        "ascension seton",
+        "ascension providence",
+        "ascension sacred heart",
+        "ascension columbia st. mary's",
+        "ascension via christi"
+      ],
+      "website": "ascension.org"
+    },
+    {
+      "id": "scionhealth",
+      "canonical": "scionhealth",
+      "display_name": "ScionHealth",
+      "aliases": [
+        "scion health",
+        "kindred healthcare"
+      ],
+      "hq_state": "KY",
+      "regions": [
+        "TX",
+        "FL",
+        "CA",
+        "OH",
+        "PA",
+        "IN",
+        "GA",
+        "AZ",
+        "LA",
+        "MA",
+        "NJ",
+        "NC",
+        "TN"
+      ],
+      "hospitals": 94,
+      "type": "for-profit",
+      "subsidiaries": [],
+      "website": "scionhealth.com"
+    },
+    {
+      "id": "trinity-health",
+      "canonical": "trinity health",
+      "display_name": "Trinity Health",
+      "aliases": [
+        "trinity",
+        "trinity health corporation"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI",
+        "OH",
+        "IN",
+        "IA",
+        "ID",
+        "IL",
+        "MD",
+        "MA",
+        "NJ",
+        "NY",
+        "PA",
+        "CT",
+        "DE",
+        "GA",
+        "FL"
+      ],
+      "hospitals": 92,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "mercy health",
+        "saint alphonsus health system",
+        "saint joseph mercy health",
+        "mount carmel health system",
+        "loyola medicine",
+        "mercy iowa city"
+      ],
+      "website": "trinity-health.org"
+    },
+    {
+      "id": "advocate-health",
+      "canonical": "advocate health",
+      "display_name": "Advocate Health",
+      "aliases": [
+        "advocate aurora",
+        "advocate aurora health",
+        "atrium health",
+        "advocate health care"
+      ],
+      "hq_state": "NC",
+      "regions": [
+        "NC",
+        "SC",
+        "GA",
+        "AL",
+        "IL",
+        "WI"
+      ],
+      "hospitals": 69,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "atrium health",
+        "advocate aurora health",
+        "advocate christ medical center",
+        "atrium health wake forest baptist",
+        "atrium health carolinas medical center"
+      ],
+      "website": "advocatehealth.org"
+    },
+    {
+      "id": "christus-health",
+      "canonical": "christus health",
+      "display_name": "CHRISTUS Health",
+      "aliases": [
+        "christus",
+        "christus healthcare"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX",
+        "LA",
+        "NM",
+        "AR",
+        "GA"
+      ],
+      "hospitals": 66,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "christus santa rosa",
+        "christus st. michael",
+        "christus spohn",
+        "christus mother frances"
+      ],
+      "website": "christushealth.org"
+    },
+    {
+      "id": "community-health-systems",
+      "canonical": "community health systems",
+      "display_name": "Community Health Systems",
+      "aliases": [
+        "chs",
+        "community health"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "AL",
+        "AK",
+        "AZ",
+        "FL",
+        "GA",
+        "IN",
+        "LA",
+        "MS",
+        "NM",
+        "NC",
+        "OH",
+        "OK",
+        "PA",
+        "SC",
+        "TN",
+        "TX",
+        "VA",
+        "WV",
+        "WY"
+      ],
+      "hospitals": 65,
+      "type": "for-profit",
+      "subsidiaries": [],
+      "website": "chs.net"
+    },
+    {
+      "id": "adventhealth",
+      "canonical": "adventhealth",
+      "display_name": "AdventHealth",
+      "aliases": [
+        "advent health",
+        "florida hospital",
+        "adventist health system"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL",
+        "CO",
+        "GA",
+        "IL",
+        "KS",
+        "KY",
+        "NC",
+        "TX",
+        "WI"
+      ],
+      "hospitals": 57,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "adventhealth orlando",
+        "adventhealth for children"
+      ],
+      "website": "adventhealth.com"
+    },
+    {
+      "id": "sanford-health",
+      "canonical": "sanford health",
+      "display_name": "Sanford Health",
+      "aliases": [
+        "sanford"
+      ],
+      "hq_state": "SD",
+      "regions": [
+        "SD",
+        "ND",
+        "MN",
+        "NE",
+        "IA"
+      ],
+      "hospitals": 56,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "sanford medical center",
+        "sanford usd medical center",
+        "sanford broadway medical center"
+      ],
+      "website": "sanfordhealth.org"
+    },
+    {
+      "id": "mercy",
+      "canonical": "mercy",
+      "display_name": "Mercy",
+      "aliases": [
+        "mercy health",
+        "mercy hospital",
+        "sisters of mercy health system",
+        "mercy health system"
+      ],
+      "hq_state": "MO",
+      "regions": [
+        "MO",
+        "AR",
+        "KS",
+        "OK",
+        "TX"
+      ],
+      "hospitals": 55,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "mercy hospital st. louis",
+        "mercy hospital springfield",
+        "mercy hospital oklahoma city"
+      ],
+      "website": "mercy.net"
+    },
+    {
+      "id": "prime-healthcare",
+      "canonical": "prime healthcare",
+      "display_name": "Prime Healthcare",
+      "aliases": [
+        "prime healthcare services",
+        "prime health"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA",
+        "TX",
+        "MI",
+        "NJ",
+        "PA",
+        "OH",
+        "IN",
+        "KS",
+        "NV",
+        "AL",
+        "GA",
+        "RI"
+      ],
+      "hospitals": 54,
+      "type": "for-profit",
+      "subsidiaries": [],
+      "website": "primehealthcare.com"
+    },
+    {
+      "id": "baylor-scott-white-health",
+      "canonical": "baylor scott & white health",
+      "display_name": "Baylor Scott & White Health",
+      "aliases": [
+        "baylor scott white",
+        "bsw health",
+        "baylor health",
+        "scott & white",
+        "scott and white"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 53,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "baylor university medical center",
+        "baylor scott & white medical center",
+        "scott & white memorial hospital"
+      ],
+      "website": "bswhealth.com"
+    },
+    {
+      "id": "providence",
+      "canonical": "providence",
+      "display_name": "Providence",
+      "aliases": [
+        "providence health",
+        "providence st. joseph health",
+        "providence health & services",
+        "swedish health services"
+      ],
+      "hq_state": "WA",
+      "regions": [
+        "WA",
+        "OR",
+        "CA",
+        "AK",
+        "MT"
+      ],
+      "hospitals": 51,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "swedish medical center",
+        "providence portland medical center",
+        "providence st. joseph medical center",
+        "kadlec regional medical center"
+      ],
+      "website": "providence.org"
+    },
+    {
+      "id": "tenet-healthcare",
+      "canonical": "tenet healthcare",
+      "display_name": "Tenet Healthcare",
+      "aliases": [
+        "tenet",
+        "tenet health"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX",
+        "FL",
+        "CA",
+        "AZ",
+        "SC",
+        "AL",
+        "MI",
+        "MA",
+        "TN"
+      ],
+      "hospitals": 50,
+      "type": "for-profit",
+      "subsidiaries": [
+        "uspi",
+        "united surgical partners international",
+        "baptist health south florida"
+      ],
+      "website": "tenethealth.com"
+    },
+    {
+      "id": "bon-secours-mercy-health",
+      "canonical": "bon secours mercy health",
+      "display_name": "Bon Secours Mercy Health",
+      "aliases": [
+        "bon secours",
+        "bsmh"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH",
+        "KY",
+        "VA",
+        "SC",
+        "MD",
+        "NY",
+        "FL"
+      ],
+      "hospitals": 47,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "mercy health",
+        "bon secours richmond health system"
+      ],
+      "website": "bsmhealth.org"
+    },
+    {
+      "id": "ochsner-health",
+      "canonical": "ochsner health",
+      "display_name": "Ochsner Health",
+      "aliases": [
+        "ochsner",
+        "ochsner health system",
+        "ochsner clinic"
+      ],
+      "hq_state": "LA",
+      "regions": [
+        "LA",
+        "MS",
+        "TX"
+      ],
+      "hospitals": 47,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ochsner medical center",
+        "ochsner baptist",
+        "ochsner lsu health"
+      ],
+      "website": "ochsner.org"
+    },
+    {
+      "id": "upmc",
+      "canonical": "upmc",
+      "display_name": "UPMC",
+      "aliases": [
+        "university of pittsburgh medical center",
+        "upmc health system"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA",
+        "NY",
+        "MD"
+      ],
+      "hospitals": 40,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "upmc presbyterian",
+        "upmc shadyside",
+        "upmc magee-womens hospital",
+        "upmc children's hospital",
+        "upmc mercy"
+      ],
+      "website": "upmc.com"
+    },
+    {
+      "id": "kaiser-permanente",
+      "canonical": "kaiser permanente",
+      "display_name": "Kaiser Permanente",
+      "aliases": [
+        "kaiser",
+        "kp",
+        "the permanente medical group",
+        "kaiser foundation hospitals"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA",
+        "OR",
+        "WA",
+        "CO",
+        "HI",
+        "GA",
+        "VA",
+        "DC",
+        "MD"
+      ],
+      "hospitals": 40,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "kaiser foundation hospitals",
+        "kaiser foundation health plan",
+        "the permanente medical group",
+        "southern california permanente medical group",
+        "northwest permanente"
+      ],
+      "website": "kaiserpermanente.org"
+    },
+    {
+      "id": "avera-health",
+      "canonical": "avera health",
+      "display_name": "Avera Health",
+      "aliases": [
+        "avera",
+        "avera mckennan"
+      ],
+      "hq_state": "SD",
+      "regions": [
+        "SD",
+        "MN",
+        "IA",
+        "NE",
+        "ND"
+      ],
+      "hospitals": 38,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "avera mckennan hospital",
+        "avera sacred heart hospital"
+      ],
+      "website": "avera.org"
+    },
+    {
+      "id": "intermountain-health",
+      "canonical": "intermountain health",
+      "display_name": "Intermountain Health",
+      "aliases": [
+        "intermountain",
+        "intermountain healthcare",
+        "imc",
+        "selecthealth"
+      ],
+      "hq_state": "UT",
+      "regions": [
+        "UT",
+        "CO",
+        "ID",
+        "NV",
+        "WY",
+        "MT",
+        "KS",
+        "NE"
+      ],
+      "hospitals": 34,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "primary children's hospital",
+        "intermountain medical center",
+        "scl health",
+        "lutheran medical center"
+      ],
+      "website": "intermountainhealth.org"
+    },
+    {
+      "id": "banner-health",
+      "canonical": "banner health",
+      "display_name": "Banner Health",
+      "aliases": [
+        "banner",
+        "banner healthcare"
+      ],
+      "hq_state": "AZ",
+      "regions": [
+        "AZ",
+        "CO",
+        "NE",
+        "WY",
+        "NV",
+        "CA"
+      ],
+      "hospitals": 33,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "banner university medical center",
+        "banner desert medical center",
+        "banner good samaritan"
+      ],
+      "website": "bannerhealth.com"
+    },
+    {
+      "id": "jefferson-health",
+      "canonical": "jefferson health",
+      "display_name": "Jefferson Health",
+      "aliases": [
+        "jefferson",
+        "thomas jefferson university hospitals"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA",
+        "NJ"
+      ],
+      "hospitals": 33,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "thomas jefferson university hospital",
+        "einstein medical center",
+        "abington hospital"
+      ],
+      "website": "jeffersonhealth.org"
+    },
+    {
+      "id": "ardent-health-services",
+      "canonical": "ardent health services",
+      "display_name": "Ardent Health Services",
+      "aliases": [
+        "ardent health",
+        "ardent"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TX",
+        "OK",
+        "NM",
+        "NJ",
+        "KS",
+        "ID"
+      ],
+      "hospitals": 30,
+      "type": "for-profit",
+      "subsidiaries": [
+        "bsa health system",
+        "lovelace health system",
+        "hillcrest healthcare system"
+      ],
+      "website": "ardenthealth.com"
+    },
+    {
+      "id": "northwell-health",
+      "canonical": "northwell health",
+      "display_name": "Northwell Health",
+      "aliases": [
+        "northwell",
+        "north shore-lij",
+        "north shore long island jewish"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY",
+        "NJ"
+      ],
+      "hospitals": 28,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "north shore university hospital",
+        "long island jewish medical center",
+        "lenox hill hospital",
+        "southside hospital",
+        "huntington hospital",
+        "cohen children's medical center"
+      ],
+      "website": "northwell.edu"
+    },
+    {
+      "id": "texas-health-resources",
+      "canonical": "texas health resources",
+      "display_name": "Texas Health Resources",
+      "aliases": [
+        "texas health",
+        "thr"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 29,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "texas health presbyterian",
+        "texas health harris methodist",
+        "texas health arlington memorial"
+      ],
+      "website": "texashealth.org"
+    },
+    {
+      "id": "universal-health-services",
+      "canonical": "universal health services",
+      "display_name": "Universal Health Services",
+      "aliases": [
+        "uhs",
+        "universal health"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "NV",
+        "TX",
+        "CA",
+        "DC",
+        "IL",
+        "SC",
+        "DE",
+        "OK",
+        "GA",
+        "FL"
+      ],
+      "hospitals": 29,
+      "type": "for-profit",
+      "subsidiaries": [
+        "valley health system",
+        "george washington university hospital"
+      ],
+      "website": "uhsinc.com"
+    },
+    {
+      "id": "adventist-health",
+      "canonical": "adventist health",
+      "display_name": "Adventist Health",
+      "aliases": [
+        "adventist",
+        "ah"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA",
+        "OR",
+        "HI",
+        "WA"
+      ],
+      "hospitals": 27,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "adventist health portland",
+        "adventist health white memorial"
+      ],
+      "website": "adventisthealth.org"
+    },
+    {
+      "id": "piedmont-healthcare",
+      "canonical": "piedmont healthcare",
+      "display_name": "Piedmont Healthcare",
+      "aliases": [
+        "piedmont",
+        "piedmont health"
+      ],
+      "hq_state": "GA",
+      "regions": [
+        "GA"
+      ],
+      "hospitals": 27,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "piedmont atlanta hospital",
+        "piedmont columbus regional"
+      ],
+      "website": "piedmont.org"
+    },
+    {
+      "id": "orlando-health",
+      "canonical": "orlando health",
+      "display_name": "Orlando Health",
+      "aliases": [
+        "orlando regional",
+        "orlando health system"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL"
+      ],
+      "hospitals": 25,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "orlando health orlando regional medical center",
+        "arnold palmer hospital"
+      ],
+      "website": "orlandohealth.com"
+    },
+    {
+      "id": "wvu-health-system",
+      "canonical": "west virginia university health system",
+      "display_name": "WVU Health System",
+      "aliases": [
+        "wvu health",
+        "wvu medicine",
+        "west virginia university hospitals"
+      ],
+      "hq_state": "WV",
+      "regions": [
+        "WV",
+        "PA",
+        "MD",
+        "OH"
+      ],
+      "hospitals": 25,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ruby memorial hospital",
+        "wvu children's hospital"
+      ],
+      "website": "wvumedicine.org"
+    },
+    {
+      "id": "ssm-health",
+      "canonical": "ssm health",
+      "display_name": "SSM Health",
+      "aliases": [
+        "ssm",
+        "ssm health care"
+      ],
+      "hq_state": "MO",
+      "regions": [
+        "MO",
+        "IL",
+        "OK",
+        "WI"
+      ],
+      "hospitals": 23,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ssm health st. louis university hospital",
+        "ssm health cardinal glennon"
+      ],
+      "website": "ssmhealth.com"
+    },
+    {
+      "id": "cleveland-clinic",
+      "canonical": "cleveland clinic",
+      "display_name": "Cleveland Clinic",
+      "aliases": [
+        "ccf",
+        "cleveland clinic foundation",
+        "cleveland clinic health system"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH",
+        "FL",
+        "NV",
+        "ON",
+        "UAE",
+        "UK"
+      ],
+      "hospitals": 23,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "cleveland clinic main campus",
+        "cleveland clinic florida",
+        "cleveland clinic abu dhabi",
+        "cleveland clinic london",
+        "hillcrest hospital",
+        "fairview hospital",
+        "south pointe hospital"
+      ],
+      "website": "clevelandclinic.org"
+    },
+    {
+      "id": "sutter-health",
+      "canonical": "sutter health",
+      "display_name": "Sutter Health",
+      "aliases": [
+        "sutter",
+        "sutter medical"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 21,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "sutter medical center sacramento",
+        "cpmc",
+        "california pacific medical center",
+        "alta bates summit medical center",
+        "mills-peninsula medical center",
+        "palo alto medical foundation"
+      ],
+      "website": "sutterhealth.org"
+    },
+    {
+      "id": "mayo-clinic",
+      "canonical": "mayo clinic",
+      "display_name": "Mayo Clinic",
+      "aliases": [
+        "mayo",
+        "mayo foundation"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN",
+        "FL",
+        "AZ",
+        "WI",
+        "IA"
+      ],
+      "hospitals": 20,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "mayo clinic hospital-saint marys campus",
+        "mayo clinic hospital-methodist campus",
+        "mayo clinic health system"
+      ],
+      "website": "mayoclinic.org"
+    },
+    {
+      "id": "mass-general-brigham",
+      "canonical": "mass general brigham",
+      "display_name": "Mass General Brigham",
+      "aliases": [
+        "mgb",
+        "partners healthcare",
+        "partners health",
+        "massachusetts general hospital"
+      ],
+      "hq_state": "MA",
+      "regions": [
+        "MA",
+        "NH"
+      ],
+      "hospitals": 16,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "massachusetts general hospital",
+        "brigham and women's hospital",
+        "mclean hospital",
+        "spaulding rehabilitation",
+        "newton-wellesley hospital",
+        "faulkner hospital"
+      ],
+      "website": "massgeneralbrigham.org"
+    },
+    {
+      "id": "johns-hopkins-medicine",
+      "canonical": "johns hopkins medicine",
+      "display_name": "Johns Hopkins Medicine",
+      "aliases": [
+        "johns hopkins",
+        "hopkins",
+        "jhu medicine",
+        "jhm"
+      ],
+      "hq_state": "MD",
+      "regions": [
+        "MD",
+        "DC",
+        "FL"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "the johns hopkins hospital",
+        "johns hopkins bayview medical center",
+        "howard county general hospital",
+        "suburban hospital",
+        "sibley memorial hospital",
+        "all children's hospital"
+      ],
+      "website": "hopkinsmedicine.org"
+    },
+    {
+      "id": "mount-sinai-health-system",
+      "canonical": "mount sinai health system",
+      "display_name": "Mount Sinai Health System",
+      "aliases": [
+        "mount sinai",
+        "mt sinai",
+        "sinai health"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY"
+      ],
+      "hospitals": 8,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "mount sinai hospital",
+        "mount sinai west",
+        "mount sinai beth israel",
+        "mount sinai morningside",
+        "mount sinai south nassau",
+        "new york eye and ear infirmary"
+      ],
+      "website": "mountsinai.org"
+    },
+    {
+      "id": "nyu-langone-health",
+      "canonical": "nyu langone health",
+      "display_name": "NYU Langone Health",
+      "aliases": [
+        "nyu langone",
+        "nyu medical center",
+        "nyu hospitals center"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY",
+        "FL"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "nyu langone hospital-manhattan",
+        "nyu langone hospital-brooklyn",
+        "nyu langone hospital-long island",
+        "hassenfeld children's hospital",
+        "nyu langone orthopedic hospital"
+      ],
+      "website": "nyulangone.org"
+    },
+    {
+      "id": "newyork-presbyterian",
+      "canonical": "newyork-presbyterian",
+      "display_name": "NewYork-Presbyterian",
+      "aliases": [
+        "nyp",
+        "new york presbyterian",
+        "ny presbyterian",
+        "columbia presbyterian",
+        "weill cornell"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY",
+        "NJ"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "newyork-presbyterian/columbia university medical center",
+        "newyork-presbyterian/weill cornell medical center",
+        "newyork-presbyterian allen hospital",
+        "newyork-presbyterian queens",
+        "newyork-presbyterian brooklyn methodist"
+      ],
+      "website": "nyp.org"
+    },
+    {
+      "id": "montefiore-health-system",
+      "canonical": "montefiore health system",
+      "display_name": "Montefiore Health System",
+      "aliases": [
+        "montefiore",
+        "montefiore medical center",
+        "montefiore einstein"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "montefiore medical center",
+        "montefiore new rochelle",
+        "montefiore nyack hospital",
+        "white plains hospital"
+      ],
+      "website": "montefiore.org"
+    },
+    {
+      "id": "yale-new-haven-health",
+      "canonical": "yale new haven health",
+      "display_name": "Yale New Haven Health",
+      "aliases": [
+        "ynhh",
+        "yale new haven",
+        "yale health"
+      ],
+      "hq_state": "CT",
+      "regions": [
+        "CT",
+        "RI"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "yale new haven hospital",
+        "bridgeport hospital",
+        "greenwich hospital",
+        "lawrence + memorial hospital",
+        "westerly hospital"
+      ],
+      "website": "ynhh.org"
+    },
+    {
+      "id": "penn-medicine",
+      "canonical": "penn medicine",
+      "display_name": "Penn Medicine",
+      "aliases": [
+        "university of pennsylvania health system",
+        "uphs",
+        "penn health"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA",
+        "NJ"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "hospital of the university of pennsylvania",
+        "penn presbyterian medical center",
+        "chester county hospital",
+        "princeton medical center",
+        "lancaster general hospital"
+      ],
+      "website": "pennmedicine.org"
+    },
+    {
+      "id": "duke-health",
+      "canonical": "duke health",
+      "display_name": "Duke Health",
+      "aliases": [
+        "duke university health system",
+        "duke medicine",
+        "duhs"
+      ],
+      "hq_state": "NC",
+      "regions": [
+        "NC"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "duke university hospital",
+        "duke regional hospital",
+        "duke raleigh hospital"
+      ],
+      "website": "dukehealth.org"
+    },
+    {
+      "id": "unc-health",
+      "canonical": "unc health",
+      "display_name": "UNC Health",
+      "aliases": [
+        "unc health care",
+        "university of north carolina health",
+        "unc hospitals"
+      ],
+      "hq_state": "NC",
+      "regions": [
+        "NC"
+      ],
+      "hospitals": 14,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "unc medical center",
+        "unc rex hospital",
+        "caldwell memorial hospital",
+        "chatham hospital"
+      ],
+      "website": "unchealth.org"
+    },
+    {
+      "id": "emory-healthcare",
+      "canonical": "emory healthcare",
+      "display_name": "Emory Healthcare",
+      "aliases": [
+        "emory",
+        "emory health",
+        "emory university hospital"
+      ],
+      "hq_state": "GA",
+      "regions": [
+        "GA"
+      ],
+      "hospitals": 11,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "emory university hospital",
+        "emory university hospital midtown",
+        "emory saint joseph's hospital",
+        "emory johns creek hospital",
+        "grady memorial hospital"
+      ],
+      "website": "emoryhealthcare.org"
+    },
+    {
+      "id": "vanderbilt-university-medical-center",
+      "canonical": "vanderbilt university medical center",
+      "display_name": "Vanderbilt University Medical Center",
+      "aliases": [
+        "vumc",
+        "vanderbilt health",
+        "vanderbilt hospital"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TN"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "vanderbilt university hospital",
+        "monroe carell jr. children's hospital",
+        "vanderbilt wilson county hospital"
+      ],
+      "website": "vumc.org"
+    },
+    {
+      "id": "uab-medicine",
+      "canonical": "uab medicine",
+      "display_name": "UAB Medicine",
+      "aliases": [
+        "university of alabama at birmingham",
+        "uab hospital",
+        "uab health system"
+      ],
+      "hq_state": "AL",
+      "regions": [
+        "AL"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uab hospital",
+        "uab highlands"
+      ],
+      "website": "uabmedicine.org"
+    },
+    {
+      "id": "cedars-sinai",
+      "canonical": "cedars-sinai",
+      "display_name": "Cedars-Sinai",
+      "aliases": [
+        "cedars sinai",
+        "cedars-sinai medical center",
+        "csmc"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "cedars-sinai medical center",
+        "cedars-sinai marina del rey hospital"
+      ],
+      "website": "cedars-sinai.org"
+    },
+    {
+      "id": "uchealth",
+      "canonical": "uchealth",
+      "display_name": "UCHealth",
+      "aliases": [
+        "uc health",
+        "university of colorado health"
+      ],
+      "hq_state": "CO",
+      "regions": [
+        "CO",
+        "WY"
+      ],
+      "hospitals": 13,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uchealth university of colorado hospital",
+        "uchealth memorial hospital",
+        "uchealth poudre valley hospital"
+      ],
+      "website": "uchealth.org"
+    },
+    {
+      "id": "uf-health",
+      "canonical": "uf health",
+      "display_name": "UF Health",
+      "aliases": [
+        "university of florida health",
+        "uf health shands",
+        "shands hospital"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uf health shands hospital",
+        "uf health jacksonville"
+      ],
+      "website": "ufhealth.org"
+    },
+    {
+      "id": "university-of-iowa-health-care",
+      "canonical": "university of iowa health care",
+      "display_name": "University of Iowa Health Care",
+      "aliases": [
+        "uihc",
+        "ui health care",
+        "university of iowa hospitals",
+        "iowa health"
+      ],
+      "hq_state": "IA",
+      "regions": [
+        "IA"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "university of iowa hospitals & clinics",
+        "ui stead family children's hospital"
+      ],
+      "website": "uihealthcare.org"
+    },
+    {
+      "id": "houston-methodist",
+      "canonical": "houston methodist",
+      "display_name": "Houston Methodist",
+      "aliases": [
+        "methodist hospital houston",
+        "houston methodist hospital"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 8,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "houston methodist hospital",
+        "houston methodist the woodlands",
+        "houston methodist west",
+        "houston methodist sugar land",
+        "houston methodist baytown"
+      ],
+      "website": "houstonmethodist.org"
+    },
+    {
+      "id": "memorial-hermann-health-system",
+      "canonical": "memorial hermann health system",
+      "display_name": "Memorial Hermann Health System",
+      "aliases": [
+        "memorial hermann",
+        "mhhs"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 17,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "memorial hermann-texas medical center",
+        "tirr memorial hermann",
+        "children's memorial hermann hospital"
+      ],
+      "website": "memorialhermann.org"
+    },
+    {
+      "id": "ut-southwestern",
+      "canonical": "ut southwestern medical center",
+      "display_name": "UT Southwestern Medical Center",
+      "aliases": [
+        "utsw",
+        "ut southwestern",
+        "parkland"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "william p. clements jr. university hospital",
+        "parkland memorial hospital"
+      ],
+      "website": "utswmed.org"
+    },
+    {
+      "id": "md-anderson-cancer-center",
+      "canonical": "md anderson cancer center",
+      "display_name": "MD Anderson Cancer Center",
+      "aliases": [
+        "md anderson",
+        "m.d. anderson",
+        "ut md anderson",
+        "university of texas md anderson"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "mdanderson.org"
+    },
+    {
+      "id": "corewell-health",
+      "canonical": "corewell health",
+      "display_name": "Corewell Health",
+      "aliases": [
+        "beaumont health",
+        "spectrum health",
+        "corewell"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI"
+      ],
+      "hospitals": 22,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "corewell health william beaumont university hospital",
+        "corewell health butterworth hospital",
+        "helen devos children's hospital"
+      ],
+      "website": "corewellhealth.org"
+    },
+    {
+      "id": "henry-ford-health",
+      "canonical": "henry ford health",
+      "display_name": "Henry Ford Health",
+      "aliases": [
+        "henry ford",
+        "henry ford hospital",
+        "henry ford health system"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "henry ford hospital",
+        "henry ford macomb hospital",
+        "henry ford west bloomfield hospital"
+      ],
+      "website": "henryford.com"
+    },
+    {
+      "id": "michigan-medicine",
+      "canonical": "michigan medicine",
+      "display_name": "Michigan Medicine",
+      "aliases": [
+        "university of michigan health",
+        "umich health",
+        "um health",
+        "u of m hospital"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "university of michigan hospital",
+        "c.s. mott children's hospital",
+        "von voigtlander women's hospital"
+      ],
+      "website": "uofmhealth.org"
+    },
+    {
+      "id": "ohiohealth",
+      "canonical": "ohiohealth",
+      "display_name": "OhioHealth",
+      "aliases": [
+        "ohio health"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH"
+      ],
+      "hospitals": 15,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "riverside methodist hospital",
+        "grant medical center",
+        "doctors hospital"
+      ],
+      "website": "ohiohealth.com"
+    },
+    {
+      "id": "ohio-state-university-wexner-medical-center",
+      "canonical": "ohio state university wexner medical center",
+      "display_name": "Ohio State University Wexner Medical Center",
+      "aliases": [
+        "osu wexner",
+        "osu medical center",
+        "ohio state medical center",
+        "the james"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ohio state university hospital",
+        "james cancer hospital",
+        "ohio state east hospital"
+      ],
+      "website": "wexnermedical.osu.edu"
+    },
+    {
+      "id": "uc-health-cincinnati",
+      "canonical": "uc health",
+      "display_name": "UC Health (Cincinnati)",
+      "aliases": [
+        "university of cincinnati health",
+        "uc medical center"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "university of cincinnati medical center",
+        "west chester hospital",
+        "daniel drake center"
+      ],
+      "website": "uchealth.com"
+    },
+    {
+      "id": "university-hospitals-cleveland",
+      "canonical": "university hospitals",
+      "display_name": "University Hospitals",
+      "aliases": [
+        "uh",
+        "uh cleveland",
+        "university hospitals health system"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH"
+      ],
+      "hospitals": 21,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uh cleveland medical center",
+        "uh rainbow babies & children's hospital",
+        "uh seidman cancer center"
+      ],
+      "website": "uhhospitals.org"
+    },
+    {
+      "id": "inova-health-system",
+      "canonical": "inova health system",
+      "display_name": "Inova Health System",
+      "aliases": [
+        "inova",
+        "inova health"
+      ],
+      "hq_state": "VA",
+      "regions": [
+        "VA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "inova fairfax hospital",
+        "inova loudoun hospital",
+        "inova alexandria hospital"
+      ],
+      "website": "inova.org"
+    },
+    {
+      "id": "sentara-healthcare",
+      "canonical": "sentara healthcare",
+      "display_name": "Sentara Healthcare",
+      "aliases": [
+        "sentara",
+        "sentara health"
+      ],
+      "hq_state": "VA",
+      "regions": [
+        "VA",
+        "NC"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "sentara norfolk general hospital",
+        "sentara virginia beach general hospital"
+      ],
+      "website": "sentara.com"
+    },
+    {
+      "id": "medstar-health",
+      "canonical": "medstar health",
+      "display_name": "MedStar Health",
+      "aliases": [
+        "medstar"
+      ],
+      "hq_state": "MD",
+      "regions": [
+        "MD",
+        "DC"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "medstar washington hospital center",
+        "medstar georgetown university hospital",
+        "medstar union memorial hospital"
+      ],
+      "website": "medstarhealth.org"
+    },
+    {
+      "id": "hackensack-meridian-health",
+      "canonical": "hackensack meridian health",
+      "display_name": "Hackensack Meridian Health",
+      "aliases": [
+        "hackensack",
+        "hmh",
+        "hackensack meridian"
+      ],
+      "hq_state": "NJ",
+      "regions": [
+        "NJ"
+      ],
+      "hospitals": 18,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "hackensack university medical center",
+        "jersey shore university medical center",
+        "jfk university medical center"
+      ],
+      "website": "hackensackmeridianhealth.org"
+    },
+    {
+      "id": "rwjbarnabas-health",
+      "canonical": "rwjbarnabas health",
+      "display_name": "RWJBarnabas Health",
+      "aliases": [
+        "rwj barnabas",
+        "rwjbh",
+        "barnabas health"
+      ],
+      "hq_state": "NJ",
+      "regions": [
+        "NJ"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "robert wood johnson university hospital",
+        "saint barnabas medical center",
+        "newark beth israel medical center",
+        "monmouth medical center"
+      ],
+      "website": "rwjbh.org"
+    },
+    {
+      "id": "scripps-health",
+      "canonical": "scripps health",
+      "display_name": "Scripps Health",
+      "aliases": [
+        "scripps",
+        "scripps hospital"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "scripps memorial hospital la jolla",
+        "scripps mercy hospital",
+        "scripps green hospital"
+      ],
+      "website": "scripps.org"
+    },
+    {
+      "id": "sharp-healthcare",
+      "canonical": "sharp healthcare",
+      "display_name": "Sharp HealthCare",
+      "aliases": [
+        "sharp",
+        "sharp health"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "sharp memorial hospital",
+        "sharp grossmont hospital",
+        "sharp chula vista medical center"
+      ],
+      "website": "sharp.com"
+    },
+    {
+      "id": "stanford-health-care",
+      "canonical": "stanford health care",
+      "display_name": "Stanford Health Care",
+      "aliases": [
+        "stanford hospital",
+        "stanford medicine",
+        "stanford medical center",
+        "lucile packard"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "stanford hospital",
+        "lucile packard children's hospital stanford",
+        "stanford health care-valleycare"
+      ],
+      "website": "stanfordhealthcare.org"
+    },
+    {
+      "id": "ucsf-health",
+      "canonical": "ucsf health",
+      "display_name": "UCSF Health",
+      "aliases": [
+        "ucsf",
+        "ucsf medical center",
+        "university of california san francisco"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ucsf medical center",
+        "ucsf benioff children's hospital",
+        "ucsf helen diller medical center"
+      ],
+      "website": "ucsfhealth.org"
+    },
+    {
+      "id": "ucla-health",
+      "canonical": "ucla health",
+      "display_name": "UCLA Health",
+      "aliases": [
+        "ucla",
+        "ucla medical center",
+        "ronald reagan ucla"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ronald reagan ucla medical center",
+        "ucla medical center-santa monica",
+        "resnick neuropsychiatric hospital"
+      ],
+      "website": "uclahealth.org"
+    },
+    {
+      "id": "uc-davis-health",
+      "canonical": "uc davis health",
+      "display_name": "UC Davis Health",
+      "aliases": [
+        "uc davis",
+        "uc davis medical center"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uc davis medical center"
+      ],
+      "website": "health.ucdavis.edu"
+    },
+    {
+      "id": "uci-health",
+      "canonical": "uci health",
+      "display_name": "UCI Health",
+      "aliases": [
+        "uc irvine health",
+        "uci medical center"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uci medical center"
+      ],
+      "website": "ucihealth.org"
+    },
+    {
+      "id": "university-of-california-health",
+      "canonical": "university of california health",
+      "display_name": "University of California Health",
+      "aliases": [
+        "uc health system",
+        "uc health"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 20,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ucsf health",
+        "ucla health",
+        "uc davis health",
+        "uci health",
+        "uc san diego health"
+      ],
+      "website": "universityofcalifornia.edu/health"
+    },
+    {
+      "id": "uc-san-diego-health",
+      "canonical": "uc san diego health",
+      "display_name": "UC San Diego Health",
+      "aliases": [
+        "ucsd health",
+        "ucsd medical center"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uc san diego medical center",
+        "jacobs medical center"
+      ],
+      "website": "health.ucsd.edu"
+    },
+    {
+      "id": "northwestern-medicine",
+      "canonical": "northwestern medicine",
+      "display_name": "Northwestern Medicine",
+      "aliases": [
+        "northwestern memorial",
+        "nmh",
+        "northwestern memorial healthcare"
+      ],
+      "hq_state": "IL",
+      "regions": [
+        "IL"
+      ],
+      "hospitals": 11,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "northwestern memorial hospital",
+        "northwestern medicine central dupage hospital",
+        "northwestern lake forest hospital"
+      ],
+      "website": "nm.org"
+    },
+    {
+      "id": "rush-university-medical-center",
+      "canonical": "rush university medical center",
+      "display_name": "Rush University Medical Center",
+      "aliases": [
+        "rush",
+        "rush hospital",
+        "rush medical center"
+      ],
+      "hq_state": "IL",
+      "regions": [
+        "IL"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "rush university medical center",
+        "rush oak park hospital",
+        "rush copley medical center"
+      ],
+      "website": "rush.edu"
+    },
+    {
+      "id": "university-of-chicago-medicine",
+      "canonical": "university of chicago medicine",
+      "display_name": "University of Chicago Medicine",
+      "aliases": [
+        "uchicago medicine",
+        "ucm",
+        "u of c hospital"
+      ],
+      "hq_state": "IL",
+      "regions": [
+        "IL"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "university of chicago medical center",
+        "comer children's hospital",
+        "ingalls memorial hospital"
+      ],
+      "website": "uchicagomedicine.org"
+    },
+    {
+      "id": "baptist-health-south-florida",
+      "canonical": "baptist health south florida",
+      "display_name": "Baptist Health South Florida",
+      "aliases": [
+        "baptist health",
+        "baptist miami",
+        "bhsf"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "baptist hospital of miami",
+        "south miami hospital",
+        "west kendall baptist hospital",
+        "homestead hospital",
+        "doctors hospital"
+      ],
+      "website": "baptisthealth.net"
+    },
+    {
+      "id": "tampa-general-hospital",
+      "canonical": "tampa general hospital",
+      "display_name": "Tampa General Hospital",
+      "aliases": [
+        "tgh",
+        "tampa general"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "tgh.org"
+    },
+    {
+      "id": "beaumont-health",
+      "canonical": "beaumont health",
+      "display_name": "Beaumont Health",
+      "aliases": [
+        "beaumont",
+        "beaumont hospital"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI"
+      ],
+      "hospitals": 8,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "beaumont hospital royal oak",
+        "beaumont hospital troy"
+      ],
+      "website": "beaumont.org",
+      "notes": "Now part of Corewell Health"
+    },
+    {
+      "id": "spectrum-health",
+      "canonical": "spectrum health",
+      "display_name": "Spectrum Health",
+      "aliases": [
+        "spectrum"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI"
+      ],
+      "hospitals": 14,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "spectrum health butterworth hospital"
+      ],
+      "website": "spectrumhealth.org",
+      "notes": "Now part of Corewell Health"
+    },
+    {
+      "id": "novant-health",
+      "canonical": "novant health",
+      "display_name": "Novant Health",
+      "aliases": [
+        "novant"
+      ],
+      "hq_state": "NC",
+      "regions": [
+        "NC",
+        "VA",
+        "SC",
+        "GA"
+      ],
+      "hospitals": 19,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "novant health forsyth medical center",
+        "novant health presbyterian medical center"
+      ],
+      "website": "novanthealth.org"
+    },
+    {
+      "id": "prisma-health",
+      "canonical": "prisma health",
+      "display_name": "Prisma Health",
+      "aliases": [
+        "prisma",
+        "greenville health system",
+        "palmetto health"
+      ],
+      "hq_state": "SC",
+      "regions": [
+        "SC"
+      ],
+      "hospitals": 18,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "prisma health greenville memorial hospital",
+        "prisma health richland hospital",
+        "prisma health baptist hospital"
+      ],
+      "website": "prismahealth.org"
+    },
+    {
+      "id": "musc-health",
+      "canonical": "musc health",
+      "display_name": "MUSC Health",
+      "aliases": [
+        "medical university of south carolina",
+        "musc"
+      ],
+      "hq_state": "SC",
+      "regions": [
+        "SC"
+      ],
+      "hospitals": 9,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "musc health university medical center",
+        "musc shawn jenkins children's hospital"
+      ],
+      "website": "muschealth.org"
+    },
+    {
+      "id": "wake-forest-baptist-health",
+      "canonical": "atrium health wake forest baptist",
+      "display_name": "Atrium Health Wake Forest Baptist",
+      "aliases": [
+        "wake forest baptist",
+        "wfbmc",
+        "wake forest baptist medical center"
+      ],
+      "hq_state": "NC",
+      "regions": [
+        "NC"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "wake forest baptist medical center"
+      ],
+      "website": "wakehealth.edu",
+      "notes": "Part of Advocate Health"
+    },
+    {
+      "id": "froedtert-mcw",
+      "canonical": "froedtert & the medical college of wisconsin",
+      "display_name": "Froedtert & MCW Health Network",
+      "aliases": [
+        "froedtert",
+        "froedtert health",
+        "mcw",
+        "medical college of wisconsin"
+      ],
+      "hq_state": "WI",
+      "regions": [
+        "WI"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "froedtert hospital",
+        "children's wisconsin"
+      ],
+      "website": "froedtert.com"
+    },
+    {
+      "id": "marshfield-clinic-health-system",
+      "canonical": "marshfield clinic health system",
+      "display_name": "Marshfield Clinic Health System",
+      "aliases": [
+        "marshfield clinic",
+        "marshfield"
+      ],
+      "hq_state": "WI",
+      "regions": [
+        "WI"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "marshfield medical center"
+      ],
+      "website": "marshfieldclinic.org"
+    },
+    {
+      "id": "gundersen-health-system",
+      "canonical": "gundersen health system",
+      "display_name": "Gundersen Health System",
+      "aliases": [
+        "gundersen",
+        "gundersen lutheran"
+      ],
+      "hq_state": "WI",
+      "regions": [
+        "WI",
+        "MN",
+        "IA"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "gundersenhealth.org",
+      "notes": "Part of Emplify Health (merger with Bellin Health)"
+    },
+    {
+      "id": "geisinger",
+      "canonical": "geisinger",
+      "display_name": "Geisinger",
+      "aliases": [
+        "geisinger health",
+        "geisinger health system"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA",
+        "NJ"
+      ],
+      "hospitals": 13,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "geisinger medical center",
+        "geisinger wyoming valley medical center",
+        "geisinger community medical center"
+      ],
+      "website": "geisinger.org"
+    },
+    {
+      "id": "lehigh-valley-health-network",
+      "canonical": "lehigh valley health network",
+      "display_name": "Lehigh Valley Health Network",
+      "aliases": [
+        "lvhn",
+        "lehigh valley"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA"
+      ],
+      "hospitals": 13,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "lehigh valley hospital-cedar crest",
+        "lehigh valley hospital-muhlenberg"
+      ],
+      "website": "lvhn.org"
+    },
+    {
+      "id": "mainlinehealth",
+      "canonical": "main line health",
+      "display_name": "Main Line Health",
+      "aliases": [
+        "mainline health",
+        "mlh"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "lankenau medical center",
+        "bryn mawr hospital",
+        "paoli hospital"
+      ],
+      "website": "mainlinehealth.org"
+    },
+    {
+      "id": "atlanTicare",
+      "canonical": "atlanticare",
+      "display_name": "AtlantiCare",
+      "aliases": [
+        "atlanticare health system"
+      ],
+      "hq_state": "NJ",
+      "regions": [
+        "NJ"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "atlanticare regional medical center"
+      ],
+      "website": "atlanticare.org"
+    },
+    {
+      "id": "baystate-health",
+      "canonical": "baystate health",
+      "display_name": "Baystate Health",
+      "aliases": [
+        "baystate",
+        "baystate medical center"
+      ],
+      "hq_state": "MA",
+      "regions": [
+        "MA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "baystate medical center"
+      ],
+      "website": "baystatehealth.org"
+    },
+    {
+      "id": "hartford-healthcare",
+      "canonical": "hartford healthcare",
+      "display_name": "Hartford HealthCare",
+      "aliases": [
+        "hartford health",
+        "hhc"
+      ],
+      "hq_state": "CT",
+      "regions": [
+        "CT"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "hartford hospital",
+        "backus hospital",
+        "midstate medical center"
+      ],
+      "website": "hartfordhealthcare.org"
+    },
+    {
+      "id": "christiana-care",
+      "canonical": "christianacare",
+      "display_name": "ChristianaCare",
+      "aliases": [
+        "christiana care",
+        "christiana hospital"
+      ],
+      "hq_state": "DE",
+      "regions": [
+        "DE",
+        "PA",
+        "NJ",
+        "MD"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "christiana hospital",
+        "wilmington hospital"
+      ],
+      "website": "christianacare.org"
+    },
+    {
+      "id": "baptist-memorial-health-care",
+      "canonical": "baptist memorial health care",
+      "display_name": "Baptist Memorial Health Care",
+      "aliases": [
+        "baptist memorial",
+        "baptist memphis"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TN",
+        "MS",
+        "AR"
+      ],
+      "hospitals": 24,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "baptist memorial hospital-memphis"
+      ],
+      "website": "baptistonline.org"
+    },
+    {
+      "id": "methodist-health-system-dallas",
+      "canonical": "methodist health system",
+      "display_name": "Methodist Health System (Dallas)",
+      "aliases": [
+        "methodist dallas",
+        "methodist hospitals dallas"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "methodist dallas medical center",
+        "methodist charlton medical center"
+      ],
+      "website": "methodisthealthsystem.org"
+    },
+    {
+      "id": "methodist-le-bonheur",
+      "canonical": "methodist le bonheur healthcare",
+      "display_name": "Methodist Le Bonheur Healthcare",
+      "aliases": [
+        "methodist le bonheur",
+        "le bonheur children's"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TN",
+        "MS",
+        "AR"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "methodist university hospital",
+        "le bonheur children's hospital"
+      ],
+      "website": "methodisthealth.org"
+    },
+    {
+      "id": "university-of-minnesota-health",
+      "canonical": "m health fairview",
+      "display_name": "M Health Fairview",
+      "aliases": [
+        "fairview health services",
+        "university of minnesota health",
+        "m health"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "university of minnesota medical center",
+        "fairview ridges hospital",
+        "fairview southdale hospital"
+      ],
+      "website": "mhealthfairview.org"
+    },
+    {
+      "id": "allina-health",
+      "canonical": "allina health",
+      "display_name": "Allina Health",
+      "aliases": [
+        "allina"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN",
+        "WI"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "abbott northwestern hospital",
+        "united hospital",
+        "mercy hospital"
+      ],
+      "website": "allinahealth.org"
+    },
+    {
+      "id": "centracare",
+      "canonical": "centracare",
+      "display_name": "CentraCare",
+      "aliases": [
+        "centracare health",
+        "st. cloud hospital"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN"
+      ],
+      "hospitals": 9,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "st. cloud hospital"
+      ],
+      "website": "centracare.com"
+    },
+    {
+      "id": "unitypoint-health",
+      "canonical": "unitypoint health",
+      "display_name": "UnityPoint Health",
+      "aliases": [
+        "unitypoint",
+        "iowa health system"
+      ],
+      "hq_state": "IA",
+      "regions": [
+        "IA",
+        "IL",
+        "WI"
+      ],
+      "hospitals": 9,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "unitypoint health-des moines",
+        "unitypoint health-cedar rapids"
+      ],
+      "website": "unitypoint.org"
+    },
+    {
+      "id": "iowa-ortho",
+      "canonical": "iowa ortho",
+      "display_name": "Iowa Ortho",
+      "aliases": [
+        "iowa orthopedics",
+        "iowa orthopedics ctr",
+        "iowa orthopaedics"
+      ],
+      "hq_state": "IA",
+      "regions": [
+        "IA"
+      ],
+      "hospitals": 0,
+      "type": "physician-group",
+      "subsidiaries": [],
+      "website": "iowaortho.com",
+      "notes": "Known PDL resolution issue â canonical name is 'iowa ortho', commonly searched as 'iowa orthopedics'"
+    },
+    {
+      "id": "multicare-health-system",
+      "canonical": "multicare health system",
+      "display_name": "MultiCare Health System",
+      "aliases": [
+        "multicare"
+      ],
+      "hq_state": "WA",
+      "regions": [
+        "WA"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "tacoma general hospital",
+        "good samaritan hospital"
+      ],
+      "website": "multicare.org"
+    },
+    {
+      "id": "virginia-mason-franciscan-health",
+      "canonical": "virginia mason franciscan health",
+      "display_name": "Virginia Mason Franciscan Health",
+      "aliases": [
+        "virginia mason",
+        "vmfh",
+        "franciscan health"
+      ],
+      "hq_state": "WA",
+      "regions": [
+        "WA"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "virginia mason medical center",
+        "st. joseph medical center"
+      ],
+      "website": "virginiamason.org",
+      "notes": "Part of CommonSpirit Health"
+    },
+    {
+      "id": "legacy-health",
+      "canonical": "legacy health",
+      "display_name": "Legacy Health",
+      "aliases": [
+        "legacy",
+        "legacy hospitals"
+      ],
+      "hq_state": "OR",
+      "regions": [
+        "OR",
+        "WA"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "legacy emanuel medical center",
+        "legacy good samaritan medical center"
+      ],
+      "website": "legacyhealth.org"
+    },
+    {
+      "id": "ohsu",
+      "canonical": "oregon health & science university",
+      "display_name": "OHSU",
+      "aliases": [
+        "ohsu",
+        "ohsu health"
+      ],
+      "hq_state": "OR",
+      "regions": [
+        "OR"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ohsu hospital",
+        "doernbecher children's hospital"
+      ],
+      "website": "ohsu.edu"
+    },
+    {
+      "id": "dignity-health",
+      "canonical": "dignity health",
+      "display_name": "Dignity Health",
+      "aliases": [
+        "dignity"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA",
+        "AZ",
+        "NV"
+      ],
+      "hospitals": 40,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "st. mary's medical center",
+        "st. joseph's hospital"
+      ],
+      "website": "dignityhealth.org",
+      "notes": "Part of CommonSpirit Health"
+    },
+    {
+      "id": "hospital-for-special-surgery",
+      "canonical": "hospital for special surgery",
+      "display_name": "Hospital for Special Surgery",
+      "aliases": [
+        "hss"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY",
+        "CT",
+        "NJ",
+        "FL"
+      ],
+      "hospitals": 1 "canonical": "main line health",
+      "display_name": "Main Line Health",
+      "aliases": [
+        "mainline health",
+        "mlh"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "lankenau medical center",
+        "bryn mawr hospital",
+        "paoli hospital"
+      ],
+      "website": "mainlinehealth.org"
+    },
+    {
+      "id": "atlanTicare",
+      "canonical": "atlanticare",
+      "display_name": "AtlantiCare",
+      "aliases": [
+        "atlanticare health system"
+      ],
+      "hq_state": "NJ",
+      "regions": [
+        "NJ"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "atlanticare regional medical center"
+      ],
+      "website": "atlanticare.org"
+    },
+    {
+      "id": "baystate-health",
+      "canonical": "baystate health",
+      "display_name": "Baystate Health",
+      "aliases": [
+        "baystate",
+        "baystate medical center"
+      ],
+      "hq_state": "MA",
+      "regions": [
+        "MA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "baystate medical center"
+      ],
+      "website": "baystatehealth.org"
+    },
+    {
+      "id": "hartford-healthcare",
+      "canonical": "hartford healthcare",
+      "display_name": "Hartford HealthCare",
+      "aliases": [
+        "hartford health",
+        "hhc"
+      ],
+      "hq_state": "CT",
+      "regions": [
+        "CT"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "hartford hospital",
+        "backus hospital",
+        "midstate medical center"
+      ],
+      "website": "hartfordhealthcare.org"
+    },
+    {
+      "id": "christiana-care",
+      "canonical": "christianacare",
+      "display_name": "ChristianaCare",
+      "aliases": [
+        "christiana care",
+        "christiana hospital"
+      ],
+      "hq_state": "DE",
+      "regions": [
+        "DE",
+        "PA",
+        "NJ",
+        "MD"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "christiana hospital",
+        "wilmington hospital"
+      ],
+      "website": "christianacare.org"
+    },
+    {
+      "id": "baptist-memorial-health-care",
+      "canonical": "baptist memorial health care",
+      "display_name": "Baptist Memorial Health Care",
+      "aliases": [
+        "baptist memorial",
+        "baptist memphis"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TN",
+        "MS",
+        "AR"
+      ],
+      "hospitals": 24,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "baptist memorial hospital-memphis"
+      ],
+      "website": "baptistonline.org"
+    },
+    {
+      "id": "methodist-health-system-dallas",
+      "canonical": "methodist health system",
+      "display_name": "Methodist Health System (Dallas)",
+      "aliases": [
+        "methodist dallas",
+        "methodist hospitals dallas"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "methodist dallas medical center",
+        "methodist charlton medical center"
+      ],
+      "website": "methodisthealthsystem.org"
+    },
+    {
+      "id": "methodist-le-bonheur",
+      "canonical": "methodist le bonheur healthcare",
+      "display_name": "Methodist Le Bonheur Healthcare",
+      "aliases": [
+        "methodist le bonheur",
+        "le bonheur children's"
+      ],
+      "hq_state": "TN",
+      "regions": [
+        "TN",
+        "MS",
+        "AR"
+      ],
+      "hospitals": 6,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "methodist university hospital",
+        "le bonheur children's hospital"
+      ],
+      "website": "methodisthealth.org"
+    },
+    {
+      "id": "university-of-minnesota-health",
+      "canonical": "m health fairview",
+      "display_name": "M Health Fairview",
+      "aliases": [
+        "fairview health services",
+        "university of minnesota health",
+        "m health"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "university of minnesota medical center",
+        "fairview ridges hospital",
+        "fairview southdale hospital"
+      ],
+      "website": "mhealthfairview.org"
+    },
+    {
+      "id": "allina-health",
+      "canonical": "allina health",
+      "display_name": "Allina Health",
+      "aliases": [
+        "allina"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN",
+        "WI"
+      ],
+      "hospitals": 12,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "abbott northwestern hospital",
+        "united hospital",
+        "mercy hospital"
+      ],
+      "website": "allinahealth.org"
+    },
+    {
+      "id": "centracare",
+      "canonical": "centracare",
+      "display_name": "CentraCare",
+      "aliases": [
+        "centracare health",
+        "st. cloud hospital"
+      ],
+      "hq_state": "MN",
+      "regions": [
+        "MN"
+      ],
+      "hospitals": 9,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "st. cloud hospital"
+      ],
+      "website": "centracare.com"
+    },
+    {
+      "id": "unitypoint-health",
+      "canonical": "unitypoint health",
+      "display_name": "UnityPoint Health",
+      "aliases": [
+        "unitypoint",
+        "iowa health system"
+      ],
+      "hq_state": "IA",
+      "regions": [
+        "IA",
+        "IL",
+        "WI"
+      ],
+      "hospitals": 9,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "unitypoint health-des moines",
+        "unitypoint health-cedar rapids"
+      ],
+      "website": "unitypoint.org"
+    },
+    {
+      "id": "iowa-ortho",
+      "canonical": "iowa ortho",
+      "display_name": "Iowa Ortho",
+      "aliases": [
+        "iowa orthopedics",
+        "iowa orthopedics ctr",
+        "iowa orthopaedics"
+      ],
+      "hq_state": "IA",
+      "regions": [
+        "IA"
+      ],
+      "hospitals": 0,
+      "type": "physician-group",
+      "subsidiaries": [],
+      "website": "iowaortho.com",
+      "notes": "Known PDL resolution issue â canonical name is 'iowa ortho', commonly searched as 'iowa orthopedics'"
+    },
+    {
+      "id": "multicare-health-system",
+      "canonical": "multicare health system",
+      "display_name": "MultiCare Health System",
+      "aliases": [
+        "multicare"
+      ],
+      "hq_state": "WA",
+      "regions": [
+        "WA"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "tacoma general hospital",
+        "good samaritan hospital"
+      ],
+      "website": "multicare.org"
+    },
+    {
+      "id": "virginia-mason-franciscan-health",
+      "canonical": "virginia mason franciscan health",
+      "display_name": "Virginia Mason Franciscan Health",
+      "aliases": [
+        "virginia mason",
+        "vmfh",
+        "franciscan health"
+      ],
+      "hq_state": "WA",
+      "regions": [
+        "WA"
+      ],
+      "hospitals": 10,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "virginia mason medical center",
+        "st. joseph medical center"
+      ],
+      "website": "virginiamason.org",
+      "notes": "Part of CommonSpirit Health"
+    },
+    {
+      "id": "legacy-health",
+      "canonical": "legacy health",
+      "display_name": "Legacy Health",
+      "aliases": [
+        "legacy",
+        "legacy hospitals"
+      ],
+      "hq_state": "OR",
+      "regions": [
+        "OR",
+        "WA"
+      ],
+      "hospitals": 7,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "legacy emanuel medical center",
+        "legacy good samaritan medical center"
+      ],
+      "website": "legacyhealth.org"
+    },
+    {
+      "id": "ohsu",
+      "canonical": "oregon health & science university",
+      "display_name": "OHSU",
+      "aliases": [
+        "ohsu",
+        "ohsu health"
+      ],
+      "hq_state": "OR",
+      "regions": [
+        "OR"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "ohsu hospital",
+        "doernbecher children's hospital"
+      ],
+      "website": "ohsu.edu"
+    },
+    {
+      "id": "dignity-health",
+      "canonical": "dignity health",
+      "display_name": "Dignity Health",
+      "aliases": [
+        "dignity"
+      ],
+      "hq_state": "CA",
+      "regions": [
+        "CA",
+        "AZ",
+        "NV"
+      ],
+      "hospitals": 40,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "st. mary's medical center",
+        "st. joseph's hospital"
+      ],
+      "website": "dignityhealth.org",
+      "notes": "Part of CommonSpirit Health"
+    },
+    {
+      "id": "hospital-for-special-surgery",
+      "canonical": "hospital for special surgery",
+      "display_name": "Hospital for Special Surgery",
+      "aliases": [
+        "hss"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY",
+        "CT",
+        "NJ",
+        "FL"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "hss.edu",
+      "notes": "Top orthopedic hospital nationally"
+    },
+    {
+      "id": "memorial-sloan-kettering",
+      "canonical": "memorial sloan kettering cancer center",
+      "display_name": "Memorial Sloan Kettering Cancer Center",
+      "aliases": [
+        "msk",
+        "mskcc",
+        "memorial sloan-kettering",
+        "sloan kettering"
+      ],
+      "hq_state": "NY",
+      "regions": [
+        "NY",
+        "NJ"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "mskcc.org"
+    },
+    {
+      "id": "dana-farber",
+      "canonical": "dana-farber cancer institute",
+      "display_name": "Dana-Farber Cancer Institute",
+      "aliases": [
+        "dana farber",
+        "dfci",
+        "dana-farber brigham"
+      ],
+      "hq_state": "MA",
+      "regions": [
+        "MA"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "dana-farber.org"
+    },
+    {
+      "id": "childrens-hospital-of-philadelphia",
+      "canonical": "children's hospital of philadelphia",
+      "display_name": "Children's Hospital of Philadelphia",
+      "aliases": [
+        "chop"
+      ],
+      "hq_state": "PA",
+      "regions": [
+        "PA",
+        "NJ"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "chop.edu"
+    },
+    {
+      "id": "texas-childrens-hospital",
+      "canonical": "texas children's hospital",
+      "display_name": "Texas Children's Hospital",
+      "aliases": [
+        "texas childrens",
+        "tch"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "texaschildrens.org"
+    },
+    {
+      "id": "boston-childrens-hospital",
+      "canonical": "boston children's hospital",
+      "display_name": "Boston Children's Hospital",
+      "aliases": [
+        "boston childrens",
+        "bch"
+      ],
+      "hq_state": "MA",
+      "regions": [
+        "MA"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "childrenshospital.org"
+    },
+    {
+      "id": "childrens-national",
+      "canonical": "children's national hospital",
+      "display_name": "Children's National Hospital",
+      "aliases": [
+        "childrens national",
+        "cnmc",
+        "children's national medical center"
+      ],
+      "hq_state": "DC",
+      "regions": [
+        "DC",
+        "MD",
+        "VA"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "childrensnational.org"
+    },
+    {
+      "id": "nemours",
+      "canonical": "nemours children's health",
+      "display_name": "Nemours Children's Health",
+      "aliases": [
+        "nemours",
+        "nemours/alfred i. dupont"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL",
+        "DE"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "nemours.org"
+    },
+    {
+      "id": "grady-health-system",
+      "canonical": "grady health system",
+      "display_name": "Grady Health System",
+      "aliases": [
+        "grady",
+        "grady memorial hospital",
+        "grady hospital"
+      ],
+      "hq_state": "GA",
+      "regions": [
+        "GA"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "gradyhealth.org"
+    },
+    {
+      "id": "parkland-health",
+      "canonical": "parkland health",
+      "display_name": "Parkland Health",
+      "aliases": [
+        "parkland",
+        "parkland memorial hospital",
+        "parkland hospital"
+      ],
+      "hq_state": "TX",
+      "regions": [
+        "TX"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "parklandhealth.org"
+    },
+    {
+      "id": "jackson-health-system",
+      "canonical": "jackson health system",
+      "display_name": "Jackson Health System",
+      "aliases": [
+        "jackson",
+        "jackson memorial hospital",
+        "jackson memorial"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL"
+      ],
+      "hospitals": 3,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "jackson memorial hospital",
+        "holtz children's hospital"
+      ],
+      "website": "jacksonhealth.org"
+    },
+    {
+      "id": "cook-county-health",
+      "canonical": "cook county health",
+      "display_name": "Cook County Health",
+      "aliases": [
+        "cook county hospital",
+        "stroger hospital",
+        "john h. stroger jr. hospital"
+      ],
+      "hq_state": "IL",
+      "regions": [
+        "IL"
+      ],
+      "hospitals": 2,
+      "type": "public",
+      "subsidiaries": [
+        "john h. stroger jr. hospital of cook county",
+        "provident hospital"
+      ],
+      "website": "cookcountyhealth.org"
+    },
+    {
+      "id": "beaumont-health-royal-oak",
+      "canonical": "corewell health william beaumont university hospital",
+      "display_name": "Corewell Health Beaumont",
+      "aliases": [
+        "beaumont royal oak",
+        "william beaumont hospital"
+      ],
+      "hq_state": "MI",
+      "regions": [
+        "MI"
+      ],
+      "hospitals": 1,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "corewellhealth.org",
+      "notes": "Part of Corewell Health"
+    },
+    {
+      "id": "university-of-washington-medicine",
+      "canonical": "uw medicine",
+      "display_name": "UW Medicine",
+      "aliases": [
+        "university of washington medicine",
+        "uw medical center",
+        "harborview medical center"
+      ],
+      "hq_state": "WA",
+      "regions": [
+        "WA"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "uw medical center",
+        "harborview medical center",
+        "valley medical center"
+      ],
+      "website": "uwmedicine.org"
+    },
+    {
+      "id": "barnes-jewish-hospital",
+      "canonical": "bjc healthcare",
+      "display_name": "BJC HealthCare",
+      "aliases": [
+        "barnes-jewish",
+        "bjc",
+        "washington university",
+        "barnes jewish hospital"
+      ],
+      "hq_state": "MO",
+      "regions": [
+        "MO",
+        "IL"
+      ],
+      "hospitals": 14,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "barnes-jewish hospital",
+        "st. louis children's hospital",
+        "missouri baptist medical center",
+        "christian hospital"
+      ],
+      "website": "bjc.org"
+    },
+    {
+      "id": "university-of-kansas-health-system",
+      "canonical": "the university of kansas health system",
+      "display_name": "The University of Kansas Health System",
+      "aliases": [
+        "ku health",
+        "ku med",
+        "university of kansas hospital",
+        "kumc"
+      ],
+      "hq_state": "KS",
+      "regions": [
+        "KS",
+        "MO"
+      ],
+      "hospitals": 4,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "the university of kansas hospital"
+      ],
+      "website": "kansashealthsystem.com"
+    },
+    {
+      "id": "nebraska-medicine",
+      "canonical": "nebraska medicine",
+      "display_name": "Nebraska Medicine",
+      "aliases": [
+        "unmc",
+        "university of nebraska medical center"
+      ],
+      "hq_state": "NE",
+      "regions": [
+        "NE"
+      ],
+      "hospitals": 2,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "nebraska medical center"
+      ],
+      "website": "nebraskamed.com"
+    },
+    {
+      "id": "promedica",
+      "canonical": "promedica",
+      "display_name": "ProMedica",
+      "aliases": [
+        "promedica health system"
+      ],
+      "hq_state": "OH",
+      "regions": [
+        "OH",
+        "MI"
+      ],
+      "hospitals": 13,
+      "type": "nonprofit",
+      "subsidiaries": [
+        "promedica toledo hospital",
+        "promedica flower hospital"
+      ],
+      "website": "promedica.org"
+    },
+    {
+      "id": "lsu-health",
+      "canonical": "lsu health",
+      "display_name": "LSU Health",
+      "aliases": [
+        "louisiana state university health",
+        "lsuhsc"
+      ],
+      "hq_state": "LA",
+      "regions": [
+        "LA"
+      ],
+      "hospitals": 3,
+      "type": "public",
+      "subsidiaries": [
+        "university medical center new orleans"
+      ],
+      "website": "lsuhsc.edu"
+    },
+    {
+      "id": "sarasota-memorial-health",
+      "canonical": "sarasota memorial health care system",
+      "display_name": "Sarasota Memorial Health Care System",
+      "aliases": [
+        "sarasota memorial",
+        "smh"
+      ],
+      "hq_state": "FL",
+      "regions": [
+        "FL"
+      ],
+      "hospitals": 2,
+      "type": "public",
+      "subsidiaries": [
+        "sarasota memorial hospital"
+      ],
+      "website": "smh.com"
+    },
+    {
+      "id": "our-lady-of-the-lake",
+      "canonical": "our lady of the lake regional medical center",
+      "display_name": "Our Lady of the Lake Regional Medical Center",
+      "aliases": [
+        "olol",
+        "our lady of the lake",
+        "lady of the lake"
+      ],
+      "hq_state": "LA",
+      "regions": [
+        "LA"
+      ],
+      "hospitals": 5,
+      "type": "nonprofit",
+      "subsidiaries": [],
+      "website": "ololrmc.com",
+      "notes": "Part of Franciscan Missionaries of Our Lady Health System"
+    }
+  ]
+}
