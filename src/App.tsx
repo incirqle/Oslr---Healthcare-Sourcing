@@ -10,6 +10,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./hooks/useAuth";
 import SearchPage from "./pages/SearchPage";
 import SearchEntry from "./pages/SearchEntry";
+import ClinicianSearch from "./pages/ClinicianSearch";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Campaigns from "./pages/Campaigns";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<P><Dashboard /></P>} />
             <Route path="/search" element={<P><SearchEntry /></P>} />
+            <Route path="/clinician-search" element={<P><ClinicianSearch /></P>} />
             <Route path="/projects" element={<P><Projects /></P>} />
             <Route path="/projects/:id" element={<P><ProjectDetail /></P>} />
             <Route path="/projects/:projectId/search" element={<P><SearchPage /></P>} />

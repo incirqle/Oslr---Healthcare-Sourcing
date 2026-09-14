@@ -1,0 +1,310 @@
+/**
+ * clinician-criteria.test.ts — mapper + builder contract tests over the
+ * blueprint's canonical query archetypes plus the tense-mixed query.
+ * Pure modules only: no network, no env.
+ */
+import { assert, assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import {
+  mapParsedToCriteria,
+  matchEmployerGroup,
+  type EmployerGroupValue,
+  type SpecialtyValue,
+  type TrainingStageValue,
+} from "./clinician-criteria.ts";
+import {
+  buildClinicianQuery,
+  connectorVariants,
+  safeTitleTerms,
+  type V2FilterBranch,
+  type V2FilterLeaf,
+  type V2FilterNode,
+} from "./build-clinician-query.ts";
+import { validateAIOutput } from "./parse-query.ts";
+import { widenOptions } from "./widen-criteria.ts";
+import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts";
+import { classifyEmployer } from "./employer-class.ts";
+
+/* ---------- helpers ---------- */
+
+function leaves(node: V2FilterNode | null): V2FilterLeaf[] {
+  if (!node) return [];
+  if ("field" in node) return [node];
+  return (node as V2FilterBranch).conditions.flatMap(leaves);
+}
+
+function fieldsUsed(node: V2FilterNode | null): Set<string> {
+  return new Set(leaves(node).map((l) => l.field));
+}
+
+/* ---------- archetype 1: PGY-3 podiatric residents in Texas ---------- */
+
+Deno.test("archetype 1: PGY-3 podiatric residents in Texas", () => {
+  const parsed = validateAIOutput({
+    role_class: "resident",
+    training_stage: { profession: "podiatric", stage: "residency", year: 3 },
+    job_titles: [],
+    specialty: "podiatry",
+    specialties: ["podiatry"],
+    specialty_tense: "current",
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const stage = criteria.find((c) => c.kind === "training_stage");
+  assertExists(stage);
+  const sv = stage!.value as TrainingStageValue;
+  assertEquals(sv.year, 3);
+  // Probe-verified spellings all present.
+  for (const t of ["podiatry resident", "podiatric resident", "podiatric surgery resident", "podiatric surgical resident"]) {
+    assert(sv.title_terms.includes(t), `missing stage term: ${t}`);
+  }
+  // The PGY-pharmacy trap: bare "pgy" never becomes a filter term.
+  const tree = buildClinicianQuery(criteria);
+  const allValues = leaves(tree).map((l) => String(l.value).toLowerCase());
+  assert(!allValues.some((v) => v === "pgy" || v === "pgy-3" || v === "pgy3"), "bare PGY leaked into filters");
+  // Location is a state '=' leaf, never `in`.
+  const stateLeaves = leaves(tree).filter((l) => l.field === "basic_profile.location.state");
+  assertEquals(stateLeaves.length, 1);
+  assertEquals(stateLeaves[0].type, "=");
+  assertEquals(stateLeaves[0].value, "texas");
+  // No invented titles: no `title` criterion exists.
+  assert(!criteria.some((c) => c.kind === "title"), "invented title criterion");
+});
+
+/* ---------- archetype 2: cardiovascular-background nurses, 5+ years ---------- */
+
+Deno.test("archetype 2: nurses with cardiovascular background, 5 years experience", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    job_titles: [],
+    specialty: "cardiovascular",
+    specialties: ["cardiovascular"],
+    specialty_tense: "any",
+    min_years_experience: 5,
+    location: {},
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const roleClass = criteria.find((c) => c.kind === "role_class");
+  assertExists(roleClass);
+  const spec = criteria.find((c) => c.kind === "specialty");
+  assertExists(spec);
+  assertEquals((spec!.value as SpecialtyValue).tense, "any");
+
+  const exp = criteria.find((c) => c.kind === "experience");
+  assertExists(exp, "min_years_experience must survive the validator→mapper chain (the exact field the reference engine once dropped)");
+
+  const tree = buildClinicianQuery(criteria);
+  const fields = fieldsUsed(tree);
+  // Background phrasing licenses history: past surfaces present.
+  assert(fields.has("experience.employment_details.past.title"), "tense 'any' must include past titles");
+  assert(fields.has("years_of_experience_raw"));
+  // Inferred US default appended when no location stated.
+  assert(criteria.some((c) => c.kind === "location" && c.source === "inferred"));
+});
+
+/* ---------- archetype 3: orthopedic physicians at the VA ---------- */
+
+Deno.test("archetype 3: orthopedic physicians at the VA", () => {
+  assertExists(matchEmployerGroup("the va"));
+  assertExists(matchEmployerGroup("veterans affairs"));
+
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    job_titles: [],
+    specialty: "orthopedic",
+    specialties: ["orthopedic"],
+    specialty_tense: "current",
+    current_companies: ["the va"],
+    location: {},
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const group = criteria.find((c) => c.kind === "employer_group");
+  assertExists(group, "the VA must resolve to an employer_group, never a bare name");
+  const gv = group!.value as EmployerGroupValue;
+  assert(gv.company_ids.includes(1129891), "VA anchor id missing");
+  assert(gv.domains.includes("va.gov"));
+  // No plain company criterion duplicates the group.
+  assert(!criteria.some((c) => c.kind === "company"), "VA must not also emit a company criterion");
+
+  const tree = buildClinicianQuery(criteria);
+  const allLeaves = leaves(tree);
+  // NEVER a bare "VA" substring filter.
+  assert(
+    !allLeaves.some((l) => typeof l.value === "string" && l.value.toLowerCase().trim() === "va"),
+    "bare 'VA' substring leaked into filters",
+  );
+  // Both spellings of orthopedic present (ae/e connector family).
+  const values = allLeaves.map((l) => String(l.value).toLowerCase());
+  assert(values.some((v) => v.includes("orthopaedic")), "orthopaedic spelling missing");
+  assert(values.some((v) => v.includes("orthopedic")), "orthopedic spelling missing");
+  // Specialty is current-tense: no past surfaces in the tree.
+  const fields = fieldsUsed(tree);
+  assert(!fields.has("experience.employment_details.past.title"), "current-tense ask leaked past surfaces");
+});
+
+/* ---------- tense query: former OR nurse, now med-surg, Dallas ---------- */
+
+Deno.test("tense query: former OR nurse now on a med-surg floor in Dallas", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    job_titles: [],
+    specialties: ["operating room", "perioperative"],
+    specialty_tense: "past",
+    required_keywords: ["med surg", "medical surgical"],
+    location: { city: "dallas", state: "texas" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const specialties = criteria.filter((c) => c.kind === "specialty");
+  assertEquals(specialties.length, 2, "past ask must split into past + current specialty criteria");
+  const past = specialties.find((c) => (c.value as SpecialtyValue).tense === "past");
+  const current = specialties.find((c) => (c.value as SpecialtyValue).tense === "current");
+  assertExists(past);
+  assertExists(current);
+  assert((past!.value as SpecialtyValue).terms.includes("operating room"));
+  assert((current!.value as SpecialtyValue).terms.includes("med surg"));
+
+  const tree = buildClinicianQuery(criteria);
+  const allLeaves = leaves(tree);
+  // The past-tense group touches ONLY past surfaces.
+  const orLeaves = allLeaves.filter((l) => String(l.value).includes("operating room"));
+  assert(orLeaves.length > 0);
+  assert(
+    orLeaves.every((l) => l.field.startsWith("experience.employment_details.past.")),
+    "past-tense specialty leaked onto current surfaces",
+  );
+  // The current group carries the med-surg connector triplet.
+  const msValues = allLeaves
+    .filter((l) => !l.field.startsWith("experience.employment_details.past."))
+    .map((l) => String(l.value).toLowerCase());
+  assert(msValues.includes("med surg"));
+  assert(msValues.includes("med/surg"));
+  assert(msValues.includes("med-surg"));
+  // City: state '=' AND (city '=' OR full_location substring) — never bare
+  // city equality (probe D: city='Dallas' alone removed every result).
+  const fields = fieldsUsed(tree);
+  assert(fields.has("basic_profile.location.full_location"), "city fallback surface missing");
+});
+
+/* ---------- unit: connector variants ---------- */
+
+Deno.test("connectorVariants covers and/&, slash-hyphen-space, ae/e", () => {
+  const andVars = connectorVariants("labor and delivery");
+  assert(andVars.includes("labor & delivery"));
+  const msVars = connectorVariants("med/surg");
+  assert(msVars.includes("med surg"));
+  assert(msVars.includes("med-surg"));
+  const aeVars = connectorVariants("orthopedic surgeon");
+  assert(aeVars.includes("orthopaedic surgeon"));
+  const eaVars = connectorVariants("orthopaedic surgeon");
+  assert(eaVars.includes("orthopedic surgeon"));
+});
+
+/* ---------- unit: short-token guard ---------- */
+
+Deno.test("safeTitleTerms drops short ambiguous tokens", () => {
+  const { kept, dropped } = safeTitleTerms(["md", "rn", "icu nurse"]);
+  assertEquals(kept, ["icu nurse"]);
+  assertEquals(dropped.sort(), ["md", "rn"]);
+});
+
+/* ---------- unit: widen options never offer the anchor ---------- */
+
+Deno.test("widenOptions skips company and employer_group anchors", () => {
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    specialties: ["orthopedic"],
+    current_companies: ["the va"],
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const opts = widenOptions(criteria);
+  const targets = new Set(opts.map((o) => o.targetId));
+  for (const c of criteria) {
+    if (c.kind === "employer_group" || c.kind === "company") {
+      assert(!targets.has(c.id), "widen offered to drop the employer anchor");
+    }
+  }
+});
+
+/* ---------- unit: match scope + stage fit ---------- */
+
+Deno.test("stale never-ended resident entry is demoted by scope and stage fit", () => {
+  const parsed = validateAIOutput({
+    role_class: "resident",
+    training_stage: { profession: "podiatric", stage: "residency", year: 3 },
+    specialties: ["podiatry"],
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  // Probe A's stale profile shape: primary role is practice owner, the
+  // "resident" title only on a secondary never-closed entry from 2010.
+  const staleProfile = {
+    headline: "Podiatrist + Owner",
+    current_employers: [
+      { title: "Owner", name: "Foot and Ankle Specialists", is_default: true, start_date: "2013-02-01T00:00:00" },
+      { title: "Chief Resident- Podiatric Medicine & Surgery", name: "Kingwood Medical Center", is_default: false, start_date: "2010-07-01T00:00:00" },
+    ],
+  };
+  assertEquals(computeMatchScope(staleProfile, criteria), "secondary");
+
+  const now = new Date("2026-09-14T00:00:00Z");
+  const stage = criteria.find((c) => c.kind === "training_stage")!.value as TrainingStageValue;
+  assertEquals(stageFit(staleProfile, stage, now), "out_of_window");
+
+  // Probe A's genuine PGY-3: residency started 2026-06 → in window fall 2026.
+  const genuine = {
+    headline: "Resident Physician (PGY3)",
+    current_employers: [
+      { title: "Resident Physician - Podiatric Medicine & Surgery", name: "Baylor Scott & White Health", is_default: true, start_date: "2024-06-01T00:00:00" },
+    ],
+  };
+  assertEquals(computeMatchScope(genuine, criteria), "primary");
+  assertEquals(stageFit(genuine, stage, now), "in_window");
+
+  const w = stageStartWindow(3, now);
+  assert(w.from < new Date("2024-06-01") && new Date("2024-06-01") < w.to);
+});
+
+/* ---------- unit: the great inversion ---------- */
+
+Deno.test("employer classifier tags but the engine never filters on it", async () => {
+  assertEquals(classifyEmployer("Baylor Scott & White Health"), "provider");
+  assertEquals(classifyEmployer("Stryker"), "commercial");
+  assertEquals(classifyEmployer("Aya Healthcare"), "commercial"); // staffing agency
+  // Grep-gate (port plan item 2): the reference's exclusion function must
+  // not exist anywhere in this engine.
+  const needle = ["partition", "Provider", "Employers"].join("");
+  const dir = new URL(".", import.meta.url).pathname;
+  for await (const entry of Deno.readDir(dir)) {
+    if (!entry.isFile || !entry.name.endsWith(".ts") || entry.name.endsWith(".test.ts")) continue;
+    const text = await Deno.readTextFile(dir + entry.name);
+    assert(
+      !text.includes(needle),
+      `provider-exclusion leaked into ${entry.name}`,
+    );
+  }
+});
+
+/* ---------- unit: cached_parsed id stability ---------- */
+
+Deno.test("criterion ids are stable across a re-validated cached parse", () => {
+  const first = validateAIOutput({
+    role_class: "nurse",
+    specialties: ["cardiovascular"],
+    specialty_tense: "any",
+    min_years_experience: 5,
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>;
+  const criteria1 = mapParsedToCriteria(first);
+  // Simulate the client echoing `parsed` back as cached_parsed.
+  const second = validateAIOutput(first) as unknown as Record<string, unknown>;
+  const criteria2 = mapParsedToCriteria(second);
+  assertEquals(
+    criteria1.map((c) => `${c.id}:${c.kind}`),
+    criteria2.map((c) => `${c.id}:${c.kind}`),
+  );
+});

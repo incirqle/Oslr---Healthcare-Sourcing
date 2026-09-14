@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.company-enrichment]
 verify_jwt = false
+
+[functions.search-clinicians]
+verify_jwt = false

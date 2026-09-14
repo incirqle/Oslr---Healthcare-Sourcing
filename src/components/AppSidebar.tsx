@@ -9,6 +9,7 @@ import {
   Users,
   BarChart2,
   BookOpen,
+  Stethoscope,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
@@ -32,6 +33,7 @@ const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Search", url: "/search", icon: Search },
+  { title: "Clinician Search", url: "/clinician-search", icon: Stethoscope },
   { title: "Contacts", url: "/contacts", icon: Users },
   { title: "Analytics", url: "/analytics/outreach", icon: BarChart2 },
   { title: "Campaigns", url: "/campaigns", icon: Mail },
