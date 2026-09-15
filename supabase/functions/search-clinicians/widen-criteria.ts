@@ -155,6 +155,20 @@ export function applyRelaxations(
       const v = c.value as LocationValue;
       if ((v.level !== "city" && v.level !== "region") || !v.state) return c;
       const fromLabel = v.level === "region" ? c.label : titleCase(v.city ?? "");
+      // A border-straddling metro (Tri-State, DMV, Chicagoland) widens to
+      // ALL its clipping states, not just the primary one.
+      const states = v.level === "region" && Array.isArray(v.states) && v.states.length > 1
+        ? v.states
+        : null;
+      if (states) {
+        const label = states.map(titleCase).join(" / ");
+        relaxed.push(`${fromLabel} → ${label}`);
+        return {
+          ...c,
+          label,
+          value: { level: "multi_state", states: [...states] } as LocationValue,
+        };
+      }
       relaxed.push(`${fromLabel} → ${titleCase(v.state)}`);
       return {
         ...c,

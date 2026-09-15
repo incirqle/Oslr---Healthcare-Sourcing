@@ -273,8 +273,14 @@ export function buildClinicianQuery(
           const circles = region.circles.map((g) =>
             leaf(F.location, "geo_distance", { lat_lng: [g.lat, g.lng], distance: g.radius_mi, unit: "mi" })
           );
+          // Clip to every state the metro straddles (Tri-State, DMV,
+          // Chicagoland) — or() of "=" leaves, never `in`.
+          const clipStates = region.states ?? [region.state];
+          const clip = clipStates.length === 1
+            ? leaf(F.state, "=", clipStates[0])
+            : or(...clipStates.map((s) => leaf(F.state, "=", s)));
           locationAlternatives.push(and(
-            leaf(F.state, "=", region.state),
+            clip,
             circles.length === 1 ? circles[0] : or(...circles),
           ));
         } else if (v.level === "multi_state" && Array.isArray(v.states) && v.states.length > 0) {

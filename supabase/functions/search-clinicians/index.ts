@@ -625,11 +625,19 @@ serve(async (req: Request): Promise<Response> => {
               c.kind === "location" && (c.value as { level?: string } | null)?.level === "region"
             );
             if (!loc) continue;
-            const v = loc.value as { level: string; state?: string | null };
+            const v = loc.value as { level: string; state?: string | null; states?: string[] };
             if (!v.state) continue;
-            label = `${loc.label} → all of ${v.state}`;
-            loc.value = { level: "state", state: v.state };
-            loc.label = v.state;
+            // Border-straddling metros widen to their full clipping-state set.
+            if (Array.isArray(v.states) && v.states.length > 1) {
+              const stateLabel = v.states.join(" / ");
+              label = `${loc.label} → all of ${stateLabel}`;
+              loc.value = { level: "multi_state", states: [...v.states] };
+              loc.label = stateLabel;
+            } else {
+              label = `${loc.label} → all of ${v.state}`;
+              loc.value = { level: "state", state: v.state };
+              loc.label = v.state;
+            }
           } else {
             const target = criteria.find((c) => c.kind === step.kind && c.enforcement === "hard");
             if (!target) continue;

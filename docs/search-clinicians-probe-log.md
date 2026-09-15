@@ -194,3 +194,30 @@ probes predicted. Engine test suite: 10/10 passing under Deno.
   his own title (→ new grader rule: recruiters/staffers of the asked role
   are rejects), plus two side-gig CRNAs whose is_default primary is a
   CEO/coach role (match-scope secondary).
+
+## Round 8 probes (2026-09-15) — regional gazetteer (Bay Area / South Florida / New England class)
+
+- **DC is a state value**: "district of columbia" is valid in
+  `basic_profile.location.state` — probe: nurses with state = district of
+  columbia → **8,582** (0.03 credits). So the DMV can clip on real state
+  leaves; no city hack needed.
+- **Border-straddling metros**: `SubStateRegion` gains `states?: string[]`;
+  the builder clip becomes `or("=" per state)` AND the geo circles. Metros
+  that cross lines now clip correctly: Chicagoland (IL/IN/WI), NYC metro
+  (NY/NJ/CT), DMV (DC/MD/VA), Philadelphia metro (PA/NJ/DE), Greater Boston
+  (MA/NH/RI), St. Louis (MO/IL), Kansas City (MO/KS), Charlotte (NC/SC),
+  Portland (OR/WA).
+- **Gazetteer scope**: ~30 sub-state metros (Bay Area, SoCal, South Florida,
+  Tampa Bay, front range, research triangle, twin cities, …) + ~17
+  multi-state bands (New England, Pacific Northwest, Northeast, Mid-Atlantic,
+  West Coast, Gulf Coast, Carolinas, Deep South, …). ~50 REGION_PHRASES
+  nickname patterns (dmv/dc metro, tri-state, chicagoland, rtp, lowcountry,
+  nova, …) backstop the raw query if the parser misses; the parser prompt's
+  region enum is now GENERATED from the tables so prompt and gazetteer can
+  never drift (test-enforced).
+- **Widening**: a border-straddling metro widens to ALL its clip states
+  (DMV → DC / MD / VA multi_state), not just the primary — in both the
+  user-facing widen action and the auto-widen `__region__` rung.
+- **LIVE RUN**: nurses in the DMV — or(dc,md,va state "=") AND 45mi DC
+  circle → **total_count 49,931**; sample rows in Washington DC and
+  Annapolis MD. The multi-state clip + circle shape works live.

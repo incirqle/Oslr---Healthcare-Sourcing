@@ -96,14 +96,23 @@ export interface GeoCircle {
 
 export interface SubStateRegion {
   label: string;
+  /** Primary clipping state (lowercase full name). */
   state: string;
+  /** All clipping states for metros that straddle borders (Tri-State, DMV,
+   *  Chicagoland). Clip = or() of "=" leaves over these; defaults to
+   *  [state]. */
+  states?: string[];
   circles: GeoCircle[];
 }
 
 /** Sub-state regions the parser may emit as location.region_key.
  *  geo_distance on basic_profile.location with lat_lng was live-verified
- *  2026-08-31 (reference) and re-verified 2026-09-14 (probe log, Dallas). */
+ *  2026-08-31 (reference) and re-verified 2026-09-14/15 (probe log: Dallas,
+ *  Golden/Boulder, South Florida). "district of columbia" as a state value
+ *  live-verified 2026-09-15 (8,582 DC nurses). Circles clip to `states`
+ *  so a radius never bleeds past the named geography. */
 export const SUB_STATE_REGIONS: Record<string, SubStateRegion> = {
+  // ── West ──
   bay_area: {
     label: "Bay Area",
     state: "california",
@@ -125,6 +134,59 @@ export const SUB_STATE_REGIONS: Record<string, SubStateRegion> = {
       { lat: 32.7157, lng: -117.1611, radius_mi: 60 },
     ],
   },
+  inland_empire: {
+    label: "Inland Empire",
+    state: "california",
+    circles: [{ lat: 34.0, lng: -117.35, radius_mi: 35 }], // Riverside–San Bernardino
+  },
+  central_valley: {
+    label: "Central Valley",
+    state: "california",
+    circles: [
+      { lat: 36.7378, lng: -119.7871, radius_mi: 60 }, // Fresno
+      { lat: 35.3733, lng: -119.0187, radius_mi: 40 }, // Bakersfield
+      { lat: 37.6391, lng: -120.9969, radius_mi: 40 }, // Modesto
+    ],
+  },
+  seattle_metro: {
+    label: "Seattle / Puget Sound",
+    state: "washington",
+    circles: [{ lat: 47.6062, lng: -122.3321, radius_mi: 50 }],
+  },
+  portland_metro: {
+    label: "Portland Metro",
+    state: "oregon",
+    states: ["oregon", "washington"],
+    circles: [{ lat: 45.5152, lng: -122.6784, radius_mi: 40 }],
+  },
+  phoenix_metro: {
+    label: "Phoenix / Valley of the Sun",
+    state: "arizona",
+    circles: [{ lat: 33.4484, lng: -112.074, radius_mi: 50 }],
+  },
+  las_vegas_valley: {
+    label: "Las Vegas Valley",
+    state: "nevada",
+    circles: [{ lat: 36.1699, lng: -115.1398, radius_mi: 35 }],
+  },
+  front_range: {
+    label: "Front Range",
+    state: "colorado",
+    circles: [
+      { lat: 39.7392, lng: -104.9903, radius_mi: 45 }, // Denver
+      { lat: 38.8339, lng: -104.8214, radius_mi: 30 }, // Colorado Springs
+      { lat: 40.5853, lng: -105.0844, radius_mi: 30 }, // Fort Collins
+    ],
+  },
+  wasatch_front: {
+    label: "Wasatch Front",
+    state: "utah",
+    circles: [
+      { lat: 40.7608, lng: -111.891, radius_mi: 40 }, // Salt Lake City
+      { lat: 40.2338, lng: -111.6585, radius_mi: 25 }, // Provo
+    ],
+  },
+  // ── Texas ──
   dfw_metroplex: {
     label: "Dallas–Fort Worth",
     state: "texas",
@@ -135,6 +197,46 @@ export const SUB_STATE_REGIONS: Record<string, SubStateRegion> = {
     state: "texas",
     circles: [{ lat: 29.7604, lng: -95.3698, radius_mi: 50 }],
   },
+  austin_metro: {
+    label: "Greater Austin",
+    state: "texas",
+    circles: [{ lat: 30.2672, lng: -97.7431, radius_mi: 40 }],
+  },
+  san_antonio_metro: {
+    label: "Greater San Antonio",
+    state: "texas",
+    circles: [{ lat: 29.4241, lng: -98.4936, radius_mi: 40 }],
+  },
+  // ── Midwest ──
+  chicagoland: {
+    label: "Chicagoland",
+    state: "illinois",
+    states: ["illinois", "indiana", "wisconsin"],
+    circles: [{ lat: 41.8781, lng: -87.6298, radius_mi: 50 }],
+  },
+  twin_cities: {
+    label: "Twin Cities",
+    state: "minnesota",
+    circles: [{ lat: 44.9778, lng: -93.265, radius_mi: 40 }],
+  },
+  detroit_metro: {
+    label: "Metro Detroit",
+    state: "michigan",
+    circles: [{ lat: 42.3314, lng: -83.0458, radius_mi: 45 }],
+  },
+  st_louis_metro: {
+    label: "Greater St. Louis",
+    state: "missouri",
+    states: ["missouri", "illinois"],
+    circles: [{ lat: 38.627, lng: -90.1994, radius_mi: 40 }],
+  },
+  kansas_city_metro: {
+    label: "Kansas City Metro",
+    state: "missouri",
+    states: ["missouri", "kansas"],
+    circles: [{ lat: 39.0997, lng: -94.5786, radius_mi: 40 }],
+  },
+  // ── South ──
   south_florida: {
     label: "South Florida",
     state: "florida",
@@ -142,6 +244,87 @@ export const SUB_STATE_REGIONS: Record<string, SubStateRegion> = {
       { lat: 25.7617, lng: -80.1918, radius_mi: 45 }, // Miami (covers Fort Lauderdale)
       { lat: 26.7153, lng: -80.0534, radius_mi: 35 }, // West Palm Beach
     ],
+  },
+  tampa_bay: {
+    label: "Tampa Bay",
+    state: "florida",
+    circles: [{ lat: 27.9506, lng: -82.4572, radius_mi: 40 }],
+  },
+  central_florida: {
+    label: "Central Florida",
+    state: "florida",
+    circles: [{ lat: 28.5384, lng: -81.3789, radius_mi: 45 }], // Orlando
+  },
+  metro_atlanta: {
+    label: "Metro Atlanta",
+    state: "georgia",
+    circles: [{ lat: 33.749, lng: -84.388, radius_mi: 50 }],
+  },
+  nashville_metro: {
+    label: "Greater Nashville / Middle Tennessee",
+    state: "tennessee",
+    circles: [{ lat: 36.1627, lng: -86.7816, radius_mi: 45 }],
+  },
+  research_triangle: {
+    label: "Research Triangle",
+    state: "north carolina",
+    circles: [{ lat: 35.8801, lng: -78.7880, radius_mi: 35 }], // Raleigh–Durham–Chapel Hill
+  },
+  charlotte_metro: {
+    label: "Charlotte Metro",
+    state: "north carolina",
+    states: ["north carolina", "south carolina"],
+    circles: [{ lat: 35.2271, lng: -80.8431, radius_mi: 40 }],
+  },
+  lowcountry: {
+    label: "Lowcountry",
+    state: "south carolina",
+    circles: [{ lat: 32.7765, lng: -79.9311, radius_mi: 40 }], // Charleston
+  },
+  upstate_sc: {
+    label: "Upstate South Carolina",
+    state: "south carolina",
+    circles: [{ lat: 34.8526, lng: -82.394, radius_mi: 35 }], // Greenville
+  },
+  hampton_roads: {
+    label: "Hampton Roads",
+    state: "virginia",
+    circles: [{ lat: 36.8508, lng: -76.2859, radius_mi: 35 }], // Norfolk / VA Beach
+  },
+  northern_virginia: {
+    label: "Northern Virginia",
+    state: "virginia",
+    circles: [{ lat: 38.8816, lng: -77.0910, radius_mi: 30 }], // Arlington
+  },
+  // ── Northeast / Mid-Atlantic metros ──
+  greater_boston: {
+    label: "Greater Boston",
+    state: "massachusetts",
+    states: ["massachusetts", "new hampshire", "rhode island"],
+    circles: [{ lat: 42.3601, lng: -71.0589, radius_mi: 40 }],
+  },
+  nyc_metro: {
+    label: "New York Metro / Tri-State",
+    state: "new york",
+    states: ["new york", "new jersey", "connecticut"],
+    circles: [{ lat: 40.7128, lng: -74.006, radius_mi: 50 }],
+  },
+  philadelphia_metro: {
+    label: "Greater Philadelphia / Delaware Valley",
+    state: "pennsylvania",
+    states: ["pennsylvania", "new jersey", "delaware"],
+    circles: [{ lat: 39.9526, lng: -75.1652, radius_mi: 40 }],
+  },
+  dmv: {
+    label: "DMV (DC–Maryland–Virginia)",
+    state: "district of columbia",
+    states: ["district of columbia", "maryland", "virginia"],
+    circles: [{ lat: 38.9072, lng: -77.0369, radius_mi: 45 }],
+  },
+  pittsburgh_metro: {
+    label: "Greater Pittsburgh",
+    state: "pennsylvania",
+    circles: [{ lat: 40.4406, lng: -79.9959, radius_mi: 40 }],
   },
 };
 
@@ -158,9 +341,35 @@ export const MULTI_STATE_REGIONS: Record<string, MultiStateRegion> = {
     label: "New England",
     states: ["massachusetts", "new hampshire", "vermont", "maine", "rhode island", "connecticut"],
   },
+  northeast: {
+    label: "Northeast",
+    states: [
+      "massachusetts", "new hampshire", "vermont", "maine", "rhode island",
+      "connecticut", "new york", "new jersey", "pennsylvania",
+    ],
+  },
+  mid_atlantic: {
+    label: "Mid-Atlantic",
+    states: [
+      "new york", "new jersey", "pennsylvania", "delaware", "maryland",
+      "virginia", "west virginia", "district of columbia",
+    ],
+  },
   pacific_northwest: {
     label: "Pacific Northwest",
     states: ["washington", "oregon"],
+  },
+  west_coast: {
+    label: "West Coast",
+    states: ["california", "oregon", "washington"],
+  },
+  mountain_west: {
+    label: "Mountain West",
+    states: ["colorado", "utah", "nevada", "idaho", "montana", "wyoming", "new mexico", "arizona"],
+  },
+  southwest: {
+    label: "Southwest",
+    states: ["arizona", "new mexico", "texas", "oklahoma", "nevada"],
   },
   midwest: {
     label: "Midwest",
@@ -169,9 +378,42 @@ export const MULTI_STATE_REGIONS: Record<string, MultiStateRegion> = {
       "iowa", "missouri", "north dakota", "south dakota", "nebraska", "kansas",
     ],
   },
+  upper_midwest: {
+    label: "Upper Midwest",
+    states: ["minnesota", "wisconsin", "michigan", "iowa", "north dakota", "south dakota"],
+  },
+  great_plains: {
+    label: "Great Plains",
+    states: ["kansas", "nebraska", "north dakota", "south dakota", "oklahoma"],
+  },
   southeast: {
     label: "Southeast",
     states: ["florida", "georgia", "alabama", "mississippi", "tennessee", "south carolina", "north carolina"],
+  },
+  deep_south: {
+    label: "Deep South",
+    states: ["alabama", "mississippi", "louisiana", "georgia", "south carolina"],
+  },
+  gulf_coast: {
+    label: "Gulf Coast",
+    states: ["texas", "louisiana", "mississippi", "alabama", "florida"],
+  },
+  carolinas: {
+    label: "The Carolinas",
+    states: ["north carolina", "south carolina"],
+  },
+  dakotas: {
+    label: "The Dakotas",
+    states: ["north dakota", "south dakota"],
+  },
+  east_coast: {
+    label: "East Coast",
+    states: [
+      "maine", "new hampshire", "massachusetts", "rhode island", "connecticut",
+      "new york", "new jersey", "delaware", "maryland", "virginia",
+      "north carolina", "south carolina", "georgia", "florida",
+      "district of columbia", "pennsylvania",
+    ],
   },
 };
 
@@ -413,17 +655,61 @@ export function decomposeSpecialtyTerms(terms: string[]): string[] {
 }
 
 const REGION_PHRASES: ReadonlyArray<{ pattern: RegExp; key: string }> = [
+  // ── metros / sub-state (most specific first) ──
   { pattern: /\b(?:sf|san francisco) bay area\b/i, key: "bay_area" },
   { pattern: /\bbay area\b/i, key: "bay_area" },
   { pattern: /\bnorthern california\b/i, key: "northern_california" },
-  { pattern: /\bsouthern california\b/i, key: "southern_california" },
+  { pattern: /\bsouthern california\b|\bsocal\b/i, key: "southern_california" },
+  { pattern: /\binland empire\b/i, key: "inland_empire" },
+  { pattern: /\bcentral valley\b/i, key: "central_valley" },
+  { pattern: /\bpuget sound\b|\bgreater seattle\b|\bseattle metro\b/i, key: "seattle_metro" },
+  { pattern: /\bgreater portland\b|\bportland metro\b/i, key: "portland_metro" },
+  { pattern: /\bvalley of the sun\b|\bgreater phoenix\b|\bphoenix metro\b/i, key: "phoenix_metro" },
+  { pattern: /\blas vegas valley\b|\bvegas valley\b/i, key: "las_vegas_valley" },
+  { pattern: /\bfront range\b|\bdenver metro\b|\bgreater denver\b/i, key: "front_range" },
+  { pattern: /\bwasatch front\b|\bsalt lake metro\b/i, key: "wasatch_front" },
   { pattern: /\b(?:dfw|dallas[- \/]fort worth|metroplex)\b/i, key: "dfw_metroplex" },
-  { pattern: /\bgreater houston\b/i, key: "houston_metro" },
+  { pattern: /\bgreater houston\b|\bhouston metro\b/i, key: "houston_metro" },
+  { pattern: /\bgreater austin\b|\baustin metro\b/i, key: "austin_metro" },
+  { pattern: /\bgreater san antonio\b|\bsan antonio metro\b/i, key: "san_antonio_metro" },
+  { pattern: /\bchicagoland\b|\bgreater chicago\b|\bchicago metro\b/i, key: "chicagoland" },
+  { pattern: /\btwin cities\b|\bminneapolis[- \/]st\.? paul\b/i, key: "twin_cities" },
+  { pattern: /\bmetro detroit\b|\bdetroit metro\b/i, key: "detroit_metro" },
+  { pattern: /\bgreater st\.? louis\b|\bst\.? louis metro\b/i, key: "st_louis_metro" },
+  { pattern: /\bkansas city metro\b|\bgreater kansas city\b/i, key: "kansas_city_metro" },
   { pattern: /\bsouth florida\b/i, key: "south_florida" },
+  { pattern: /\btampa bay\b/i, key: "tampa_bay" },
+  { pattern: /\bcentral florida\b|\bgreater orlando\b|\borlando metro\b/i, key: "central_florida" },
+  { pattern: /\bmetro atlanta\b|\bgreater atlanta\b|\batlanta metro\b/i, key: "metro_atlanta" },
+  { pattern: /\bgreater nashville\b|\bnashville metro\b|\bmiddle tennessee\b/i, key: "nashville_metro" },
+  { pattern: /\bresearch triangle\b|\braleigh[- \/]durham\b|\brtp\b/i, key: "research_triangle" },
+  { pattern: /\bcharlotte metro\b|\bgreater charlotte\b/i, key: "charlotte_metro" },
+  { pattern: /\blow ?country\b/i, key: "lowcountry" },
+  { pattern: /\bupstate (?:south carolina|sc)\b/i, key: "upstate_sc" },
+  { pattern: /\bhampton roads\b|\btidewater\b/i, key: "hampton_roads" },
+  { pattern: /\bnorthern virginia\b|\bnova\b/i, key: "northern_virginia" },
+  { pattern: /\bgreater boston\b|\bboston metro\b/i, key: "greater_boston" },
+  { pattern: /\btri[- ]?state(?: area)?\b|\bnyc metro\b|\bnew york metro\b|\bgreater new york\b/i, key: "nyc_metro" },
+  { pattern: /\bgreater philadelphia\b|\bphilly metro\b|\bphiladelphia metro\b|\bdelaware valley\b/i, key: "philadelphia_metro" },
+  { pattern: /\bdmv\b|\bdc metro\b|\bwashington metro(?:politan)? area\b|\bnational capital region\b/i, key: "dmv" },
+  { pattern: /\bgreater pittsburgh\b|\bpittsburgh metro\b/i, key: "pittsburgh_metro" },
+  // ── multi-state bands ──
   { pattern: /\bnew england\b/i, key: "new_england" },
+  { pattern: /\bmid[- ]atlantic\b/i, key: "mid_atlantic" },
+  { pattern: /\bnortheast\b/i, key: "northeast" },
   { pattern: /\bpacific northwest\b/i, key: "pacific_northwest" },
+  { pattern: /\bwest coast\b/i, key: "west_coast" },
+  { pattern: /\bmountain west\b/i, key: "mountain_west" },
+  { pattern: /\bsouthwest\b/i, key: "southwest" },
+  { pattern: /\bupper midwest\b/i, key: "upper_midwest" },
   { pattern: /\bmidwest\b/i, key: "midwest" },
+  { pattern: /\bgreat plains\b/i, key: "great_plains" },
+  { pattern: /\bdeep south\b/i, key: "deep_south" },
+  { pattern: /\bgulf coast\b/i, key: "gulf_coast" },
   { pattern: /\bsoutheast\b/i, key: "southeast" },
+  { pattern: /\b(?:the )?carolinas\b/i, key: "carolinas" },
+  { pattern: /\b(?:the )?dakotas\b/i, key: "dakotas" },
+  { pattern: /\beast coast\b|\beastern seaboard\b/i, key: "east_coast" },
 ];
 
 /** Backstop region detection on the raw query when the parser omitted it. */
@@ -529,7 +815,14 @@ export function mapParsedToCriteria(
       push({
         kind: "location",
         label: subState.label,
-        value: { level: "region", region_key: regionKey, state: subState.state },
+        value: {
+          level: "region",
+          region_key: regionKey,
+          state: subState.state,
+          // All clipping states, carried on the value so widen actions can
+          // relax a border-straddling metro to its full state set.
+          states: subState.states ?? [subState.state],
+        },
         enforcement: "hard",
         source: "user",
         evidenceSource: "search",

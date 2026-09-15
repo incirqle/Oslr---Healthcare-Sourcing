@@ -14,7 +14,7 @@
  */
 
 import { callClaude, CLAUDE_HAIKU } from "./ai-router.ts";
-import { SENIORITY_LEVELS } from "./clinician-criteria.ts";
+import { MULTI_STATE_REGIONS, SENIORITY_LEVELS, SUB_STATE_REGIONS } from "./clinician-criteria.ts";
 import { CARE_SETTINGS, KEYWORD_EXPANSIONS, ROLE_CLASSES } from "./clinical-vocabulary.ts";
 
 /* ------------------------------------------------------------------ */
@@ -291,6 +291,12 @@ function clinicianParserPrompt(): string {
   const enumList = SENIORITY_LEVELS.map((v) => `"${v}"`).join(", ");
   const roleClasses = Object.keys(ROLE_CLASSES).map((k) => `"${k}"`).join(", ");
   const careSettings = Object.keys(CARE_SETTINGS).map((k) => `"${k}"`).join(", ");
+  // Region enum generated from the tables — the prompt can never drift from
+  // what the mapper/builder actually support.
+  const regionKeys = [
+    ...Object.keys(SUB_STATE_REGIONS),
+    ...Object.keys(MULTI_STATE_REGIONS),
+  ].map((k) => `"${k}"`).join(",");
   return `
 You are the query parser for a clinical healthcare SOURCING search engine.
 Recruiters use it to find clinicians: nurses, physicians, residents and
@@ -351,7 +357,7 @@ RETURN THIS EXACT SHAPE:
     "state": string|null, "state_confidence": number,
     "city": string|null,  "city_confidence": number,
     "metro": string|null,
-    "region_key": string|null  // ONLY: "bay_area","northern_california","southern_california","dfw_metroplex","houston_metro","south_florida","new_england","pacific_northwest","midwest","southeast". Anything else: null + keep the state + note it in unmapped_concepts.
+    "region_key": string|null  // ONLY these exact keys: ${regionKeys}. Regional nicknames map here (Bay Area, South Florida, Chicagoland, DMV, Tri-State, Research Triangle, Front Range, Twin Cities, Mid-Atlantic, Gulf Coast, the Carolinas…). Metro keys also set the primary state; multi-state band keys leave state null. Anything not in the list: null + keep the state + note it in unmapped_concepts.
   },
   "locations":           [{"state": string, "city": string|null}, ...],
                          // ADDITIONAL locations beyond the first — "in Dallas or Houston"

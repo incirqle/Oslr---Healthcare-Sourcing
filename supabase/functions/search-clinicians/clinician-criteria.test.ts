@@ -847,3 +847,112 @@ Deno.test("region phrase backstop: 'south florida' in raw query resolves the reg
   const loc = reconciled.location as Record<string, unknown>;
   assertEquals(loc.region_key, "south_florida");
 });
+
+/* ---------- round 8: the regional gazetteer (2026-09-15) ---------- */
+
+Deno.test("regional gazetteer: every table entry builds a valid location group", async () => {
+  const { SUB_STATE_REGIONS, MULTI_STATE_REGIONS } = await import("./clinician-criteria.ts");
+  // Metros: clip states AND circles.
+  for (const [key, region] of Object.entries(SUB_STATE_REGIONS)) {
+    const criteria = mapParsedToCriteria(validateAIOutput({
+      role_class: "nurse",
+      specialties: ["critical care"],
+      location: { state: region.state, region_key: key },
+    }) as unknown as Record<string, unknown>);
+    const loc = criteria.find((c) => c.kind === "location");
+    assertExists(loc, `region ${key}: no location criterion`);
+    assertEquals(loc!.label, region.label);
+    const tree = buildClinicianQuery(criteria);
+    const geo = leaves(tree).filter((l) => l.type === "geo_distance");
+    assertEquals(geo.length, region.circles.length, `region ${key}: circle count`);
+    const clipStates = leaves(tree)
+      .filter((l) => l.field === "basic_profile.location.state")
+      .map((l) => l.value);
+    for (const s of region.states ?? [region.state]) {
+      assert(clipStates.includes(s), `region ${key}: missing clip state ${s}`);
+    }
+    // Never `in` on states.
+    assert(
+      leaves(tree).every((l) => l.field !== "basic_profile.location.state" || l.type === "="),
+      `region ${key}: state leaf must use '='`,
+    );
+  }
+  // Multi-state bands: or() of '=' leaves, one per state.
+  for (const [key, region] of Object.entries(MULTI_STATE_REGIONS)) {
+    const criteria = mapParsedToCriteria(validateAIOutput({
+      role_class: "nurse",
+      specialties: ["critical care"],
+      location: { region_key: key },
+    }) as unknown as Record<string, unknown>);
+    const tree = buildClinicianQuery(criteria);
+    const clipStates = leaves(tree)
+      .filter((l) => l.field === "basic_profile.location.state")
+      .map((l) => l.value);
+    assertEquals(clipStates.length, region.states.length, `band ${key}: state leaf count`);
+  }
+});
+
+Deno.test("border-straddling metros clip to every state and widen to the full set", async () => {
+  const { reconcileParsedClinicianIntent } = await import("./clinician-criteria.ts");
+  const { applyRelaxations } = await import("./widen-criteria.ts");
+  // DMV spans DC/MD/VA.
+  const parsed = reconcileParsedClinicianIntent(
+    validateAIOutput({
+      role_class: "nurse",
+      specialties: ["critical care"],
+      location: {},
+    }) as unknown as Record<string, unknown>,
+    "ICU nurses in the DMV",
+  );
+  const criteria = mapParsedToCriteria(parsed);
+  const loc = criteria.find((c) => c.kind === "location")!;
+  assertEquals(loc.label, "DMV (DC–Maryland–Virginia)");
+  const tree = buildClinicianQuery(criteria);
+  const clipStates = leaves(tree)
+    .filter((l) => l.field === "basic_profile.location.state")
+    .map((l) => l.value);
+  for (const s of ["district of columbia", "maryland", "virginia"]) {
+    assert(clipStates.includes(s), `DMV missing clip state ${s}`);
+  }
+  // city_to_state widen relaxes the metro to ALL three states.
+  const { criteria: widened, relaxed } = applyRelaxations(criteria, [], true);
+  const widenedLoc = widened.find((c) => c.kind === "location")!;
+  assertEquals((widenedLoc.value as { level: string }).level, "multi_state");
+  assertEquals(((widenedLoc.value as { states: string[] }).states).length, 3);
+  assert(relaxed.length === 1);
+});
+
+Deno.test("regional phrase backstops resolve nicknames from the raw query", async () => {
+  const { reconcileParsedClinicianIntent } = await import("./clinician-criteria.ts");
+  const cases: Array<[string, string]> = [
+    ["nurses in chicagoland", "chicagoland"],
+    ["CRNAs in the tri-state area", "nyc_metro"],
+    ["PTs in the research triangle", "research_triangle"],
+    ["physicians on the gulf coast", "gulf_coast"],
+    ["nurses in the carolinas", "carolinas"],
+    ["ICU nurses in the mid-atlantic", "mid_atlantic"],
+    ["hospitalists in the front range", "front_range"],
+    ["nurses in tampa bay", "tampa_bay"],
+  ];
+  for (const [query, expected] of cases) {
+    const parsed = reconcileParsedClinicianIntent(
+      validateAIOutput({ role_class: "nurse", location: {} }) as unknown as Record<string, unknown>,
+      query,
+    );
+    assertEquals(
+      (parsed.location as Record<string, unknown>).region_key,
+      expected,
+      `phrase backstop failed for: ${query}`,
+    );
+  }
+});
+
+Deno.test("parser prompt region enum stays in sync with the tables", async () => {
+  const src = await Deno.readTextFile(
+    new URL("./parse-query.ts", import.meta.url).pathname,
+  );
+  // The enum is generated from the tables at prompt-build time — the source
+  // must reference both tables, not a hand-typed list.
+  assert(src.includes("Object.keys(SUB_STATE_REGIONS)"));
+  assert(src.includes("Object.keys(MULTI_STATE_REGIONS)"));
+});
