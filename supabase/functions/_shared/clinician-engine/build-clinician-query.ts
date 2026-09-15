@@ -303,7 +303,7 @@ export function buildClinicianQuery(
               leaf(F.locationFull, "[.]", v.city),
               leaf(F.location, "geo_distance", {
                 location: `${v.city}, ${v.state}`,
-                distance: 15,
+                distance: v.radius_mi ?? 15,
                 unit: "mi",
               }),
             ),
@@ -320,7 +320,7 @@ export function buildClinicianQuery(
             leaf(F.locationFull, "[.]", v.city),
             leaf(F.location, "geo_distance", {
               location: v.city,
-              distance: 15,
+              distance: v.radius_mi ?? 15,
               unit: "mi",
             }),
           ));
@@ -350,14 +350,18 @@ export function buildClinicianQuery(
       }
       case "role_class": {
         // OR over the class's curated whole-word/phrase terms on the current
-        // title. Never an invented single title (blueprint §3.1); the terms
-        // are index-verified vocabulary, and connector variants cover the
-        // spelling families.
+        // title AND the headline. Never an invented single title (blueprint
+        // §3.1); the terms are index-verified vocabulary, and connector
+        // variants cover the spelling families. Headline matters for recall:
+        // live miss 2026-09-15 — Steadman's "Medical Director - Aspen" is an
+        // orthopedic surgeon only in his HEADLINE, and a title-only gate
+        // could not see him.
         const v = c.value as RoleClassValue;
         const clauses: V2FilterNode[] = [];
         for (const t of v.terms) {
           for (const variant of lexicalVariants(t)) {
             clauses.push(leaf(F.curTitle, "[.]", variant));
+            clauses.push(leaf(F.headline, "[.]", variant));
           }
         }
         if (clauses.length === 0) break;

@@ -86,6 +86,9 @@ export interface LocationValue {
   region_key?: string;
   states?: string[];
   preferred_city?: string;
+  /** City geo-circle radius in miles (default 15). The thin-city adaptive
+   *  widen sets 50 for rural markets whose catchment is the whole valley. */
+  radius_mi?: number;
 }
 
 export interface GeoCircle {

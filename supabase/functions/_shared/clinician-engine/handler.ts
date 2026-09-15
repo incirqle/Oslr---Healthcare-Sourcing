@@ -339,7 +339,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       }
 
       // 3. Criteria → v2 filter tree (hard criteria only).
-      const treeFilters = buildClinicianQuery(criteria);
+      let treeFilters = buildClinicianQuery(criteria);
       if (!treeFilters) {
         const err = classifySearchError("malformed_query");
         console.error(JSON.stringify({ event: "clinician_error", error_code: err.code, criteria, relaxed }));
@@ -470,6 +470,81 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         // upstream; empty searches bill 0 anyway).
         if (normalized.length > 0) {
           await setCrustDataCache(cacheKey, totalCount, normalized, searchRes.data.next_cursor);
+        }
+      }
+
+      // ── Thin-city adaptive radius (rural markets, 2026-09-15) ───────
+      // A 15mi circle treats Aspen like Manhattan: the real market is the
+      // whole valley (Basalt, Carbondale, Glenwood, Vail — live probe: 15
+      // people at 15mi vs 113 at 50mi, including the Steadman Aspen medical
+      // director). When a CITY-level ask comes back thin, widen the circle
+      // to 50mi, LABELLED, and prefer the core city in soft ranking. Dense
+      // metros (Denver: 378) never trigger.
+      const THIN_CITY_TOTAL = 25;
+      const CITY_WIDE_RADIUS_MI = 50;
+      {
+        const cityCrit = criteria.find((c) =>
+          c.kind === "location" &&
+          (c.value as { level?: string; city?: string }).level === "city" &&
+          (c.value as { city?: string }).city
+        );
+        if (cityCrit && totalCount < THIN_CITY_TOTAL) {
+          const v = cityCrit.value as {
+            city: string;
+            state?: string;
+            radius_mi?: number;
+            preferred_city?: string;
+          };
+          v.radius_mi = CITY_WIDE_RADIUS_MI;
+          v.preferred_city = v.city; // soft-rank boosts the core city
+          const cityLabel = cityCrit.label;
+          cityCrit.note =
+            `Thin local results — widened to ${CITY_WIDE_RADIUS_MI} miles around ${v.city}; ${v.city} itself still ranks first.`;
+          const wideFilters = buildClinicianQuery(criteria);
+          if (wideFilters) {
+            const wideKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS);
+            const cachedWide = bypassCache ? null : await getCrustDataCache(wideKey);
+            if (cachedWide && cachedWide.profiles.length > normalized.length) {
+              normalized = cachedWide.profiles;
+              totalCount = cachedWide.total_count;
+              nextCursor = cachedWide.next_cursor;
+              treeFilters = wideFilters;
+              relaxed.push(`${cityLabel} → within ${CITY_WIDE_RADIUS_MI} miles`);
+            } else if (!cachedWide) {
+              const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+              if (checkCeiling(spentNow, SEARCH_LIMIT).allow) {
+                const wide = await personSearchV2({
+                  filters: wideFilters as unknown as Record<string, unknown>,
+                  limit: SEARCH_LIMIT,
+                  fields: CARD_FIELDS,
+                });
+                if (wide.ok && wide.data.total_count > totalCount) {
+                  normalized = wide.data.profiles.map(normalizeCrustDataV2Profile);
+                  totalCount = wide.data.total_count;
+                  nextCursor = wide.data.next_cursor;
+                  treeFilters = wideFilters;
+                  const wideCredits = creditsForResults(normalized.length);
+                  credits += wideCredits;
+                  recordSessionSpend(creditLedger, sessionKey, wideCredits, SEARCH_TTL_MS);
+                  relaxed.push(`${cityLabel} → within ${CITY_WIDE_RADIUS_MI} miles`);
+                  await setCrustDataCache(wideKey, totalCount, normalized, nextCursor);
+                  console.log(JSON.stringify({
+                    event: "thin_city_radius_widen",
+                    city: v.city,
+                    from_total: THIN_CITY_TOTAL,
+                    to_total: totalCount,
+                  }));
+                }
+              }
+            }
+          }
+          // If widening found nothing more, restore the tight ask so the
+          // echoed criteria stay honest.
+          if (!relaxed.some((r) => r.includes(`within ${CITY_WIDE_RADIUS_MI} miles`))) {
+            delete v.radius_mi;
+            delete v.preferred_city;
+            cityCrit.note = undefined;
+          }
         }
       }
 

@@ -415,6 +415,7 @@ export const ROLE_CLASSES: Record<string, RoleClassDef> = {
     label: "Physicians",
     terms: [
       "physician", "doctor", "surgeon", "hospitalist", "attending",
+      "orthopedist", "orthopaedist",
       "cardiologist", "radiologist", "anesthesiologist", "pathologist",
       "dermatologist", "neurologist", "urologist", "oncologist",
       "gastroenterologist", "pulmonologist", "nephrologist",

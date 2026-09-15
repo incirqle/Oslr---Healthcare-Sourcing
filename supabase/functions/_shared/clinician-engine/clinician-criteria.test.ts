@@ -1035,3 +1035,32 @@ Deno.test("empty-intent criteria are detectable (guard input)", () => {
     "a location-only parse must carry no intent criteria",
   );
 });
+
+Deno.test("adaptive radius + headline role matching (Aspen recall fix)", () => {
+  // Live probe 2026-09-15: 15mi/title-only found 15 people; 50mi + headline
+  // matching found 113 — including Steadman's "Medical Director - Aspen"
+  // whose surgeon identity lives only in his headline.
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    specialty: "orthopedics",
+    location: { city: "aspen", state: "colorado" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  // Default: tight 15mi circle.
+  const tight = JSON.stringify(buildClinicianQuery(criteria));
+  assert(tight.includes('"distance":15'), "default city radius is 15mi");
+
+  // Role-class terms must gate on the HEADLINE as well as the title.
+  assert(
+    tight.includes('"basic_profile.headline","type":"[.]","value":"surgeon"'),
+    "role class must match headlines too",
+  );
+
+  // Thin-city widen: radius_mi=50 on the location value re-draws the circle.
+  const loc = criteria.find((c) => c.kind === "location")!;
+  (loc.value as { radius_mi?: number }).radius_mi = 50;
+  const wide = JSON.stringify(buildClinicianQuery(criteria));
+  assert(wide.includes('"distance":50'), "radius_mi=50 widens the circle");
+  assert(!wide.includes('"distance":15'), "widened tree drops the 15mi circle");
+});
