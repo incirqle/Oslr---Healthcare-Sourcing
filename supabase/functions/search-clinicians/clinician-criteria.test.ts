@@ -308,3 +308,143 @@ Deno.test("criterion ids are stable across a re-validated cached parse", () => {
     criteria2.map((c) => `${c.id}:${c.kind}`),
   );
 });
+
+/* ---------- round 2: elite gaps (2026-09-15) ---------- */
+
+Deno.test("multi-location: Dallas or Houston ORs, never ANDs to zero", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    specialties: ["critical care"],
+    required_keywords: ["icu"],
+    location: { city: "dallas", state: "texas" },
+    locations: [{ state: "texas", city: "houston" }, { state: "oklahoma" }],
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const locs = criteria.filter((c) => c.kind === "location");
+  assertEquals(locs.length, 3, "each location keeps its own positional criterion");
+
+  const tree = buildClinicianQuery(criteria) as V2FilterBranch;
+  // The top-level AND must contain exactly ONE location group (an OR of the
+  // alternatives), not three AND'd location clauses.
+  const topLocationNodes = tree.conditions.filter((n) =>
+    leaves(n).every((l) => l.field.startsWith("basic_profile.location")) && leaves(n).length > 0
+  );
+  assertEquals(topLocationNodes.length, 1, "locations must collapse into one OR group");
+  const group = topLocationNodes[0] as V2FilterBranch;
+  assertEquals(group.op, "or");
+  const stateValues = leaves(group).filter((l) => l.field === "basic_profile.location.state").map((l) => l.value);
+  assert(stateValues.includes("texas"));
+  assert(stateValues.includes("oklahoma"));
+});
+
+Deno.test("experience and tenure ranges emit floor and cap", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    specialties: ["critical care"],
+    min_years_experience: 5,
+    max_years_experience: 10,
+    tenure_max_years: 2,
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const exp = criteria.find((c) => c.kind === "experience");
+  assertExists(exp);
+  assertEquals(exp!.label, "5–10 years experience");
+  const tree = buildClinicianQuery(criteria);
+  const yoe = leaves(tree).filter((l) => l.field === "years_of_experience_raw");
+  assertEquals(yoe.length, 2);
+  assert(yoe.some((l) => l.type === "=>" && l.value === 5));
+  assert(yoe.some((l) => l.type === "=<" && l.value === 10));
+  const tenure = leaves(tree).filter((l) => l.field === "experience.employment_details.current.years_at_company_raw");
+  assertEquals(tenure.length, 1);
+  assertEquals(tenure[0].type, "=<");
+  assertEquals(tenure[0].value, 2);
+});
+
+Deno.test("employer size: small practices cap headcount, large floors it", () => {
+  const small = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["family medicine"],
+    practice_size: "small",
+    location: { state: "georgia" },
+  }) as unknown as Record<string, unknown>);
+  const sizeCriterion = small.find((c) => c.kind === "employer_size");
+  assertExists(sizeCriterion);
+  const smallTree = buildClinicianQuery(small);
+  const smallLeaves = leaves(smallTree).filter((l) => l.field === "experience.employment_details.current.company_headcount_latest");
+  assertEquals(smallLeaves.length, 1);
+  assertEquals(smallLeaves[0].type, "=<");
+  assertEquals(smallLeaves[0].value, 50);
+
+  const large = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    specialties: ["oncology"],
+    practice_size: "large",
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>);
+  const largeTree = buildClinicianQuery(large);
+  const largeLeaves = leaves(largeTree).filter((l) => l.field === "experience.employment_details.current.company_headcount_latest");
+  assertEquals(largeLeaves.length, 1);
+  assertEquals(largeLeaves[0].type, "=>");
+});
+
+Deno.test("resolved employer group (UMiami shape) builds ids + domains + variants in one OR", () => {
+  // The shape index.ts writes after resolveEmployerGroup upgrades a company
+  // criterion — probed live 2026-09-15.
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["cardiology"],
+    current_companies: ["university of miami"],
+    location: {},
+  }) as unknown as Record<string, unknown>);
+  const company = criteria.find((c) => c.kind === "company");
+  assertExists(company);
+  company!.kind = "employer_group";
+  company!.value = {
+    group_key: "resolved:university of miami",
+    name: "University of Miami",
+    company_ids: [6052108, 6510636, 1142323, 6061457, 1346670],
+    domains: ["miami.edu", "umiamihealth.org", "umiamihospital.com"],
+    name_variants: [
+      "university of miami",
+      "university of miami health system",
+      "university of miami miller school of medicine",
+      "uhealth - university of miami health system",
+    ],
+  } as unknown as typeof company.value;
+
+  const tree = buildClinicianQuery(criteria);
+  const idLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.company_id");
+  assertEquals(idLeaves.length, 1);
+  assertEquals(idLeaves[0].type, "in");
+  assert(Array.isArray(idLeaves[0].value) && (idLeaves[0].value as number[]).includes(1142323));
+  const domainLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.company_website_domain");
+  assert(domainLeaves.some((l) => l.value === "umiamihealth.org"));
+  const nameLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.company_name");
+  assert(nameLeaves.some((l) => String(l.value).includes("uhealth")));
+});
+
+Deno.test("compound chain query holds every filter at once", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    credentials: ["ccrn"],
+    specialties: ["critical care"],
+    required_keywords: ["icu"],
+    practice_size: "large",
+    min_years_experience: 5,
+    max_years_experience: 15,
+    past_companies: ["hca healthcare"],
+    location: { city: "dallas", state: "texas" },
+    locations: [{ state: "texas", city: "houston" }],
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const kinds = new Set(criteria.map((c) => c.kind));
+  for (const k of ["role_class", "credential", "specialty", "employer_size", "experience", "past_company", "location"]) {
+    assert(kinds.has(k as never), `compound query lost criterion kind: ${k}`);
+  }
+  const tree = buildClinicianQuery(criteria);
+  assertExists(tree);
+  // Past employer is AND'd (career chain), not OR'd with locations/employers.
+  const pastLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.past.company_name");
+  assertEquals(pastLeaves.length, 1);
+});

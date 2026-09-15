@@ -101,12 +101,18 @@ export interface ParsedClinicianPayload {
     metro: string | null;
     region_key: string | null;
   };
+  /** Additional locations beyond the first — "Dallas or Houston" (ORed). */
+  locations: Array<{ state?: string; city?: string }>;
   preferred_city: string | null;
   current_role_only: boolean;
   keywords: string[];
   required_keywords: string[];
   min_years_experience: number | null;
+  max_years_experience: number | null;
   tenure_min_years: number | null;
+  tenure_max_years: number | null;
+  /** Employer-size ask: "small" | "midsize" | "large" | null. */
+  practice_size: string | null;
   recently_changed_jobs: boolean;
   education_terms: string[];
   seniority_levels: string[];
@@ -121,13 +127,34 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
   const r = (raw ?? {}) as Record<string, unknown>;
   const loc = (r.location ?? {}) as Record<string, unknown>;
 
-  const minYearsRaw = r.min_years_experience;
-  const minYearsNum = typeof minYearsRaw === "number" ? minYearsRaw : typeof minYearsRaw === "string" ? Number(minYearsRaw) : NaN;
-  const minYearsExperience = Number.isFinite(minYearsNum) && minYearsNum > 0 ? Math.floor(minYearsNum) : null;
+  const posInt = (v: unknown): number | null => {
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  };
+  const minYearsExperience = posInt(r.min_years_experience);
+  const maxYearsExperience = posInt(r.max_years_experience);
+  const tenureMinYears = posInt(r.tenure_min_years);
+  const tenureMaxYears = posInt(r.tenure_max_years);
 
-  const tenureRaw = r.tenure_min_years;
-  const tenureNum = typeof tenureRaw === "number" ? tenureRaw : typeof tenureRaw === "string" ? Number(tenureRaw) : NaN;
-  const tenureMinYears = Number.isFinite(tenureNum) && tenureNum > 0 ? Math.floor(tenureNum) : null;
+  // Extra locations ("Dallas or Houston") — the mapper turns each into its
+  // own positional criterion; the builder ORs location criteria together.
+  const extraLocations: Array<{ state?: string; city?: string }> = [];
+  if (Array.isArray(r.locations)) {
+    for (const entry of r.locations) {
+      if (!entry || typeof entry !== "object") continue;
+      const row = entry as Record<string, unknown>;
+      const state = toStr(row.state);
+      const city = toStr(row.city);
+      if (state || city) {
+        extraLocations.push({ ...(state ? { state } : {}), ...(city ? { city } : {}) });
+      }
+    }
+  }
+
+  const practiceSizeRaw = toStr(r.practice_size);
+  const practiceSize = practiceSizeRaw && ["small", "midsize", "large"].includes(practiceSizeRaw)
+    ? practiceSizeRaw
+    : null;
 
   const excludeCurrent = toStrArr(r.exclude_current_companies);
   const current = toStrArr(r.current_companies);
@@ -192,12 +219,16 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
       metro: toStr(loc.metro),
       region_key: toStr(loc.region_key),
     },
+    locations: extraLocations,
     preferred_city: toStr(r.preferred_city),
     current_role_only: r.current_role_only === false ? false : true,
     keywords: toStrArr(r.keywords),
     required_keywords: toStrArr(r.required_keywords),
     min_years_experience: minYearsExperience,
+    max_years_experience: maxYearsExperience,
     tenure_min_years: tenureMinYears,
+    tenure_max_years: tenureMaxYears,
+    practice_size: practiceSize,
     recently_changed_jobs: r.recently_changed_jobs === true,
     education_terms: toStrArr(r.education_terms),
     // Case-preserving: the seniority enum is mixed-case; the mapper
@@ -309,12 +340,21 @@ RETURN THIS EXACT SHAPE:
     "metro": string|null,
     "region_key": string|null  // ONLY: "bay_area","northern_california","southern_california","dfw_metroplex","houston_metro","new_england","pacific_northwest","midwest","southeast". Anything else: null + keep the state + note it in unmapped_concepts.
   },
+  "locations":           [{"state": string, "city": string|null}, ...],
+                         // ADDITIONAL locations beyond the first — "in Dallas or Houston"
+                         // puts dallas/texas in location and houston/texas here. Multiple
+                         // locations are ALTERNATIVES (either place). [] when only one.
   "preferred_city":      string|null,  // "ideally near X" is a preference: city here, only its STATE in location.
   "current_role_only":   boolean,
   "keywords":            string[],
   "required_keywords":   string[],
-  "min_years_experience": number|null,  // CAREER years: "5 years of experience" -> 5
+  "min_years_experience": number|null,  // CAREER years floor: "5 years of experience" -> 5; "5-10 years" -> 5
+  "max_years_experience": number|null,  // CAREER years cap: "5-10 years" -> 10; "under 3 years" / "early-career" -> 3
   "tenure_min_years":     number|null,  // years at the CURRENT employer/role: "5 years at Baylor" -> 5
+  "tenure_max_years":     number|null,  // cap on current-role years: "less than 2 years in their current job" -> 2
+  "practice_size":        "small"|"midsize"|"large"|null,
+                         // employer-size ask: "small private practices" / "independent practices" -> "small";
+                         // "large health systems" / "big academic medical centers" -> "large". null when unstated.
   "recently_changed_jobs": boolean,
   "education_terms":     string[],   // degree/program phrases ("bsn", "doctor of nursing practice", "podiatric medicine")
   "seniority_levels":    string[],   // ONLY explicit leadership-class asks, verbatim from: ${enumList}. "nurse leaders / CNOs" -> ["CXO","Vice President","Director"]. NEVER for trainees or bedside roles. [] otherwise.
@@ -346,6 +386,22 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    specialties: ["operating room", "perioperative"], specialty_tense: "past",
    required_keywords: ["med surg", "medical surgical"],  // their CURRENT floor
    location: {"city":"dallas","state":"texas", ...}
+
+5) "ICU nurses with 5 to 10 years of experience in Dallas or Houston."
+   role_class: "nurse", specialties: ["critical care"], required_keywords: ["icu", "intensive care"],
+   min_years_experience: 5, max_years_experience: 10,
+   location: {"city":"dallas","state":"texas", ...}, locations: [{"state":"texas","city":"houston"}]
+
+6) "Family medicine physicians at small private practices in Georgia."
+   role_class: "physician", specialties: ["family medicine"],
+   practice_size: "small", care_setting: "clinic", location: {"state":"georgia", ...}
+
+7) "Cardiologists at the University of Miami."
+   role_class: "physician", specialties: ["cardiology"],
+   current_companies: ["university of miami"]
+   // The engine resolves the whole entity family (UHealth, Miller School of
+   // Medicine, University of Miami Hospital…) — keep the name AS STATED,
+   // never expand employer entities yourself.
 
 COMPANY EXTRACTION:
   Each employer appears in EXACTLY ONE company field.

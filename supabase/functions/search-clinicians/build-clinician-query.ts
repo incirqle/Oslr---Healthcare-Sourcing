@@ -18,6 +18,7 @@ import type {
   CompanyValue,
   CredentialValue,
   EmployerGroupValue,
+  EmployerSizeValue,
   ExperienceValue,
   JobChangeValue,
   LocationValue,
@@ -75,6 +76,7 @@ const F = {
   pastTitle: "experience.employment_details.past.title",
   pastDescription: "experience.employment_details.past.description",
   curYearsAtCompany: "experience.employment_details.current.years_at_company_raw",
+  curCompanyHeadcount: "experience.employment_details.current.company_headcount_latest",
   recentlyChangedJobs: "recently_changed_jobs",
   eduDegree: "education.schools.degree",
   eduFieldOfStudy: "education.schools.field_of_study",
@@ -180,6 +182,11 @@ export function buildClinicianQuery(
   // Multiple named CURRENT employers (and employer groups) are alternatives —
   // a person works at one place. Past employers keep AND (career chains).
   const employerAlternatives: V2FilterNode[] = [];
+  // Multiple locations are alternatives too: "ICU nurses in Dallas or
+  // Houston" means either place. ANDed (each location its own hard clause,
+  // the pre-2026-09-15 behavior) two locations demanded a person be in both
+  // — a guaranteed zero.
+  const locationAlternatives: V2FilterNode[] = [];
 
   for (const c of criteria) {
     if (c.enforcement !== "hard") continue;
@@ -230,13 +237,13 @@ export function buildClinicianQuery(
       case "location": {
         const v = c.value as LocationValue;
         if (v.level === "country" && v.country) {
-          hard.push(leaf(F.country, "=", v.country));
+          locationAlternatives.push(leaf(F.country, "=", v.country));
         } else if (v.level === "region" && v.region_key && SUB_STATE_REGIONS[v.region_key]) {
           const region = SUB_STATE_REGIONS[v.region_key];
           const circles = region.circles.map((g) =>
             leaf(F.location, "geo_distance", { lat_lng: [g.lat, g.lng], distance: g.radius_mi, unit: "mi" })
           );
-          hard.push(and(
+          locationAlternatives.push(and(
             leaf(F.state, "=", region.state),
             circles.length === 1 ? circles[0] : or(...circles),
           ));
@@ -244,23 +251,39 @@ export function buildClinicianQuery(
           // or() of "=" leaves. NEVER `in` (silently matches nothing —
           // reference probe 2026-08-31).
           const states = v.states.filter((s) => typeof s === "string" && s.trim());
-          if (states.length === 1) hard.push(leaf(F.state, "=", states[0]));
-          else if (states.length > 1) hard.push(or(...states.map((s) => leaf(F.state, "=", s))));
+          if (states.length === 1) locationAlternatives.push(leaf(F.state, "=", states[0]));
+          else if (states.length > 1) locationAlternatives.push(or(...states.map((s) => leaf(F.state, "=", s))));
         } else if (v.level === "city" && v.city && v.state) {
           // City equality is unreliable (probe D: city="Dallas" removed every
           // result). state= AND (city= OR full_location substring).
-          hard.push(and(
+          locationAlternatives.push(and(
             leaf(F.state, "=", v.state),
             or(leaf(F.city, "=", v.city), leaf(F.locationFull, "[.]", v.city)),
           ));
         } else if (v.state) {
-          hard.push(leaf(F.state, "=", v.state));
+          locationAlternatives.push(leaf(F.state, "=", v.state));
         }
         break;
       }
       case "experience": {
         const v = c.value as ExperienceValue;
-        hard.push(leaf(F.yoe, "=>", v.min));
+        if (typeof v.min === "number") hard.push(leaf(F.yoe, "=>", v.min));
+        if (typeof v.max === "number") hard.push(leaf(F.yoe, "=<", v.max));
+        break;
+      }
+      case "employer_size": {
+        // Live headcount on the current employer. A max-cap keeps untracked
+        // (headcount 0) employers — most small private practices have no
+        // tracked headcount, and dropping them would delete the very
+        // population the filter targets. A min-floor necessarily excludes
+        // untracked employers (the criterion note says so).
+        const v = c.value as EmployerSizeValue;
+        if (typeof v.max_headcount === "number") {
+          hard.push(leaf(F.curCompanyHeadcount, "=<", v.max_headcount));
+        }
+        if (typeof v.min_headcount === "number") {
+          hard.push(leaf(F.curCompanyHeadcount, "=>", v.min_headcount));
+        }
         break;
       }
       case "role_class": {
@@ -358,7 +381,8 @@ export function buildClinicianQuery(
       }
       case "tenure": {
         const v = c.value as TenureValue;
-        hard.push(leaf(F.curYearsAtCompany, "=>", v.min));
+        if (typeof v.min === "number") hard.push(leaf(F.curYearsAtCompany, "=>", v.min));
+        if (typeof v.max === "number") hard.push(leaf(F.curYearsAtCompany, "=<", v.max));
         break;
       }
       case "job_change": {
@@ -396,6 +420,9 @@ export function buildClinicianQuery(
 
   if (employerAlternatives.length === 1) hard.push(employerAlternatives[0]);
   else if (employerAlternatives.length > 1) hard.push(or(...employerAlternatives));
+
+  if (locationAlternatives.length === 1) hard.push(locationAlternatives[0]);
+  else if (locationAlternatives.length > 1) hard.push(or(...locationAlternatives));
 
   if (hard.length === 0) return null;
   return hard.length === 1 ? hard[0] : and(...hard);

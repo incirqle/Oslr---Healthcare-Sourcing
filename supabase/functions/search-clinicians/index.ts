@@ -47,6 +47,7 @@ import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning
 import { expandStatedTitles } from "./title-vocabulary.ts";
 import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
 import { companyIdentifyV2, personEnrichV2, personSearchV2 } from "./lib/crustdata-v2.ts";
+import { resolveEmployerGroup } from "./employer-resolution.ts";
 import { resolveCaller } from "./lib/auth.ts";
 import {
   CLINICIAN_ENGINE_VERSION,
@@ -240,24 +241,54 @@ serve(async (req: Request): Promise<Response> => {
       const { criteria, relaxed } = applyRelaxations(baseCriteria, removeIds, cityToState);
       resolvedCriteria = criteria;
 
-      // 2. Resolve named employers → company ids (free /company/identify).
-      //    employer_group criteria carry their curated id sets; descriptor
-      //    companies never go to identify.
-      const companyCriteria = criteria.filter(
-        (c) =>
-          (c.kind === "company" || c.kind === "past_company") &&
-          (c.value as CompanyValue).descriptor !== true,
+      // 2. Resolve named employers. Curated employer_group criteria (the VA,
+      //    HCA) already carry their id sets. Every other CURRENT employer
+      //    runs through the dynamic multi-entity resolver: identify →
+      //    health-relatedness filter → brand-token autocomplete fanout
+      //    (the University-of-Miami problem — one brand, many entities).
+      //    ≥2 clinical entities upgrades the criterion to employer_group in
+      //    place (id preserved, so widen targetIds stay stable); exactly 1
+      //    sets company_id. Descriptor companies never resolve.
+      for (const c of criteria) {
+        if (c.kind !== "company" || (c.value as CompanyValue).descriptor === true) continue;
+        const v = c.value as CompanyValue;
+        try {
+          const group = await resolveEmployerGroup(v.name);
+          if (group && group.entity_count >= 2) {
+            (c as SearchCriteria).kind = "employer_group";
+            c.value = {
+              group_key: `resolved:${v.name}`,
+              name: group.name,
+              company_ids: group.company_ids,
+              domains: group.domains,
+              name_variants: group.name_variants,
+            };
+            c.note = `Matched across ${group.entity_count} related entities (${group.name}), shared domains, and ${group.name_variants.length} employer-name variants.`;
+            continue;
+          }
+          if (group && group.company_ids.length === 1) {
+            v.company_id = group.company_ids[0];
+            continue;
+          }
+        } catch (err) {
+          console.warn(`[clinician] employer resolution failed for "${v.name}" (non-fatal)`, err);
+        }
+      }
+      // Past employers keep single-anchor id resolution (career-chain
+      // matching wants the canonical entity, not the whole family).
+      const pastCompanyCriteria = criteria.filter(
+        (c) => c.kind === "past_company" && (c.value as CompanyValue).descriptor !== true,
       );
-      if (companyCriteria.length > 0) {
+      if (pastCompanyCriteria.length > 0) {
         const idRes = await companyIdentifyV2(
-          companyCriteria.map((c) => (c.value as CompanyValue).name),
+          pastCompanyCriteria.map((c) => (c.value as CompanyValue).name),
         );
         if (idRes.ok) {
           idRes.data.forEach((hit, i) => {
-            (companyCriteria[i].value as CompanyValue).company_id = hit.company_id;
+            (pastCompanyCriteria[i].value as CompanyValue).company_id = hit.company_id;
           });
         } else {
-          console.warn(`[clinician] company identify HTTP ${idRes.status}: ${idRes.detail.slice(0, 200)}`);
+          console.warn(`[clinician] past-company identify HTTP ${idRes.status}: ${idRes.detail.slice(0, 200)}`);
         }
       }
 
@@ -521,6 +552,7 @@ serve(async (req: Request): Promise<Response> => {
         const LADDER = [
           { kind: "specialty", note: "specialty ranked instead of required" },
           { kind: "credential", note: "credential verified by the grader instead of required" },
+          { kind: "employer_size", note: "employer size ranked instead of required" },
           { kind: "title", note: "title ranked instead of required" },
           { kind: "seniority", note: "seniority ranked instead of required" },
         ];

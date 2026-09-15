@@ -56,6 +56,9 @@ export type CriterionKind =
   /** Practice setting ("hospital", "ASC", "home health") — soft first
    *  (blueprint §13: probe the industry taxonomy before promising hard). */
   | "care_setting"
+  /** Employer size ("small private practices", "large health systems") —
+   *  filtered on the current employer's live LinkedIn headcount. */
+  | "employer_size"
   | "seniority"
   | "unsupported";
 
@@ -178,12 +181,27 @@ export interface EmployerGroupValue {
   name_variants: string[];
 }
 
+/** Career years — a range, not just a floor ("5-10 years", "under 3 years"). */
 export interface ExperienceValue {
-  min: number;
+  min?: number;
+  max?: number;
 }
 
+/** Years in the current role — same range semantics. */
 export interface TenureValue {
-  min: number;
+  min?: number;
+  max?: number;
+}
+
+/**
+ * Employer size by live headcount. max_headcount caps ("small private
+ * practices"); min_headcount floors ("large health systems"). Caveat carried
+ * on the criterion note: profiles whose employer has no tracked headcount
+ * read 0, so a max-cap keeps them (recall-safe) while a min-floor drops them.
+ */
+export interface EmployerSizeValue {
+  max_headcount?: number;
+  min_headcount?: number;
 }
 
 export interface JobChangeValue {
@@ -275,6 +293,7 @@ export type CriterionValue =
   | EmployerGroupValue
   | ExperienceValue
   | TenureValue
+  | EmployerSizeValue
   | JobChangeValue
   | SpecialtyValue
   | RoleClassValue
@@ -736,48 +755,95 @@ export function mapParsedToCriteria(
     });
   }
 
-  /* ---- experience (hard) ---- */
-  const minYearsRaw = parsed.min_years_experience;
-  const minYears =
-    typeof minYearsRaw === "number"
-      ? minYearsRaw
-      : typeof minYearsRaw === "string"
-        ? Number(minYearsRaw)
-        : NaN;
-  if (Number.isFinite(minYears) && minYears > 0) {
+  /* ---- experience (hard, RANGE) ---- */
+  const num = (v: unknown): number | null => {
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  };
+  const minYears = num(parsed.min_years_experience);
+  const maxYears = num(parsed.max_years_experience);
+  if (minYears !== null || maxYears !== null) {
+    const label = minYears !== null && maxYears !== null
+      ? `${minYears}–${maxYears} years experience`
+      : minYears !== null
+      ? `${minYears}+ years experience`
+      : `up to ${maxYears} years experience`;
     push({
       kind: "experience",
-      label: `${Math.floor(minYears)}+ years experience`,
-      value: { min: Math.floor(minYears) },
+      label,
+      value: {
+        ...(minYears !== null ? { min: minYears } : {}),
+        ...(maxYears !== null ? { max: maxYears } : {}),
+      },
       enforcement: "hard",
       source: "user",
       evidenceSource: "search",
     });
   }
 
-  /* ---- tenure (hard) ---- */
-  const tenureRaw = parsed.tenure_min_years;
-  const tenureMin =
-    typeof tenureRaw === "number"
-      ? tenureRaw
-      : typeof tenureRaw === "string"
-        ? Number(tenureRaw)
-        : NaN;
-  if (Number.isFinite(tenureMin) && tenureMin > 0) {
-    const min = Math.floor(tenureMin);
+  /* ---- tenure (hard, RANGE) ---- */
+  const tenureMin = num(parsed.tenure_min_years);
+  const tenureMax = num(parsed.tenure_max_years);
+  if (tenureMin !== null || tenureMax !== null) {
+    const label = tenureMin !== null && tenureMax !== null
+      ? `${tenureMin}–${tenureMax} yrs in current role`
+      : tenureMin !== null
+      ? `${tenureMin}+ yrs in current role`
+      : `under ${tenureMax} yrs in current role`;
     push({
       kind: "tenure",
-      label: `${min}+ yrs in current role`,
-      value: { min },
+      label,
+      value: {
+        ...(tenureMin !== null ? { min: tenureMin } : {}),
+        ...(tenureMax !== null ? { max: tenureMax } : {}),
+      },
       enforcement: "hard",
       source: "user",
       evidenceSource: "search",
-      ...(min <= 1
+      ...(tenureMin !== null && tenureMin <= 1
         ? {
           note:
             "Tenure counts whole years since the current title started: a 0-1 year minimum over-matches recently promoted long-tenured people.",
         }
         : {}),
+    });
+  }
+
+  /* ---- employer size (hard) ---- */
+  // "small private practices" / "large health systems" — filtered on the
+  // current employer's live headcount. Parser emits practice_size
+  // ("small" | "midsize" | "large") or explicit head-count bounds.
+  const sizeKey = str(parsed.practice_size);
+  const explicitMax = num(parsed.max_employer_headcount);
+  const explicitMin = num(parsed.min_employer_headcount);
+  const SIZE_PRESETS: Record<string, { max_headcount?: number; min_headcount?: number; label: string }> = {
+    small: { max_headcount: 50, label: "Small practice (≤50 people)" },
+    midsize: { min_headcount: 51, max_headcount: 1000, label: "Midsize employer (51–1,000)" },
+    large: { min_headcount: 1001, label: "Large employer (1,000+)" },
+  };
+  const preset = sizeKey ? SIZE_PRESETS[sizeKey] : undefined;
+  if (preset || explicitMax !== null || explicitMin !== null) {
+    const value: EmployerSizeValue = {
+      ...(preset?.max_headcount !== undefined ? { max_headcount: preset.max_headcount } : {}),
+      ...(preset?.min_headcount !== undefined ? { min_headcount: preset.min_headcount } : {}),
+      ...(explicitMax !== null ? { max_headcount: explicitMax } : {}),
+      ...(explicitMin !== null ? { min_headcount: explicitMin } : {}),
+    };
+    push({
+      kind: "employer_size",
+      label: preset?.label ??
+        (value.max_headcount !== undefined && value.min_headcount !== undefined
+          ? `Employer ${value.min_headcount}–${value.max_headcount} people`
+          : value.max_headcount !== undefined
+          ? `Employer ≤${value.max_headcount} people`
+          : `Employer ${value.min_headcount}+ people`),
+      value,
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note: value.min_headcount !== undefined
+        ? "Size uses live LinkedIn headcount; employers with no tracked headcount are excluded by a minimum-size floor."
+        : "Size uses live LinkedIn headcount; employers with no tracked headcount (most small private practices) are kept by a size cap.",
     });
   }
 

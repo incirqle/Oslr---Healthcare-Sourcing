@@ -204,7 +204,10 @@ export interface AutocompleteHit {
 }
 
 export async function personSearchAutocomplete(
-  field: "title" | "company" | "location" | "skill" | "industry",
+  // Accepts short field aliases ("title") and full nested v2 paths
+  // ("experience.employment_details.current.name") — the endpoint's
+  // allowlist decides; unknown fields return a 400 the caller absorbs.
+  field: string,
   query: string,
 ): Promise<string[]> {
   if (!query?.trim()) return [];
@@ -236,11 +239,31 @@ export interface CompanyIdentifyV2Hit {
   confidence: number | null;
 }
 
-interface IdentifyRow {
+export interface IdentifyRow {
   matches?: Array<{
     confidence_score?: number;
     company_data?: { basic_info?: Record<string, unknown> };
   }>;
+}
+
+/**
+ * Raw /company/identify: the full candidate list per input name, aligned by
+ * index. The flattened companyIdentifyV2 below keeps only the best match —
+ * multi-entity employer resolution (employer-resolution.ts) needs them all.
+ */
+export async function companyIdentifyRawV2(
+  names: string[],
+): Promise<V2Result<IdentifyRow[]>> {
+  const clean = names
+    .map((n) => (typeof n === "string" ? n.trim() : ""))
+    .filter(Boolean);
+  if (clean.length === 0) return { ok: true, data: [] };
+  const r = await call<IdentifyRow[]>("/company/identify", {
+    method: "POST",
+    body: JSON.stringify({ names: clean }),
+  });
+  if (!r.ok) return r;
+  return { ok: true, data: Array.isArray(r.data) ? r.data : [] };
 }
 
 export async function companyIdentifyV2(

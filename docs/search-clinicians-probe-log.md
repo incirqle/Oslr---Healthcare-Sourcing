@@ -91,3 +91,24 @@ The archetype-1 filter tree emitted by the BUILT engine modules
 Resident" whose is_default primary is a practice owner (match_scope
 secondary). The deterministic layers catch exactly the failure shapes the
 probes predicted. Engine test suite: 10/10 passing under Deno.
+
+## Round 2 probes (2026-09-15) — employer resolution, size, ranges
+
+- **University of Miami fanout** (`/company/identify` + person-index employer
+  autocomplete): identify returns the two UM entities (6052108, 6510636),
+  University of Miami Health System / UHealth (1142323), Miller School of
+  Medicine (6061457), UM Hospital (1346670) — AND same-confidence noise (a
+  TV station, the law review, Hillel, student clubs). Health-relatedness
+  filtering is mandatory. Autocomplete on
+  `experience.employment_details.current.name` returns the employer-name
+  variants people actually list ("UHealth - University of Miami Health
+  System", "UHEALTH UNIVERSITY OF MIAMI", "University of Miami - School of
+  Nursing and Health Studies") → employer-resolution.ts pipeline:
+  identify → health filter → brand-token autocomplete fanout → cached group.
+- **Headcount filter**
+  (`experience.employment_details.current.company_headcount_latest =< 50`,
+  Georgia family medicine): 188 total, rows show untracked-headcount (0)
+  private practices passing the cap — exactly the small-practice population.
+  Caveat: a min-floor excludes untracked employers (criterion note says so).
+  Employment-entry AND semantics appear element-scoped; the grader
+  backstops any cross-entry leak.
