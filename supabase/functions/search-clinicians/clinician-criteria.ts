@@ -135,6 +135,14 @@ export const SUB_STATE_REGIONS: Record<string, SubStateRegion> = {
     state: "texas",
     circles: [{ lat: 29.7604, lng: -95.3698, radius_mi: 50 }],
   },
+  south_florida: {
+    label: "South Florida",
+    state: "florida",
+    circles: [
+      { lat: 25.7617, lng: -80.1918, radius_mi: 45 }, // Miami (covers Fort Lauderdale)
+      { lat: 26.7153, lng: -80.0534, radius_mi: 35 }, // West Palm Beach
+    ],
+  },
 };
 
 export interface MultiStateRegion {
@@ -411,6 +419,7 @@ const REGION_PHRASES: ReadonlyArray<{ pattern: RegExp; key: string }> = [
   { pattern: /\bsouthern california\b/i, key: "southern_california" },
   { pattern: /\b(?:dfw|dallas[- \/]fort worth|metroplex)\b/i, key: "dfw_metroplex" },
   { pattern: /\bgreater houston\b/i, key: "houston_metro" },
+  { pattern: /\bsouth florida\b/i, key: "south_florida" },
   { pattern: /\bnew england\b/i, key: "new_england" },
   { pattern: /\bpacific northwest\b/i, key: "pacific_northwest" },
   { pattern: /\bmidwest\b/i, key: "midwest" },
@@ -636,18 +645,25 @@ export function mapParsedToCriteria(
     });
   }
 
-  /* ---- role_class (hard) ---- */
-  const roleClassKey = str(parsed.role_class);
-  if (roleClassKey && ROLE_CLASSES[roleClassKey]) {
-    const def = ROLE_CLASSES[roleClassKey];
+  /* ---- role_class (hard; MULTIPLE classes are alternatives) ---- */
+  // "CRNAs and SRNAs" asks for either population — the classes UNION into
+  // one OR-group criterion. Parser emits role_classes[] for multi-class
+  // asks; single role_class stays supported.
+  const roleClassKeys = dedupe([
+    ...(str(parsed.role_class) ? [str(parsed.role_class) as string] : []),
+    ...strArr(parsed.role_classes),
+  ]).filter((k) => ROLE_CLASSES[k]);
+  if (roleClassKeys.length > 0) {
+    const defs = roleClassKeys.map((k) => ROLE_CLASSES[k]);
+    const terms = dedupe(defs.flatMap((d) => d.terms));
     push({
       kind: "role_class",
-      label: def.label,
-      value: { class: roleClassKey, terms: [...def.terms] },
+      label: defs.map((d) => d.label).join(" / "),
+      value: { class: roleClassKeys.join("+"), terms },
       enforcement: "hard",
       source: "user",
       evidenceSource: "search",
-      note: def.note,
+      note: defs.map((d) => d.note).filter(Boolean).join(" ") || undefined,
     });
   }
 

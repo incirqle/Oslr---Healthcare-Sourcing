@@ -79,6 +79,8 @@ export interface ParsedClinicianPayload {
   title_synonyms: string[];
   title_confidence: number;
   role_class: string | null;
+  /** Multi-class asks ("CRNAs and SRNAs"): every class is an alternative. */
+  role_classes: string[];
   credentials: string[];
   training_stage: { profession: string | null; stage: string | null; year: number | null } | null;
   care_setting: string | null;
@@ -171,6 +173,7 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
   // dropped (they would silently gate on nothing).
   const roleClassRaw = toStr(r.role_class);
   const roleClass = roleClassRaw && ROLE_CLASSES[roleClassRaw] ? roleClassRaw : null;
+  const roleClasses = toStrArr(r.role_classes).filter((k) => !!ROLE_CLASSES[k]);
 
   // training_stage: {profession, stage, year} — stage whitelisted.
   let trainingStage: ParsedClinicianPayload["training_stage"] = null;
@@ -201,6 +204,7 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
     title_synonyms: toStrArr(r.title_synonyms),
     title_confidence: clamp(r.title_confidence, 0, 1, 0.5),
     role_class: roleClass,
+    role_classes: roleClasses,
     credentials: toStrArr(r.credentials),
     training_stage: trainingStage,
     care_setting: careSetting,
@@ -322,6 +326,7 @@ RETURN THIS EXACT SHAPE:
   "title_synonyms":    string[],   // 2-4 variants of a NAMED title. [] when job_titles is [].
   "title_confidence":  number,     // 0.0-1.0
   "role_class":        string|null,  // one of: ${roleClasses}. The license-class population the user asked for. null when they named a specific title instead.
+  "role_classes":      string[],     // when MULTIPLE classes are asked ("CRNAs and SRNAs", "NPs and PAs"): every class key, same enum. The classes are ALTERNATIVES (OR). [] for a single-class ask (use role_class).
   "credentials":       string[],   // credential/license tokens the user stated: "RN","BSN","NP","MD","DO","DPM","CRNA","PA-C","CCRN","CNOR"… [] when unstated. Credentials are classes, never titles.
   "training_stage":    {"profession": string|null, "stage": "residency"|"fellowship"|"internship"|"medical_school", "year": number|null} | null,
                        // "PGY-3 podiatric residents" -> {"profession":"podiatric","stage":"residency","year":3}
@@ -346,7 +351,7 @@ RETURN THIS EXACT SHAPE:
     "state": string|null, "state_confidence": number,
     "city": string|null,  "city_confidence": number,
     "metro": string|null,
-    "region_key": string|null  // ONLY: "bay_area","northern_california","southern_california","dfw_metroplex","houston_metro","new_england","pacific_northwest","midwest","southeast". Anything else: null + keep the state + note it in unmapped_concepts.
+    "region_key": string|null  // ONLY: "bay_area","northern_california","southern_california","dfw_metroplex","houston_metro","south_florida","new_england","pacific_northwest","midwest","southeast". Anything else: null + keep the state + note it in unmapped_concepts.
   },
   "locations":           [{"state": string, "city": string|null}, ...],
                          // ADDITIONAL locations beyond the first — "in Dallas or Houston"
@@ -442,7 +447,12 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    // of the specialty phrase — never split or drop them yourself; the
    // engine enforces the population as its own requirement.
 
-12) "Current third year orthopedic residents in Tennessee."
+12) "Find me all of the students, CRNAs and SRNAs in South Florida."
+   role_class: null, role_classes: ["crna", "srna"],  // "students … and SRNAs" = the SRNA class covers the nurse-anesthesia students
+   job_titles: [], specialties: [], specialty_tense: "current",
+   location: {"state":"florida","region_key":"south_florida", ...}
+
+13) "Current third year orthopedic residents in Tennessee."
    role_class: "resident",
    training_stage: {"profession":"orthopedic","stage":"residency","year":3},
    specialties: ["orthopedic"], specialty_tense: "current",

@@ -799,3 +799,51 @@ Deno.test("generic population split: pediatric cardiology ANDs population with s
   });
   assert(!groupHasBoth, "population and specialty must not share one OR-group");
 });
+
+/* ---------- round 7: multi-class OR + South Florida (2026-09-15) ---------- */
+
+Deno.test("CRNAs and SRNAs in South Florida: classes union, region resolves", () => {
+  const parsed = validateAIOutput({
+    role_class: null,
+    role_classes: ["crna", "srna"],
+    specialties: [],
+    location: { state: "florida", region_key: "south_florida" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const rc = criteria.filter((c) => c.kind === "role_class");
+  assertEquals(rc.length, 1, "multiple classes must union into ONE OR criterion, never AND");
+  const terms = (rc[0].value as { terms: string[] }).terms;
+  for (const t of ["crna", "srna", "nurse anesthesia student", "rrna", "nurse anesthesiologist", "nurse anesthesist"]) {
+    assert(terms.includes(t), `missing class term: ${t}`);
+  }
+  assert(rc[0].label.includes("CRNA") && rc[0].label.includes("SRNA"));
+
+  const loc = criteria.find((c) => c.kind === "location");
+  assertExists(loc);
+  assertEquals(loc!.label, "South Florida");
+
+  const tree = buildClinicianQuery(criteria);
+  const allLeaves = leaves(tree);
+  // Region = florida clip AND OR of the Miami + West Palm circles.
+  assert(allLeaves.some((l) => l.field === "basic_profile.location.state" && l.value === "florida"));
+  const geo = allLeaves.filter((l) => l.type === "geo_distance");
+  assertEquals(geo.length, 2, "South Florida must emit both metro circles");
+  // Class terms land on current titles.
+  const titleValues = allLeaves
+    .filter((l) => l.field === "experience.employment_details.current.title")
+    .map((l) => String(l.value));
+  assert(titleValues.includes("srna"));
+  assert(titleValues.includes("crna"));
+});
+
+Deno.test("region phrase backstop: 'south florida' in raw query resolves the region key", async () => {
+  const { reconcileParsedClinicianIntent } = await import("./clinician-criteria.ts");
+  const parsed = validateAIOutput({
+    role_classes: ["crna", "srna"],
+    location: { state: "florida" },
+  }) as unknown as Record<string, unknown>;
+  const reconciled = reconcileParsedClinicianIntent(parsed, "find me all of the students, CRNAs and SRNAs in South Florida");
+  const loc = reconciled.location as Record<string, unknown>;
+  assertEquals(loc.region_key, "south_florida");
+});

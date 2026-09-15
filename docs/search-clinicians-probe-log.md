@@ -177,3 +177,20 @@ probes predicted. Engine test suite: 10/10 passing under Deno.
 - Live: peds-onc terms AND Vanderbilt entity group → **35 people** incl.
   Monroe Carell Jr. Children's Hospital staff (probe ran without the
   physician role gate; the engine ANDs it and the grader splits MD/RN).
+
+## Round 7 probes (2026-09-15) — multi-class OR + South Florida + the recruiter trap
+
+- SRNA vocabulary live: "SRNA", "Student Registered Nurse Anesthetist (SRNA)",
+  "Nurse Anesthesia Student/Resident", "RRNA". The index also carries
+  clinicians' own MISSPELLINGS as titles ("Nurse Anesthesist",
+  "Nurse Anesthestist") — added as CRNA terms for real recall.
+- Multi-class asks ("CRNAs and SRNAs") union into ONE role_class OR-criterion
+  (role_classes[] parser field); south_florida region added (Miami 45mi +
+  West Palm 35mi circles clipped to Florida).
+- LIVE RUN, engine-shaped tree: **510 CRNAs/SRNAs in South Florida.** Top-10
+  mix validates every layer: real CRNAs at UHealth, the Miami VA, Envision;
+  an Army CRNA whose headline says "looking for full-time" (openness signal);
+  and the demotion cases — a CompHealth CRNA PLACEMENT RECRUITER matched on
+  his own title (→ new grader rule: recruiters/staffers of the asked role
+  are rejects), plus two side-gig CRNAs whose is_default primary is a
+  CEO/coach role (match-scope secondary).

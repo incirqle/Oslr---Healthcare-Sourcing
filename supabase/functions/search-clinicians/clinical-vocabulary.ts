@@ -449,7 +449,22 @@ export const ROLE_CLASSES: Record<string, RoleClassDef> = {
   },
   crna: {
     label: "CRNAs",
-    terms: ["crna", "nurse anesthetist", "certified registered nurse anesthetist"],
+    // Probed 2026-09-15: "Nurse Anesthesiologist" is a live title, and so
+    // are the MISSPELLINGS people put on their own profiles ("Nurse
+    // Anesthesist", "Nurse Anesthestist") — real recall, so they match.
+    terms: [
+      "crna", "nurse anesthetist", "certified registered nurse anesthetist",
+      "nurse anesthesiologist", "nurse anesthesist", "nurse anesthestist",
+    ],
+  },
+  srna: {
+    label: "SRNAs (Nurse Anesthesia Students)",
+    // Probed 2026-09-15: SRNA, the spelled-out form, Nurse Anesthesia
+    // Student/Resident, and RRNA (the newer "resident" term) all live.
+    terms: [
+      "srna", "student registered nurse anesthetist", "nurse anesthesia student",
+      "nurse anesthesia resident", "rrna", "resident registered nurse anesthetist",
+    ],
   },
   dentist: {
     label: "Dentists",
