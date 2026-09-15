@@ -742,3 +742,60 @@ Deno.test("zero-result remarks reorder the widen ladder toward the culprit", asy
   // No remarks → order unchanged.
   assertEquals(reorderLadderByRemarks(ladder, [])[0].kind, "fellowship");
 });
+
+/* ---------- round 6: population-modified subspecialty at a health system ---------- */
+
+Deno.test("pediatric oncologists: dedicated peds hem-onc family, no adult-oncology dilution", () => {
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["pediatric oncology"],
+    specialty_tense: "current",
+    current_companies: ["vanderbilt health system"],
+    location: {},
+  }) as unknown as Record<string, unknown>);
+
+  const sub = criteria.find((c) => c.kind === "specialty" && !!(c.value as SpecialtyValue).subspecialty);
+  assertExists(sub, "pediatric oncology must hit the peds_hem_onc subspecialty family");
+  const sv = sub!.value as SpecialtyValue;
+  assertEquals(sv.subspecialty!.key === "peds_hem_onc", true);
+  // Every term in the family carries the population — bare "oncology" never
+  // appears, so an adult oncologist cannot satisfy the group.
+  assert(sv.terms.every((t) => !/^oncolog/.test(t)), "bare oncology term leaked into the peds group");
+  assert(sv.subspecialty!.siblings.includes("adult oncology"));
+
+  const tree = buildClinicianQuery(criteria);
+  const values = leaves(tree).map((l) => String(l.value).toLowerCase());
+  assert(!values.includes("oncology"), "bare 'oncology' must not be a filter value for a pediatric ask");
+  // Connector spellings of the fellowship phrase survive to the tree.
+  assert(values.some((v) => v.includes("hematology/oncology") || v.includes("hematology-oncology") || v.includes("hematology oncology")));
+});
+
+Deno.test("generic population split: pediatric cardiology ANDs population with specialty", () => {
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["pediatric cardiology"],
+    specialty_tense: "current",
+    location: { state: "tennessee" },
+  }) as unknown as Record<string, unknown>);
+
+  const specialtyCriteria = criteria.filter((c) => c.kind === "specialty");
+  assertEquals(specialtyCriteria.length, 2, "modifier compound must split into population + specialty criteria");
+  const population = specialtyCriteria.find((c) => c.label.includes("population"));
+  assertExists(population);
+  const pv = population!.value as SpecialtyValue;
+  assert(pv.terms.includes("pediatric"));
+  assert(pv.terms.includes("paediatric"));
+  const specialty = specialtyCriteria.find((c) => !c.label.includes("population"))!;
+  const stv = specialty.value as SpecialtyValue;
+  assert(stv.terms.includes("cardiology"), "base specialty must be matchable");
+  assert(stv.terms.includes("pediatric cardiology"), "compound phrase stays in the specialty group");
+
+  // In the tree: the pediatric group and the cardiology group are SEPARATE
+  // AND-ed OR-groups — an adult cardiologist satisfies one, never both.
+  const tree = buildClinicianQuery(criteria) as V2FilterBranch;
+  const groupHasBoth = tree.conditions.some((n) => {
+    const vals = leaves(n).map((l) => String(l.value).toLowerCase());
+    return vals.includes("pediatric") && vals.includes("cardiology");
+  });
+  assert(!groupHasBoth, "population and specialty must not share one OR-group");
+});

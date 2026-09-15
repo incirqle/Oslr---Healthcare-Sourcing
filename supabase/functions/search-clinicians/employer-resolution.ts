@@ -67,6 +67,10 @@ const BRAND_SEEDS: Record<string, string[]> = {
   "johns hopkins": ["johns hopkins medicine", "johns hopkins hospital"],
   "stanford": ["stanford health care", "stanford medicine"],
   "university of texas": ["ut health", "md anderson", "ut southwestern"],
+  vanderbilt: ["vumc", "vanderbilt university medical center", "monroe carell"],
+  "vanderbilt health": ["vumc", "vanderbilt university medical center", "monroe carell"],
+  duke: ["duke health", "duke university medical center"],
+  emory: ["emory healthcare", "emory university hospital"],
 };
 
 const STOP_TOKENS = new Set([
@@ -139,7 +143,12 @@ export async function resolveEmployerGroup(
   const matches = Array.isArray(row?.matches) ? row!.matches! : [];
   if (matches.length === 0) return null;
 
-  const seedTokens = BRAND_SEEDS[stated] ?? [];
+  // Seed lookup tolerates suffixes: "vanderbilt health system" hits the
+  // "vanderbilt health" (and "vanderbilt") seeds.
+  const seedTokens = BRAND_SEEDS[stated] ??
+    Object.entries(BRAND_SEEDS)
+      .filter(([k]) => stated.includes(k))
+      .sort((a, b) => b[0].length - a[0].length)[0]?.[1] ?? [];
   const candidates: CandidateEntity[] = matches.map((m) => {
     const info = (m.company_data?.basic_info ?? {}) as Record<string, unknown>;
     const rawId = info.crustdata_company_id ?? info.company_id;

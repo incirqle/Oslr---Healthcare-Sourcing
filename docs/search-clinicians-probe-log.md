@@ -158,3 +158,22 @@ probes predicted. Engine test suite: 10/10 passing under Deno.
   current resident whose 2026 start = PGY-1 (year-3 ask → stage_fit demotes,
   grader names the year) and stale 2013/2017 never-closed resident entries
   on attending profiles (match-scope + grader). ae/e spellings both live.
+
+## Round 6 probes (2026-09-15) — population-modified subspecialty at a health system
+
+- "Pediatric Oncologist" is a real index title; the peds hem/onc fellowship
+  lives in FOUR connector spellings (slash/hyphen/space/and). → peds_hem_onc
+  subspecialty family (every term carries the population — bare "oncology"
+  never enters the group, so adult oncologists cannot satisfy it).
+- Generic mechanism for un-enumerated compounds: POPULATION_MODIFIERS
+  (pediatric/neonatal/adolescent/geriatric). "Pediatric cardiology" splits
+  into a population criterion AND a specialty criterion — merged into one
+  OR-group, every ADULT cardiologist would have satisfied it.
+- Vanderbilt person-index employers: VU, VUMC, School of Medicine, School of
+  Nursing, Health Affiliated Network + noise (Vanderbilt Mortgage, Vanderbilt
+  Chemicals, acre security) → brand seeds (vumc, monroe carell) added;
+  BRAND_SEEDS lookup now suffix-tolerant ("vanderbilt health system" hits
+  "vanderbilt health").
+- Live: peds-onc terms AND Vanderbilt entity group → **35 people** incl.
+  Monroe Carell Jr. Children's Hospital staff (probe ran without the
+  physician role gate; the engine ANDs it and the grader splits MD/RN).

@@ -24,6 +24,7 @@
 import {
   CARE_SETTINGS,
   EMPLOYER_GROUPS,
+  matchPopulationModifier,
   matchSubspecialty,
   ROLE_CLASSES,
   SPECIALTY_UMBRELLA_NOUNS,
@@ -780,13 +781,46 @@ export function mapParsedToCriteria(
     });
   }
 
+  // POPULATION-MODIFIER SPLIT (the "pediatric X" problem, 2026-09-15):
+  // a modifier+specialty compound with no dedicated subspecialty entry
+  // ("pediatric cardiology", "neonatal neurology") must not dilute to the
+  // bare base specialty in one OR-group — every ADULT specialist would
+  // satisfy it. The population becomes its OWN AND-ed criterion; the
+  // specialty group keeps the compound phrase plus the base.
+  const modifierGroups = new Map<string, { label: string; terms: string[] }>();
+  const modifierAdjustedStated: string[] = [];
+  for (const phrase of genericStated) {
+    const mod = matchPopulationModifier(phrase);
+    if (!mod) {
+      modifierAdjustedStated.push(phrase);
+      continue;
+    }
+    if (!modifierGroups.has(mod.key)) {
+      modifierGroups.set(mod.key, { label: mod.label, terms: mod.terms });
+    }
+    modifierAdjustedStated.push(phrase);
+    if (!modifierAdjustedStated.includes(mod.base)) modifierAdjustedStated.push(mod.base);
+  }
+  for (const [key, group] of modifierGroups) {
+    push({
+      kind: "specialty",
+      label: `${group.label} population`,
+      value: { terms: [...group.terms], tense: specialtyTense },
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note:
+        `Patient population is its own requirement (AND-ed with the specialty) — without it, "${key} X" would match every adult ${key === "pediatric" ? "specialist" : "clinician"} in X.`,
+    });
+  }
+
   // Keywords that themselves name the same subspecialty are already covered.
   const residualKeywords = keywordTerms.filter((t) => {
     const hit = matchSubspecialty(t);
     return !hit || !subspecialtySeen.has(hit.key);
   });
   const mainSpecialtyTerms = decomposeSpecialtyTerms(
-    specialtyTense === "past" ? genericStated : dedupe([...genericStated, ...residualKeywords]),
+    specialtyTense === "past" ? modifierAdjustedStated : dedupe([...modifierAdjustedStated, ...residualKeywords]),
   );
   if (mainSpecialtyTerms.length > 0) {
     push({

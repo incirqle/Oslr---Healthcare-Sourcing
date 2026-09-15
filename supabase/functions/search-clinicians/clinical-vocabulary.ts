@@ -276,6 +276,24 @@ export const SUBSPECIALTIES: Record<string, SubspecialtyDef> = {
     education_terms: ["advanced endoscopy", "therapeutic endoscopy"],
     siblings: ["hepatology", "ibd"],
   },
+  peds_hem_onc: {
+    label: "Pediatric Hematology-Oncology",
+    parent: "pediatrics",
+    aliases: [
+      "pediatric oncology", "pediatric oncologist", "peds onc", "peds hem onc",
+      "pediatric hematology oncology", "pediatric hematology-oncology",
+      "pediatric hematology/oncology", "childhood cancer", "pediatric cancer",
+    ],
+    // Probed live 2026-09-15: Pediatric Oncologist is a real title; the
+    // fellowship lives in FOUR connector spellings (slash/hyphen/space/and).
+    terms: [
+      "pediatric oncology", "pediatric oncologist", "pediatric hematology",
+      "pediatric hematology/oncology", "pediatric hematology and oncology",
+      "childhood cancer", "pediatric cancer",
+    ],
+    education_terms: ["pediatric hematology", "pediatric oncology", "pediatric hematology/oncology"],
+    siblings: ["adult oncology", "pediatric critical care", "neonatology", "hematology"],
+  },
   mfm: {
     label: "Maternal-Fetal Medicine",
     parent: "obstetrics and gynecology",
@@ -285,6 +303,52 @@ export const SUBSPECIALTIES: Record<string, SubspecialtyDef> = {
     siblings: ["reproductive endocrinology", "gynecologic oncology"],
   },
 };
+
+/* ------------------------------------------------------------------ */
+/*  Population modifiers (the "pediatric X" problem, 2026-09-15)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Patient-population modifiers that change WHO a specialist treats.
+ * "Pediatric cardiology" must NOT dilute to bare "cardiology" in one
+ * OR-group (every adult cardiologist would satisfy it) — the mapper splits
+ * a modifier+specialty compound with no dedicated subspecialty entry into
+ * TWO AND-ed criteria: the population group and the specialty group.
+ */
+export const POPULATION_MODIFIERS: Record<string, { label: string; terms: string[] }> = {
+  pediatric: {
+    label: "Pediatric",
+    terms: ["pediatric", "paediatric", "children's", "childrens", "peds"],
+  },
+  neonatal: {
+    label: "Neonatal",
+    terms: ["neonatal", "nicu", "newborn"],
+  },
+  adolescent: {
+    label: "Adolescent",
+    terms: ["adolescent", "teen"],
+  },
+  geriatric: {
+    label: "Geriatric",
+    terms: ["geriatric", "older adult", "senior care"],
+  },
+};
+
+/** Leading population modifier of a specialty phrase, if any. */
+export function matchPopulationModifier(
+  phrase: string,
+): { key: string; label: string; terms: string[]; base: string } | null {
+  const p = phrase.toLowerCase().trim();
+  for (const [key, def] of Object.entries(POPULATION_MODIFIERS)) {
+    for (const alias of [key, ...def.terms]) {
+      if (p.startsWith(alias + " ")) {
+        const base = p.slice(alias.length + 1).trim();
+        if (base) return { key, label: def.label, terms: [...def.terms], base };
+      }
+    }
+  }
+  return null;
+}
 
 /** Resolve a query phrase to a subspecialty definition, if it names one. */
 export function matchSubspecialty(phrase: string): { key: string; def: SubspecialtyDef } | null {

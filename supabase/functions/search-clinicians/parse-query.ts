@@ -433,7 +433,16 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    role_class: "nurse", care_setting: "asc", care_setting_is_workplace: true,
    specialties: [], location: {"state":"south carolina", ...}
 
-11) "Current third year orthopedic residents in Tennessee."
+11) "Pediatric oncologists at Vanderbilt Health System."
+   role_class: "physician", job_titles: [],
+   specialties: ["pediatric oncology"],  // keep the POPULATION + specialty compound VERBATIM
+   specialty_tense: "current",
+   current_companies: ["vanderbilt health system"]
+   // Population words (pediatric, neonatal, adolescent, geriatric) are part
+   // of the specialty phrase — never split or drop them yourself; the
+   // engine enforces the population as its own requirement.
+
+12) "Current third year orthopedic residents in Tennessee."
    role_class: "resident",
    training_stage: {"profession":"orthopedic","stage":"residency","year":3},
    specialties: ["orthopedic"], specialty_tense: "current",
