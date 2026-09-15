@@ -385,6 +385,114 @@ export type Database = {
           },
         ]
       }
+      clinician_search_intelligence: {
+        Row: {
+          audit_summary: Json | null
+          cache_hit: boolean | null
+          created_at: string
+          credit_ceiling: number | null
+          credits_charged: number | null
+          credits_session: number | null
+          criteria: Json | null
+          engine: string
+          engine_version: string | null
+          error: string | null
+          error_code: string | null
+          id: string
+          latency_ms: number | null
+          page: number | null
+          parsed_payload: Json | null
+          provider_query: Json | null
+          raw_query: string | null
+          result_count: number | null
+          run_id: string
+          size: number | null
+          total_count: number | null
+          user_id: string | null
+          widen_options: Json | null
+          widened: boolean | null
+        }
+        Insert: {
+          audit_summary?: Json | null
+          cache_hit?: boolean | null
+          created_at?: string
+          credit_ceiling?: number | null
+          credits_charged?: number | null
+          credits_session?: number | null
+          criteria?: Json | null
+          engine?: string
+          engine_version?: string | null
+          error?: string | null
+          error_code?: string | null
+          id?: string
+          latency_ms?: number | null
+          page?: number | null
+          parsed_payload?: Json | null
+          provider_query?: Json | null
+          raw_query?: string | null
+          result_count?: number | null
+          run_id: string
+          size?: number | null
+          total_count?: number | null
+          user_id?: string | null
+          widen_options?: Json | null
+          widened?: boolean | null
+        }
+        Update: {
+          audit_summary?: Json | null
+          cache_hit?: boolean | null
+          created_at?: string
+          credit_ceiling?: number | null
+          credits_charged?: number | null
+          credits_session?: number | null
+          criteria?: Json | null
+          engine?: string
+          engine_version?: string | null
+          error?: string | null
+          error_code?: string | null
+          id?: string
+          latency_ms?: number | null
+          page?: number | null
+          parsed_payload?: Json | null
+          provider_query?: Json | null
+          raw_query?: string | null
+          result_count?: number | null
+          run_id?: string
+          size?: number | null
+          total_count?: number | null
+          user_id?: string | null
+          widen_options?: Json | null
+          widened?: boolean | null
+        }
+        Relationships: []
+      }
+      clinician_searches: {
+        Row: {
+          created_at: string
+          filters: Json
+          id: string
+          query: string
+          result_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          query: string
+          result_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          query?: string
+          result_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string
@@ -585,6 +693,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      crustdata_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          data: Json
+          id: string
+          next_cursor: string | null
+          total: number
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          data?: Json
+          id?: string
+          next_cursor?: string | null
+          total?: number
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          next_cursor?: string | null
+          total?: number
+        }
+        Relationships: []
       }
       email_campaigns: {
         Row: {
