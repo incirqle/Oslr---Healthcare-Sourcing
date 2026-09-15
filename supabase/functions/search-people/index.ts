@@ -22,17 +22,17 @@
  * caching, credit ceilings, widening, and run logging are all the engine's.
  */
 
-import { handleClinicianSearch } from "../search-clinicians/handler.ts";
-import { callClaude } from "../search-clinicians/ai-router.ts";
+import { handleClinicianSearch } from "../_shared/clinician-engine/handler.ts";
+import { callClaude } from "../_shared/clinician-engine/ai-router.ts";
 import {
   batchContactEnrich,
   personEnrichV2,
-} from "../search-clinicians/lib/crustdata-v2.ts";
+} from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 import {
   ENRICHMENT_TTL_MS,
   getCrustDataCache,
   setCrustDataCache,
-} from "../search-clinicians/cache.ts";
+} from "../_shared/clinician-engine/cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

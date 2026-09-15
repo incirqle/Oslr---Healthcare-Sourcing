@@ -5,6 +5,6 @@
  * adapter can run the engine in-process behind the legacy wire contract).
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { handleClinicianSearch } from "./handler.ts";
+import { handleClinicianSearch } from "../_shared/clinician-engine/handler.ts";
 
 serve(handleClinicianSearch);
