@@ -161,6 +161,7 @@ export function useAddCandidates() {
         skills?: string[];
         avg_tenure_months?: number | null;
         pdl_id?: string | null;
+        raw_data?: unknown;
       }[];
     }) => {
       const rows = candidates.map((c) => ({
@@ -177,6 +178,7 @@ export function useAddCandidates() {
         skills: c.skills || [],
         avg_tenure_months: c.avg_tenure_months || null,
         pdl_id: c.pdl_id || null,
+        raw_data: (c.raw_data as never) ?? null,
         status: "new",
       }));
 

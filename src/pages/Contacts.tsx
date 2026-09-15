@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,77 +17,102 @@ import {
 } from "@/components/ui/table";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Search as SearchIcon,
-  RefreshCw,
-  ChevronDown,
   Mail,
   Phone,
   Linkedin,
-  Twitter,
-  Globe,
-  Plus,
   X,
-  Tag as TagIcon,
   Download,
-  Upload,
-  FolderPlus,
-  Send,
-  Activity,
   Trash2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Mail as MailIcon,
+  Users,
 } from "lucide-react";
-import { AddFilterButton, type ContactFilter, getFilterMeta } from "@/components/contacts/AddFilterButton";
-import { FilterChip, type FilterValue } from "@/components/contacts/FilterChip";
-import { ContactDrawer } from "@/components/contacts/ContactDrawer";
-import {
-  MOCK_CONTACTS,
-  ALL_PROJECTS,
-  ALL_TAGS,
-  type MockContact,
-} from "@/data/mock-contacts";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/useCompany";
+import { useProjects } from "@/hooks/useProjects";
+import { CandidateDrawer } from "@/components/CandidateDrawer";
+import { STATUS_CONFIG, type CandidateStatus } from "@/types/project";
 import { toast } from "sonner";
 
 const PAGE_SIZE = 50;
 
-function statusColor(status: MockContact["status"]) {
-  switch (status) {
-    case "Replied":
-      return "bg-success/10 text-success border-success/20";
-    case "Email Sent":
-      return "bg-primary/10 text-primary border-primary/20";
-    case "Shortlisted":
-      return "bg-warning/10 text-warning border-warning/20";
-    case "Hired":
-      return "bg-success/15 text-success border-success/30";
-    case "Rejected":
-      return "bg-destructive/10 text-destructive border-destructive/20";
-    default:
-      return "bg-secondary text-secondary-foreground border-border";
-  }
+interface ContactRow {
+  id: string;
+  full_name: string;
+  title: string | null;
+  current_employer: string | null;
+  location: string | null;
+  linkedin_url: string | null;
+  email: string | null;
+  phone: string | null;
+  skills: string[] | null;
+  status: string;
+  tags: string[] | null;
+  notes: string | null;
+  pdl_id: string | null;
+  project_id: string;
+  raw_data: unknown;
+  created_at: string;
+  projects: { name: string } | null;
 }
 
-function ProfileIcons({ contact }: { contact: MockContact }) {
+/** All saved candidates across the company's projects — the real contact book. */
+function useAllContacts() {
+  const { companyId } = useCompany();
+  return useQuery({
+    queryKey: ["all_contacts", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("candidates")
+        .select("id, full_name, title, current_employer, location, linkedin_url, email, phone, skills, status, tags, notes, pdl_id, project_id, raw_data, created_at, projects(name)")
+        .eq("company_id", companyId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as ContactRow[];
+    },
+  });
+}
+
+function useDeleteContacts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("candidates").delete().in("id", ids);
+      if (error) throw error;
+      return ids.length;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["all_contacts"] });
+      qc.invalidateQueries({ queryKey: ["project_candidate_counts"] });
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+    },
+  });
+}
+
+function statusBadge(status: string) {
+  const cfg = STATUS_CONFIG[status as CandidateStatus];
+  return cfg ?? { label: status, color: "bg-secondary text-secondary-foreground" };
+}
+
+function ProfileIcons({ c }: { c: ContactRow }) {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
-  const handleCopy = (val: string, label: string) => {
+  const copy = (val: string, label: string) => {
     navigator.clipboard?.writeText(val);
     toast.success(`${label} copied`);
   };
   return (
     <div className="flex items-center gap-1">
-      {contact.profiles.linkedin && (
+      {c.linkedin_url && (
         <a
-          href={contact.profiles.linkedin}
+          href={c.linkedin_url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={stop}
@@ -96,155 +122,96 @@ function ProfileIcons({ contact }: { contact: MockContact }) {
           <Linkedin className="h-3.5 w-3.5" style={{ color: "#0A66C2" }} />
         </a>
       )}
-      {contact.profiles.email && (
+      {c.email && (
         <button
-          onClick={(e) => { stop(e); handleCopy(contact.profiles.email!, "Email"); }}
+          onClick={(e) => { stop(e); copy(c.email!, "Email"); }}
           className="p-1 rounded hover:bg-secondary transition"
-          title={contact.profiles.email}
+          title={c.email}
         >
-          <Mail
-            className="h-3.5 w-3.5"
-            style={{ color: contact.profiles.emailVerified ? "hsl(var(--success))" : "hsl(var(--muted-foreground))" }}
-          />
+          <Mail className="h-3.5 w-3.5 text-success" />
         </button>
       )}
-      {contact.profiles.phone && (
+      {c.phone && (
         <button
-          onClick={(e) => { stop(e); handleCopy(contact.profiles.phone!, "Phone"); }}
+          onClick={(e) => { stop(e); copy(c.phone!, "Phone"); }}
           className="p-1 rounded hover:bg-secondary transition"
-          title={contact.profiles.phone}
+          title={c.phone}
         >
           <Phone className="h-3.5 w-3.5" style={{ color: "#8B5CF6" }} />
         </button>
       )}
-      {contact.profiles.crunchbase && (
-        <a
-          href={contact.profiles.crunchbase}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={stop}
-          className="p-1 rounded hover:bg-secondary transition"
-          title="Crunchbase"
-        >
-          <Globe className="h-3.5 w-3.5" style={{ color: "#F97316" }} />
-        </a>
-      )}
-      {contact.profiles.twitter && (
-        <a
-          href={contact.profiles.twitter}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={stop}
-          className="p-1 rounded hover:bg-secondary transition"
-          title="Twitter / X"
-        >
-          <Twitter className="h-3.5 w-3.5 text-foreground" />
-        </a>
-      )}
     </div>
   );
 }
 
-function ProjectPills({ projects }: { projects: string[] }) {
-  if (projects.length === 0)
-    return <span className="text-xs text-muted-foreground">—</span>;
-  const visible = projects.slice(0, 2);
-  const remaining = projects.length - visible.length;
-  return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {visible.map((p) => (
-        <Badge key={p} variant="outline" className="text-[10px] font-normal max-w-[120px] truncate">
-          {p}
-        </Badge>
-      ))}
-      {remaining > 0 && (
-        <Badge variant="secondary" className="text-[10px] font-normal">
-          +{remaining} more
-        </Badge>
-      )}
-    </div>
+function toCsv(rows: ContactRow[]): string {
+  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = ["Full Name", "Title", "Organization", "Location", "Email", "Phone", "LinkedIn", "Project", "Status", "Date Added"];
+  const lines = rows.map((c) =>
+    [c.full_name, c.title, c.current_employer, c.location, c.email, c.phone, c.linkedin_url, c.projects?.name, c.status, c.created_at?.slice(0, 10)]
+      .map(esc).join(",")
   );
+  return [header.map(esc).join(","), ...lines].join("\n");
 }
 
-function CompanyAvatar({ src, name }: { src?: string; name: string }) {
-  return src ? (
-    <img
-      src={src}
-      alt={name}
-      className="h-5 w-5 rounded object-cover bg-muted shrink-0"
-      onError={(e) => {
-        (e.currentTarget as HTMLImageElement).style.display = "none";
-      }}
-    />
-  ) : (
-    <div className="h-5 w-5 rounded bg-secondary flex items-center justify-center text-[8px] font-semibold shrink-0">
-      {name.slice(0, 2).toUpperCase()}
-    </div>
-  );
+function downloadCsv(rows: ContactRow[]) {
+  const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `oslr-contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default function Contacts() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: contacts = [], isLoading } = useAllContacts();
+  const { data: projects = [] } = useProjects();
+  const deleteContacts = useDeleteContacts();
+
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filters, setFilters] = useState<FilterValue[]>([]);
-  const [hasShownFilterToast, setHasShownFilterToast] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeContactId, setActiveContactId] = useState<string | null>(null);
+  const [drawerContact, setDrawerContact] = useState<ContactRow | null>(null);
 
-  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 250);
     return () => clearTimeout(t);
   }, [search]);
 
-  // Open drawer from URL param
-  useEffect(() => {
-    const id = searchParams.get("contact");
-    if (id) {
-      setActiveContactId(id);
-      setDrawerOpen(true);
-    }
-  }, [searchParams]);
-
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
-    if (!q) return MOCK_CONTACTS;
-    return MOCK_CONTACTS.filter((c) =>
-      [c.fullName, c.organization, c.currentRole, c.profiles.email ?? ""]
-        .some((s) => s.toLowerCase().includes(q))
-    );
-  }, [debouncedSearch]);
+    return contacts.filter((c) => {
+      if (projectFilter.size > 0 && !projectFilter.has(c.project_id)) return false;
+      if (statusFilter.size > 0 && !statusFilter.has(c.status)) return false;
+      if (!q) return true;
+      return [c.full_name, c.current_employer ?? "", c.title ?? "", c.email ?? "", c.location ?? "", c.projects?.name ?? ""]
+        .some((s) => s.toLowerCase().includes(q));
+    });
+  }, [contacts, debouncedSearch, projectFilter, statusFilter]);
 
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, filters.length]);
+  }, [debouncedSearch, projectFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageContacts = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const allChecked =
-    pageContacts.length > 0 && pageContacts.every((c) => selected.has(c.id));
+  const allChecked = pageContacts.length > 0 && pageContacts.every((c) => selected.has(c.id));
   const someChecked = pageContacts.some((c) => selected.has(c.id));
 
   const toggleAll = () => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allChecked) {
-        pageContacts.forEach((c) => next.delete(c.id));
-      } else {
-        pageContacts.forEach((c) => next.add(c.id));
-      }
+      if (allChecked) pageContacts.forEach((c) => next.delete(c.id));
+      else pageContacts.forEach((c) => next.add(c.id));
       return next;
     });
   };
@@ -258,191 +225,126 @@ export default function Contacts() {
     });
   };
 
-  const openContact = (c: MockContact) => {
-    setActiveContactId(c.id);
-    setDrawerOpen(true);
-    setSearchParams({ contact: c.id }, { replace: true });
+  const toggleSetValue = (set: Set<string>, value: string): Set<string> => {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
   };
 
-  const closeDrawer = (open: boolean) => {
-    setDrawerOpen(open);
-    if (!open) {
-      setActiveContactId(null);
-      const next = new URLSearchParams(searchParams);
-      next.delete("contact");
-      setSearchParams(next, { replace: true });
+  const handleDelete = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    try {
+      await deleteContacts.mutateAsync(ids);
+      toast.success(`${ids.length} contact${ids.length === 1 ? "" : "s"} removed`);
+      setSelected(new Set());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
     }
   };
 
-  const activeIndex = filtered.findIndex((c) => c.id === activeContactId);
-  const activeContact = activeIndex >= 0 ? filtered[activeIndex] : null;
-
-  const goPrev = () => {
-    if (activeIndex > 0) {
-      const c = filtered[activeIndex - 1];
-      setActiveContactId(c.id);
-      setSearchParams({ contact: c.id }, { replace: true });
-    }
-  };
-  const goNext = () => {
-    if (activeIndex >= 0 && activeIndex < filtered.length - 1) {
-      const c = filtered[activeIndex + 1];
-      setActiveContactId(c.id);
-      setSearchParams({ contact: c.id }, { replace: true });
-    }
-  };
-
-  const addFilter = (f: ContactFilter) => {
-    if (filters.some((x) => x.filter === f)) return;
-    const meta = getFilterMeta(f);
-    const initial: FilterValue = { filter: f };
-    if (meta.kind === "multi") initial.multi = [];
-    if (meta.kind === "text") initial.text = "";
-    setFilters([...filters, initial]);
-    if (!hasShownFilterToast) {
-      toast("Filter wiring lands next pass.");
-      setHasShownFilterToast(true);
-    }
-  };
-  const updateFilter = (f: ContactFilter, value: FilterValue) =>
-    setFilters(filters.map((x) => (x.filter === f ? value : x)));
-  const removeFilter = (f: ContactFilter) =>
-    setFilters(filters.filter((x) => x.filter !== f));
-
+  const selectedRows = contacts.filter((c) => selected.has(c.id));
   const selectedCount = selected.size;
+
+  const activeIndex = drawerContact ? filtered.findIndex((c) => c.id === drawerContact.id) : -1;
+
+  // The drawer keys notes / fit / enrichment by the provider person id, so
+  // saved contacts open with the SAME identity they had in search results.
+  const toDrawerCandidate = (c: ContactRow) => ({
+    ...c,
+    id: c.pdl_id || c.id,
+    skills: c.skills ?? [],
+    raw: c.raw_data ?? undefined,
+  });
 
   return (
     <AppLayout>
       <div className="space-y-4 pb-20">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold font-display text-foreground">
-              All Contacts ({MOCK_CONTACTS.length.toLocaleString()})
-            </h1>
-            <button
-              onClick={() => toast.success("Refreshed")}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition"
-              title="Refresh"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                Actions
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => toast.info("Import CSV — opens upload modal (stub)")}>
-                <Upload className="h-3.5 w-3.5 mr-2" />
-                Import Contacts
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.success("Exporting current view…")}>
-                <Download className="h-3.5 w-3.5 mr-2" />
-                Export
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <TagIcon className="h-3.5 w-3.5 mr-2" />
-                  Add Tag
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {ALL_TAGS.map((t) => (
-                    <DropdownMenuItem key={t} onClick={() => toast.success(`Tag "${t}" added`)}>
-                      {t}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => toast.info("Create new tag — stub")}>
-                    <Plus className="h-3.5 w-3.5 mr-2" />
-                    Create new tag
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <FolderPlus className="h-3.5 w-3.5 mr-2" />
-                  Shortlist in Project
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {ALL_PROJECTS.map((p) => (
-                    <DropdownMenuItem key={p} onClick={() => toast.success(`Shortlisted in "${p}"`)}>
-                      {p}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onClick={() => toast.info("Add to campaign — stub")}>
-                <Send className="h-3.5 w-3.5 mr-2" />
-                Add to Campaign
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Activity className="h-3.5 w-3.5 mr-2" />
-                  Log Activity
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {["Email Sent", "Call", "Meeting", "Note"].map((a) => (
-                    <DropdownMenuItem key={a} onClick={() => toast.success(`${a} logged`)}>
-                      {a}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <h1 className="text-2xl font-bold font-display text-foreground">
+            All Contacts ({contacts.length.toLocaleString()})
+          </h1>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => downloadCsv(filtered)}>
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 max-w-md">
             <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, company, etc."
+              placeholder="Search by name, company, role, project..."
               className="pl-8 h-9 text-sm"
             />
           </div>
-          <AddFilterButton onAdd={addFilter} />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                Project{projectFilter.size > 0 ? ` (${projectFilter.size})` : ""}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 max-h-72 overflow-y-auto">
+              {projects.map((p) => (
+                <DropdownMenuCheckboxItem
+                  key={p.id}
+                  checked={projectFilter.has(p.id)}
+                  onCheckedChange={() => setProjectFilter((prev) => toggleSetValue(prev, p.id))}
+                >
+                  {p.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={statusFilter.has(key)}
+                  onCheckedChange={() => setStatusFilter((prev) => toggleSetValue(prev, key))}
+                >
+                  {cfg.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {(projectFilter.size > 0 || statusFilter.size > 0) && (
+            <button
+              onClick={() => { setProjectFilter(new Set()); setStatusFilter(new Set()); }}
+              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
 
-        {/* Active filter chips */}
-        {filters.length > 0 && (
-          <div className="flex items-center flex-wrap gap-1.5">
-            {filters.map((fv) => (
-              <FilterChip
-                key={fv.filter}
-                value={fv}
-                onChange={(v) => updateFilter(fv.filter, v)}
-                onRemove={() => removeFilter(fv.filter)}
-              />
-            ))}
-            <button
-              onClick={() => setFilters([])}
-              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline ml-1"
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-
-        {/* Table */}
-        {MOCK_CONTACTS.length === 0 ? (
+        {/* Table / empty state */}
+        {!isLoading && contacts.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary mb-3">
-                  <MailIcon className="h-6 w-6 opacity-30" />
+                  <Users className="h-6 w-6 opacity-30" />
                 </div>
                 <p className="text-sm font-medium">No contacts yet</p>
                 <p className="text-xs mt-1 opacity-60 max-w-sm text-center">
-                  Source candidates with Search to build your contact database.
+                  Save candidates from a project search to build your contact database.
                 </p>
                 <Button size="sm" className="mt-4" onClick={() => navigate("/search")}>
                   Go to Search
@@ -467,94 +369,90 @@ export default function Contacts() {
                       </TableHead>
                       <TableHead className="font-medium">Full Name</TableHead>
                       <TableHead className="font-medium">Profiles</TableHead>
-                      <TableHead className="font-medium">Projects</TableHead>
+                      <TableHead className="font-medium">Project</TableHead>
                       <TableHead className="font-medium">Tags</TableHead>
                       <TableHead className="font-medium">Current Role</TableHead>
                       <TableHead className="font-medium">Organization</TableHead>
-                      <TableHead className="font-medium">Education</TableHead>
                       <TableHead className="font-medium">Location</TableHead>
-                      <TableHead className="font-medium whitespace-nowrap">Date Created</TableHead>
+                      <TableHead className="font-medium whitespace-nowrap">Date Added</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pageContacts.map((c) => {
                       const isSelected = selected.has(c.id);
+                      const badge = statusBadge(c.status);
                       return (
                         <TableRow
                           key={c.id}
                           className="cursor-pointer hover:bg-secondary/30 transition-colors group"
                           data-state={isSelected ? "selected" : undefined}
-                          onClick={() => openContact(c)}
+                          onClick={() => setDrawerContact(c)}
                         >
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleOne(c.id)}
-                              aria-label={`Select ${c.fullName}`}
+                              aria-label={`Select ${c.full_name}`}
                             />
                           </TableCell>
                           <TableCell className="font-medium text-sm">
                             <span className="text-foreground hover:text-primary transition">
-                              {c.fullName}
+                              {c.full_name}
                             </span>
                             <div className="flex items-center gap-1 mt-0.5">
-                              <span
-                                className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] ${statusColor(c.status)}`}
-                              >
-                                {c.status}
+                              <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[9px] ${badge.color}`}>
+                                {badge.label}
                               </span>
                             </div>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            <ProfileIcons contact={c} />
+                            <ProfileIcons c={c} />
                           </TableCell>
                           <TableCell>
-                            <ProjectPills projects={c.projects} />
-                          </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            {c.tags.length === 0 ? (
-                              <button
-                                onClick={() => toast.info("Tag picker — stub")}
-                                className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition"
+                            {c.projects?.name ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] font-normal max-w-[140px] truncate cursor-pointer hover:bg-secondary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/projects/${c.project_id}`);
+                                }}
                               >
-                                <Plus className="h-2.5 w-2.5" />
-                                Add Tags
-                              </button>
+                                {c.projects.name}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {(c.tags ?? []).length === 0 ? (
+                              <span className="text-xs text-muted-foreground">—</span>
                             ) : (
                               <div className="flex flex-wrap gap-1">
-                                {c.tags.slice(0, 2).map((t) => (
+                                {(c.tags ?? []).slice(0, 2).map((t) => (
                                   <Badge key={t} variant="secondary" className="text-[10px] font-normal">
                                     {t}
                                   </Badge>
                                 ))}
-                                {c.tags.length > 2 && (
+                                {(c.tags ?? []).length > 2 && (
                                   <Badge variant="outline" className="text-[10px] font-normal">
-                                    +{c.tags.length - 2}
+                                    +{(c.tags ?? []).length - 2}
                                   </Badge>
                                 )}
                               </div>
                             )}
                           </TableCell>
                           <TableCell className="text-sm text-foreground/80 max-w-[180px] truncate">
-                            {c.currentRole}
+                            {c.title ?? "—"}
                           </TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex items-center gap-2">
-                              <CompanyAvatar src={c.organizationLogo} name={c.organization} />
-                              <span className="text-foreground/80 truncate max-w-[160px]">{c.organization}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex items-center gap-2">
-                              <CompanyAvatar src={c.educationLogo} name={c.education} />
-                              <span className="text-foreground/80 truncate max-w-[160px]">{c.education}</span>
-                            </div>
+                          <TableCell className="text-sm text-foreground/80 max-w-[180px] truncate">
+                            {c.current_employer ?? "—"}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                            {c.location}
+                            {c.location ?? "—"}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                            {formatDate(c.dateCreated)}
+                            {formatDate(c.created_at)}
                           </TableCell>
                         </TableRow>
                       );
@@ -566,8 +464,9 @@ export default function Contacts() {
               {/* Pagination */}
               <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-muted-foreground">
                 <span>
-                  Showing {page * PAGE_SIZE + 1}–
-                  {Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  {filtered.length === 0
+                    ? "No contacts match"
+                    : `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
                 </span>
                 <div className="flex items-center gap-1">
                   <Button
@@ -605,37 +504,13 @@ export default function Contacts() {
             {selectedCount} selected
           </span>
           <button
-            onClick={() => toast.info("Add tag — stub")}
-            className="text-xs text-foreground/80 hover:text-foreground px-2 py-1 rounded hover:bg-secondary transition flex items-center gap-1"
-          >
-            <TagIcon className="h-3 w-3" /> Add Tag
-          </button>
-          <button
-            onClick={() => toast.info("Shortlist in project — stub")}
-            className="text-xs text-foreground/80 hover:text-foreground px-2 py-1 rounded hover:bg-secondary transition flex items-center gap-1"
-          >
-            <FolderPlus className="h-3 w-3" /> Shortlist
-          </button>
-          <button
-            onClick={() => toast.info("Add to campaign — stub")}
-            className="text-xs text-foreground/80 hover:text-foreground px-2 py-1 rounded hover:bg-secondary transition flex items-center gap-1"
-          >
-            <Send className="h-3 w-3" /> Campaign
-          </button>
-          <button
-            onClick={() => toast.info("Log activity — stub")}
-            className="text-xs text-foreground/80 hover:text-foreground px-2 py-1 rounded hover:bg-secondary transition flex items-center gap-1"
-          >
-            <Activity className="h-3 w-3" /> Log
-          </button>
-          <button
-            onClick={() => toast.success(`Exporting ${selectedCount} contacts…`)}
+            onClick={() => downloadCsv(selectedRows)}
             className="text-xs text-foreground/80 hover:text-foreground px-2 py-1 rounded hover:bg-secondary transition flex items-center gap-1"
           >
             <Download className="h-3 w-3" /> Export
           </button>
           <button
-            onClick={() => toast.info("Delete — stub")}
+            onClick={handleDelete}
             className="text-xs text-destructive hover:text-destructive px-2 py-1 rounded hover:bg-destructive/10 transition flex items-center gap-1"
           >
             <Trash2 className="h-3 w-3" /> Delete
@@ -650,12 +525,21 @@ export default function Contacts() {
         </div>
       )}
 
-      <ContactDrawer
-        contact={activeContact}
-        open={drawerOpen}
-        onOpenChange={closeDrawer}
-        onPrev={activeIndex > 0 ? goPrev : undefined}
-        onNext={activeIndex >= 0 && activeIndex < filtered.length - 1 ? goNext : undefined}
+      <CandidateDrawer
+        open={!!drawerContact}
+        onOpenChange={(open) => !open && setDrawerContact(null)}
+        candidate={drawerContact ? toDrawerCandidate(drawerContact) : null}
+        projectId={drawerContact?.project_id}
+        onPrev={() => {
+          if (activeIndex > 0) setDrawerContact(filtered[activeIndex - 1]);
+        }}
+        onNext={() => {
+          if (activeIndex >= 0 && activeIndex < filtered.length - 1) {
+            setDrawerContact(filtered[activeIndex + 1]);
+          }
+        }}
+        hasPrev={activeIndex > 0}
+        hasNext={activeIndex >= 0 && activeIndex < filtered.length - 1}
       />
     </AppLayout>
   );

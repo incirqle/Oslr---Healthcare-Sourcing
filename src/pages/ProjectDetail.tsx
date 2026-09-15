@@ -481,7 +481,16 @@ export default function ProjectDetail() {
                           "group hover:bg-secondary/20 cursor-pointer",
                           selectedIds.has(c.id) && "bg-primary/5"
                         )}
-                        onClick={() => setDrawerCandidate(c)}
+                        onClick={() =>
+                          // Key the drawer by the provider person id (pdl_id)
+                          // so notes / fit / enrichment line up with the same
+                          // person opened from search; raw_data restores the
+                          // full profile (experience, education, headline).
+                          setDrawerCandidate({
+                            ...c,
+                            id: c.pdl_id || c.id,
+                            raw: c.raw_data ?? undefined,
+                          })}
                       >
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox

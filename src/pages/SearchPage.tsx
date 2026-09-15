@@ -37,7 +37,7 @@ export default function SearchPage() {
   const { data: existingCandidates = [] } = useProjectCandidates(projectId ?? "");
   const addCandidates = useAddCandidates();
 
-  const { history, addEntry, clearHistory } = useSearchHistory();
+  const { history, addEntry, clearHistory } = useSearchHistory(projectId);
   const [step, setStep] = useState<SearchStep>("hero");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ParsedFilters>(EMPTY_FILTERS);
@@ -71,8 +71,23 @@ export default function SearchPage() {
 
   if (!projectId) return null;
 
+  // A person counts as saved when their provider id OR their LinkedIn URL is
+  // already in the project — LinkedIn matching keeps candidates saved under
+  // the old data provider recognized by the new one.
+  const normLinkedin = (url?: string | null) =>
+    (url ?? "").toLowerCase().replace(/\/+$/, "").replace(/^https?:\/\/(www\.)?/, "");
   const savedPdlIds = new Set(existingCandidates.map((c) => c.pdl_id).filter(Boolean));
-  const savedIds = new Set(candidates.filter((c) => savedPdlIds.has(c.id)).map((c) => c.id));
+  const savedLinkedin = new Set(
+    existingCandidates.map((c) => normLinkedin(c.linkedin_url)).filter(Boolean),
+  );
+  const savedIds = new Set(
+    candidates
+      .filter((c) =>
+        savedPdlIds.has(c.id) ||
+        (!!c.linkedin_url && savedLinkedin.has(normLinkedin(c.linkedin_url)))
+      )
+      .map((c) => c.id),
+  );
 
   /**
    * Single-shot: parse + run search in one go. Navigates to results step
@@ -221,6 +236,9 @@ export default function SearchPage() {
           skills: c.skills,
           avg_tenure_months: c.avg_tenure_months,
           pdl_id: c.id,
+          // Full search-row payload so the drawer can show experience and
+          // education for saved contacts without a fresh enrichment call.
+          raw_data: c.raw ?? null,
         })),
       });
       toast.success(`${count} candidate${count === 1 ? "" : "s"} saved to "${project?.name}"`);
