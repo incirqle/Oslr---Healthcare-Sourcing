@@ -4,7 +4,7 @@
 // fail a search (blueprint §9).
 
 export const CLINICIAN_ENGINE = "clinician" as const;
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v1";
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v2";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

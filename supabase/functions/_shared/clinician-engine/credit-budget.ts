@@ -24,6 +24,7 @@
  */
 
 import type { SearchCriteria } from "./clinician-criteria.ts";
+import { CLINICIAN_ENGINE_VERSION } from "./lib/run-log.ts";
 
 export const CREDIT_CEILING = 6;
 export const COST_PER_RESULT = 0.03;
@@ -169,10 +170,14 @@ export async function buildSearchCacheKey(
     .map((c) =>
       canonicalize({ kind: c.kind, enforcement: c.enforcement, value: c.value })
     );
-  // The `fields` projection participates in the key: a deploy that widens
-  // the card projection must MISS old cache rows rather than serve profiles
-  // lacking the new fields for a full TTL window (e.g. cards without
-  // employer ids silently falling back to name-based company enrich).
+  // The `fields` projection AND the engine version participate in the key:
+  // a deploy that widens the card projection or changes how the filter tree
+  // is BUILT from identical criteria (e.g. the 2026-09-15 headline recall
+  // fix) must MISS old cache rows rather than serve a stale, narrower pool
+  // for a full TTL window.
   return "clin:" +
-    await sha256Hex(JSON.stringify(canon) + "|" + String(limit) + "|" + fields.join(","));
+    await sha256Hex(
+      CLINICIAN_ENGINE_VERSION + "|" + JSON.stringify(canon) + "|" + String(limit) + "|" +
+        fields.join(","),
+    );
 }
