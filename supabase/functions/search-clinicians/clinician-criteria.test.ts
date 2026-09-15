@@ -652,3 +652,93 @@ Deno.test("current third year orthopedic residents in Tennessee: stage terms car
   const w = stageStartWindow(3, new Date("2026-09-15T00:00:00Z"));
   assert(w.from < new Date("2024-07-01") && new Date("2024-07-01") < w.to);
 });
+
+/* ---------- round 5: ranking + recall gap closure (2026-09-15) ---------- */
+
+Deno.test("soft criteria actually rank: widened specialty puts specialists first", async () => {
+  const { rankDeterministic } = await import("./soft-rank.ts");
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    specialties: ["cardiovascular"],
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>);
+  // Simulate the auto-widen ladder demoting the specialty to soft.
+  const spec = criteria.find((c) => c.kind === "specialty")!;
+  spec.enforcement = "soft";
+
+  const generic = { headline: "Registered Nurse", job_title: "RN", experience_history: [] };
+  const specialist = {
+    headline: "CVICU Registered Nurse | cardiovascular critical care",
+    job_title: "RN",
+    experience_history: [],
+  };
+  const ranked = rankDeterministic([generic, specialist] as never[], criteria) as Array<Record<string, unknown>>;
+  assertEquals(ranked[0].headline, specialist.headline, "the demoted specialty must still rank specialists first");
+  assert((ranked[0].soft_score as number) > (ranked[1].soft_score as number));
+  assert((ranked[0].soft_matches as string[]).length > 0);
+});
+
+Deno.test("soft care-setting preference scores the ASC-named employer first", async () => {
+  const { scoreSoftCriteria } = await import("./soft-rank.ts");
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    care_setting: "asc",
+    care_setting_is_workplace: false,
+    specialties: ["perioperative"],
+    location: { state: "south carolina" },
+  }) as unknown as Record<string, unknown>);
+  const ascRow = { job_company_name: "Palmetto Surgery Center", headline: "PACU RN" };
+  const hospitalRow = { job_company_name: "Prisma Health Richland Hospital", headline: "PACU RN" };
+  const a = scoreSoftCriteria(ascRow as never, criteria);
+  const b = scoreSoftCriteria(hospitalRow as never, criteria);
+  assert(a.score > b.score, "ASC-named employer must outscore the hospital on an ASC preference");
+});
+
+Deno.test("credential evidence tier attaches a verbatim snippet and outranks unevidenced rows", async () => {
+  const { rankDeterministic } = await import("./soft-rank.ts");
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    credentials: ["ccrn"],
+    specialties: ["critical care"],
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>);
+  const evidenced = {
+    headline: "ICU Nurse, BSN, CCRN — cardiovascular ICU",
+    job_title: "ICU Registered Nurse",
+    experience_history: [],
+  };
+  const bare = { headline: "ICU Nurse", job_title: "ICU Registered Nurse", experience_history: [] };
+  const ranked = rankDeterministic([bare, evidenced] as never[], criteria) as Array<Record<string, unknown>>;
+  assertEquals(ranked[0].headline, evidenced.headline);
+  assert(String(ranked[0].evidence_snippet ?? "").toLowerCase().includes("ccrn"));
+});
+
+Deno.test("lexicalVariants closes the singular/plural whole-word gap", async () => {
+  const { lexicalVariants } = await import("./build-clinician-query.ts");
+  assert(lexicalVariants("orthopedic").includes("orthopedics"));
+  assert(lexicalVariants("surgery center").includes("surgery centers"));
+  assert(lexicalVariants("orthopedics").includes("orthopedic"));
+  // ae/e + plural compose.
+  assert(lexicalVariants("orthopedic").includes("orthopaedics"));
+});
+
+Deno.test("zero-result remarks reorder the widen ladder toward the culprit", async () => {
+  const { reorderLadderByRemarks } = await import("./widen-criteria.ts");
+  const ladder = [
+    { kind: "fellowship", note: "" },
+    { kind: "specialty", note: "" },
+    { kind: "credential", note: "" },
+    { kind: "employer_size", note: "" },
+    { kind: "care_setting", note: "" },
+  ];
+  const remarks = [{
+    code: "condition_eliminates_all",
+    path: "filters.conditions[2]",
+    message: "experience.employment_details.current.company_headcount_latest =< 50 removes every result (312 match without it).",
+  }];
+  const reordered = reorderLadderByRemarks(ladder, remarks as never);
+  assertEquals(reordered[0].kind, "employer_size", "the culprit rung must move first");
+  assertEquals(reordered.length, ladder.length);
+  // No remarks → order unchanged.
+  assertEquals(reorderLadderByRemarks(ladder, [])[0].kind, "fellowship");
+});

@@ -328,6 +328,12 @@ export interface PersonSearchV2Result {
   profiles: Record<string, unknown>[];
   total_count: number;
   next_cursor: string | null;
+  /**
+   * Zero-result diagnostics from the provider: which condition emptied the
+   * result and how many match without it. Gold for the widen ladder —
+   * relax the culprit first instead of walking a blind fixed order.
+   */
+  remarks: Array<Record<string, unknown>>;
 }
 
 // Some accounts do not have access to every projectable field (e.g.
@@ -427,7 +433,8 @@ export async function personSearchV2(
   const profiles = (json.profiles ?? json.data ?? json.results ?? []) as Record<string, unknown>[];
   const total_count = (json.total_count ?? json.total ?? profiles.length) as number;
   const next_cursor = (json.next_cursor ?? json.cursor ?? null) as string | null;
-  return { ok: true, data: { profiles, total_count, next_cursor } };
+  const remarks = Array.isArray(json.remarks) ? json.remarks as Array<Record<string, unknown>> : [];
+  return { ok: true, data: { profiles, total_count, next_cursor, remarks } };
 }
 
 

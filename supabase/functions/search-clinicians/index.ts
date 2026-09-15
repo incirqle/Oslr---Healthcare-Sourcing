@@ -38,10 +38,11 @@ import {
   reconcileParsedClinicianIntent,
 } from "./clinician-criteria.ts";
 import type { CompanyValue, SearchCriteria } from "./clinician-criteria.ts";
-import { applyRelaxations, widenOptions } from "./widen-criteria.ts";
+import { applyRelaxations, reorderLadderByRemarks, widenOptions } from "./widen-criteria.ts";
 import { classifySearchError, searchErrorFields } from "./errors.ts";
 import { buildClinicianQuery, CARD_FIELDS, safeTitleTerms } from "./build-clinician-query.ts";
 import { rankByMatchScope, rankByStageFit } from "./match-scope.ts";
+import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
 import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
 import { expandStatedTitles } from "./title-vocabulary.ts";
@@ -323,11 +324,15 @@ serve(async (req: Request): Promise<Response> => {
       let totalCount: number;
       let credits = 0;
       let cacheHit = false;
+      // Deep-pagination cursor + the provider's zero-result diagnostics.
+      let nextCursor: string | null = null;
+      let zeroRemarks: Array<Record<string, unknown>> = [];
 
       const cachedSearch = bypassCache ? null : await getCrustDataCache(cacheKey);
       if (cachedSearch) {
         normalized = cachedSearch.profiles;
         totalCount = cachedSearch.total_count;
+        nextCursor = cachedSearch.next_cursor;
         cacheHit = true;
         console.log(`[clinician] cache hit key=${cacheKey.slice(0, 16)}… (0 credits)`);
       } else {
@@ -412,12 +417,63 @@ serve(async (req: Request): Promise<Response> => {
         }
         normalized = searchRes.data.profiles.map(normalizeCrustDataV2Profile);
         totalCount = searchRes.data.total_count;
+        nextCursor = searchRes.data.next_cursor;
+        zeroRemarks = searchRes.data.remarks;
         credits = creditsForResults(normalized.length);
         recordSessionSpend(creditLedger, sessionKey, credits, SEARCH_TTL_MS);
         // Zero-result responses are NOT cached (transient empties observed
         // upstream; empty searches bill 0 anyway).
         if (normalized.length > 0) {
           await setCrustDataCache(cacheKey, totalCount, normalized, searchRes.data.next_cursor);
+        }
+      }
+
+      // ── Deep pagination (cursor continuation) ───────────────────────
+      // One 50-row fetch used to be the hard ceiling on how far a recruiter
+      // could browse a 19,000-person pool. When the requested page reaches
+      // past what is fetched and the provider handed back a cursor, follow
+      // it — ceiling-checked per hop, deduped, capped at 200 rows (exactly
+      // the 6-credit session ceiling), cache updated so the next page is
+      // free.
+      const DEEP_PAGE_CAP = 200;
+      {
+        const needed = (Number(page) + 1) * Number(size);
+        const seen = new Set<string>();
+        for (const row of normalized) {
+          const k = rowKey(row);
+          if (k) seen.add(k);
+        }
+        while (
+          !preview && nextCursor &&
+          normalized.length < Math.min(needed + Number(size), DEEP_PAGE_CAP)
+        ) {
+          const spent = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+          if (!checkCeiling(spent, SEARCH_LIMIT).allow) break;
+          const more = await personSearchV2({
+            filters: treeFilters as unknown as Record<string, unknown>,
+            limit: SEARCH_LIMIT,
+            fields: CARD_FIELDS,
+            cursor: nextCursor,
+          });
+          if (!more.ok || more.data.profiles.length === 0) break;
+          const fresh = more.data.profiles
+            .map(normalizeCrustDataV2Profile)
+            .filter((row: Record<string, unknown>) => {
+              const k = rowKey(row);
+              if (!k || seen.has(k)) return false;
+              seen.add(k);
+              return true;
+            });
+          normalized = [...normalized, ...fresh];
+          const hopCredits = creditsForResults(more.data.profiles.length);
+          credits += hopCredits;
+          recordSessionSpend(creditLedger, sessionKey, hopCredits, SEARCH_TTL_MS);
+          nextCursor = more.data.next_cursor;
+          await setCrustDataCache(cacheKey, totalCount, normalized, nextCursor);
+          console.log(JSON.stringify({
+            event: "deep_page", fetched: fresh.length, pool: normalized.length,
+          }));
+          if (fresh.length === 0) break;
         }
       }
 
@@ -558,7 +614,11 @@ serve(async (req: Request): Promise<Response> => {
           { kind: "title", note: "title ranked instead of required" },
           { kind: "seniority", note: "seniority ranked instead of required" },
         ];
-        for (const step of [...LADDER, { kind: "__region__", note: "" }]) {
+        // The provider's zero-result diagnostics name the culprit condition
+        // (probe log D: "condition_eliminates_all … 77 match without it") —
+        // relax that requirement FIRST instead of walking a blind order.
+        const orderedLadder = reorderLadderByRemarks(LADDER, zeroRemarks);
+        for (const step of [...orderedLadder, { kind: "__region__", note: "" }]) {
           let label: string | null = null;
           if (step.kind === "__region__") {
             const loc = criteria.find((c) =>
@@ -736,8 +796,13 @@ serve(async (req: Request): Promise<Response> => {
         };
       });
 
-      // Stage-fit tiering (deterministic year math on PGY-style asks).
-      allResults = rankByStageFit(allResults, criteria);
+      // Deterministic ranking, one combined stable sort: primary-role scope,
+      // stage-fit year math, credential/subspecialty evidence tier (verbatim
+      // snippet attached), then the SOFT-criteria score — the layer that
+      // makes a "ranked" chip true. Runs before the audit so a degraded
+      // audit still leaves a genuinely ranked page.
+      allResults = rankByStageFit(allResults, criteria); // annotates stage_fit
+      allResults = rankDeterministic(allResults, criteria);
 
       // ── One-pass AI audit: grader + reranker in the SAME read ───────
       let auditSummary: Record<string, unknown> | null = null;

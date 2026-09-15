@@ -82,6 +82,50 @@ export function widenOptions(criteria: SearchCriteria[]): WidenOption[] {
   return opts;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Remarks-guided ladder ordering (2026-09-15)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Map the field paths a zero-result remark names to the ladder rungs they
+ * implicate, and move those rungs to the front (stable otherwise). The
+ * provider's `remarks[]` say WHICH condition emptied the result
+ * ("condition_eliminates_all … 77 match without it" — probe log D); walking
+ * a blind fixed order past the culprit wastes free probes and can widen the
+ * wrong requirement first.
+ */
+const REMARK_FIELD_TO_KINDS: ReadonlyArray<{ pattern: RegExp; kinds: string[] }> = [
+  { pattern: /skills|summary|headline|description/, kinds: ["specialty"] },
+  { pattern: /education\./, kinds: ["fellowship", "credential"] },
+  { pattern: /company_headcount/, kinds: ["employer_size"] },
+  { pattern: /company_name|company_website_domain/, kinds: ["care_setting"] },
+  { pattern: /current\.title|past\.title/, kinds: ["title", "specialty"] },
+  { pattern: /seniority_level/, kinds: ["seniority"] },
+];
+
+export interface LadderRung {
+  kind: string;
+  note: string;
+}
+
+export function reorderLadderByRemarks(
+  ladder: LadderRung[],
+  remarks: Array<Record<string, unknown>>,
+): LadderRung[] {
+  if (!Array.isArray(remarks) || remarks.length === 0) return ladder;
+  const implicated = new Set<string>();
+  for (const r of remarks) {
+    const text = `${r.message ?? ""} ${r.path ?? ""} ${r.hint ?? ""}`.toLowerCase();
+    for (const { pattern, kinds } of REMARK_FIELD_TO_KINDS) {
+      if (pattern.test(text)) for (const k of kinds) implicated.add(k);
+    }
+  }
+  if (implicated.size === 0) return ladder;
+  const first = ladder.filter((r) => implicated.has(r.kind));
+  const rest = ladder.filter((r) => !implicated.has(r.kind));
+  return [...first, ...rest];
+}
+
 export interface RelaxationResult {
   /** New array; surviving criteria keep their original ids. */
   criteria: SearchCriteria[];

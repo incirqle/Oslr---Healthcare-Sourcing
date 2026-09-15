@@ -136,6 +136,35 @@ export function connectorVariants(term: string): string[] {
   return [...out];
 }
 
+/**
+ * Connector variants PLUS singular/plural forms of the final word.
+ *
+ * `[.]` is whole-word and unstemmed (blueprint §5.7 measured table), so
+ * "orthopedic" does NOT match "orthopedics" and "surgery center" does not
+ * match "surgery centers". Every text criterion emits through this wrapper
+ * so the s-form gap stops silently costing recall. Kept conservative:
+ * only the last word inflects, only for words ≥4 chars.
+ */
+export function lexicalVariants(term: string): string[] {
+  const out = new Set<string>();
+  for (const v of connectorVariants(term)) {
+    out.add(v);
+    const words = v.split(/\s+/);
+    const last = words[words.length - 1];
+    if (last.length >= 4) {
+      let inflected: string | null = null;
+      if (/ies$/.test(last)) inflected = last.replace(/ies$/, "y");
+      else if (/[a-z]s$/.test(last) && !/ss$/.test(last)) inflected = last.replace(/s$/, "");
+      else if (/y$/.test(last)) inflected = last.replace(/y$/, "ies");
+      else inflected = last + "s";
+      if (inflected && inflected !== last) {
+        out.add([...words.slice(0, -1), inflected].join(" "));
+      }
+    }
+  }
+  return [...out];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Title-term safety guard                                            */
 /* ------------------------------------------------------------------ */
@@ -307,7 +336,7 @@ export function buildClinicianQuery(
         const v = c.value as RoleClassValue;
         const clauses: V2FilterNode[] = [];
         for (const t of v.terms) {
-          for (const variant of connectorVariants(t)) {
+          for (const variant of lexicalVariants(t)) {
             clauses.push(leaf(F.curTitle, "[.]", variant));
           }
         }
@@ -342,7 +371,7 @@ export function buildClinicianQuery(
         const v = c.value as TrainingStageValue;
         const clauses: V2FilterNode[] = [];
         for (const t of v.title_terms) {
-          for (const variant of connectorVariants(t)) {
+          for (const variant of lexicalVariants(t)) {
             clauses.push(leaf(F.curTitle, "[.]", variant));
           }
         }
@@ -375,7 +404,7 @@ export function buildClinicianQuery(
           : CURRENT_SURFACES;
         const clauses: V2FilterNode[] = [];
         for (const t of terms) {
-          for (const v of connectorVariants(t)) {
+          for (const v of lexicalVariants(t)) {
             for (const field of surfaces) clauses.push(leaf(field, "[.]", v));
           }
         }
@@ -386,7 +415,7 @@ export function buildClinicianQuery(
         // person practices it NOW.
         if (subspecialty) {
           for (const t of subspecialty.education_terms) {
-            for (const v of connectorVariants(t)) {
+            for (const v of lexicalVariants(t)) {
               clauses.push(leaf(F.eduFieldOfStudy, "[.]", v));
               clauses.push(leaf(F.eduDegree, "[.]", v));
             }
@@ -400,7 +429,7 @@ export function buildClinicianQuery(
         const terms = Array.isArray(raw) ? raw : (raw?.terms ?? []);
         const { kept } = safeTitleTerms(terms);
         const clauses: V2FilterNode[] = kept.flatMap((t) =>
-          connectorVariants(t).map((v) => leaf(F.curTitle, "[.]", v))
+          lexicalVariants(t).map((v) => leaf(F.curTitle, "[.]", v))
         );
         if (clauses.length === 0) break;
         hard.push(clauses.length === 1 ? clauses[0] : or(...clauses));
@@ -448,7 +477,7 @@ export function buildClinicianQuery(
         if (nameTerms.length === 0) break;
         const clauses: V2FilterNode[] = [];
         for (const t of nameTerms) {
-          for (const variant of connectorVariants(t)) {
+          for (const variant of lexicalVariants(t)) {
             clauses.push(leaf(F.curCompanyName, "[.]", variant));
           }
         }
