@@ -956,3 +956,45 @@ Deno.test("parser prompt region enum stays in sync with the tables", async () =>
   assert(src.includes("Object.keys(SUB_STATE_REGIONS)"));
   assert(src.includes("Object.keys(MULTI_STATE_REGIONS)"));
 });
+
+Deno.test("a typed city beats a parser-volunteered region (Denver live failure)", async () => {
+  const { reconcileParsedClinicianIntent } = await import("./clinician-criteria.ts");
+  // Live failure 2026-09-15: "Find sports medicine surgeons in Denver,
+  // Colorado." parsed with city=denver AND region_key=front_range; the
+  // mapper let the region win, so the hard filter covered the whole Front
+  // Range instead of Denver.
+  const parsed = reconcileParsedClinicianIntent(
+    validateAIOutput({
+      role_class: "physician",
+      specialty: "sports medicine",
+      location: { city: "denver", state: "colorado", region_key: "front_range" },
+    }) as unknown as Record<string, unknown>,
+    "Find sports medicine surgeons in Denver, Colorado.",
+  );
+  const loc = parsed.location as Record<string, unknown>;
+  assertEquals(loc.region_key, undefined, "hallucinated region must be dropped");
+  const criteria = mapParsedToCriteria(parsed);
+  const locCriterion = criteria.find((c) => c.kind === "location");
+  assert(locCriterion, "location criterion required");
+  const v = locCriterion.value as { level: string; city?: string; state?: string };
+  assertEquals(v.level, "city", "must be a hard city-level filter");
+  assertEquals(v.city, "denver");
+  assertEquals(v.state, "colorado");
+
+  // A genuine region ask keeps the region even when a city sneaks in.
+  const regionParsed = reconcileParsedClinicianIntent(
+    validateAIOutput({
+      role_class: "physician",
+      location: { city: "denver", state: "colorado", region_key: "front_range" },
+    }) as unknown as Record<string, unknown>,
+    "sports medicine surgeons in the front range",
+  );
+  assertEquals(
+    (regionParsed.location as Record<string, unknown>).region_key,
+    "front_range",
+    "explicit region phrase keeps the region",
+  );
+  const regionCriteria = mapParsedToCriteria(regionParsed);
+  const regionLoc = regionCriteria.find((c) => c.kind === "location");
+  assertEquals((regionLoc?.value as { level: string }).level, "region");
+});

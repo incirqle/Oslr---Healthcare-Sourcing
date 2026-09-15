@@ -357,7 +357,7 @@ RETURN THIS EXACT SHAPE:
     "state": string|null, "state_confidence": number,
     "city": string|null,  "city_confidence": number,
     "metro": string|null,
-    "region_key": string|null  // ONLY these exact keys: ${regionKeys}. Regional nicknames map here (Bay Area, South Florida, Chicagoland, DMV, Tri-State, Research Triangle, Front Range, Twin Cities, Mid-Atlantic, Gulf Coast, the Carolinas…). Metro keys also set the primary state; multi-state band keys leave state null. Anything not in the list: null + keep the state + note it in unmapped_concepts.
+    "region_key": string|null  // ONLY these exact keys: ${regionKeys}. Regional nicknames map here (Bay Area, South Florida, Chicagoland, DMV, Tri-State, Research Triangle, Front Range, Twin Cities, Mid-Atlantic, Gulf Coast, the Carolinas…). Metro keys also set the primary state; multi-state band keys leave state null. Anything not in the list: null + keep the state + note it in unmapped_concepts. NEVER derive a region from a city: "Denver, Colorado" is city=denver + region_key=null (NOT front_range) — a named city is a hard city filter. Set region_key ONLY when the query itself uses the regional phrase.
   },
   "locations":           [{"state": string, "city": string|null}, ...],
                          // ADDITIONAL locations beyond the first — "in Dallas or Houston"

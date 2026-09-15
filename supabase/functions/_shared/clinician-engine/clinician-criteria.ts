@@ -730,6 +730,17 @@ export function reconcileParsedClinicianIntent(
       const subState = SUB_STATE_REGIONS[match.key];
       if (subState) location.state = subState.state;
     }
+  } else if (str(location.city)) {
+    // The parser sometimes VOLUNTEERS a region for a plain city ask
+    // ("Denver, Colorado" → front_range — live failure 2026-09-15). A city
+    // the user actually typed is the harder, more precise requirement: keep
+    // the region only when the query text itself names it; otherwise the
+    // city wins and the region is dropped.
+    const rk = str(location.region_key)!;
+    const queryNamesRegion = REGION_PHRASES
+      .filter(({ key }) => key === rk)
+      .some(({ pattern }) => pattern.test(originalQuery));
+    if (!queryNamesRegion) delete location.region_key;
   }
   if (Object.keys(location).length > 0) reconciled.location = location;
   return reconciled;
