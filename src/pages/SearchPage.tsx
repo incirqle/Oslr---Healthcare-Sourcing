@@ -93,7 +93,7 @@ export default function SearchPage() {
 
     try {
       // Step 1: parse (preview) to get filter interpretation
-      const { data: previewData, error: previewError } = await supabase.functions.invoke("pdl-search", {
+      const { data: previewData, error: previewError } = await supabase.functions.invoke("search-people", {
         body: { query: q, preview: true },
       });
       if (previewError) throw previewError;
@@ -135,7 +135,7 @@ export default function SearchPage() {
     targetPage: number,
     token: string | null,
   ) => {
-    const { data, error } = await supabase.functions.invoke("pdl-search", {
+    const { data, error } = await supabase.functions.invoke("search-people", {
       body: {
         query: q,
         filters: {

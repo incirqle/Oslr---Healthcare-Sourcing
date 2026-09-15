@@ -25,7 +25,7 @@ const corsHeaders = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Pre-mapped health systems (parity with pdl-search/resolve-company)   */
+/* Pre-mapped health systems (parity with the legacy company resolver)  */
 /* ------------------------------------------------------------------ */
 
 const COMPANY_ALIASES: Record<string, string> = {

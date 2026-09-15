@@ -1,5 +1,5 @@
 -- search-clinicians engine tables (fork doctrine: this engine's own cache,
--- history, and run-intelligence tables — nothing shared with pdl-search).
+-- history, and run-intelligence tables — nothing shared with the legacy search function).
 
 -- Crustdata v2 search + enrichment cache. Keys are versioned criteria hashes
 -- ("clin:" prefix) written only by the service role from the edge function.

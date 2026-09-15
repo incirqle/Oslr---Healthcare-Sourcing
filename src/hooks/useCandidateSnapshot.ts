@@ -53,7 +53,7 @@ async function fetchSnapshot(candidate: Candidate): Promise<string> {
   const promise = (async () => {
     await acquire();
     try {
-      const { data, error } = await supabase.functions.invoke("pdl-search", {
+      const { data, error } = await supabase.functions.invoke("search-people", {
         body: { action: "ai_snapshot", prompt: buildPrompt(candidate) },
       });
       if (error) throw error;

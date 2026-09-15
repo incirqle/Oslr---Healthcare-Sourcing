@@ -2,7 +2,7 @@
  * clinical-vocabulary.ts — the healthcare domain model for search-clinicians.
  *
  * Sources:
- *  - pdl-search/config.ts KEYWORD_EXPANSIONS (390 clinical entries, ported
+ *  - the legacy config KEYWORD_EXPANSIONS (390 clinical entries, ported
  *    subset) — abbreviation → canonical specialty term mappings ONLY. No
  *    entry here ever becomes an invented title requirement (blueprint §3.1).
  *  - docs/search-clinicians-probe-log.md — live Crustdata v2 autocomplete

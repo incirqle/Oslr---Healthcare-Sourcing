@@ -2,7 +2,7 @@
  * useClinicianSearch — client hook for the search-clinicians engine.
  *
  * Fork doctrine: this hook belongs to the clinician engine alone. It shares
- * nothing with useSearchHistory / SearchPage's pdl-search flow.
+ * nothing with useSearchHistory / SearchPage's search-people flow.
  *
  * The criteria contract is the backbone: the response's `criteria` array is
  * rendered as chips (required / ranked / not filtered), `widen_options` are

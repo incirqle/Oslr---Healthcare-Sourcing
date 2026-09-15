@@ -3,7 +3,7 @@ project_id = "pagxfpeqjxlbaoldmeua"
 [functions.seed-data]
 verify_jwt = false
 
-[functions.pdl-search]
+[functions.search-people]
 verify_jwt = false
 
 [functions.news-feed]

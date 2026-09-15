@@ -466,7 +466,7 @@ export function CandidateDrawer({
           return;
         }
 
-        const { data, error: fnError } = await supabase.functions.invoke("pdl-search", { body: params });
+        const { data, error: fnError } = await supabase.functions.invoke("search-people", { body: params });
         if (cancelled) return;
         if (fnError) throw fnError;
 
@@ -530,7 +530,7 @@ export function CandidateDrawer({
       setAiSummaryLoading(true);
       try {
         const prompt = buildSummaryPrompt(candidate, enriched, experienceEntries, educationEntries, primarySkills, certifications);
-        const { data, error: fnError } = await supabase.functions.invoke("pdl-search", {
+        const { data, error: fnError } = await supabase.functions.invoke("search-people", {
           body: { action: "ai_summary", prompt },
         });
 

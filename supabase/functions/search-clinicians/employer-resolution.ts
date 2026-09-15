@@ -39,7 +39,7 @@ export interface ResolvedEmployerGroup {
   entity_count: number;
 }
 
-/** Health-relatedness vocabulary (ported from the pdl-search resolver's
+/** Health-relatedness vocabulary (ported from the legacy resolver's
  *  HEALTH_NAME_KEYWORDS — the part of that engine worth keeping). */
 const HEALTH_NAME_KEYWORDS = [
   "medical", "medicine", "hospital", "health", "clinic", "nursing",

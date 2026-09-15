@@ -4,8 +4,8 @@
  * Crustdata v2 only. Ported from the RepGPT hiring engine
  * (incirqle-ai/supabase/functions/search-talent) per the fork doctrine
  * (blueprint §10): every dependency lives inside this folder — nothing here
- * imports from ../pdl-search, ../_shared, or any other engine. The one
- * sanctioned outside consumer is the pdl-search ADAPTER (a contract shim,
+ * imports from ../search-people, ../_shared, or any other engine. The one
+ * sanctioned outside consumer is the search-people ADAPTER (a contract shim,
  * not an engine): it imports handleClinicianSearch and translates the
  * legacy SearchPage wire shape onto this pipeline.
  *

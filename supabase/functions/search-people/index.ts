@@ -1,17 +1,18 @@
 /**
- * pdl-search/index.ts — ADAPTER over the Crustdata clinician engine.
+ * search-people/index.ts — the product search, powered by the Crustdata clinician engine.
  *
- * People Data Labs is GONE from this function. The name and the wire
- * contract stay (SearchPage, CandidateDrawer, and useCandidateSnapshot all
- * invoke "pdl-search" and read specific response fields), but every search
- * now runs through supabase/functions/search-clinicians — the Crustdata-v2
- * engine: clinical vocabulary, subspecialty families, regions, employer
- * resolution, deterministic ranking, and the AI audit.
+ * This function replaced the retired PDL search wholesale (same wire
+ * contract, new name, zero People Data Labs code). SearchPage,
+ * CandidateDrawer, and useCandidateSnapshot invoke it and read specific
+ * response fields; every search runs through
+ * supabase/functions/search-clinicians — the Crustdata-v2 engine: clinical
+ * vocabulary, subspecialty families, regions, employer resolution,
+ * deterministic ranking, and the AI audit.
  *
- * Contract kept byte-compatible with the frontend:
+ * Wire contract the frontend depends on:
  *  - { query, preview: true }            → { preview, total, parsed, results: [], … }
  *  - { query, filters, parsed, page, size, scroll_token }
- *                                        → { results (PDL-shaped rows), total, … }
+ *                                        → { results (flat person rows), total, … }
  *  - { action: "enrich_person", linkedin_url | email }
  *                                        → { data: EnrichedData-shaped, likelihood }
  *  - { action: "ai_summary" | "ai_snapshot", prompt }
@@ -367,7 +368,7 @@ Deno.serve(async (req: Request) => {
       timing_ms: Date.now() - requestStart,
     });
   } catch (err) {
-    console.error("[pdl-search adapter] handler error:", err);
+    console.error("[search-people] handler error:", err);
     return json({ error: err instanceof Error ? err.message : "Internal error" }, 500);
   }
 });

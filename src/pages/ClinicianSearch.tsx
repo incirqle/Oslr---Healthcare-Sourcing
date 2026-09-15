@@ -1,7 +1,7 @@
 /**
  * ClinicianSearch — the search-clinicians engine's own page (fork doctrine:
  * only generic ui primitives are shared; nothing search-shaped is imported
- * from the pdl-search surfaces).
+ * from the search-people surfaces).
  *
  * The criteria contract is rendered honestly:
  *  - "required" chips  = enforcement hard (in the filter tree)
