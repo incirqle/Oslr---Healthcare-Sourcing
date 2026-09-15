@@ -137,3 +137,24 @@ probes predicted. Engine test suite: 10/10 passing under Deno.
   surfaces per subspecialty; city-level locations gain a 15mi geo circle;
   semantic recall now ALWAYS runs on subspecialty asks; grader gets a
   SUBSPECIALTY context line with the sibling map.
+
+## Round 4 probes (2026-09-15) — fellowship qualifier, workplace setting, stage+state
+
+- **Fellowship evidence**: "Fellowship" is a real education DEGREE value
+  ("Cardiology Fellowship", "Fellowship Training"), fellow-titled roles live
+  ("Cardiothoracic Surgery Fellow"), and non-clinical noise exists ("Product
+  Management Fellowship" — grader cuts). Honorifics (FACS) are NOT training —
+  grader rule added.
+- **Cardiovascular surgery**: "Cardiothoracic Surgeon" / "Cardiovascular
+  Surgeon" are real titles → cv_surgery subspecialty family added (surgeon
+  phrasing ≠ cardiology). Live: 535 fellowship-evidenced CV surgeons in the
+  US; top rows demo the layers (practicing surgeon kept; founder-primary CT
+  surgeon match-scope-demoted; hospital president tense-rejected).
+- **Workplace setting**: ASCs are literally NAMED "Surgery Center of X" →
+  care_setting gains a HARD employer-name mode when the query says
+  "work in/at". Live: 128 nurses at surgery centers in South Carolina
+  (Palmetto Surgery Center PACU, Piedmont Surgery Center periop).
+- **Ortho residents in Tennessee**: 37 candidates; rows include a genuine
+  current resident whose 2026 start = PGY-1 (year-3 ask → stage_fit demotes,
+  grader names the year) and stale 2013/2017 never-closed resident entries
+  on attending profiles (match-scope + grader). ae/e spellings both live.

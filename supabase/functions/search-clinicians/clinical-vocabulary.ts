@@ -242,6 +242,24 @@ export const SUBSPECIALTIES: Record<string, SubspecialtyDef> = {
     education_terms: ["advanced heart failure", "transplant cardiology"],
     siblings: ["interventional cardiology", "electrophysiology"],
   },
+  cv_surgery: {
+    label: "Cardiovascular / Cardiothoracic Surgery",
+    parent: "surgery",
+    aliases: [
+      "cardiovascular surgery", "cardiovascular surgeon", "cardiothoracic",
+      "cardiac surgery", "cardiac surgeon", "heart surgery", "ct surgery",
+      "cardiothoracic surgery", "cardiothoracic surgeon",
+    ],
+    // Probed live 2026-09-15: Cardiothoracic Surgeon / Cardiovascular
+    // Surgeon / Cardiothoracic Surgery Fellow all real index titles.
+    terms: [
+      "cardiothoracic", "cardiovascular surgery", "cardiovascular surgeon",
+      "cardiac surgery", "cardiac surgeon", "heart surgery", "cabg",
+      "valve surgery", "aortic surgery",
+    ],
+    education_terms: ["cardiothoracic surgery", "cardiovascular surgery", "cardiac surgery", "thoracic surgery"],
+    siblings: ["vascular surgery", "interventional cardiology", "structural heart", "thoracic surgery"],
+  },
   mohs: {
     label: "Mohs Surgery",
     parent: "dermatology",
@@ -471,17 +489,53 @@ export const PGY_TRAP_NOTE =
 
 export interface CareSettingDef {
   label: string;
+  /** Ranking terms (role text, headline). */
   terms: string[];
+  /**
+   * Employer-NAME terms for the HARD workplace gate ("nurses that work in
+   * surgery centers"): US facilities carry their setting in their legal
+   * name — probed live 2026-09-15, ASCs are literally "Surgery Center of
+   * X". Used only when the query makes the setting the workplace.
+   */
+  employer_name_terms: string[];
 }
 
 export const CARE_SETTINGS: Record<string, CareSettingDef> = {
-  hospital: { label: "Hospital", terms: ["hospital", "medical center", "health system"] },
-  asc: { label: "Ambulatory Surgery Center", terms: ["ambulatory surgery", "surgery center", "surgical center", "asc"] },
-  clinic: { label: "Clinic / Outpatient", terms: ["clinic", "outpatient", "medical group", "practice"] },
-  home_health: { label: "Home Health", terms: ["home health", "home care", "visiting nurse"] },
-  ltc: { label: "Long-Term / Post-Acute Care", terms: ["skilled nursing", "long term care", "nursing home", "rehabilitation", "ltach"] },
-  hospice: { label: "Hospice / Palliative", terms: ["hospice", "palliative"] },
-  telehealth: { label: "Telehealth", terms: ["telehealth", "telemedicine", "virtual care", "remote patient"] },
+  hospital: {
+    label: "Hospital",
+    terms: ["hospital", "medical center", "health system"],
+    employer_name_terms: ["hospital", "medical center", "health system", "medical centre"],
+  },
+  asc: {
+    label: "Ambulatory Surgery Center",
+    terms: ["ambulatory surgery", "surgery center", "surgical center", "asc"],
+    employer_name_terms: ["surgery center", "surgical center", "ambulatory surgery", "surgicenter", "surgery centre"],
+  },
+  clinic: {
+    label: "Clinic / Outpatient",
+    terms: ["clinic", "outpatient", "medical group", "practice"],
+    employer_name_terms: ["clinic", "medical group", "medical associates", "physicians group", "family practice"],
+  },
+  home_health: {
+    label: "Home Health",
+    terms: ["home health", "home care", "visiting nurse"],
+    employer_name_terms: ["home health", "home care", "visiting nurse"],
+  },
+  ltc: {
+    label: "Long-Term / Post-Acute Care",
+    terms: ["skilled nursing", "long term care", "nursing home", "rehabilitation", "ltach"],
+    employer_name_terms: ["skilled nursing", "nursing home", "rehabilitation", "senior living", "care center"],
+  },
+  hospice: {
+    label: "Hospice / Palliative",
+    terms: ["hospice", "palliative"],
+    employer_name_terms: ["hospice", "palliative"],
+  },
+  telehealth: {
+    label: "Telehealth",
+    terms: ["telehealth", "telemedicine", "virtual care", "remote patient"],
+    employer_name_terms: ["telehealth", "telemedicine", "virtual care"],
+  },
 };
 
 /* ------------------------------------------------------------------ */

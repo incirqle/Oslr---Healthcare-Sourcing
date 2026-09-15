@@ -556,3 +556,99 @@ Deno.test("grader context carries the subspecialty sibling map", async () => {
   assert(msg.includes("SUBSPECIALTY: Joint Reconstruction"));
   assert(msg.includes("spine"), "sibling map missing from grader context");
 });
+
+/* ---------- round 4: fellowship, workplace setting, stage+state (2026-09-15) ---------- */
+
+Deno.test("fellowship trained cardiovascular surgeons: qualifier + surgical subspecialty", () => {
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    fellowship_trained: true,
+    specialties: ["cardiovascular surgery"],
+    specialty_tense: "current",
+    location: {},
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const fellowship = criteria.find((c) => c.kind === "fellowship");
+  assertExists(fellowship, "fellowship_trained must become a hard qualifier criterion");
+  assertEquals(fellowship!.enforcement, "hard");
+
+  // "cardiovascular surgery" hits the cv_surgery subspecialty, not cardiology.
+  const sub = criteria.find((c) => c.kind === "specialty" && !!(c.value as SpecialtyValue).subspecialty);
+  assertExists(sub);
+  const sv = sub!.value as SpecialtyValue;
+  assertEquals(sv.subspecialty!.key === "cv_surgery", true);
+  assert(sv.terms.includes("cardiothoracic"));
+
+  const tree = buildClinicianQuery(criteria);
+  const allLeaves = leaves(tree);
+  // Fellowship gate spans education degree, past fellow titles, and
+  // self-description spellings.
+  assert(allLeaves.some((l) => l.field === "education.schools.degree" && l.value === "fellowship"));
+  assert(allLeaves.some((l) => l.field === "experience.employment_details.past.title" && l.value === "fellow"));
+  assert(allLeaves.some((l) => l.field === "basic_profile.headline" && l.value === "fellowship-trained"));
+});
+
+Deno.test("nurses that work in surgery centers: setting becomes a hard employer-name gate", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    care_setting: "asc",
+    care_setting_is_workplace: true,
+    specialties: [],
+    location: { state: "south carolina" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const setting = criteria.find((c) => c.kind === "care_setting");
+  assertExists(setting);
+  assertEquals(setting!.enforcement, "hard", "workplace setting must be hard");
+
+  const tree = buildClinicianQuery(criteria);
+  const nameLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.company_name");
+  assert(nameLeaves.some((l) => l.value === "surgery center"));
+  assert(nameLeaves.some((l) => l.value === "surgical center"));
+  // And the state holds.
+  assert(leaves(tree).some((l) => l.field === "basic_profile.location.state" && l.value === "south carolina"));
+
+  // Soft preference stays soft (no employer-name leaves).
+  const soft = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    care_setting: "asc",
+    care_setting_is_workplace: false,
+    specialties: ["perioperative"],
+    location: { state: "south carolina" },
+  }) as unknown as Record<string, unknown>);
+  const softSetting = soft.find((c) => c.kind === "care_setting");
+  assertExists(softSetting);
+  assertEquals(softSetting!.enforcement, "soft");
+});
+
+Deno.test("current third year orthopedic residents in Tennessee: stage terms carry both spellings", () => {
+  const parsed = validateAIOutput({
+    role_class: "resident",
+    training_stage: { profession: "orthopedic", stage: "residency", year: 3 },
+    specialties: ["orthopedic"],
+    specialty_tense: "current",
+    current_role_only: true,
+    location: { state: "tennessee" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const stage = criteria.find((c) => c.kind === "training_stage");
+  assertExists(stage);
+  const sv = stage!.value as TrainingStageValue;
+  assertEquals(sv.year, 3);
+  assert(sv.title_terms.includes("orthopedic resident"));
+
+  const tree = buildClinicianQuery(criteria);
+  const titleValues = leaves(tree)
+    .filter((l) => l.field === "experience.employment_details.current.title")
+    .map((l) => String(l.value));
+  // ae/e connector family covers the dominant British spelling.
+  assert(titleValues.some((v) => v.includes("orthopaedic") && v.includes("resident")), "orthopaedic resident spelling missing");
+  assert(leaves(tree).some((l) => l.field === "basic_profile.location.state" && l.value === "tennessee"));
+  // Ortho residency is 5 years — the year-3 window centers on a 2024 summer
+  // start for an autumn-2026 search.
+  const w = stageStartWindow(3, new Date("2026-09-15T00:00:00Z"));
+  assert(w.from < new Date("2024-07-01") && new Date("2024-07-01") < w.to);
+});

@@ -15,6 +15,7 @@
  */
 
 import type {
+  CareSettingValue,
   CompanyValue,
   CredentialValue,
   EmployerGroupValue,
@@ -436,9 +437,45 @@ export function buildClinicianQuery(
         else if (levels.length > 1) hard.push(leaf(F.curSeniority, "in", levels));
         break;
       }
-      case "care_setting":
-        // Soft-only by contract (blueprint §13) — never a filter.
+      case "care_setting": {
+        // Soft preference → never a filter. HARD workplace mode ("nurses
+        // that work in surgery centers") gates on the employer NAME — US
+        // facilities carry their setting in their legal name (probed live
+        // 2026-09-15: ASCs are "Surgery Center of X").
+        const v = c.value as CareSettingValue;
+        if (!v.workplace) break;
+        const nameTerms = v.employer_name_terms ?? [];
+        if (nameTerms.length === 0) break;
+        const clauses: V2FilterNode[] = [];
+        for (const t of nameTerms) {
+          for (const variant of connectorVariants(t)) {
+            clauses.push(leaf(F.curCompanyName, "[.]", variant));
+          }
+        }
+        hard.push(clauses.length === 1 ? clauses[0] : or(...clauses));
         break;
+      }
+      case "fellowship": {
+        // Fellowship evidence lives in three places (probed 2026-09-15):
+        // education records ("Cardiology Fellowship" as a DEGREE value),
+        // fellow-titled roles (current or past — "Cardiothoracic Surgery
+        // Fellow"), and self-description ("fellowship trained" / the
+        // hyphenated spelling). Non-clinical fellowships ("Product
+        // Management Fellowship") pass the text gate; the grader cuts them.
+        const clauses: V2FilterNode[] = [
+          leaf(F.eduDegree, "[.]", "fellowship"),
+          leaf(F.eduFieldOfStudy, "[.]", "fellowship"),
+          leaf(F.pastTitle, "[.]", "fellow"),
+          leaf(F.curTitle, "[.]", "fellowship"),
+          leaf(F.headline, "[.]", "fellowship trained"),
+          leaf(F.headline, "[.]", "fellowship-trained"),
+          leaf(F.summary, "[.]", "fellowship trained"),
+          leaf(F.summary, "[.]", "fellowship-trained"),
+          leaf(F.summary, "[.]", "fellowship"),
+        ];
+        hard.push(or(...clauses));
+        break;
+      }
       case "unsupported":
         break;
     }

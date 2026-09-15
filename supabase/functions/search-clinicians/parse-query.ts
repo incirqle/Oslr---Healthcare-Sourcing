@@ -82,6 +82,10 @@ export interface ParsedClinicianPayload {
   credentials: string[];
   training_stage: { profession: string | null; stage: string | null; year: number | null } | null;
   care_setting: string | null;
+  /** True when the setting is the WORKPLACE ("work in surgery centers"). */
+  care_setting_is_workplace: boolean;
+  /** "Fellowship trained X" qualifier. */
+  fellowship_trained: boolean;
   companies: string[];
   current_companies: string[];
   past_companies: string[];
@@ -200,6 +204,8 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
     credentials: toStrArr(r.credentials),
     training_stage: trainingStage,
     care_setting: careSetting,
+    care_setting_is_workplace: r.care_setting_is_workplace === true && careSetting !== null,
+    fellowship_trained: r.fellowship_trained === true,
     companies: toStrArr(r.companies),
     current_companies: current,
     past_companies: past,
@@ -322,7 +328,9 @@ RETURN THIS EXACT SHAPE:
                        // "cardiology fellows" -> {"profession":"cardiology","stage":"fellowship","year":null}
                        // "third-year medical students" -> {"profession":null,"stage":"medical_school","year":3}
                        // null when the ask is not about trainees. When training_stage is set, also set role_class ("resident"/"fellow") only if it adds nothing contradictory; job_titles stays [].
-  "care_setting":      string|null,  // one of: ${careSettings}. "hospital nurses" -> "hospital"; "home health PTs" -> "home_health". null when unstated. This is a PREFERENCE surface (ranked, not required).
+  "care_setting":      string|null,  // one of: ${careSettings}. "hospital nurses" -> "hospital"; "home health PTs" -> "home_health". null when unstated.
+  "care_setting_is_workplace": boolean,  // true when the setting is WHERE THEY WORK ("nurses that work in surgery centers", "PTs at ASCs") — becomes a hard employer requirement. false for a soft preference.
+  "fellowship_trained": boolean,  // "fellowship trained X" / "fellowship-trained" -> true. A hard qualifier matched on fellowship education, fellow-titled roles, and self-description.
   "companies":           string[],   // legacy mirror of current_companies
   "current_companies":   string[],   // employers they work at now ("at Baylor", "at the VA")
   "past_companies":      string[],   // employers they worked at before
@@ -415,6 +423,21 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    // phrase as its own entry in specialties, alongside the parent specialty
    // when stated. The engine expands it to procedure and fellowship
    // language; never expand or paraphrase it yourself.
+
+9) "Find me fellowship trained cardiovascular surgeons."
+   role_class: "physician", fellowship_trained: true,
+   specialties: ["cardiovascular surgery"],  // surgeon phrasing = the SURGICAL specialty, not cardiology
+   specialty_tense: "current", job_titles: []
+
+10) "Find me nurses that work in surgery centers in South Carolina."
+   role_class: "nurse", care_setting: "asc", care_setting_is_workplace: true,
+   specialties: [], location: {"state":"south carolina", ...}
+
+11) "Current third year orthopedic residents in Tennessee."
+   role_class: "resident",
+   training_stage: {"profession":"orthopedic","stage":"residency","year":3},
+   specialties: ["orthopedic"], specialty_tense: "current",
+   current_role_only: true, location: {"state":"tennessee", ...}
 
 COMPANY EXTRACTION:
   Each employer appears in EXACTLY ONE company field.

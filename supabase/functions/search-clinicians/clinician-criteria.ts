@@ -54,9 +54,15 @@ export type CriterionKind =
    *  deterministic layer and grader (date math), never a hard filter until
    *  start_date range filtering is live-probed (port plan, known gaps). */
   | "training_stage"
-  /** Practice setting ("hospital", "ASC", "home health") — soft first
-   *  (blueprint §13: probe the industry taxonomy before promising hard). */
+  /** Practice setting ("hospital", "ASC", "home health"). SOFT as a
+   *  preference; HARD (employer-name gate) when the query makes the setting
+   *  the WORKPLACE ("nurses that work in surgery centers") — US facilities
+   *  carry their setting in their name, probed 2026-09-15. */
   | "care_setting"
+  /** Fellowship-trained qualifier ("fellowship trained cardiovascular
+   *  surgeons"): hard gate on fellowship evidence — education records,
+   *  fellow-titled past roles, "fellowship trained" self-description. */
+  | "fellowship"
   /** Employer size ("small private practices", "large health systems") —
    *  filtered on the current employer's live LinkedIn headcount. */
   | "employer_size"
@@ -266,6 +272,16 @@ export interface CareSettingValue {
   /** Key into CARE_SETTINGS ("hospital", "asc", "clinic", "home_health"…). */
   setting: string;
   terms: string[];
+  /** True when the setting is the WORKPLACE ("work in surgery centers"):
+   *  the criterion goes hard and gates on the employer NAME. */
+  workplace?: boolean;
+  /** Employer-name terms for the hard workplace gate. */
+  employer_name_terms?: string[];
+}
+
+/** Fellowship-trained qualifier. */
+export interface FellowshipValue {
+  trained: true;
 }
 
 export const SENIORITY_LEVELS: readonly string[] = [
@@ -314,6 +330,7 @@ export type CriterionValue =
   | CredentialValue
   | TrainingStageValue
   | CareSettingValue
+  | FellowshipValue
   | SeniorityValue
   | TitleValue
   | string[]
@@ -799,18 +816,40 @@ export function mapParsedToCriteria(
     });
   }
 
-  /* ---- care_setting (soft) ---- */
+  /* ---- care_setting (soft preference, or HARD workplace gate) ---- */
   const settingKey = str(parsed.care_setting);
   if (settingKey && CARE_SETTINGS[settingKey]) {
     const def = CARE_SETTINGS[settingKey];
+    const workplace = parsed.care_setting_is_workplace === true;
     push({
       kind: "care_setting",
-      label: def.label,
-      value: { setting: settingKey, terms: [...def.terms] },
-      enforcement: "soft",
+      label: workplace ? `Works at: ${def.label}` : def.label,
+      value: {
+        setting: settingKey,
+        terms: [...def.terms],
+        ...(workplace
+          ? { workplace: true, employer_name_terms: [...def.employer_name_terms] }
+          : {}),
+      },
+      enforcement: workplace ? "hard" : "soft",
       source: "user",
       evidenceSource: "search",
-      note: "Ranked, not required — practice settings are matched from employer names and role text, which under-reports; requiring it would silently drop real matches.",
+      note: workplace
+        ? "Workplace requirement: matched on the employer's name (US facilities carry their setting in their name). Facilities named without the setting word can be missed — the semantic pass and grader backstop."
+        : "Ranked, not required — practice settings are matched from employer names and role text, which under-reports; requiring it would silently drop real matches.",
+    });
+  }
+
+  /* ---- fellowship-trained qualifier (hard) ---- */
+  if (parsed.fellowship_trained === true) {
+    push({
+      kind: "fellowship",
+      label: "Fellowship trained",
+      value: { trained: true },
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note: "Matched on fellowship education records, fellow-titled past roles, and \"fellowship trained\" self-description; the grader verifies the fellowship is CLINICAL (an honorific like FACS, or a non-clinical fellowship, does not count).",
     });
   }
 

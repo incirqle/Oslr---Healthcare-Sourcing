@@ -550,9 +550,11 @@ serve(async (req: Request): Promise<Response> => {
       // Demote to SOFT, never delete. Empty probes bill 0.
       if (totalCount === 0 && !preview && normalized.length === 0) {
         const LADDER = [
+          { kind: "fellowship", note: "fellowship training verified by the grader instead of required" },
           { kind: "specialty", note: "specialty ranked instead of required" },
           { kind: "credential", note: "credential verified by the grader instead of required" },
           { kind: "employer_size", note: "employer size ranked instead of required" },
+          { kind: "care_setting", note: "care setting ranked instead of required" },
           { kind: "title", note: "title ranked instead of required" },
           { kind: "seniority", note: "seniority ranked instead of required" },
         ];
