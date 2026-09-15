@@ -95,6 +95,189 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
   "hospitalist": { specialties: ["hospital medicine"], keywords: ["hospitalist"] },
 };
 
+/* ------------------------------------------------------------------ */
+/*  Subspecialty depth — the market gap (Steven, 2026-09-15)            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Subspecialty families: the layer BELOW "orthopedic surgeon" where generic
+ * tools stop. Each entry maps a subspecialty to the terms that actually
+ * appear on profiles — probed live 2026-09-15: subspecialty evidence lives
+ * in PROCEDURE language (skills: "Total Knee Arthroplasty", "Hip and Knee
+ * Arthroplasty"), FELLOWSHIP language (titles: "Arthroplasty Fellow";
+ * education field_of_study: "Adult Reconstruction Fellowship"), and role
+ * descriptions — almost never in the person's title alone.
+ *
+ * `terms` are search surfaces (headline/title/summary/descriptions/skills);
+ * `education_terms` additionally match fellowship training records.
+ * `siblings` name the adjacent subspecialties for the grader (exact = strong,
+ * sibling = weak with the sibling named, unrelated = reject).
+ */
+export interface SubspecialtyDef {
+  label: string;
+  parent: string;
+  /** Query phrases that mean this subspecialty. */
+  aliases: string[];
+  terms: string[];
+  education_terms: string[];
+  siblings: string[];
+}
+
+export const SUBSPECIALTIES: Record<string, SubspecialtyDef> = {
+  joint_reconstruction: {
+    label: "Joint Reconstruction",
+    parent: "orthopedic",
+    aliases: ["joint reconstruction", "joint medicine", "adult reconstruction", "total joints", "joint replacement", "arthroplasty", "hip and knee"],
+    terms: [
+      "joint replacement", "arthroplasty", "total joint", "adult reconstruction",
+      "hip and knee", "total knee", "total hip", "knee replacement", "hip replacement",
+      "revision arthroplasty",
+    ],
+    education_terms: ["adult reconstruction", "arthroplasty", "joint replacement"],
+    siblings: ["spine", "sports medicine", "trauma", "foot and ankle", "hand"],
+  },
+  spine: {
+    label: "Spine",
+    parent: "orthopedic",
+    aliases: ["spine", "spine surgery", "spinal surgery"],
+    terms: [
+      "spine surgery", "spine surgeon", "spinal", "spine", "scoliosis",
+      "spinal deformity", "minimally invasive spine", "cervical spine", "lumbar",
+    ],
+    education_terms: ["spine surgery", "spine"],
+    siblings: ["joint reconstruction", "neurosurgery", "trauma"],
+  },
+  sports_medicine: {
+    label: "Sports Medicine",
+    parent: "orthopedic",
+    aliases: ["sports medicine", "sports med", "sports"],
+    terms: [
+      "sports medicine", "arthroscopy", "arthroscopic", "acl", "rotator cuff",
+      "cartilage restoration", "team physician",
+    ],
+    education_terms: ["sports medicine"],
+    siblings: ["joint reconstruction", "shoulder and elbow", "hand"],
+  },
+  foot_ankle: {
+    label: "Foot & Ankle",
+    parent: "orthopedic",
+    aliases: ["foot and ankle", "foot & ankle"],
+    terms: ["foot and ankle", "foot & ankle", "ankle reconstruction", "podiatric surgery"],
+    education_terms: ["foot and ankle"],
+    siblings: ["joint reconstruction", "sports medicine", "trauma"],
+  },
+  hand: {
+    label: "Hand & Upper Extremity",
+    parent: "orthopedic",
+    aliases: ["hand surgery", "hand and upper extremity", "upper extremity"],
+    terms: ["hand surgery", "upper extremity", "hand surgeon", "microsurgery", "wrist"],
+    education_terms: ["hand surgery", "hand and upper extremity"],
+    siblings: ["sports medicine", "shoulder and elbow"],
+  },
+  shoulder_elbow: {
+    label: "Shoulder & Elbow",
+    parent: "orthopedic",
+    aliases: ["shoulder and elbow", "shoulder surgery"],
+    terms: ["shoulder and elbow", "shoulder arthroplasty", "shoulder replacement", "reverse total shoulder"],
+    education_terms: ["shoulder and elbow"],
+    siblings: ["sports medicine", "hand", "joint reconstruction"],
+  },
+  ortho_trauma: {
+    label: "Orthopedic Trauma",
+    parent: "orthopedic",
+    aliases: ["orthopedic trauma", "ortho trauma", "fracture care"],
+    terms: ["orthopedic trauma", "orthopaedic trauma", "fracture", "trauma surgery", "polytrauma"],
+    education_terms: ["orthopaedic trauma", "orthopedic trauma"],
+    siblings: ["joint reconstruction", "spine", "foot and ankle"],
+  },
+  ortho_oncology: {
+    label: "Orthopedic Oncology",
+    parent: "orthopedic",
+    aliases: ["orthopedic oncology", "musculoskeletal oncology"],
+    terms: ["orthopedic oncology", "orthopaedic oncology", "musculoskeletal oncology", "sarcoma", "limb salvage"],
+    education_terms: ["musculoskeletal oncology", "orthopaedic oncology"],
+    siblings: ["joint reconstruction", "trauma"],
+  },
+  neurovascular: {
+    label: "Neurovascular",
+    parent: "neurology",
+    aliases: ["neurovascular", "neurointerventional", "endovascular neurosurgery", "vascular neurology"],
+    terms: [
+      "neurovascular", "neurointerventional", "endovascular", "stroke",
+      "aneurysm", "thrombectomy", "cerebrovascular", "vascular neurology",
+      "neuro interventional",
+    ],
+    education_terms: ["vascular neurology", "endovascular", "neurointerventional"],
+    siblings: ["neurocritical care", "interventional radiology", "neurosurgery"],
+  },
+  electrophysiology: {
+    label: "Electrophysiology",
+    parent: "cardiology",
+    aliases: ["electrophysiology", "ep", "cardiac electrophysiology"],
+    terms: ["electrophysiology", "electrophysiologist", "ablation", "arrhythmia", "pacemaker", "afib"],
+    education_terms: ["electrophysiology", "clinical cardiac electrophysiology"],
+    siblings: ["interventional cardiology", "structural heart", "heart failure"],
+  },
+  interventional_cardiology: {
+    label: "Interventional Cardiology",
+    parent: "cardiology",
+    aliases: ["interventional cardiology", "interventional cardiologist"],
+    terms: ["interventional cardiology", "interventional cardiologist", "cath lab", "pci", "angioplasty", "coronary intervention"],
+    education_terms: ["interventional cardiology"],
+    siblings: ["structural heart", "electrophysiology", "heart failure"],
+  },
+  structural_heart: {
+    label: "Structural Heart",
+    parent: "cardiology",
+    aliases: ["structural heart", "structural cardiology"],
+    terms: ["structural heart", "tavr", "transcatheter", "mitral valve", "watchman", "valve replacement"],
+    education_terms: ["structural heart", "structural intervention"],
+    siblings: ["interventional cardiology", "cardiac surgery"],
+  },
+  heart_failure: {
+    label: "Advanced Heart Failure",
+    parent: "cardiology",
+    aliases: ["heart failure", "advanced heart failure", "transplant cardiology"],
+    terms: ["heart failure", "advanced heart failure", "lvad", "mechanical circulatory support", "transplant cardiology"],
+    education_terms: ["advanced heart failure", "transplant cardiology"],
+    siblings: ["interventional cardiology", "electrophysiology"],
+  },
+  mohs: {
+    label: "Mohs Surgery",
+    parent: "dermatology",
+    aliases: ["mohs", "mohs surgery", "micrographic surgery"],
+    terms: ["mohs", "micrographic surgery", "dermatologic surgery"],
+    education_terms: ["micrographic surgery", "mohs"],
+    siblings: ["dermatopathology", "cosmetic dermatology"],
+  },
+  gi_advanced_endoscopy: {
+    label: "Advanced Endoscopy",
+    parent: "gastroenterology",
+    aliases: ["advanced endoscopy", "therapeutic endoscopy", "interventional endoscopy"],
+    terms: ["advanced endoscopy", "therapeutic endoscopy", "ercp", "endoscopic ultrasound", "interventional endoscopy"],
+    education_terms: ["advanced endoscopy", "therapeutic endoscopy"],
+    siblings: ["hepatology", "ibd"],
+  },
+  mfm: {
+    label: "Maternal-Fetal Medicine",
+    parent: "obstetrics and gynecology",
+    aliases: ["maternal fetal medicine", "maternal-fetal medicine", "mfm", "perinatology"],
+    terms: ["maternal fetal medicine", "maternal-fetal", "perinatology", "high risk pregnancy", "high-risk obstetrics"],
+    education_terms: ["maternal fetal medicine", "perinatology"],
+    siblings: ["reproductive endocrinology", "gynecologic oncology"],
+  },
+};
+
+/** Resolve a query phrase to a subspecialty definition, if it names one. */
+export function matchSubspecialty(phrase: string): { key: string; def: SubspecialtyDef } | null {
+  const p = phrase.toLowerCase().trim();
+  if (!p) return null;
+  for (const [key, def] of Object.entries(SUBSPECIALTIES)) {
+    if (def.aliases.some((a) => p === a || p.includes(a))) return { key, def };
+  }
+  return null;
+}
+
 /**
  * Umbrella nouns compound specialty phrases decompose to, so a surface that
  * writes only the umbrella still matches ("interventional cardiology" also

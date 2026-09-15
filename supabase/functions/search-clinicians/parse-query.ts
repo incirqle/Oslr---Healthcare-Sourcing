@@ -403,6 +403,19 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    // Medicine, University of Miami Hospital…) — keep the name AS STATED,
    // never expand employer entities yourself.
 
+8) "Find me joint reconstruction orthopedic surgeons in Golden, Colorado or Boulder, Colorado."
+   role_class: "physician", job_titles: [],
+   specialties: ["joint reconstruction", "orthopedic"],  // SUBSPECIALTY phrase kept VERBATIM
+   specialty_tense: "current",
+   location: {"city":"golden","state":"colorado", ...},
+   locations: [{"state":"colorado","city":"boulder"}]
+   // Subspecialties (joint reconstruction, spine, sports medicine,
+   // neurovascular, electrophysiology, structural heart, Mohs, MFM…) are the
+   // whole point of a query like this — ALWAYS keep the user's subspecialty
+   // phrase as its own entry in specialties, alongside the parent specialty
+   // when stated. The engine expands it to procedure and fellowship
+   // language; never expand or paraphrase it yourself.
+
 COMPANY EXTRACTION:
   Each employer appears in EXACTLY ONE company field.
    "at [X]" / "works at [X]"                          -> current_companies

@@ -448,3 +448,111 @@ Deno.test("compound chain query holds every filter at once", () => {
   const pastLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.past.company_name");
   assertEquals(pastLeaves.length, 1);
 });
+
+/* ---------- round 3: subspecialty depth + hyper-local geo (2026-09-15) ---------- */
+
+Deno.test("subspecialty: joint reconstruction splits from parent and ANDs with it", () => {
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    specialties: ["joint reconstruction", "orthopedic"],
+    specialty_tense: "current",
+    location: { city: "golden", state: "colorado" },
+    locations: [{ state: "colorado", city: "boulder" }],
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+
+  const specialtyCriteria = criteria.filter((c) => c.kind === "specialty");
+  assertEquals(specialtyCriteria.length, 2, "subspecialty and parent must be separate ANDed criteria");
+  const sub = specialtyCriteria.find((c) => {
+    const v = c.value as SpecialtyValue;
+    return !!v.subspecialty;
+  });
+  assertExists(sub, "joint reconstruction must be flagged as a subspecialty");
+  const sv = sub!.value as SpecialtyValue;
+  assertEquals(sv.subspecialty!.label, "Joint Reconstruction");
+  // Procedure vocabulary present (probed live: skills carry the arthroplasty ladder).
+  for (const t of ["arthroplasty", "joint replacement", "total joint", "adult reconstruction"]) {
+    assert(sv.terms.includes(t), `missing procedure term: ${t}`);
+  }
+  assert(sv.subspecialty!.siblings.includes("spine"));
+
+  const tree = buildClinicianQuery(criteria);
+  // Fellowship surfaces join the subspecialty OR (education field_of_study/degree).
+  const eduLeaves = leaves(tree).filter((l) =>
+    (l.field === "education.schools.field_of_study" || l.field === "education.schools.degree") &&
+    String(l.value).includes("reconstruction")
+  );
+  assert(eduLeaves.length > 0, "fellowship education surfaces missing from subspecialty group");
+
+  // The parent 'orthopedic' terms must NOT sit in the same OR-group as the
+  // subspecialty terms (they would satisfy the group alone and dilute the ask).
+  const branch = tree as V2FilterBranch;
+  const groupsWithArthroplasty = branch.conditions.filter((n) =>
+    leaves(n).some((l) => String(l.value).includes("arthroplasty"))
+  );
+  for (const g of groupsWithArthroplasty) {
+    assert(
+      !leaves(g).some((l) => String(l.value) === "orthopedic"),
+      "parent specialty term leaked into the subspecialty OR-group",
+    );
+  }
+
+  // Hyper-local: each city gets a geo_distance circle alternative.
+  const geoLeaves = leaves(tree).filter((l) => l.type === "geo_distance");
+  const geoLocs = geoLeaves.map((l) => (l.value as { location?: string }).location ?? "");
+  assert(geoLocs.some((s) => s.includes("golden")), "Golden geo circle missing");
+  assert(geoLocs.some((s) => s.includes("boulder")), "Boulder geo circle missing");
+});
+
+Deno.test("subspecialty asks always earn a semantic pass, even with a named employer", async () => {
+  const { semanticWorthRunning } = await import("./semantic-recall.ts");
+  const withEmployer = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["joint reconstruction", "orthopedic"],
+    current_companies: ["uchealth"],
+    location: { state: "colorado" },
+  }) as unknown as Record<string, unknown>);
+  assert(semanticWorthRunning(withEmployer), "subspecialty + employer must still run semantic recall");
+
+  const genericWithEmployer = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    specialties: ["cardiovascular"],
+    current_companies: ["uchealth"],
+    location: { state: "colorado" },
+  }) as unknown as Record<string, unknown>);
+  assert(!semanticWorthRunning(genericWithEmployer), "generic specialty + employer keeps the old gate");
+});
+
+Deno.test("subspecialty depth across verticals: neurovascular and structural heart", () => {
+  const neuro = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["neurovascular", "neurology"],
+    location: { state: "texas" },
+  }) as unknown as Record<string, unknown>);
+  const neuroSub = neuro.find((c) => c.kind === "specialty" && !!(c.value as SpecialtyValue).subspecialty);
+  assertExists(neuroSub);
+  const nv = (neuroSub!.value as SpecialtyValue);
+  assert(nv.terms.includes("thrombectomy"));
+  assert(nv.terms.includes("neurointerventional"));
+
+  const sh = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["structural heart", "cardiology"],
+    location: { state: "florida" },
+  }) as unknown as Record<string, unknown>);
+  const shSub = sh.find((c) => c.kind === "specialty" && !!(c.value as SpecialtyValue).subspecialty);
+  assertExists(shSub);
+  assert((shSub!.value as SpecialtyValue).terms.includes("tavr"));
+});
+
+Deno.test("grader context carries the subspecialty sibling map", async () => {
+  const { buildAuditUserMessage } = await import("./audit.ts");
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "physician",
+    specialties: ["joint reconstruction", "orthopedic"],
+    location: { state: "colorado" },
+  }) as unknown as Record<string, unknown>);
+  const msg = buildAuditUserMessage("joint reconstruction orthopedic surgeons in golden colorado", criteria, [], 0);
+  assert(msg.includes("SUBSPECIALTY: Joint Reconstruction"));
+  assert(msg.includes("spine"), "sibling map missing from grader context");
+});

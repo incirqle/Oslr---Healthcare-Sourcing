@@ -112,3 +112,28 @@ probes predicted. Engine test suite: 10/10 passing under Deno.
   Caveat: a min-floor excludes untracked employers (criterion note says so).
   Employment-entry AND semantics appear element-scoped; the grader
   backstops any cross-entry leak.
+
+## Round 3 probes (2026-09-15) — subspecialty depth + hyper-local geo
+
+- **Where subspecialty lives** (autocomplete): titles carry FELLOWSHIP forms
+  ("Arthroplasty Fellow", "Fellowship in Arthroplasty"), education
+  field_of_study carries "Adult Reconstruction (Fellowship)", and SKILLS carry
+  the full procedure ladder (Total Knee/Hip Arthroplasty, Revision, Hip and
+  Knee, Total Joint). Nobody's current title says "joint reconstruction" —
+  the subspecialty must be matched on procedure + fellowship + description
+  surfaces, never titles alone.
+- **The money query, live** (engine-shaped tree): joint reconstruction
+  orthopedic surgeons within 15mi of Golden OR Boulder CO → **17–36 total**
+  depending on surface set. Real hits (Boulder Bone and Joint president,
+  Orthopedic Centers of Colorado Niwot, Swedish Medical Center ortho chief)
+  plus the exact demotion cases the layers exist for: a Foot & Ankle
+  subspecialty headline (sibling → grader weak), an ortho ONCOLOGIST
+  (sibling), an ortho trauma PA (license class → weak/reject). geo_distance
+  with a location STRING ("golden, colorado", 15mi) geocodes correctly.
+- Engine changes: SUBSPECIALTIES taxonomy (15 families across ortho, cardio,
+  neuro, derm, GI, OB); mapper splits subspecialty from parent into AND-ed
+  criteria (merged, the parent term would satisfy the OR alone and dilute
+  the ask to "any orthopedic surgeon"); builder adds fellowship education
+  surfaces per subspecialty; city-level locations gain a 15mi geo circle;
+  semantic recall now ALWAYS runs on subspecialty asks; grader gets a
+  SUBSPECIALTY context line with the sibling map.

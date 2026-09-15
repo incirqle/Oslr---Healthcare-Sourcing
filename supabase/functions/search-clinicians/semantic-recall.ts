@@ -56,6 +56,17 @@ export interface SemanticRecallResult {
  * a substring is doing work it cannot do — is exactly where it pays.
  */
 export function semanticWorthRunning(criteria: SearchCriteria[]): boolean {
+  // Subspecialty asks ALWAYS earn a semantic pass, employer or not
+  // (2026-09-15): subspecialty language is the most variable text in the
+  // index — "does complex primary and revision TKA" never contains the
+  // phrase "joint reconstruction" — and the recruiter's own sentence is the
+  // best recall net for it.
+  const hasSubspecialty = criteria.some((c) => {
+    if (c.kind !== "specialty" || c.enforcement !== "hard") return false;
+    const v = c.value as { subspecialty?: unknown } | string[] | null;
+    return !Array.isArray(v) && !!v?.subspecialty;
+  });
+  if (hasSubspecialty) return true;
   const hasSpecialty = criteria.some((c) => c.kind === "specialty" && c.enforcement === "hard");
   const hasNamedEmployer = criteria.some((c) => c.kind === "company" || c.kind === "employer_group");
   return hasSpecialty && !hasNamedEmployer;

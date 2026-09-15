@@ -24,6 +24,7 @@
 import {
   CARE_SETTINGS,
   EMPLOYER_GROUPS,
+  matchSubspecialty,
   ROLE_CLASSES,
   SPECIALTY_UMBRELLA_NOUNS,
   TRAINING_STAGES,
@@ -224,6 +225,19 @@ export type SpecialtyTense = "current" | "any" | "past";
 export interface SpecialtyValue {
   terms: string[];
   tense: SpecialtyTense;
+  /**
+   * Present when this criterion is a SUBSPECIALTY (the layer below
+   * "orthopedic surgeon" — joint reconstruction, spine, neurovascular…).
+   * Subspecialty evidence lives in procedure language, fellowship training,
+   * and role descriptions (probed 2026-09-15), so the builder adds the
+   * education surfaces and the grader gets the sibling map.
+   */
+  subspecialty?: {
+    key: string;
+    label: string;
+    education_terms: string[];
+    siblings: string[];
+  };
 }
 
 export interface RoleClassValue {
@@ -709,8 +723,53 @@ export function mapParsedToCriteria(
     ...strArr(parsed.required_keywords),
     ...strArr(parsed.keywords),
   ]).filter((t) => !statedSpecialty.includes(t));
+
+  // SUBSPECIALTY SPLIT (the market gap, 2026-09-15): a phrase that names a
+  // subspecialty ("joint reconstruction", "spine", "neurovascular") becomes
+  // its OWN criterion carrying the procedure/fellowship term set, AND-ed
+  // with whatever generic specialty terms remain ("orthopedic"). Merged into
+  // one OR-group, the parent term would satisfy the group by itself and the
+  // subspecialty would constrain nothing — every orthopedic surgeon would
+  // match a joint-reconstruction ask.
+  const subspecialtySeen = new Set<string>();
+  const genericStated: string[] = [];
+  for (const phrase of statedSpecialty) {
+    const hit = matchSubspecialty(phrase);
+    if (!hit) {
+      genericStated.push(phrase);
+      continue;
+    }
+    if (subspecialtySeen.has(hit.key)) continue;
+    subspecialtySeen.add(hit.key);
+    const subTerms = dedupe([phrase, ...hit.def.terms]);
+    push({
+      kind: "specialty",
+      label: hit.def.label + (specialtyTense === "past" ? " (past role)" : ""),
+      value: {
+        terms: subTerms,
+        tense: specialtyTense,
+        subspecialty: {
+          key: hit.key,
+          label: hit.def.label,
+          education_terms: [...hit.def.education_terms],
+          siblings: [...hit.def.siblings],
+        },
+      },
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note:
+        `Subspecialty: matched on procedure language, fellowship training, and role descriptions — not just titles. Sibling subspecialties (${hit.def.siblings.slice(0, 3).join(", ")}) rank lower.`,
+    });
+  }
+
+  // Keywords that themselves name the same subspecialty are already covered.
+  const residualKeywords = keywordTerms.filter((t) => {
+    const hit = matchSubspecialty(t);
+    return !hit || !subspecialtySeen.has(hit.key);
+  });
   const mainSpecialtyTerms = decomposeSpecialtyTerms(
-    specialtyTense === "past" ? statedSpecialty : dedupe([...statedSpecialty, ...keywordTerms]),
+    specialtyTense === "past" ? genericStated : dedupe([...genericStated, ...residualKeywords]),
   );
   if (mainSpecialtyTerms.length > 0) {
     push({

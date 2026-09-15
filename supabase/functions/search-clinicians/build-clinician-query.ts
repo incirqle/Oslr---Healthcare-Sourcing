@@ -255,10 +255,22 @@ export function buildClinicianQuery(
           else if (states.length > 1) locationAlternatives.push(or(...states.map((s) => leaf(F.state, "=", s))));
         } else if (v.level === "city" && v.city && v.state) {
           // City equality is unreliable (probe D: city="Dallas" removed every
-          // result). state= AND (city= OR full_location substring).
+          // result), and hyper-local asks (Golden, Boulder) also need the
+          // people whose profile says the nearby metro. state= AND (city= OR
+          // full_location substring OR a 15mi geo circle around the named
+          // town — geocoded by the provider, verified live 2026-09-15 on
+          // Golden/Boulder).
           locationAlternatives.push(and(
             leaf(F.state, "=", v.state),
-            or(leaf(F.city, "=", v.city), leaf(F.locationFull, "[.]", v.city)),
+            or(
+              leaf(F.city, "=", v.city),
+              leaf(F.locationFull, "[.]", v.city),
+              leaf(F.location, "geo_distance", {
+                location: `${v.city}, ${v.state}`,
+                distance: 15,
+                unit: "mi",
+              }),
+            ),
           ));
         } else if (v.state) {
           locationAlternatives.push(leaf(F.state, "=", v.state));
@@ -349,6 +361,7 @@ export function buildClinicianQuery(
           .filter((t) => typeof t === "string" && t.trim());
         if (terms.length === 0) break;
         const tense = Array.isArray(raw) ? "current" : (raw.tense ?? "current");
+        const subspecialty = Array.isArray(raw) ? undefined : raw.subspecialty;
         const CURRENT_SURFACES = [
           F.headline, F.curTitle, F.curCompanyName,
           F.summary, F.curDescription, F.skills,
@@ -363,6 +376,19 @@ export function buildClinicianQuery(
         for (const t of terms) {
           for (const v of connectorVariants(t)) {
             for (const field of surfaces) clauses.push(leaf(field, "[.]", v));
+          }
+        }
+        // Subspecialty asks add the FELLOWSHIP surfaces: an "Adult
+        // Reconstruction Fellowship" education record is subspecialty
+        // identity even when every current surface just says "Orthopaedic
+        // Surgeon" (probed live 2026-09-15). The grader still verifies the
+        // person practices it NOW.
+        if (subspecialty) {
+          for (const t of subspecialty.education_terms) {
+            for (const v of connectorVariants(t)) {
+              clauses.push(leaf(F.eduFieldOfStudy, "[.]", v));
+              clauses.push(leaf(F.eduDegree, "[.]", v));
+            }
           }
         }
         hard.push(or(...clauses));

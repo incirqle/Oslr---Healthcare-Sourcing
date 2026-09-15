@@ -72,6 +72,7 @@ Rules:
 - TENSE IS INTENT. Unless the query explicitly asks for former/past people ("used to", "former", "background in"), the person's CURRENT primary occupation must fit the asked role and vertical. History never rescues a current role outside the asked vertical: a former cardiac nurse now in pharma sales is a "reject" for "cardiovascular nurses". (A CONTEXT line below may state that past-role candidates are the explicit premise of this page; only then does this rule not apply.) "Background in X" phrasing DOES license history for X — but the person must still currently be what the role words ask for.
 - TRAINING STAGES ARE YEARS, VERIFIED FROM DATES: "PGY-3" means third post-graduate year. Verify stage AND year from the role start dates on the profile (a residency started ~26 months ago is PGY-3 territory this fall). An attending or fellow is a reject for a resident ask; a graduated (former) resident is a reject unless the page's CONTEXT says otherwise; an adjacent year is weak with the year named. Quote the date evidence. A "resident" entry with a start date many years back and a different primary role is a STALE never-closed position — reject it, naming the real current role. "PGY" titles are overwhelmingly PHARMACY residents — a pharmacy resident is a reject for a physician/podiatric residency ask.
 - SPECIALTY FAMILIES ARE UMBRELLAS: CVICU/cath lab/telemetry are cardiovascular nursing; exact vertical = strong, sibling (general ICU for CVICU) = weak with the sibling named, different service line (school nurse for cardiovascular) = reject.
+- SUBSPECIALTY DEPTH IS THE ASK. When a SUBSPECIALTY line appears below, the recruiter wants that layer, not the parent specialty. Subspecialty identity is proven by PROCEDURE language (arthroplasty, TKA/THA, ablation, TAVR, thrombectomy…), FELLOWSHIP training (an "Adult Reconstruction Fellowship" education record, an "Arthroplasty Fellow" past title), or role descriptions naming the practice focus. Judge by that evidence: clear subspecialty evidence = strong (quote it); the parent specialty with NO subspecialty evidence shown = weak ("general orthopedic surgeon — no joint reconstruction evidence shown"); a DIFFERENT subspecialty declared on the profile (a "Foot and Ankle Subspecialty" headline for a joint reconstruction ask) = weak at best, naming the actual subspecialty, and reject when the declared focus makes the ask implausible. A fellowship is subspecialty identity, but the person must still practice it NOW — a joint-reconstruction fellowship followed by a current administrative or industry role fails the tense rule as usual.
 - EMPLOYER GROUPS: "at the VA" means CURRENTLY employed by a Veterans Affairs entity (VA medical centers, Veterans Health Care Systems). A VA stint years ago is not current VA employment.
 - TRAVEL/AGENCY NURSES: an employer that is a staffing agency (Aya, AMN, Cross Country…) with facility assignments in the role text is a normal clinical career pattern — judge the clinical work, not the employer name. A travel-stint pattern is signal, not noise.
 - OPENNESS TO MOVING: when the query asks who might leave or be open to a move, judge it like any other intent — no filter can express it. Positive: explicit openness language, a long unpromoted stint, employer turmoil in role text. Negative: a recent promotion or fresh "excited to join" language. Quote the signal.
@@ -146,9 +147,20 @@ export function buildAuditUserMessage(
     .filter((c) => c.enforcement === "hard")
     .map((c) => `${c.kind}=${c.label}`)
     .join(", ");
+  // Subspecialty context: hand the grader the sibling map so its
+  // exact/sibling/unrelated calls are grounded, not guessed.
+  const subspecialtyLines = criteria
+    .filter((c) => c.kind === "specialty")
+    .map((c) => {
+      const v = c.value as { subspecialty?: { label: string; siblings: string[] } } | string[] | null;
+      return !Array.isArray(v) && v?.subspecialty ? v.subspecialty : null;
+    })
+    .filter((s): s is { label: string; siblings: string[] } => s !== null)
+    .map((s) => `SUBSPECIALTY: ${s.label} — sibling subspecialties (weak, name them): ${s.siblings.join(", ")}`);
   return [
     `RECRUITER'S QUERY: ${query}`,
     `ENFORCED FILTERS: ${filters}`,
+    ...subspecialtyLines,
     `TODAY: ${new Date().toISOString().slice(0, 10)}`,
     ...(contextNote ? [`CONTEXT: ${contextNote}`] : []),
     `PROFILES:`,
