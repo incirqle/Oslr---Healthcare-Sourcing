@@ -12,6 +12,7 @@
 /** Stable wire codes — the client switches on these, never on message text. */
 export type SearchErrorCode =
   | "no_results"
+  | "empty_intent"
   | "provider_timeout"
   | "credit_ceiling"
   | "rate_limited"
@@ -35,6 +36,7 @@ export interface SearchErrorInfo {
  */
 export type SearchFailureTag =
   | "no_results"
+  | "empty_intent"
   | "malformed_query"
   | "credit_ceiling"
   | "provider_timeout";
@@ -53,6 +55,11 @@ export interface V2ErrorLike {
 export type SearchFailureCondition = SearchFailureTag | V2ErrorLike;
 
 const TAXONOMY: Record<SearchErrorCode, SearchErrorInfo> = {
+  empty_intent: {
+    code: "empty_intent",
+    userMessage: "Add a clinical role, specialty, employer, or credential so the search has something to match.",
+    nextAction: "Examples: 'cardiologist', 'ICU nurse', 'CRNAs at the Miami VA'.",
+  },
   no_results: {
     code: "no_results",
     userMessage: "No candidates matched every filter in this search.",

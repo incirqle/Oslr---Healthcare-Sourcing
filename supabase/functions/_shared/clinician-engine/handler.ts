@@ -294,6 +294,50 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
+      // Guard: a query with no clinical intent at all (no role, specialty,
+      // title, employer, credential, setting, or stage — just a location or
+      // nothing) would pull thousands of random people and bill for them.
+      // Refuse before touching the provider; the legacy engine had the same
+      // guard and losing it was a regression.
+      const INTENT_KINDS = new Set([
+        "role_class",
+        "specialty",
+        "title",
+        "company",
+        "past_company",
+        "employer_group",
+        "credential",
+        "care_setting",
+        "fellowship",
+        "training_stage",
+        "seniority",
+        "keyword",
+      ]);
+      const hasIntent = criteria.some((c) =>
+        INTENT_KINDS.has(c.kind) && c.enforcement !== "dropped"
+      );
+      if (!hasIntent) {
+        const err = classifySearchError("empty_intent");
+        console.log(JSON.stringify({ event: "empty_intent_guard", criteria_count: criteria.length }));
+        return new Response(JSON.stringify({
+          ...(preview ? { preview: true } : {}),
+          results: [], total: 0, page, size,
+          hasMore: false, scroll_token: null,
+          engine: "clinician",
+          engine_version: CLINICIAN_ENGINE_VERSION,
+          run_id: runId,
+          provider: "crustdata-v2",
+          parsed, criteria, relaxed,
+          exact: relaxed.length === 0,
+          widen_options: [],
+          credits: 0,
+          credits_session: getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS),
+          credit_ceiling: CREDIT_CEILING,
+          cache_hit: false,
+          ...searchErrorFields(err),
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       // 3. Criteria → v2 filter tree (hard criteria only).
       const treeFilters = buildClinicianQuery(criteria);
       if (!treeFilters) {

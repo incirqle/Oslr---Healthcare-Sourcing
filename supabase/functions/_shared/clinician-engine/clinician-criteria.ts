@@ -818,7 +818,11 @@ export function mapParsedToCriteria(
   for (const { state, city, preferredCity, regionKey } of locations) {
     const subState = regionKey ? SUB_STATE_REGIONS[regionKey] : undefined;
     const multiState = regionKey ? MULTI_STATE_REGIONS[regionKey] : undefined;
-    if (!state && !subState && !multiState) continue;
+    // A city with no state is still a stated location — dropping it would
+    // silently run a nationwide search (parser sometimes leaves state null
+    // on "nurses in Denver"-style asks). The builder handles state-less
+    // cities with a full-location match + geo circle.
+    if (!state && !city && !subState && !multiState) continue;
     const key = `${regionKey ?? ""}|${state ?? ""}|${city ?? ""}`;
     if (seenLoc.has(key)) continue;
     seenLoc.add(key);
@@ -848,6 +852,18 @@ export function mapParsedToCriteria(
         enforcement: "hard",
         source: "user",
         evidenceSource: "search",
+      });
+      continue;
+    }
+    if (!state && city) {
+      push({
+        kind: "location",
+        label: titleCase(city),
+        value: { level: "city", city },
+        enforcement: "hard",
+        source: "user",
+        evidenceSource: "search",
+        note: "No state given — matching the city name and a 15-mile radius around it.",
       });
       continue;
     }

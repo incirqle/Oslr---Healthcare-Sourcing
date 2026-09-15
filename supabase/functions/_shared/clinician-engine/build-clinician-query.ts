@@ -310,6 +310,20 @@ export function buildClinicianQuery(
           ));
         } else if (v.state) {
           locationAlternatives.push(leaf(F.state, "=", v.state));
+        } else if (v.level === "city" && v.city) {
+          // City with NO state (parser left state null — "nurses in Denver").
+          // Never drop the location: match the city name in the profile's
+          // full location plus a 15mi provider-geocoded circle on the bare
+          // city string. Broader than a state-clipped city, but the user's
+          // stated location stays a hard filter.
+          locationAlternatives.push(or(
+            leaf(F.locationFull, "[.]", v.city),
+            leaf(F.location, "geo_distance", {
+              location: v.city,
+              distance: 15,
+              unit: "mi",
+            }),
+          ));
         }
         break;
       }

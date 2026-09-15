@@ -998,3 +998,40 @@ Deno.test("a typed city beats a parser-volunteered region (Denver live failure)"
   const regionLoc = regionCriteria.find((c) => c.kind === "location");
   assertEquals((regionLoc?.value as { level: string }).level, "region");
 });
+
+Deno.test("city with no state stays a hard location, never a nationwide search", () => {
+  const parsed = validateAIOutput({
+    role_class: "nurse",
+    location: { city: "denver" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const loc = criteria.find((c) => c.kind === "location" && c.source === "user");
+  assert(loc, "state-less city must still produce a location criterion");
+  const v = loc.value as { level: string; city?: string; state?: string };
+  assertEquals(v.level, "city");
+  assertEquals(v.city, "denver");
+  assertEquals(v.state, undefined);
+  const tree = buildClinicianQuery(criteria);
+  assert(tree, "query must build");
+  const s = JSON.stringify(tree);
+  assert(s.includes("geo_distance"), "city-only location must carry a geo circle");
+  assert(s.includes("denver"), "city name must appear in the filter");
+});
+
+Deno.test("empty-intent criteria are detectable (guard input)", () => {
+  // Location-only parse — the handler's guard refuses to search on this.
+  const parsed = validateAIOutput({
+    location: { city: "nashville", state: "tennessee" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const INTENT_KINDS = new Set([
+    "role_class", "specialty", "title", "company", "past_company",
+    "employer_group", "credential", "care_setting", "fellowship",
+    "training_stage", "seniority", "keyword",
+  ]);
+  assertEquals(
+    criteria.some((c) => INTENT_KINDS.has(c.kind) && c.enforcement !== "dropped"),
+    false,
+    "a location-only parse must carry no intent criteria",
+  );
+});
