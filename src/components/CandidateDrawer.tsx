@@ -458,6 +458,14 @@ export function CandidateDrawer({
     let cancelled = false;
 
     const fetchEnriched = async () => {
+      // Already-purchased enrichment stored on the saved contact — reuse it
+      // instead of paying for the same profile again.
+      const stored = (candidate.raw as { enriched?: unknown } | undefined)?.enriched;
+      if (stored && typeof stored === "object") {
+        setEnriched(stored as EnrichedData);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
