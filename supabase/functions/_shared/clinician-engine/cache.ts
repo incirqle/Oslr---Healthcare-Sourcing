@@ -135,3 +135,60 @@ export async function setCrustDataCache(
     created_at: new Date().toISOString(),
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  Permanent enrichment store (people_enrichments)                     */
+/*                                                                      */
+/*  crustdata_cache expires after 30 days. Once we have PAID for a      */
+/*  person's enrichment we keep it forever here, keyed by LinkedIn URL, */
+/*  so a recruiter never pays twice for the same profile.               */
+/* ------------------------------------------------------------------ */
+
+function enrichmentKey(linkedinUrl: string): string {
+  return linkedinUrl.trim().toLowerCase().replace(/\/+$/, "");
+}
+
+// deno-lint-ignore no-explicit-any
+export async function getPermanentEnrichment(linkedinUrl: string): Promise<any | null> {
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("people_enrichments")
+      .select("enriched_data")
+      .eq("linkedin_url", enrichmentKey(linkedinUrl))
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.enriched_data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function savePermanentEnrichment(
+  linkedinUrl: string,
+  // deno-lint-ignore no-explicit-any
+  enriched: any,
+  pdlId: string | null = null,
+): Promise<void> {
+  try {
+    const sb = getServiceClient();
+    const key = enrichmentKey(linkedinUrl);
+    const { data: existing } = await sb
+      .from("people_enrichments")
+      .select("id")
+      .eq("linkedin_url", key)
+      .maybeSingle();
+    if (existing?.id) {
+      await sb
+        .from("people_enrichments")
+        .update({ enriched_data: enriched, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await sb
+        .from("people_enrichments")
+        .insert({ linkedin_url: key, pdl_id: pdlId, enriched_data: enriched });
+    }
+  } catch (e) {
+    console.warn("[enrichment-store] save failed:", e instanceof Error ? e.message : String(e));
+  }
+}

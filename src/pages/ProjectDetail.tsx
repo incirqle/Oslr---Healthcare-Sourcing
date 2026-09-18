@@ -489,6 +489,7 @@ export default function ProjectDetail() {
                           setDrawerCandidate({
                             ...c,
                             id: c.pdl_id || c.id,
+                            dbId: c.id,
                             raw: c.raw_data ?? undefined,
                           })}
                       >
@@ -639,6 +640,7 @@ export default function ProjectDetail() {
         open={!!drawerCandidate}
         onOpenChange={(open) => !open && setDrawerCandidate(null)}
         candidate={drawerCandidate}
+        savedContactId={drawerCandidate?.dbId ?? null}
         projectId={id}
       />
 

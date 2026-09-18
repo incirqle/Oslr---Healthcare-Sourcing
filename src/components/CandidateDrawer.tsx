@@ -66,6 +66,9 @@ interface CandidateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId?: string;
+  /** Row id in `candidates` when this person is already saved — enrichment
+   *  results are written back onto that row so they are never re-purchased. */
+  savedContactId?: string | null;
   candidate: {
     id: string;
     full_name: string;
@@ -372,6 +375,7 @@ export function CandidateDrawer({
   open,
   onOpenChange,
   candidate,
+  savedContactId = null,
   isSaved = false,
   isSavingCandidate = false,
   onSaveCandidate,
@@ -454,6 +458,14 @@ export function CandidateDrawer({
     let cancelled = false;
 
     const fetchEnriched = async () => {
+      // Already-purchased enrichment stored on the saved contact — reuse it
+      // instead of paying for the same profile again.
+      const stored = (candidate.raw as { enriched?: unknown } | undefined)?.enriched;
+      if (stored && typeof stored === "object") {
+        setEnriched(stored as EnrichedData);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -476,7 +488,25 @@ export function CandidateDrawer({
         }
         const payload = (data as { data?: unknown } | null)?.data;
         if (payload && typeof payload === "object") {
-          setEnriched(payload as EnrichedData);
+          const profile = payload as EnrichedData & {
+            work_email?: string | null;
+            personal_emails?: string[] | null;
+            mobile_phone?: string | null;
+            phone_numbers?: string[] | null;
+          };
+          setEnriched(profile);
+
+          // Persist onto the saved contact so it is kept forever.
+          if (savedContactId) {
+            const email = profile.work_email || profile.personal_emails?.[0] || null;
+            const phone = profile.mobile_phone || profile.phone_numbers?.[0] || null;
+            const patch: Record<string, unknown> = {
+              raw_data: { ...(candidate.raw ?? {}), enriched: profile },
+            };
+            if (email) patch.email = email;
+            if (phone) patch.phone = phone;
+            void supabase.from("candidates").update(patch).eq("id", savedContactId);
+          }
         }
       } catch (fetchError) {
         if (cancelled) return;
