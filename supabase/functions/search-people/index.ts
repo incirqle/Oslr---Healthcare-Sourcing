@@ -294,6 +294,11 @@ Deno.serve(async (req: Request) => {
         linkedin_url: linkedinUrl,
       };
       await setCrustDataCache(cacheKey, 1, [shaped], null);
+      await savePermanentEnrichment(
+        linkedinUrl,
+        shaped,
+        typeof body.pdl_id === "string" ? body.pdl_id : null,
+      );
       return json({ data: shaped, likelihood: null });
     }
 
