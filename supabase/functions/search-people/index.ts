@@ -31,7 +31,9 @@ import {
 import {
   ENRICHMENT_TTL_MS,
   getCrustDataCache,
+  getPermanentEnrichment,
   normalizeCrustDataV2Profile,
+  savePermanentEnrichment,
   setCrustDataCache,
 } from "../_shared/clinician-engine/cache.ts";
 
