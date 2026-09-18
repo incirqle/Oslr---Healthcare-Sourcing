@@ -66,6 +66,9 @@ interface CandidateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId?: string;
+  /** Row id in `candidates` when this person is already saved — enrichment
+   *  results are written back onto that row so they are never re-purchased. */
+  savedContactId?: string | null;
   candidate: {
     id: string;
     full_name: string;
