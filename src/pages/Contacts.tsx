@@ -532,6 +532,7 @@ export default function Contacts() {
         open={!!drawerContact}
         onOpenChange={(open) => !open && setDrawerContact(null)}
         candidate={drawerContact ? toDrawerCandidate(drawerContact) : null}
+        savedContactId={drawerContact?.id ?? null}
         projectId={drawerContact?.project_id}
         onPrev={() => {
           if (activeIndex > 0) setDrawerContact(filtered[activeIndex - 1]);
