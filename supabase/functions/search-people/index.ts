@@ -213,6 +213,11 @@ Deno.serve(async (req: Request) => {
       if (cached && cached.profiles[0]) {
         return json({ data: cached.profiles[0], likelihood: null, cached: true });
       }
+      // Permanent store: once paid for, a profile is never re-purchased.
+      const stored = await getPermanentEnrichment(linkedinUrl);
+      if (stored) {
+        return json({ data: stored, likelihood: null, cached: true });
+      }
 
       const [profileRes, contactRes] = await Promise.all([
         personEnrichV2(linkedinUrl, [
