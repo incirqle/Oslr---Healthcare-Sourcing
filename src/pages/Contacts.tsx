@@ -255,7 +255,10 @@ export default function Contacts() {
     ...c,
     id: c.pdl_id || c.id,
     skills: c.skills ?? [],
-    raw: c.raw_data ?? undefined,
+    avg_tenure_months: null,
+    industry: null,
+    company_size: null,
+    raw: (c.raw_data ?? undefined) as Record<string, unknown> | undefined,
   });
 
   return (
