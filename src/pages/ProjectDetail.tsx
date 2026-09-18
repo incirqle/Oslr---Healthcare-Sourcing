@@ -640,6 +640,7 @@ export default function ProjectDetail() {
         open={!!drawerCandidate}
         onOpenChange={(open) => !open && setDrawerCandidate(null)}
         candidate={drawerCandidate}
+        savedContactId={drawerCandidate?.dbId ?? null}
         projectId={id}
       />
 
