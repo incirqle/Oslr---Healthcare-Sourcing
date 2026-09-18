@@ -489,6 +489,7 @@ export default function ProjectDetail() {
                           setDrawerCandidate({
                             ...c,
                             id: c.pdl_id || c.id,
+                            dbId: c.id,
                             raw: c.raw_data ?? undefined,
                           })}
                       >
