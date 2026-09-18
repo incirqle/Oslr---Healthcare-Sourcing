@@ -375,6 +375,7 @@ export function CandidateDrawer({
   open,
   onOpenChange,
   candidate,
+  savedContactId = null,
   isSaved = false,
   isSavingCandidate = false,
   onSaveCandidate,
