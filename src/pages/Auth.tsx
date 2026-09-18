@@ -30,22 +30,15 @@ export default function Auth() {
   const [inviteInfo, setInviteInfo] = useState<{ email: string; companyName: string } | null>(null);
   const navigate = useNavigate();
 
-  // Resolve invite token (public read by token policy)
+  // Resolve invite token through a locked-down lookup: it reveals only the
+  // invited email and team name for that exact token.
   useEffect(() => {
     if (!inviteToken) return;
     (async () => {
-      const { data: invite } = await supabase
-        .from("company_invites")
-        .select("email, company_id, accepted_at")
-        .eq("token", inviteToken)
-        .maybeSingle();
-      if (!invite || invite.accepted_at) return;
-      const { data: company } = await supabase
-        .from("companies")
-        .select("name")
-        .eq("id", invite.company_id)
-        .maybeSingle();
-      setInviteInfo({ email: invite.email, companyName: company?.name ?? "your team" });
+      const { data } = await supabase.rpc("get_invite_by_token", { _token: inviteToken });
+      const invite = Array.isArray(data) ? data[0] : null;
+      if (!invite || invite.accepted) return;
+      setInviteInfo({ email: invite.email, companyName: invite.company_name ?? "your team" });
       setEmail(invite.email);
     })();
   }, [inviteToken]);

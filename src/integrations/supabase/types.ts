@@ -1455,6 +1455,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_invite_by_token: {
+        Args: { _token: string }
+        Returns: {
+          accepted: boolean
+          company_name: string
+          email: string
+        }[]
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_company_role: {
         Args: {
