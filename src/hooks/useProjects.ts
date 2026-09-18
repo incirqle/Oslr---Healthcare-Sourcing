@@ -164,7 +164,23 @@ export function useAddCandidates() {
         raw_data?: unknown;
       }[];
     }) => {
-      const rows = candidates.map((c) => ({
+      if (!companyId || !user) throw new Error("Not ready – please wait a moment and try again");
+
+      // Never save the same person into the same project twice.
+      const incomingIds = candidates.map((c) => c.pdl_id).filter((v): v is string => !!v);
+      let existingIds = new Set<string>();
+      if (incomingIds.length > 0) {
+        const { data: existing } = await supabase
+          .from("candidates")
+          .select("pdl_id")
+          .eq("project_id", projectId)
+          .in("pdl_id", incomingIds);
+        existingIds = new Set((existing ?? []).map((r) => r.pdl_id).filter((v): v is string => !!v));
+      }
+      const fresh = candidates.filter((c) => !c.pdl_id || !existingIds.has(c.pdl_id));
+      if (fresh.length === 0) return 0;
+
+      const rows = fresh.map((c) => ({
         project_id: projectId,
         company_id: companyId!,
         added_by: user!.id,
