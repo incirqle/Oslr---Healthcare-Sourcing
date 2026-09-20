@@ -82,6 +82,23 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
   "derm": { specialties: ["dermatology"], keywords: ["dermatology"] },
   "ent": { specialties: ["otolaryngology"], keywords: ["ent", "otolaryngology"] },
   "anesthesia": { specialties: ["anesthesiology"], keywords: ["anesthesia", "anesthesiology"] },
+  // Pain medicine (Neuvora beta 2026-09-20: "pain management" matched only as
+  // a literal phrase — interventional pain, pain medicine, algology and
+  // PM&R physicians were invisible; Memphis returned 2, Mississippi 12).
+  "pain": { specialties: ["pain medicine"], keywords: ["pain management", "pain medicine"] },
+  "pain management": { specialties: ["pain medicine"], keywords: ["pain management", "pain medicine", "interventional pain"] },
+  "pain medicine": { specialties: ["pain medicine"], keywords: ["pain medicine", "pain management", "interventional pain"] },
+  "interventional pain": { specialties: ["pain medicine"], keywords: ["interventional pain", "pain management"] },
+  "chronic pain": { specialties: ["pain medicine"], keywords: ["chronic pain", "pain management"] },
+  "algology": { specialties: ["pain medicine"], keywords: ["algology", "pain medicine"] },
+  "physiatry": { specialties: ["physical medicine and rehabilitation"], keywords: ["physiatry", "physiatrist", "physical medicine and rehabilitation"] },
+  "physiatrist": { specialties: ["physical medicine and rehabilitation"], keywords: ["physiatrist", "physical medicine and rehabilitation"] },
+  "physiatrists": { specialties: ["physical medicine and rehabilitation"], keywords: ["physiatrist", "physical medicine and rehabilitation"] },
+  "algologist": { specialties: ["pain medicine"], keywords: ["algology", "pain medicine"] },
+  "algologists": { specialties: ["pain medicine"], keywords: ["algology", "pain medicine"] },
+  "pm&r": { specialties: ["physical medicine and rehabilitation"], keywords: ["pm&r", "physical medicine and rehabilitation", "physiatry"] },
+  "pmr": { specialties: ["physical medicine and rehabilitation"], keywords: ["pm&r", "physical medicine and rehabilitation", "physiatry"] },
+  "physical medicine": { specialties: ["physical medicine and rehabilitation"], keywords: ["physical medicine and rehabilitation", "physiatry"] },
   "radiology": { specialties: ["radiology"], keywords: ["radiology", "imaging"] },
   "urology": { specialties: ["urology"], keywords: ["urology"] },
   "podiatry": { specialties: ["podiatry"], keywords: ["podiatry", "podiatric"] },
@@ -124,6 +141,30 @@ export interface SubspecialtyDef {
 }
 
 export const SUBSPECIALTIES: Record<string, SubspecialtyDef> = {
+  pain_medicine: {
+    label: "Pain Medicine",
+    parent: "anesthesiology",
+    aliases: [
+      "pain medicine", "pain management", "interventional pain", "chronic pain",
+      "pain physician", "pain specialist", "pain doctor", "algology", "pain",
+    ],
+    // Practitioners write their identity in procedure and setting language
+    // far more than the phrase "pain management": the procedure terms carry
+    // recall, the grader verifies they practice it now. PM&R / physiatry
+    // rides along — the interventional-pain population is heavily physiatry.
+    terms: [
+      "pain medicine", "pain management", "interventional pain", "chronic pain",
+      "pain physician", "pain specialist", "pain clinic", "pain center", "spine and pain",
+      "algology", "algologist",
+      "physiatry", "physiatrist", "physical medicine and rehabilitation", "pm&r",
+      "anesthesiology pain", "anesthesia pain",
+      "epidural", "nerve block", "radiofrequency ablation", "spinal cord stimulator",
+      "spinal cord stimulation", "kyphoplasty", "vertebroplasty", "facet injection",
+      "medial branch block", "intrathecal pump",
+    ],
+    education_terms: ["pain medicine", "pain management", "interventional pain", "physical medicine and rehabilitation"],
+    siblings: ["anesthesiology", "physical medicine and rehabilitation", "neurology", "spine", "sports medicine"],
+  },
   joint_reconstruction: {
     label: "Joint Reconstruction",
     parent: "orthopedic",

@@ -1150,3 +1150,49 @@ Deno.test("mapper: explicit state beats a multi-state band the parser attached",
   assertEquals((loc!.value as { level: string }).level, "state");
   assertEquals((loc!.value as { state: string }).state, "florida");
 });
+
+/* ---------- pain medicine vocabulary (Neuvora beta 2026-09-20) ---------- */
+
+Deno.test("pain medicine: every recruiter phrasing resolves to the subspecialty", () => {
+  for (const phrase of ["pain management", "pain medicine", "interventional pain", "chronic pain", "pain physician", "algology"]) {
+    assertEquals(matchSubspecialty(phrase)?.key, "pain_medicine", phrase);
+  }
+  // Whole-word: "painting" and unrelated specialties do not match.
+  assertEquals(matchSubspecialty("painting contractors"), null);
+  assertEquals(matchSubspecialty("nephrology"), null);
+});
+
+Deno.test("pain medicine: keyword backstop catches shorthand the parser missed", () => {
+  const parsed: Record<string, unknown> = { specialties: [], required_keywords: [] };
+  expandParsedKeywords(parsed, "pain management doctors in memphis");
+  assert((parsed.specialties as string[]).includes("pain medicine"));
+  const pmr: Record<string, unknown> = { specialties: [], required_keywords: [] };
+  expandParsedKeywords(pmr, "physiatrists in nashville");
+  assert((pmr.specialties as string[]).includes("physical medicine and rehabilitation"));
+});
+
+Deno.test("pain medicine: maps to ONE subspecialty criterion carrying procedure terms, no parent AND", () => {
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    specialties: ["pain management"],
+    specialty_tense: "current",
+    location: { city: "memphis", state: "tennessee" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const specialty = criteria.filter((c) => c.kind === "specialty");
+  assertEquals(specialty.length, 1, "pain management must not require a separate anesthesiology AND");
+  const v = specialty[0].value as SpecialtyValue;
+  assertExists(v.subspecialty);
+  assertEquals(specialty[0].label, "Pain Medicine");
+  for (const t of ["interventional pain", "physiatrist", "epidural", "radiofrequency ablation", "spinal cord stimulator"]) {
+    assert(v.terms.includes(t), `missing recall term: ${t}`);
+  }
+  // And the builder emits them on the current-role surfaces + education.
+  const tree = buildClinicianQuery(criteria);
+  const used = fieldsUsed(tree);
+  assert(used.has("basic_profile.headline"));
+  assert(used.has("education.schools.field_of_study"), "subspecialty asks add the fellowship/education surfaces");
+  const values = new Set(leaves(tree).map((l) => String(l.value).toLowerCase()));
+  assert(values.has("interventional pain"));
+  assert(values.has("epidural"));
+});
