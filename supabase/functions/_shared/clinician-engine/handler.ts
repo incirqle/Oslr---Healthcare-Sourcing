@@ -992,13 +992,15 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
-      // Rejects are removed from the response and the count; verdicts stay
-      // in the audit summary + run telemetry.
-      const beforeRejectFilter = allResults.length;
-      allResults = allResults.filter(
-        (r: Record<string, unknown>) => r.audit_verdict !== "reject" && r.audit_verdict !== "rejected",
-      );
-      const rejectedFiltered = beforeRejectFilter - allResults.length;
+      // Rejects leave the main list and the count, but they are never
+      // discarded silently: they ride the response as hidden_results so the
+      // UI can say "N hidden as poor matches" and let the recruiter reveal
+      // them with the grader's reason attached. (A page that found people
+      // and rendered blank was the Neuvora beta's #1 complaint.)
+      const isReject = (r: Record<string, unknown>) => r.audit_verdict === "reject";
+      const hiddenResults = allResults.filter(isReject);
+      allResults = allResults.filter((r: Record<string, unknown>) => !isReject(r));
+      const rejectedFiltered = hiddenResults.length;
       const displayTotal = pastHoldersFallback
         ? allResults.length
         : Math.max(totalCount - rejectedFiltered, allResults.length);
@@ -1059,6 +1061,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           ? "No one currently in this role matched your search. Showing people who held it before — up to 15, clearly marked."
           : null,
         rejected_filtered: rejectedFiltered,
+        hidden_results: hiddenResults,
         hasMore: (page + 1) * size < allResults.length,
         scroll_token: null,
         engine: "clinician",

@@ -423,6 +423,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const rows = (Array.isArray(data.results) ? data.results as Row[] : []).map(toSearchPageRow);
+    // Grader rejects: kept out of `results`, surfaced so the page is never
+    // silently empty. Same row shape as results, plus audit_verdict/reason.
+    const hiddenRows = (Array.isArray(data.hidden_results) ? data.hidden_results as Row[] : []).map(toSearchPageRow);
 
     return json({
       results: rows,
@@ -433,6 +436,8 @@ Deno.serve(async (req: Request) => {
       parsed_keywords: [],
       scroll_token: null,
       hasMore: data.hasMore === true,
+      rejected_filtered: typeof data.rejected_filtered === "number" ? data.rejected_filtered : hiddenRows.length,
+      hidden_results: hiddenRows,
       cascade_used: relaxed.length > 0,
       cascade_plan: relaxed,
       geo_scope: deriveGeoScope(parsed, relaxed),
