@@ -661,7 +661,9 @@ export function SearchResults({
       {totalPages > 1 && onPageChange && (
         <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground tabular-nums">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total.toLocaleString()}
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, pagerTotal)} of{" "}
+            {pagerTotal.toLocaleString()}
+            {total > pagerTotal ? ` (of ~${total.toLocaleString()} matches)` : ""}
           </p>
 
           <div className="flex items-center gap-1.5">
@@ -707,7 +709,7 @@ export function SearchResults({
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages || isLoading}
+              disabled={page >= totalPages || hasMore === false || isLoading}
               onClick={() => onPageChange(page + 1)}
               className="h-9 gap-1.5 transition-opacity"
             >
