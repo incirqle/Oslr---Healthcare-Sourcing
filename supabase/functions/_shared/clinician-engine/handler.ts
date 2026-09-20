@@ -1046,6 +1046,9 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       return new Response(JSON.stringify({
         results,
         total: displayTotal,
+        // How many rows can actually be paged through (the fetched pool),
+        // as opposed to the provider's market-size estimate in `total`.
+        browsable_total: allResults.length,
         page,
         size,
         audit: auditSummary,
