@@ -507,7 +507,7 @@ Deno.test("subspecialty: joint reconstruction splits from parent and ANDs with i
   assert(geoLocs.some((s) => s.includes("boulder")), "Boulder geo circle missing");
 });
 
-Deno.test("subspecialty asks always earn a semantic pass, even with a named employer", async () => {
+Deno.test("specialty asks earn a semantic pass, with or without a named employer", async () => {
   const { semanticWorthRunning } = await import("./semantic-recall.ts");
   const withEmployer = mapParsedToCriteria(validateAIOutput({
     role_class: "physician",
@@ -523,7 +523,7 @@ Deno.test("subspecialty asks always earn a semantic pass, even with a named empl
     current_companies: ["uchealth"],
     location: { state: "colorado" },
   }) as unknown as Record<string, unknown>);
-  assert(!semanticWorthRunning(genericWithEmployer), "generic specialty + employer keeps the old gate");
+  assert(semanticWorthRunning(genericWithEmployer), "a named employer no longer disables the semantic pass");
 });
 
 Deno.test("subspecialty depth across verticals: neurovascular and structural heart", () => {
