@@ -26,7 +26,7 @@ export type Database = {
           match_label: string | null
           match_reasoning: string | null
           match_score: number | null
-          pdl_person_id: string
+          person_id: string
           profile_snapshot: Json
           reviewer_feedback: string | null
           sequence_step: number | null
@@ -44,7 +44,7 @@ export type Database = {
           match_label?: string | null
           match_reasoning?: string | null
           match_score?: number | null
-          pdl_person_id: string
+          person_id: string
           profile_snapshot: Json
           reviewer_feedback?: string | null
           sequence_step?: number | null
@@ -62,7 +62,7 @@ export type Database = {
           match_label?: string | null
           match_reasoning?: string | null
           match_score?: number | null
-          pdl_person_id?: string
+          person_id?: string
           profile_snapshot?: Json
           reviewer_feedback?: string | null
           sequence_step?: number | null
@@ -245,7 +245,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          pdl_id: string
+          person_id: string
           status: Database["public"]["Enums"]["candidate_fit_status"]
           updated_at: string
           user_id: string
@@ -253,7 +253,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          pdl_id: string
+          person_id: string
           status?: Database["public"]["Enums"]["candidate_fit_status"]
           updated_at?: string
           user_id: string
@@ -261,7 +261,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          pdl_id?: string
+          person_id?: string
           status?: Database["public"]["Enums"]["candidate_fit_status"]
           updated_at?: string
           user_id?: string
@@ -273,7 +273,7 @@ export type Database = {
           body: string
           created_at: string
           id: string
-          pdl_id: string
+          person_id: string
           updated_at: string
           user_id: string
         }
@@ -281,7 +281,7 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
-          pdl_id: string
+          person_id: string
           updated_at?: string
           user_id: string
         }
@@ -289,7 +289,7 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
-          pdl_id?: string
+          person_id?: string
           updated_at?: string
           user_id?: string
         }
@@ -308,7 +308,7 @@ export type Database = {
           linkedin_url: string | null
           location: string | null
           notes: string | null
-          pdl_id: string | null
+          person_id: string | null
           phone: string | null
           project_id: string
           raw_data: Json | null
@@ -332,7 +332,7 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           notes?: string | null
-          pdl_id?: string | null
+          person_id?: string | null
           phone?: string | null
           project_id: string
           raw_data?: Json | null
@@ -356,7 +356,7 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           notes?: string | null
-          pdl_id?: string | null
+          person_id?: string | null
           phone?: string | null
           project_id?: string
           raw_data?: Json | null
@@ -978,37 +978,13 @@ export type Database = {
         }
         Relationships: []
       }
-      pdl_cache: {
-        Row: {
-          cache_key: string
-          created_at: string | null
-          data: Json | null
-          scroll_token: string | null
-          total: number | null
-        }
-        Insert: {
-          cache_key: string
-          created_at?: string | null
-          data?: Json | null
-          scroll_token?: string | null
-          total?: number | null
-        }
-        Update: {
-          cache_key?: string
-          created_at?: string | null
-          data?: Json | null
-          scroll_token?: string | null
-          total?: number | null
-        }
-        Relationships: []
-      }
       people_enrichments: {
         Row: {
           created_at: string
           enriched_data: Json
           id: string
           linkedin_url: string | null
-          pdl_id: string | null
+          person_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1016,7 +992,7 @@ export type Database = {
           enriched_data: Json
           id?: string
           linkedin_url?: string | null
-          pdl_id?: string | null
+          person_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1024,7 +1000,7 @@ export type Database = {
           enriched_data?: Json
           id?: string
           linkedin_url?: string | null
-          pdl_id?: string | null
+          person_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1171,7 +1147,7 @@ export type Database = {
           meta: Json | null
           parsed_filters: Json | null
           parsed_payload: Json | null
-          pdl_query: Json | null
+          provider_query: Json | null
           phase: string
           profiles_fetched: number | null
           query_text: string | null
@@ -1191,7 +1167,7 @@ export type Database = {
           meta?: Json | null
           parsed_filters?: Json | null
           parsed_payload?: Json | null
-          pdl_query?: Json | null
+          provider_query?: Json | null
           phase: string
           profiles_fetched?: number | null
           query_text?: string | null
@@ -1211,7 +1187,7 @@ export type Database = {
           meta?: Json | null
           parsed_filters?: Json | null
           parsed_payload?: Json | null
-          pdl_query?: Json | null
+          provider_query?: Json | null
           phase?: string
           profiles_fetched?: number | null
           query_text?: string | null
@@ -1227,7 +1203,7 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
-          pdl_params: Json | null
+          search_params: Json | null
           query_text: string
           result_count: number | null
           user_id: string
@@ -1236,7 +1212,7 @@ export type Database = {
           company_id: string
           created_at?: string
           id?: string
-          pdl_params?: Json | null
+          search_params?: Json | null
           query_text: string
           result_count?: number | null
           user_id: string
@@ -1245,7 +1221,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           id?: string
-          pdl_params?: Json | null
+          search_params?: Json | null
           query_text?: string
           result_count?: number | null
           user_id?: string
@@ -1274,7 +1250,7 @@ export type Database = {
           leads_total: number | null
           name: string
           parsed_payload: Json | null
-          pdl_query: Json | null
+          source_query: Json | null
           review_mode: string | null
           role_description: string
           sequence_id: string | null
@@ -1296,7 +1272,7 @@ export type Database = {
           leads_total?: number | null
           name: string
           parsed_payload?: Json | null
-          pdl_query?: Json | null
+          source_query?: Json | null
           review_mode?: string | null
           role_description: string
           sequence_id?: string | null
@@ -1318,7 +1294,7 @@ export type Database = {
           leads_total?: number | null
           name?: string
           parsed_payload?: Json | null
-          pdl_query?: Json | null
+          source_query?: Json | null
           review_mode?: string | null
           role_description?: string
           sequence_id?: string | null

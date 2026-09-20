@@ -67,9 +67,12 @@ export function semanticWorthRunning(criteria: SearchCriteria[]): boolean {
     return !Array.isArray(v) && !!v?.subspecialty;
   });
   if (hasSubspecialty) return true;
-  const hasSpecialty = criteria.some((c) => c.kind === "specialty" && c.enforcement === "hard");
-  const hasNamedEmployer = criteria.some((c) => c.kind === "company" || c.kind === "employer_group");
-  return hasSpecialty && !hasNamedEmployer;
+  // A named employer used to switch the semantic pass OFF — exactly the
+  // query where a recruiter's own sentence ("does complex revision TKA at
+  // UCHealth") is the best recall net, and the reason "company semantic
+  // search" appeared not to work. The structured employer filter still
+  // rides along in exact mode, so the pass stays inside that employer.
+  return criteria.some((c) => c.kind === "specialty" && c.enforcement === "hard");
 }
 
 /**

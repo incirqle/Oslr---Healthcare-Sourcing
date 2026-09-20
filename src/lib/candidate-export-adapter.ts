@@ -1,5 +1,5 @@
 /**
- * Adapter that normalizes either a live PDL search Candidate (with `raw` payload)
+ * Adapter that normalizes either a live provider search Candidate (with `raw` payload)
  * or a stored project_candidates row into:
  *   - ExportRow: flat Juicebox-style CSV columns
  *   - Dossier: structured per-candidate PDF data
@@ -90,7 +90,7 @@ function monthsBetween(start: string | null, end: string | null): number {
 
 const oneDecimal = (n: number) => (n > 0 ? (Math.round(n * 10) / 10).toFixed(1) : "");
 
-// Extract experience entries from raw PDL data on a search candidate.
+// Extract experience entries from raw provider data on a search candidate.
 interface RawExp {
   title: string;
   company: string;
@@ -160,7 +160,7 @@ function pickEmails(c: AnyCandidate): { work: string; personal: string; workVeri
   const personalEmail = asString(
     (c as Candidate).personal_email ?? asArray<string>(raw?.personal_emails)[0],
   );
-  // Verification: PDL gives recommended_personal_email + work_email_status when enriched.
+  // Verification: provider gives recommended_personal_email + work_email_status when enriched.
   const personalVerified = personalEmail ? (raw?.recommended_personal_email === personalEmail ? "Deliverable" : "Unverified") : "";
   const workVerified = workEmail
     ? asString(raw?.work_email_status) === "valid" || asString(raw?.work_email_status) === "verified"

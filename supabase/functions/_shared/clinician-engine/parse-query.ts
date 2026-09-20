@@ -32,7 +32,15 @@ export function expandParsedKeywords(parsed: Record<string, unknown>, originalQu
     phrasesToCheck.push(`${words[i]} ${words[i + 1]}`);
   }
 
+  // "or" is both the operating-room abbreviation and the English
+  // conjunction. "ICU nurses in Dallas or Houston" must not gain a hard
+  // perioperative specialty. Treat it as the abbreviation only when the
+  // recruiter wrote it in caps ("OR nurses") or put a role word after it.
+  const orIsAbbreviation = /\bOR\b/.test(originalQuery) ||
+    /\bor (nurses?|rns?|techs?|technicians?|circulators?|staff|team)\b/.test(queryLower);
+
   for (const phrase of phrasesToCheck) {
+    if (phrase === "or" && !orIsAbbreviation) continue;
     const expansion = KEYWORD_EXPANSIONS[phrase];
     if (expansion) {
       for (const spec of expansion.specialties) {

@@ -5,8 +5,10 @@
  */
 import { assert, assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
+  decomposeSpecialtyTerms,
   mapParsedToCriteria,
   matchEmployerGroup,
+  reconcileParsedClinicianIntent,
   type EmployerGroupValue,
   type SpecialtyValue,
   type TrainingStageValue,
@@ -19,7 +21,8 @@ import {
   type V2FilterLeaf,
   type V2FilterNode,
 } from "./build-clinician-query.ts";
-import { validateAIOutput } from "./parse-query.ts";
+import { expandParsedKeywords, validateAIOutput } from "./parse-query.ts";
+import { containsWholePhrase, matchSubspecialty } from "./clinical-vocabulary.ts";
 import { widenOptions } from "./widen-criteria.ts";
 import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts";
 import { classifyEmployer } from "./employer-class.ts";
@@ -504,7 +507,7 @@ Deno.test("subspecialty: joint reconstruction splits from parent and ANDs with i
   assert(geoLocs.some((s) => s.includes("boulder")), "Boulder geo circle missing");
 });
 
-Deno.test("subspecialty asks always earn a semantic pass, even with a named employer", async () => {
+Deno.test("specialty asks earn a semantic pass, with or without a named employer", async () => {
   const { semanticWorthRunning } = await import("./semantic-recall.ts");
   const withEmployer = mapParsedToCriteria(validateAIOutput({
     role_class: "physician",
@@ -520,7 +523,7 @@ Deno.test("subspecialty asks always earn a semantic pass, even with a named empl
     current_companies: ["uchealth"],
     location: { state: "colorado" },
   }) as unknown as Record<string, unknown>);
-  assert(!semanticWorthRunning(genericWithEmployer), "generic specialty + employer keeps the old gate");
+  assert(semanticWorthRunning(genericWithEmployer), "a named employer no longer disables the semantic pass");
 });
 
 Deno.test("subspecialty depth across verticals: neurovascular and structural heart", () => {
@@ -1063,4 +1066,133 @@ Deno.test("adaptive radius + headline role matching (Aspen recall fix)", () => {
   const wide = JSON.stringify(buildClinicianQuery(criteria));
   assert(wide.includes('"distance":50'), "radius_mi=50 widens the circle");
   assert(!wide.includes('"distance":15'), "widened tree drops the 15mi circle");
+});
+
+/* ---------- regression: query-understanding bugs from the Neuvora beta (2026-09-20) ---------- */
+
+Deno.test("'or' as a conjunction does not inject a perioperative specialty", () => {
+  const parsed: Record<string, unknown> = { specialties: ["critical care"], required_keywords: [] };
+  expandParsedKeywords(parsed, "ICU nurses in Dallas or Houston");
+  assert(!(parsed.specialties as string[]).includes("perioperative"));
+  assert(!((parsed.required_keywords as string[]) ?? []).includes("operating room"));
+});
+
+Deno.test("'OR' in caps or followed by a role word is still the operating-room abbreviation", () => {
+  const caps: Record<string, unknown> = { specialties: [], required_keywords: [] };
+  expandParsedKeywords(caps, "OR nurses in Denver");
+  assert((caps.specialties as string[]).includes("perioperative"));
+  const role: Record<string, unknown> = { specialties: [], required_keywords: [] };
+  expandParsedKeywords(role, "experienced or nurses in denver");
+  assert((role.specialties as string[]).includes("perioperative"));
+});
+
+Deno.test("subspecialty aliases match whole words only — 'ep' no longer fires inside nephrology", () => {
+  assertEquals(matchSubspecialty("nephrology"), null);
+  assertEquals(matchSubspecialty("hepatology"), null);
+  assertEquals(matchSubspecialty("reproductive endocrinology")?.key === "electrophysiology", false);
+  assertEquals(matchSubspecialty("ep")?.key, "electrophysiology");
+  assertEquals(matchSubspecialty("cardiac ep")?.key, "electrophysiology");
+  assertEquals(matchSubspecialty("electrophysiology")?.key, "electrophysiology");
+  assert(containsWholePhrase("interventional pain", "pain"));
+  assert(!containsWholePhrase("painting", "pain"));
+});
+
+Deno.test("employer-group aliases match whole words only — 'Nova Health' is not the VA", () => {
+  assertEquals(matchEmployerGroup("Nova Health"), null);
+  assertEquals(matchEmployerGroup("Nova Southeastern University"), null);
+  assertExists(matchEmployerGroup("the VA"));
+  assertExists(matchEmployerGroup("VA Medical Center"));
+});
+
+Deno.test("umbrella decomposition never emits bare surgery / trauma / emergency", () => {
+  const vascular = decomposeSpecialtyTerms(["vascular surgery"]);
+  assert(!vascular.includes("surgery"));
+  assert(vascular.includes("vascular surgery"));
+  const trauma = decomposeSpecialtyTerms(["trauma surgery"]);
+  assert(!trauma.includes("surgery"));
+  assert(!trauma.includes("trauma"));
+  // Real specialty families still decompose to their parent.
+  assert(decomposeSpecialtyTerms(["interventional cardiology"]).includes("cardiology"));
+  assert(decomposeSpecialtyTerms(["radiation oncology"]).includes("oncology"));
+});
+
+Deno.test("a directional word on a named state keeps the state — 'southwest Florida' is Florida", () => {
+  const r = reconcileParsedClinicianIntent(
+    { location: { state: "florida", city: null, region_key: null } },
+    "ICU nurses in southwest Florida",
+  );
+  const loc = r.location as Record<string, unknown>;
+  assertEquals(loc.state, "florida");
+  assertEquals(loc.region_key ?? null, null);
+
+  // Parser left state null but the phrase is still an adjective on a place.
+  const r2 = reconcileParsedClinicianIntent(
+    { location: { state: null, city: null, region_key: null } },
+    "nurses in northeast Ohio",
+  );
+  assertEquals(((r2.location ?? {}) as Record<string, unknown>).region_key ?? null, null);
+
+  // A bare band still resolves.
+  const r3 = reconcileParsedClinicianIntent(
+    { location: { state: null, city: null, region_key: null } },
+    "ICU nurses in the Southwest",
+  );
+  assertEquals(((r3.location ?? {}) as Record<string, unknown>).region_key, "southwest");
+});
+
+Deno.test("mapper: explicit state beats a multi-state band the parser attached", () => {
+  const criteria = mapParsedToCriteria(
+    { role_class: "nurse", location: { state: "florida", region_key: "southwest" } } as Record<string, unknown>,
+    [],
+  );
+  const loc = criteria.find((c) => c.kind === "location");
+  assertExists(loc);
+  assertEquals((loc!.value as { level: string }).level, "state");
+  assertEquals((loc!.value as { state: string }).state, "florida");
+});
+
+/* ---------- pain medicine vocabulary (Neuvora beta 2026-09-20) ---------- */
+
+Deno.test("pain medicine: every recruiter phrasing resolves to the subspecialty", () => {
+  for (const phrase of ["pain management", "pain medicine", "interventional pain", "chronic pain", "pain physician", "algology"]) {
+    assertEquals(matchSubspecialty(phrase)?.key, "pain_medicine", phrase);
+  }
+  // Whole-word: "painting" and unrelated specialties do not match.
+  assertEquals(matchSubspecialty("painting contractors"), null);
+  assertEquals(matchSubspecialty("nephrology"), null);
+});
+
+Deno.test("pain medicine: keyword backstop catches shorthand the parser missed", () => {
+  const parsed: Record<string, unknown> = { specialties: [], required_keywords: [] };
+  expandParsedKeywords(parsed, "pain management doctors in memphis");
+  assert((parsed.specialties as string[]).includes("pain medicine"));
+  const pmr: Record<string, unknown> = { specialties: [], required_keywords: [] };
+  expandParsedKeywords(pmr, "physiatrists in nashville");
+  assert((pmr.specialties as string[]).includes("physical medicine and rehabilitation"));
+});
+
+Deno.test("pain medicine: maps to ONE subspecialty criterion carrying procedure terms, no parent AND", () => {
+  const parsed = validateAIOutput({
+    role_class: "physician",
+    specialties: ["pain management"],
+    specialty_tense: "current",
+    location: { city: "memphis", state: "tennessee" },
+  }) as unknown as Record<string, unknown>;
+  const criteria = mapParsedToCriteria(parsed);
+  const specialty = criteria.filter((c) => c.kind === "specialty");
+  assertEquals(specialty.length, 1, "pain management must not require a separate anesthesiology AND");
+  const v = specialty[0].value as SpecialtyValue;
+  assertExists(v.subspecialty);
+  assertEquals(specialty[0].label, "Pain Medicine");
+  for (const t of ["interventional pain", "physiatrist", "epidural", "radiofrequency ablation", "spinal cord stimulator"]) {
+    assert(v.terms.includes(t), `missing recall term: ${t}`);
+  }
+  // And the builder emits them on the current-role surfaces + education.
+  const tree = buildClinicianQuery(criteria);
+  const used = fieldsUsed(tree);
+  assert(used.has("basic_profile.headline"));
+  assert(used.has("education.schools.field_of_study"), "subspecialty asks add the fellowship/education surfaces");
+  const values = new Set(leaves(tree).map((l) => String(l.value).toLowerCase()));
+  assert(values.has("interventional pain"));
+  assert(values.has("epidural"));
 });

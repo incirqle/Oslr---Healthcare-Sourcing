@@ -78,14 +78,14 @@ export default function SearchPage() {
   // the old data provider recognized by the new one.
   const normLinkedin = (url?: string | null) =>
     (url ?? "").toLowerCase().replace(/\/+$/, "").replace(/^https?:\/\/(www\.)?/, "");
-  const savedPdlIds = new Set(existingCandidates.map((c) => c.pdl_id).filter(Boolean));
+  const savedPersonIds = new Set(existingCandidates.map((c) => c.person_id).filter(Boolean));
   const savedLinkedin = new Set(
     existingCandidates.map((c) => normLinkedin(c.linkedin_url)).filter(Boolean),
   );
   const savedIds = new Set(
     candidates
       .filter((c) =>
-        savedPdlIds.has(c.id) ||
+        savedPersonIds.has(c.id) ||
         (!!c.linkedin_url && savedLinkedin.has(normLinkedin(c.linkedin_url)))
       )
       .map((c) => c.id),
@@ -255,7 +255,7 @@ export default function SearchPage() {
           phone: c.phone,
           skills: c.skills,
           avg_tenure_months: c.avg_tenure_months,
-          pdl_id: c.id,
+          person_id: c.id,
           // Full search-row payload so the drawer can show experience and
           // education for saved contacts without a fresh enrichment call.
           raw_data: c.raw ?? null,

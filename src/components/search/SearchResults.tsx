@@ -463,16 +463,16 @@ export function SearchResults({
   }, [candidates, filters]);
 
   // Fit ratings — single batched query for all visible candidates
-  const pdlIds = candidates.map((c) => c.id);
-  const { data: fitMap } = useCandidateFits(pdlIds);
+  const personIds = candidates.map((c) => c.id);
+  const { data: fitMap } = useCandidateFits(personIds);
   const setFit = useSetCandidateFit();
 
-  const handleFitChange = (pdlId: string) => (next: FitStatus) => {
-    setFit.mutate({ pdlId, status: next });
+  const handleFitChange = (personId: string) => (next: FitStatus) => {
+    setFit.mutate({ personId, status: next });
   };
 
   const handleMarkFitBulk = (status: FitStatus) => {
-    [...selected].forEach((pdlId) => setFit.mutate({ pdlId, status }));
+    [...selected].forEach((personId) => setFit.mutate({ personId, status }));
     onMarkFitBulk?.(status);
   };
 

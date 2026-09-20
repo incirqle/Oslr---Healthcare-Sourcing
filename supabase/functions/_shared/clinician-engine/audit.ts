@@ -84,7 +84,7 @@ Rules:
 - evidence MUST be copied verbatim from the profile data you were given (never invented, never outside knowledge). Keep it under 140 characters.
 - reason: one short sentence, plain words, useful to a recruiter.
 - Never reject for missing data you were not shown.
-- score: 0-100, how well this person fits the ask RELATIVE TO THE OTHERS in this list. Use the whole range. Verdict outranks score: a weak 90 still sits below a strong 40.
+- score: 0-100 on an ABSOLUTE scale, NOT relative to the others in this list — profiles are graded in separate batches and the scores are sorted together afterwards, so a 85 here must mean the same fit as a 85 in another batch. Anchor: 90-100 = the ideal candidate for this exact ask; 70-89 = a clear fit with a minor gap; 40-69 = partial fit (sibling specialty, adjacent year, secondary role); 0-39 = poor fit. Verdict outranks score: a weak 90 still sits below a strong 40.
 - Output ONLY valid JSON: {"verdicts": [{"i": <profile number>, "verdict": "strong"|"weak"|"reject", "score": <0-100>, "reason": str, "evidence": str|null}, ...]} covering EVERY profile number you were given, no markdown.`;
 
 function s(v: unknown): string {

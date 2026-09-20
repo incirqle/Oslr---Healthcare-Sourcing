@@ -23,7 +23,7 @@ const CONTENT_W = PAGE_W - MARGIN_X * 2;
 
 function fmtDate(d: string | null): string {
   if (!d) return "";
-  // PDL often gives YYYY-MM or YYYY
+  // provider often gives YYYY-MM or YYYY
   const m = d.match(/^(\d{4})(?:-(\d{2}))?/);
   if (!m) return d;
   const year = m[1];

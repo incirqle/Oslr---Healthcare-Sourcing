@@ -1,6 +1,6 @@
 /**
  * candidate-insights.ts — derive Juicebox-style achievement signals and
- * group experience entries by parent company. Pure functions, no PDL call.
+ * group experience entries by parent company. Pure functions, no provider call.
  */
 
 import { toTitleCase } from "./candidate-ui";
@@ -100,7 +100,7 @@ export function deriveAchievements(
   let promotions = 0;
   for (const g of groups) {
     if (g.roles.length < 2) continue;
-    // Roles in PDL are typically newest-first. Walk newer→older and count ascending seniority.
+    // Roles in provider are typically newest-first. Walk newer→older and count ascending seniority.
     for (let i = 0; i < g.roles.length - 1; i += 1) {
       const newer = g.roles[i];
       const older = g.roles[i + 1];
@@ -161,7 +161,7 @@ export interface CompanyGroup {
 
 /**
  * Group consecutive same-company entries into a single block. Preserves
- * original order so PDL's newest-first ordering is maintained.
+ * original order so provider's newest-first ordering is maintained.
  */
 export function groupExperienceByCompany(entries: ExperienceEntryLike[]): CompanyGroup[] {
   const groups: CompanyGroup[] = [];
