@@ -104,6 +104,8 @@ export default function SearchPage() {
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setBrowsableTotal(0);
+    setHasMore(false);
     setPage(1);
     setScrollToken(null);
     setGeoScope(null);
