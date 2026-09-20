@@ -28,6 +28,7 @@ import {
   matchSubspecialty,
   ROLE_CLASSES,
   SPECIALTY_UMBRELLA_NOUNS,
+  containsWholePhrase,
   TRAINING_STAGES,
   type EmployerGroupDef,
 } from "./clinical-vocabulary.ts";
@@ -632,6 +633,8 @@ function dedupe(values: string[]): string[] {
  * "cath lab"). Multi-word compounds keep the original phrase AND gain the
  * noun; single words pass through untouched.
  */
+const NEVER_BARE_UMBRELLA: ReadonlySet<string> = new Set(["surgery", "trauma", "emergency"]);
+
 export function decomposeSpecialtyTerms(terms: string[]): string[] {
   const out: string[] = [];
   const add = (t: string) => {
@@ -645,6 +648,10 @@ export function decomposeSpecialtyTerms(terms: string[]): string[] {
     if (!/\s/.test(term)) continue;
     for (const noun of SPECIALTY_UMBRELLA_NOUNS) {
       if (term === noun) continue;
+      // "vascular surgery" must not also match every surgeon; "trauma
+      // surgery" every trauma nurse. These nouns name whole populations,
+      // not specialty families, so they never stand alone as a hard term.
+      if (NEVER_BARE_UMBRELLA.has(noun)) continue;
       if (
         term.endsWith(` ${noun}`) ||
         term.startsWith(`${noun} `) ||
@@ -729,9 +736,21 @@ export function reconcileParsedClinicianIntent(
   if (!str(location.region_key)) {
     const match = REGION_PHRASES.find(({ pattern }) => pattern.test(originalQuery));
     if (match && (SUB_STATE_REGIONS[match.key] || MULTI_STATE_REGIONS[match.key])) {
-      location.region_key = match.key;
-      const subState = SUB_STATE_REGIONS[match.key];
-      if (subState) location.state = subState.state;
+      // A bare directional word ("southwest", "northeast") names a
+      // multi-state band only when it stands alone. "southwest Florida" and
+      // "northeast Ohio" are adjectives on a state the recruiter named —
+      // matching the band searched AZ/NM/TX/NV/OK and dropped Florida.
+      const isBand = !!MULTI_STATE_REGIONS[match.key] && !SUB_STATE_REGIONS[match.key];
+      const directionalAsAdjective = isBand &&
+        /\b(north|south)?(east|west)(?:ern)?\s+(?!region\b|area\b|us\b|usa\b|u\.s\.|united\b|corridor\b|coast\b|states?\b)[a-z]{3,}/i
+          .test(originalQuery) &&
+        /\b(northeast|northwest|southeast|southwest|midwest)\b/i.test(originalQuery);
+      const bandOverridesNamedState = isBand && (str(location.state) || directionalAsAdjective);
+      if (!bandOverridesNamedState) {
+        location.region_key = match.key;
+        const subState = SUB_STATE_REGIONS[match.key];
+        if (subState) location.state = subState.state;
+      }
     }
   } else if (str(location.city)) {
     // The parser sometimes VOLUNTEERS a region for a plain city ask
@@ -773,7 +792,7 @@ function rawStrArr(v: unknown): string[] {
 export function matchEmployerGroup(name: string): { key: string; def: EmployerGroupDef } | null {
   const n = name.toLowerCase().trim();
   for (const [key, def] of Object.entries(EMPLOYER_GROUPS)) {
-    if (def.aliases.some((a) => n === a || n.includes(a))) return { key, def };
+    if (def.aliases.some((a) => containsWholePhrase(n, a))) return { key, def };
   }
   return null;
 }
@@ -847,7 +866,9 @@ export function mapParsedToCriteria(
       });
       continue;
     }
-    if (multiState) {
+    // An explicitly named state is more specific than a multi-state band the
+    // parser (or backstop) attached to it — "southwest Florida" is Florida.
+    if (multiState && !state) {
       push({
         kind: "location",
         label: multiState.label,

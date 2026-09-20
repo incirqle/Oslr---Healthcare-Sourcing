@@ -351,11 +351,28 @@ export function matchPopulationModifier(
 }
 
 /** Resolve a query phrase to a subspecialty definition, if it names one. */
+/**
+ * Whole-word containment. `includes` let the two-letter alias "ep"
+ * (electrophysiology) fire on n-EP-hrology, h-EP-atology and r-EP-roductive,
+ * routing renal and REI searches to cardiac EP. An alias must sit on word
+ * boundaries; a trailing space in the alias ("va ") stays literal.
+ */
+export function containsWholePhrase(haystack: string, phrase: string): boolean {
+  const h = haystack.toLowerCase();
+  // Aliases were written with a trailing space as a crude boundary ("va ");
+  // the boundary classes below make that explicit, so trim first.
+  const p = phrase.toLowerCase().trim();
+  if (!p) return false;
+  if (h === p) return true;
+  const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(h);
+}
+
 export function matchSubspecialty(phrase: string): { key: string; def: SubspecialtyDef } | null {
   const p = phrase.toLowerCase().trim();
   if (!p) return null;
   for (const [key, def] of Object.entries(SUBSPECIALTIES)) {
-    if (def.aliases.some((a) => p === a || p.includes(a))) return { key, def };
+    if (def.aliases.some((a) => containsWholePhrase(p, a))) return { key, def };
   }
   return null;
 }
