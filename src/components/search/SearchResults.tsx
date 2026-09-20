@@ -116,6 +116,9 @@ interface SearchResultsProps {
   onSubmitQuery?: (query: string) => void;
   page?: number;
   pageSize?: number;
+  /** How many profiles can actually be browsed (pool size), vs the estimated market total. */
+  browsableTotal?: number;
+  hasMore?: boolean;
   onPageChange?: (page: number) => void;
   isSaving?: boolean;
   isLoading?: boolean;
@@ -428,6 +431,8 @@ export function SearchResults({
   onSubmitQuery,
   page = 1,
   pageSize = 15,
+  browsableTotal,
+  hasMore,
   onPageChange,
   isSaving = false,
   isLoading = false,
@@ -438,7 +443,10 @@ export function SearchResults({
   onSortChange,
 }: SearchResultsProps) {
   const [queryDraft, setQueryDraft] = useState(query);
-  const totalPages = Math.ceil(total / pageSize);
+  // Pages must follow the profiles we can actually show, not the provider's
+  // market-size estimate — otherwise "Next" lands on an empty page.
+  const pagerTotal = Math.max(browsableTotal ?? total, 0);
+  const totalPages = Math.max(1, Math.ceil(pagerTotal / pageSize));
   const suppressCompany = queryIsCompanySpecific(filters);
 
   useEffect(() => {
