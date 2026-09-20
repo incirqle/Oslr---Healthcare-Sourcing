@@ -44,6 +44,8 @@ export default function SearchPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [revealedCount, setRevealedCount] = useState(0);
   const [total, setTotal] = useState(0);
+  const [browsableTotal, setBrowsableTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 15;
   const [selected, setSelected] = useState<Set<string>>(new Set());
