@@ -10,9 +10,10 @@
  *   3. POST /job/search                 — 1 credit, open jobs
  *   4. POST /screener/persondb/search   — 3 credits each, talent flow
  *
- * Cached 7 days in company_enrichment_cache (schema_version 10).
+ * Cached 7 days in company_enrichment_cache (schema_version 11).
  */
 
+import { pickBestCandidate, selectRelatedEntityIds } from "./matching.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CRUSTDATA_BASE_URL = "https://api.crustdata.com";
@@ -121,42 +122,7 @@ interface Identified {
   all_ids: number[];
 }
 
-function headcountRank(c: any): number {
-  if (typeof c?.linkedin_headcount === "number" && c.linkedin_headcount > 0) {
-    return c.linkedin_headcount;
-  }
-  const range: string | undefined = c?.employee_count_range;
-  if (!range) return 0;
-  const m = range.match(/(\d+)/g);
-  if (!m) return 0;
-  return parseInt(m[m.length - 1], 10) || 0;
-}
-
-function pickBestCandidate(
-  candidates: any[],
-  name: string | null,
-  domain: string | null,
-): any | null {
-  if (!Array.isArray(candidates) || candidates.length === 0) return null;
-  const wantName = (name ?? "").toLowerCase().trim();
-  const wantDomain = (domain ?? "").toLowerCase().trim().replace(/^www\./, "");
-  const scored = candidates.map((c) => {
-    let score = 0;
-    const cName = String(c?.company_name ?? "").toLowerCase().trim();
-    const cDomain = String(c?.company_website_domain ?? "")
-      .toLowerCase()
-      .trim()
-      .replace(/^www\./, "");
-    if (wantDomain && cDomain === wantDomain) score += 1000;
-    if (c?.is_full_domain_match) score += 500;
-    if (wantName && cName === wantName) score += 200;
-    if (wantName && cName.startsWith(wantName)) score += 50;
-    score += Math.min(headcountRank(c), 100_000) / 1000;
-    return { c, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0].c;
-}
+// Matching rules live in ./matching.ts (pure, tested).
 
 async function identifyByName(
   name: string,
@@ -193,16 +159,7 @@ async function identifyByName(
   // 2. Combine all returned IDs whose name closely overlaps the canonical
   //    name with the curated pre-map. This is the entity set used for
   //    talent flow / jobs queries.
-  const tokens = (canonical ?? name).toLowerCase().split(/\W+/).filter(Boolean);
-  const liveIds: number[] = [];
-  for (const c of list) {
-    if (!c?.company_id) continue;
-    const cName = String(c.company_name ?? "").toLowerCase();
-    const overlap = tokens.filter((t) => t.length >= 4 && cName.includes(t)).length;
-    // Always include the best match; otherwise require at least one
-    // distinctive token overlap to avoid pulling in unrelated companies.
-    if (c.company_id === primaryId || overlap >= 1) liveIds.push(c.company_id);
-  }
+  const liveIds = selectRelatedEntityIds(list, primaryId, canonical ?? name);
 
   const allIds = Array.from(
     new Set<number>([primaryId, ...(premapped ?? []), ...liveIds]),
@@ -777,7 +734,7 @@ Deno.serve(async (req) => {
     const sortedIds = [...allIds].sort((a, b) => a - b);
     const cacheKey = `${canonical.toLowerCase().trim()}:${sortedIds.join(",")}`;
 
-    // Cache check (7 days, schema_version 10)
+    // Cache check (7 days, schema_version 11)
     try {
       const { data: cached } = await supabase
         .from("company_enrichment_cache")
@@ -785,7 +742,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 10) {
+      if (cached?.data && (cached.data as any)?.schema_version === 11) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -843,7 +800,7 @@ Deno.serve(async (req) => {
     const parsedHqCity = hqParts[0] ?? null;
 
     const company = {
-      schema_version: 10 as const,
+      schema_version: 11 as const,
       company_id: primaryId,
       crustdata_entity_ids: allIds,
       company_name:
