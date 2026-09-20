@@ -160,24 +160,24 @@ export function useAddCandidates() {
         phone?: string | null;
         skills?: string[];
         avg_tenure_months?: number | null;
-        pdl_id?: string | null;
+        person_id?: string | null;
         raw_data?: unknown;
       }[];
     }) => {
       if (!companyId || !user) throw new Error("Not ready – please wait a moment and try again");
 
       // Never save the same person into the same project twice.
-      const incomingIds = candidates.map((c) => c.pdl_id).filter((v): v is string => !!v);
+      const incomingIds = candidates.map((c) => c.person_id).filter((v): v is string => !!v);
       let existingIds = new Set<string>();
       if (incomingIds.length > 0) {
         const { data: existing } = await supabase
           .from("candidates")
-          .select("pdl_id")
+          .select("person_id")
           .eq("project_id", projectId)
-          .in("pdl_id", incomingIds);
-        existingIds = new Set((existing ?? []).map((r) => r.pdl_id).filter((v): v is string => !!v));
+          .in("person_id", incomingIds);
+        existingIds = new Set((existing ?? []).map((r) => r.person_id).filter((v): v is string => !!v));
       }
-      const fresh = candidates.filter((c) => !c.pdl_id || !existingIds.has(c.pdl_id));
+      const fresh = candidates.filter((c) => !c.person_id || !existingIds.has(c.person_id));
       if (fresh.length === 0) return 0;
 
       const rows = fresh.map((c) => ({
@@ -193,7 +193,7 @@ export function useAddCandidates() {
         phone: c.phone || null,
         skills: c.skills || [],
         avg_tenure_months: c.avg_tenure_months || null,
-        pdl_id: c.pdl_id || null,
+        person_id: c.person_id || null,
         raw_data: (c.raw_data as never) ?? null,
         status: "new",
       }));

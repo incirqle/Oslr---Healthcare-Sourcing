@@ -55,7 +55,7 @@ export function useSearchHistory(scope?: string | null) {
     (async () => {
       let q = supabase
         .from("search_history")
-        .select("query_text, result_count, created_at, pdl_params")
+        .select("query_text, result_count, created_at, search_params")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(40);
@@ -64,7 +64,7 @@ export function useSearchHistory(scope?: string | null) {
       const rows = data
         .filter((r) => {
           if (!scope) return true;
-          const p = (r.pdl_params ?? {}) as { project_id?: string };
+          const p = (r.search_params ?? {}) as { project_id?: string };
           return p.project_id === scope;
         })
         .map((r) => ({
@@ -95,7 +95,7 @@ export function useSearchHistory(scope?: string | null) {
           company_id: companyId,
           query_text: query,
           result_count: resultCount,
-          pdl_params: scope ? { project_id: scope } : {},
+          search_params: scope ? { project_id: scope } : {},
         })
         .then(({ error }) => {
           if (error) console.warn("[search-history] save failed:", error.message);

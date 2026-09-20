@@ -75,7 +75,7 @@ export function SaveToProjectDialog({ open, onOpenChange, candidates }: SaveToPr
           phone: c.phone,
           skills: c.skills,
           avg_tenure_months: c.avg_tenure_months,
-          pdl_id: c.id,
+          person_id: c.id,
         })),
       });
 

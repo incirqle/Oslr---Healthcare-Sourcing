@@ -482,13 +482,13 @@ export default function ProjectDetail() {
                           selectedIds.has(c.id) && "bg-primary/5"
                         )}
                         onClick={() =>
-                          // Key the drawer by the provider person id (pdl_id)
+                          // Key the drawer by the provider person id (person_id)
                           // so notes / fit / enrichment line up with the same
                           // person opened from search; raw_data restores the
                           // full profile (experience, education, headline).
                           setDrawerCandidate({
                             ...c,
-                            id: c.pdl_id || c.id,
+                            id: c.person_id || c.id,
                             dbId: c.id,
                             raw: c.raw_data ?? undefined,
                           })}

@@ -61,7 +61,7 @@ export function toTitleCase(input: string | null | undefined): string {
 }
 
 /**
- * Degree normalization dictionary — collapse verbose PDL degree strings into
+ * Degree normalization dictionary — collapse verbose provider degree strings into
  * tight recruiter-friendly labels. Returns null if no clean label can be derived.
  */
 const DEGREE_MAP: Array<[RegExp, string]> = [
@@ -86,7 +86,7 @@ const DEGREE_MAP: Array<[RegExp, string]> = [
   [/associate of (science|arts)/i, "AS"],
 ];
 
-/** Strip the redundant degree-category suffix PDL appends ("doctorates", "masters", etc). */
+/** Strip the redundant degree-category suffix provider appends ("doctorates", "masters", etc). */
 const DEGREE_CATEGORY_TAIL = /(,\s*)?(doctorates?|masters?|bachelors?|associates?|certificates?)\s*$/i;
 
 export interface FormattedDegree {
@@ -99,7 +99,7 @@ export interface FormattedDegree {
 }
 
 /**
- * Parse a PDL degree value (string or object) into a clean display string.
+ * Parse a provider degree value (string or object) into a clean display string.
  * Returns { display: null } when nothing recognizable is present — caller should
  * then omit the line entirely rather than show "Degree not available".
  */
@@ -121,9 +121,9 @@ export function formatDegree(raw: unknown): FormattedDegree {
 
   if (!degreeStr) return { code: null, major: null, display: null };
 
-  // Strip PDL category tail (e.g. "doctor of medicine, doctorates")
+  // Strip provider category tail (e.g. "doctor of medicine, doctorates")
   let cleaned = degreeStr.replace(DEGREE_CATEGORY_TAIL, "").trim();
-  // Some PDL values bury the major after a "·" or "-" — split it off.
+  // Some provider values bury the major after a "·" or "-" — split it off.
   const sep = cleaned.match(/\s*[·\-–]\s*/);
   if (sep && !majorStr) {
     const parts = cleaned.split(sep[0]);
@@ -160,7 +160,7 @@ export function formatDegree(raw: unknown): FormattedDegree {
 }
 
 /**
- * Render an unknown value (often `{name: "..."}` or `{title: "..."}` from PDL)
+ * Render an unknown value (often `{name: "..."}` or `{title: "..."}` from provider)
  * as a clean string. Returns null if no usable value found — callers should skip
  * the entry entirely rather than render `[object Object]`.
  */
@@ -182,8 +182,8 @@ export function renderNamedValue(value: unknown): string | null {
 }
 
 /**
- * Format a PDL date that may have only a year (year-only → "2012"; year+month → "Jan 2012").
- * PDL returns "2012", "2012-01", or "2012-01-15". We never fabricate a December default
+ * Format a provider date that may have only a year (year-only → "2012"; year+month → "Jan 2012").
+ * provider returns "2012", "2012-01", or "2012-01-15". We never fabricate a December default
  * for year-only values.
  */
 export function formatDateLabelSmart(dateValue: string | null | undefined): string {
@@ -221,7 +221,7 @@ const AVATAR_TONES = [
 ] as const;
 
 /**
- * Medical credentials / suffixes that PDL sometimes merges into full_name.
+ * Medical credentials / suffixes that provider sometimes merges into full_name.
  * We strip these so "fscai jason hatch" becomes "jason hatch".
  */
 const CREDENTIAL_PATTERNS = [
@@ -244,7 +244,7 @@ export function cleanDisplayName(rawName: string): string {
 }
 
 /**
- * Normalize LinkedIn URL — PDL often returns without protocol.
+ * Normalize LinkedIn URL — provider often returns without protocol.
  */
 export function normalizeLinkedInUrl(url: string | null | undefined): string | null {
   if (!url) return null;

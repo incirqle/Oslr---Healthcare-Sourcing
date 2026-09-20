@@ -399,8 +399,8 @@ export function CandidateDrawer({
   const summaryCache = useRef<Map<string, string>>(new Map());
 
   // Per-user fit + notes for this candidate
-  const candidatePdlIds = useMemo(() => (candidate ? [candidate.id] : []), [candidate?.id]);
-  const { data: fitMap } = useCandidateFits(candidatePdlIds);
+  const candidatePersonIds = useMemo(() => (candidate ? [candidate.id] : []), [candidate?.id]);
+  const { data: fitMap } = useCandidateFits(candidatePersonIds);
   const setFit = useSetCandidateFit();
   const fitStatus = candidate ? fitMap?.get(candidate.id) ?? "unreviewed" : "unreviewed";
 
@@ -958,7 +958,7 @@ export function CandidateDrawer({
                     <span className="text-ui-text-muted">Fit</span>
                     <FitPill
                       status={fitStatus}
-                      onChange={(next) => setFit.mutate({ pdlId: candidate.id, status: next })}
+                      onChange={(next) => setFit.mutate({ personId: candidate.id, status: next })}
                       size="sm"
                       stopPropagation={false}
                     />
@@ -1012,7 +1012,7 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                {/* About — PDL summary */}
+                {/* About — provider summary */}
                 {aboutText && (
                   <section className="space-y-2">
                     <SectionHeading label="About" />
@@ -1350,7 +1350,7 @@ export function CandidateDrawer({
                     e.preventDefault();
                     if (!candidate || !noteDraft.trim()) return;
                     addNote.mutate(
-                      { pdlId: candidate.id, body: noteDraft },
+                      { personId: candidate.id, body: noteDraft },
                       {
                         onSuccess: () => {
                           setNoteDraft("");
@@ -1406,7 +1406,7 @@ export function CandidateDrawer({
                             onClick={() => {
                               if (!candidate) return;
                               deleteNote.mutate(
-                                { id: note.id, pdlId: candidate.id },
+                                { id: note.id, personId: candidate.id },
                                 {
                                   onSuccess: () => toast.success("Note deleted"),
                                   onError: (err) =>

@@ -16,7 +16,7 @@ interface Props {
   /** Resolver — invoked when the user picks an option so the host page can decide
    * what's selected vs filtered at click-time. */
   getCandidates: () => AnyCandidate[];
-  /** Disable PDF when the source rows have no PDL `raw` payload (e.g. mock data). */
+  /** Disable PDF when the source rows have no provider `raw` payload (e.g. mock data). */
   pdfDisabled?: boolean;
   variant?: "outline" | "ghost" | "default";
   size?: "sm" | "default";

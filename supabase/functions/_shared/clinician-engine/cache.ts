@@ -168,7 +168,7 @@ export async function savePermanentEnrichment(
   linkedinUrl: string,
   // deno-lint-ignore no-explicit-any
   enriched: any,
-  pdlId: string | null = null,
+  personId: string | null = null,
 ): Promise<void> {
   try {
     const sb = getServiceClient();
@@ -186,7 +186,7 @@ export async function savePermanentEnrichment(
     } else {
       await sb
         .from("people_enrichments")
-        .insert({ linkedin_url: key, pdl_id: pdlId, enriched_data: enriched });
+        .insert({ linkedin_url: key, person_id: personId, enriched_data: enriched });
     }
   } catch (e) {
     console.warn("[enrichment-store] save failed:", e instanceof Error ? e.message : String(e));

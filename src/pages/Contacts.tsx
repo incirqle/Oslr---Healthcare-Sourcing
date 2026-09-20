@@ -56,7 +56,7 @@ interface ContactRow {
   status: string;
   tags: string[] | null;
   notes: string | null;
-  pdl_id: string | null;
+  person_id: string | null;
   project_id: string;
   raw_data: unknown;
   created_at: string;
@@ -72,7 +72,7 @@ function useAllContacts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("candidates")
-        .select("id, full_name, title, current_employer, location, linkedin_url, email, phone, skills, status, tags, notes, pdl_id, project_id, raw_data, created_at, projects(name)")
+        .select("id, full_name, title, current_employer, location, linkedin_url, email, phone, skills, status, tags, notes, person_id, project_id, raw_data, created_at, projects(name)")
         .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -253,7 +253,7 @@ export default function Contacts() {
   // saved contacts open with the SAME identity they had in search results.
   const toDrawerCandidate = (c: ContactRow) => ({
     ...c,
-    id: c.pdl_id || c.id,
+    id: c.person_id || c.id,
     skills: c.skills ?? [],
     avg_tenure_months: null,
     industry: null,

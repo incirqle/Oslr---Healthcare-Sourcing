@@ -15,7 +15,7 @@ export interface ProjectCandidate {
   notes: string | null;
   tags: string[];
   added_at: string;
-  pdl_id: string | null;
+  person_id: string | null;
 }
 
 export interface Project {

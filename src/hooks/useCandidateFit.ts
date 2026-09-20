@@ -5,12 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 export type FitStatus = "unreviewed" | "good" | "maybe" | "not";
 
 /**
- * Fetch the current user's fit ratings for a list of PDL candidate ids.
- * Returns a Map<pdl_id, status> for fast lookup at render time.
+ * Fetch the current user's fit ratings for a list of provider candidate ids.
+ * Returns a Map<person_id, status> for fast lookup at render time.
  */
-export function useCandidateFits(pdlIds: string[]) {
+export function useCandidateFits(personIds: string[]) {
   const { user } = useAuth();
-  const ids = [...new Set(pdlIds.filter(Boolean))].sort();
+  const ids = [...new Set(personIds.filter(Boolean))].sort();
   const cacheKey = ids.join(",");
 
   return useQuery({
@@ -19,13 +19,13 @@ export function useCandidateFits(pdlIds: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("candidate_fit")
-        .select("pdl_id, status")
+        .select("person_id, status")
         .eq("user_id", user!.id)
-        .in("pdl_id", ids);
+        .in("person_id", ids);
       if (error) throw error;
       const map = new Map<string, FitStatus>();
       for (const row of data ?? []) {
-        map.set(row.pdl_id, row.status as FitStatus);
+        map.set(row.person_id, row.status as FitStatus);
       }
       return map;
     },
@@ -37,19 +37,19 @@ export function useSetCandidateFit() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ pdlId, status }: { pdlId: string; status: FitStatus }) => {
+    mutationFn: async ({ personId, status }: { personId: string; status: FitStatus }) => {
       if (!user?.id) throw new Error("Not signed in");
       const { error } = await supabase
         .from("candidate_fit")
         .upsert(
-          { user_id: user.id, pdl_id: pdlId, status },
-          { onConflict: "user_id,pdl_id" },
+          { user_id: user.id, person_id: personId, status },
+          { onConflict: "user_id,person_id" },
         );
       if (error) throw error;
-      return { pdlId, status };
+      return { personId, status };
     },
     // Optimistic update — flip the pill immediately.
-    onMutate: async ({ pdlId, status }) => {
+    onMutate: async ({ personId, status }) => {
       await qc.cancelQueries({ queryKey: ["candidate-fit", user?.id] });
       const previous = qc.getQueriesData<Map<string, FitStatus>>({
         queryKey: ["candidate-fit", user?.id],
@@ -57,7 +57,7 @@ export function useSetCandidateFit() {
       previous.forEach(([key, value]) => {
         if (!value) return;
         const next = new Map(value);
-        next.set(pdlId, status);
+        next.set(personId, status);
         qc.setQueryData(key, next);
       });
       return { previous };

@@ -1,8 +1,8 @@
 /**
  * search-people/index.ts — the product search, powered by the Crustdata clinician engine.
  *
- * This function replaced the retired PDL search wholesale (same wire
- * contract, new name, zero People Data Labs code). SearchPage,
+ * This function is the product search over the Crustdata clinician engine (same wire
+ * contract the legacy SearchPage was built against). SearchPage,
  * CandidateDrawer, and useCandidateSnapshot invoke it and read specific
  * response fields; every search runs through
  * supabase/functions/search-clinicians — the Crustdata-v2 engine: clinical
@@ -50,7 +50,7 @@ function json(payload: unknown, status = 200): Response {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Row translation: engine card row → PDL-shaped row for SearchPage    */
+/*  Row translation: engine card row → SearchPage row shape    */
 /* ------------------------------------------------------------------ */
 
 type Row = Record<string, unknown>;
@@ -85,7 +85,7 @@ function relevanceScore(row: Row): number {
   return Math.min(88, 70 + soft * 2);
 }
 
-function toPdlShapedRow(row: Row): Row {
+function toSearchPageRow(row: Row): Row {
   const primary = (Array.isArray(row.current_employers)
     ? (row.current_employers as Row[]).find((e) => e.is_primary === true) ??
       (row.current_employers as Row[])[0]
@@ -205,7 +205,7 @@ Deno.serve(async (req: Request) => {
     if (action === "enrich_person") {
       const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() : "";
       if (!linkedinUrl) {
-        // The old PDL path could enrich by bare email; Crustdata cannot.
+        // Crustdata cannot enrich by bare email; a LinkedIn URL is required.
         return json({ error: "A LinkedIn URL is required to enrich this profile." }, 400);
       }
       const cacheKey = "clin:drawer:" + linkedinUrl.toLowerCase();
@@ -297,7 +297,7 @@ Deno.serve(async (req: Request) => {
       await savePermanentEnrichment(
         linkedinUrl,
         shaped,
-        typeof body.pdl_id === "string" ? body.pdl_id : null,
+        typeof body.person_id === "string" ? body.person_id : null,
       );
       return json({ data: shaped, likelihood: null });
     }
@@ -422,7 +422,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const rows = (Array.isArray(data.results) ? data.results as Row[] : []).map(toPdlShapedRow);
+    const rows = (Array.isArray(data.results) ? data.results as Row[] : []).map(toSearchPageRow);
 
     return json({
       results: rows,
