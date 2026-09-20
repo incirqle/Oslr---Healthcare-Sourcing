@@ -427,6 +427,7 @@ Deno.serve(async (req: Request) => {
     return json({
       results: rows,
       total,
+      browsable_total: typeof data.browsable_total === "number" ? data.browsable_total : rows.length,
       parsed,
       parsed_categories: [],
       parsed_keywords: [],

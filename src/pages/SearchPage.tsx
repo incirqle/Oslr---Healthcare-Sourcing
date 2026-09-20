@@ -44,6 +44,8 @@ export default function SearchPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [revealedCount, setRevealedCount] = useState(0);
   const [total, setTotal] = useState(0);
+  const [browsableTotal, setBrowsableTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 15;
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -102,6 +104,8 @@ export default function SearchPage() {
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setBrowsableTotal(0);
+    setHasMore(false);
     setPage(1);
     setScrollToken(null);
     setGeoScope(null);
@@ -197,8 +201,24 @@ export default function SearchPage() {
       raw: r,
     }));
 
+    // An empty page past the first one means we've run off the end of the
+    // browsable pool. Never blank the screen for that — stay where we are.
+    if (mapped.length === 0 && targetPage > 1) {
+      setHasMore(false);
+      setBrowsableTotal((prev) => Math.max(prev, (page - 1) * pageSize + candidates.length));
+      setSearchPhase("done");
+      toast.info("You've reached the end of these results");
+      return;
+    }
+
     setCandidates(mapped);
     setTotal(data.total || 0);
+    setBrowsableTotal(
+      typeof data.browsable_total === "number" && data.browsable_total > 0
+        ? data.browsable_total
+        : (targetPage - 1) * pageSize + mapped.length,
+    );
+    setHasMore(data.hasMore === true);
     setScrollToken(data.scroll_token || null);
     setGeoScope(data.geo_scope || null);
     setCompanyScope(data.company_scope || null);
@@ -256,8 +276,9 @@ export default function SearchPage() {
     }
     runResultsFetch(query, filters, parsedPayload, newPage, scrollToken).catch((err) => {
       console.error(err);
-      setSearchPhase("error");
-      toast.error(err instanceof Error ? err.message : "Search failed");
+      // Keep the page the user was on visible rather than blanking it.
+      setSearchPhase("done");
+      toast.error(err instanceof Error ? err.message : "Couldn't load that page");
     });
   };
 
@@ -268,6 +289,8 @@ export default function SearchPage() {
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setBrowsableTotal(0);
+    setHasMore(false);
     setPage(1);
     setSelected(new Set());
     setScrollToken(null);
@@ -394,6 +417,8 @@ export default function SearchPage() {
                 onSubmitQuery={runFullSearch}
                 page={page}
                 pageSize={pageSize}
+                browsableTotal={browsableTotal}
+                hasMore={hasMore}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
                 isLoading={searchPhase === "running"}
