@@ -276,8 +276,9 @@ export default function SearchPage() {
     }
     runResultsFetch(query, filters, parsedPayload, newPage, scrollToken).catch((err) => {
       console.error(err);
-      setSearchPhase("error");
-      toast.error(err instanceof Error ? err.message : "Search failed");
+      // Keep the page the user was on visible rather than blanking it.
+      setSearchPhase("done");
+      toast.error(err instanceof Error ? err.message : "Couldn't load that page");
     });
   };
 
@@ -288,6 +289,8 @@ export default function SearchPage() {
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setBrowsableTotal(0);
+    setHasMore(false);
     setPage(1);
     setSelected(new Set());
     setScrollToken(null);
