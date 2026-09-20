@@ -417,6 +417,8 @@ export default function SearchPage() {
                 onSubmitQuery={runFullSearch}
                 page={page}
                 pageSize={pageSize}
+                browsableTotal={browsableTotal}
+                hasMore={hasMore}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
                 isLoading={searchPhase === "running"}
