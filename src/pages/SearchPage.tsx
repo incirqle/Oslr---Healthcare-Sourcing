@@ -201,8 +201,24 @@ export default function SearchPage() {
       raw: r,
     }));
 
+    // An empty page past the first one means we've run off the end of the
+    // browsable pool. Never blank the screen for that — stay where we are.
+    if (mapped.length === 0 && targetPage > 1) {
+      setHasMore(false);
+      setBrowsableTotal((prev) => Math.max(prev, (page - 1) * pageSize + candidates.length));
+      setSearchPhase("done");
+      toast.info("You've reached the end of these results");
+      return;
+    }
+
     setCandidates(mapped);
     setTotal(data.total || 0);
+    setBrowsableTotal(
+      typeof data.browsable_total === "number" && data.browsable_total > 0
+        ? data.browsable_total
+        : (targetPage - 1) * pageSize + mapped.length,
+    );
+    setHasMore(data.hasMore === true);
     setScrollToken(data.scroll_token || null);
     setGeoScope(data.geo_scope || null);
     setCompanyScope(data.company_scope || null);
