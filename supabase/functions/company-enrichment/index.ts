@@ -4,19 +4,29 @@
  * Returns the rich payload required for the "Company insights" / "Hiring
  * activity" / "Talent flow" tabs in the Company Intel modal.
  *
- * Data sources (all CrustData):
- *   1. POST /screener/identify          — FREE, resolves name → ALL entity IDs
- *   2. GET  /screener/company?fields=…  — 1 credit, full enrichment
- *   3. POST /job/search                 — 1 credit, open jobs
- *   4. POST /screener/persondb/search   — 3 credits each, talent flow
+ * Data sources (all Crustdata v2, x-api-version 2025-11-01):
+ *   1. POST /company/identify   — FREE, resolves name/domain → candidate entities
+ *   2. POST /company/enrich     — full enrichment; field groups named explicitly
+ *   3. POST /job/search         — open jobs
+ *   4. POST /person/search      — talent flow (recent hires / departures)
  *
- * Cached 7 days in company_enrichment_cache (schema_version 11).
+ * v2 shapes are translated in ./v2.ts onto the key names the panel already
+ * reads (src/hooks/useCompanyEnrichment.ts), so the UI contract is unchanged.
+ * Cached 7 days in company_enrichment_cache (schema_version 12).
  */
 
 import { pickBestCandidate, selectRelatedEntityIds } from "./matching.ts";
+import {
+  cdPostV2,
+  ENRICH_FIELDS,
+  firstResult,
+  identifyCandidates,
+  mapEnrichment,
+  mapTalentFlowPerson,
+  matchesOf,
+  type MappedEnrichment,
+} from "./v2.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const CRUSTDATA_BASE_URL = "https://api.crustdata.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,56 +67,6 @@ function resolveCanonical(name: string | null): string | null {
 /* CrustData helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-function authHeaders(extra?: Record<string, string>) {
-  const apiKey = Deno.env.get("CRUSTDATA_API_KEY") ?? "";
-  return {
-    Authorization: `Bearer ${apiKey}`,
-    "Content-Type": "application/json",
-    ...(extra ?? {}),
-  };
-}
-
-async function cdGet(path: string): Promise<any | null> {
-  if (!Deno.env.get("CRUSTDATA_API_KEY")) return null;
-  try {
-    const res = await fetch(`${CRUSTDATA_BASE_URL}${path}`, {
-      method: "GET",
-      headers: authHeaders(),
-    });
-    if (!res.ok) {
-      console.error(`[CrustData GET ${path}] ${res.status}: ${await res.text()}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err) {
-    console.error(`[CrustData GET ${path}] failed:`, err);
-    return null;
-  }
-}
-
-async function cdPost(
-  path: string,
-  body: unknown,
-  extra?: Record<string, string>,
-): Promise<any | null> {
-  if (!Deno.env.get("CRUSTDATA_API_KEY")) return null;
-  try {
-    const res = await fetch(`${CRUSTDATA_BASE_URL}${path}`, {
-      method: "POST",
-      headers: authHeaders(extra),
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      console.error(`[CrustData POST ${path}] ${res.status}: ${await res.text()}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err) {
-    console.error(`[CrustData POST ${path}] failed:`, err);
-    return null;
-  }
-}
-
 /* ------------------------------------------------------------------ */
 /* Step 1 — identify (collects ALL entity IDs for a health system)      */
 /* ------------------------------------------------------------------ */
@@ -122,8 +82,6 @@ interface Identified {
   all_ids: number[];
 }
 
-// Matching rules live in ./matching.ts (pure, tested).
-
 async function identifyByName(
   name: string,
   domain?: string | null,
@@ -133,18 +91,15 @@ async function identifyByName(
   // 1. Pre-mapped systems return a curated, complete entity list.
   const premapped = canonical ? PREMAPPED_ENTITY_IDS[canonical] : null;
 
-  const payload: Record<string, unknown> = { exact_match: false, count: 25 };
-  if (name) {
-    payload.query_company_name = name;
-  } else if (domain) {
-    payload.query_company_website = domain.startsWith("http")
-      ? domain
-      : `https://${domain}`;
-  } else {
-    return null;
+  // v2 identify: one identifier type per call. A domain is the sharper key;
+  // fall back to the name when the domain yields nothing.
+  const wantDomain = domain ? domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] : null;
+  let list = wantDomain
+    ? identifyCandidates(firstResult(await cdPostV2("/company/identify", { domains: [wantDomain] })), wantDomain)
+    : [];
+  if (list.length === 0 && name) {
+    list = identifyCandidates(firstResult(await cdPostV2("/company/identify", { names: [name] })), wantDomain);
   }
-  const raw = await cdPost("/screener/identify", payload);
-  const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
   if (list.length === 0 && !premapped) {
     console.warn("[company-enrichment] identify miss", { name, domain });
     return null;
@@ -189,42 +144,21 @@ async function identifyByName(
 /* Step 2 — enrichment                                                  */
 /* ------------------------------------------------------------------ */
 
-async function enrich(companyId: number): Promise<Record<string, unknown> | null> {
-  // CrustData returns NESTED objects under glassdoor / g2 / web_traffic /
-  // headcount / taxonomy / competitors / funding_and_investment. Using a
-  // top-level prefix hydrates every sub-field.
-  const fields = [
-    "company_name",
-    "company_website_domain",
-    "linkedin_profile_url",
-    "linkedin_logo_url",
-    "linkedin_company_description",
-    "headquarters",
-    "hq_state",
-    "hq_country",
-    "year_founded",
-    "employee_count_range",
-    "taxonomy",
-    "competitors",
-    "headcount",
-    "glassdoor",
-    "g2",
-    "web_traffic",
-    "funding_and_investment",
-    "cxos",
-    "decision_makers",
-  ].join(",");
-  const raw = await cdGet(`/screener/company?company_id=${companyId}&fields=${fields}`);
-  if (!raw) return null;
-  const list: any[] = Array.isArray(raw) ? raw : [raw];
-  const row = list[0] ?? null;
-  if (row) {
-    console.log("[company-enrichment] enrichment keys:", Object.keys(row));
-    if (row.glassdoor) console.log("[glassdoor keys]", Object.keys(row.glassdoor));
-    if (row.g2) console.log("[g2 keys]", Object.keys(row.g2));
-    if (row.web_traffic) console.log("[web_traffic keys]", Object.keys(row.web_traffic));
+async function enrich(
+  companyId: number,
+  preferDomain: string | null,
+): Promise<MappedEnrichment | null> {
+  const raw = await cdPostV2("/company/enrich", {
+    crustdata_company_ids: [companyId],
+    fields: [...ENRICH_FIELDS],
+  });
+  const match = matchesOf(firstResult(raw))[0];
+  if (!match) {
+    console.warn("[company-enrichment] enrich returned no match", { companyId });
+    return null;
   }
-  return row;
+  console.log("[company-enrichment] enrichment groups:", Object.keys(match.company_data ?? {}));
+  return mapEnrichment(match.company_data, preferDomain);
 }
 
 
@@ -243,7 +177,7 @@ interface JobListing {
 
 async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; total: number }> {
   if (!companyIds.length) return { jobs: [], total: 0 };
-  const d = await cdPost(
+  const d = await cdPostV2(
     "/job/search",
     {
       filters: {
@@ -253,7 +187,6 @@ async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; to
       sorts: [{ field: "date_added", order: "desc" }],
       limit: 50,
     },
-    { "x-api-version": "2025-11-01" },
   );
   if (!d) return { jobs: [], total: 0 };
 
@@ -332,98 +265,36 @@ async function fetchTalentFlow(
   if (!companyIds.length) return [];
 
   const sinceDate = isoMonthsAgo(monthsBack);
-  const employerField =
-    direction === "hires"
-      ? "current_employers.company_id"
-      : "past_employers.company_id";
-  const dateField =
-    direction === "hires"
-      ? "current_employers.start_date"
-      : "past_employers.end_date";
+  const side = direction === "hires" ? "current" : "past";
+  const dateField = direction === "hires" ? "start_date" : "end_date";
 
-  const body = {
-    dataset: "people",
+  const raw = await cdPostV2("/person/search", {
     filters: {
       op: "and",
       conditions: [
-        { column: employerField, type: "in", value: companyIds },
-        { column: dateField, type: "=>", value: sinceDate },
+        { field: `experience.employment_details.${side}.company_id`, type: "in", value: companyIds },
+        { field: `experience.employment_details.${side}.${dateField}`, type: "=>", value: sinceDate },
       ],
     },
     limit: 50,
-  };
-
-  const data = await cdPost("/screener/persondb/search", body, { "x-api-version": "2025-11-01" });
-  if (!data) return [];
-  const results: any[] =
-    (data as { profiles?: unknown[]; results?: unknown[] }).profiles ??
-    (data as { results?: unknown[] }).results ??
-    [];
+    fields: [
+      "basic_profile.name",
+      "basic_profile.first_name",
+      "basic_profile.last_name",
+      "basic_profile.headline",
+      "basic_profile.profile_picture_permalink",
+      "experience.employment_details.current",
+      "experience.employment_details.past",
+      "social_handles.professional_network_identifier.profile_url",
+      "crustdata_person_id",
+    ],
+  });
+  const results: any[] = raw?.profiles ?? raw?.data ?? raw?.results ?? [];
   console.log(
     `[talent-flow ${direction}] entity_ids=${companyIds.length} since=${sinceDate} got=${results.length}`,
   );
-
   const targetIds = idSet(companyIds);
-
-  return results.map((person: any) => {
-    const currentEmployers: any[] = person.current_employers || [];
-    const pastEmployers: any[] = person.past_employers || [];
-
-    // Find the row for the company we asked about, on the correct side.
-    const targetCurrent =
-      direction === "hires"
-        ? currentEmployers.find((e: any) => targetIds.has(e.company_id)) ||
-          currentEmployers[0] ||
-          {}
-        : currentEmployers[0] || {};
-    const targetPast =
-      direction === "departures"
-        ? pastEmployers.find((e: any) => targetIds.has(e.company_id)) ||
-          pastEmployers[0] ||
-          {}
-        : pastEmployers[0] || {};
-
-    return {
-      name: person.name || "Unknown",
-      first_name: person.first_name || null,
-      last_name: person.last_name || null,
-      linkedin_profile_url: person.linkedin_profile_url || null,
-      profile_picture_url: person.profile_picture_url || null,
-      headline: person.headline || null,
-      current_title: targetCurrent.title || currentEmployers[0]?.title || null,
-      current_company: targetCurrent.name || currentEmployers[0]?.name || null,
-      current_company_linkedin_url:
-        targetCurrent.company_linkedin_profile_url ||
-        currentEmployers[0]?.company_linkedin_profile_url ||
-        null,
-      current_company_start_date:
-        targetCurrent.start_date || currentEmployers[0]?.start_date || null,
-      previous_company:
-        direction === "hires"
-          ? pastEmployers[0]?.name || null
-          : targetPast.name || pastEmployers[0]?.name || null,
-      previous_company_linkedin_url:
-        direction === "hires"
-          ? pastEmployers[0]?.company_linkedin_profile_url || null
-          : targetPast.company_linkedin_profile_url || null,
-      previous_title:
-        direction === "hires"
-          ? pastEmployers[0]?.title || null
-          : targetPast.title || null,
-      previous_end_date:
-        direction === "hires"
-          ? pastEmployers[0]?.end_date || null
-          : targetPast.end_date || null,
-      function_category:
-        targetCurrent.function_category ||
-        currentEmployers[0]?.function_category ||
-        null,
-      seniority_level:
-        targetCurrent.seniority_level ||
-        currentEmployers[0]?.seniority_level ||
-        null,
-    };
-  });
+  return results.map((person) => mapTalentFlowPerson(person, targetIds, direction));
 }
 
 function aggregateTalentFlow(
@@ -482,183 +353,36 @@ interface Competitor {
 }
 
 /**
- * Resolve competitor display data. /screener/identify does NOT return
- * headcount or logo, so we identify per-domain to get the IDs, then make
- * a single bulk GET /screener/company call to fetch logo + headcount.
+ * Resolve competitor display data with ONE /company/enrich call: the v2
+ * endpoint accepts several domains per request and returns basic_info +
+ * headcount for each, so no per-domain identify round-trips.
  */
 async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor[]> {
   if (!domains?.length) return [];
-  const cleaned = domains
-    .map((d) => String(d || "").trim().replace(/^https?:\/\//, "").replace(/\/$/, ""))
-    .filter(Boolean)
-    .slice(0, 6);
+  const cleaned = [...new Set(
+    domains.map((d) => String(d || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]).filter((d) => d.includes(".")),
+  )].slice(0, 6);
+  if (!cleaned.length) return [];
 
-  // Step 1: identify each domain → (id, name, domain)
-  const identified = await Promise.all(
-    cleaned.map(async (domain) => {
-      const raw = await cdPost("/screener/identify", {
-        query_company_website: domain.startsWith("http") ? domain : `https://${domain}`,
-      });
-      const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
-      const d = list[0];
-      if (!d?.company_id) return null;
-      return {
-        company_id: d.company_id as number,
-        company_name: (d.company_name as string) ?? domain,
-        company_website_domain: (d.company_website_domain as string) ?? domain,
-        linkedin_profile_url: (d.linkedin_profile_url as string) ?? null,
-      };
-    }),
-  );
-  const seeds = identified.filter((c): c is NonNullable<typeof c> => c !== null);
-  if (!seeds.length) return [];
-
-  // Step 2: bulk hydrate logo + headcount
-  const ids = seeds.map((s) => s.company_id).join(",");
-  const fields = [
-    "company_id",
-    "company_name",
-    "company_website_domain",
-    "linkedin_profile_url",
-    "linkedin_logo_url",
-    "headcount",
-  ].join(",");
-  const raw = await cdGet(`/screener/company?company_id=${ids}&fields=${fields}`);
-  const list: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  const byId = new Map<number, any>();
-  for (const r of list) {
-    if (r?.company_id) byId.set(r.company_id, r);
+  const raw = await cdPostV2("/company/enrich", { domains: cleaned, fields: ["basic_info", "headcount"] });
+  const results: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const out: Competitor[] = [];
+  for (const r of results) {
+    const m = matchesOf(r)[0];
+    const b = m?.company_data?.basic_info ?? null;
+    const id = b?.crustdata_company_id ?? m?.company_data?.crustdata_company_id;
+    if (typeof id !== "number") continue;
+    const total = m?.company_data?.headcount?.total;
+    out.push({
+      company_id: id,
+      company_name: (b?.name as string) || String(r?.matched_on ?? ""),
+      linkedin_profile_url: (b?.professional_network_url as string) ?? null,
+      linkedin_logo_url: (b?.logo_permalink as string) ?? null,
+      company_website_domain: (b?.primary_domain as string) ?? (r?.matched_on as string) ?? null,
+      headcount: typeof total === "number" ? total : null,
+    });
   }
-
-  return seeds.map((s) => {
-    const r = byId.get(s.company_id);
-    const hc =
-      typeof r?.headcount?.linkedin_headcount === "number"
-        ? r.headcount.linkedin_headcount
-        : typeof r?.linkedin_headcount === "number"
-          ? r.linkedin_headcount
-          : null;
-    return {
-      company_id: s.company_id,
-      company_name: (r?.company_name as string) || s.company_name,
-      linkedin_profile_url:
-        (r?.linkedin_profile_url as string) || s.linkedin_profile_url,
-      linkedin_logo_url: (r?.linkedin_logo_url as string) ?? null,
-      company_website_domain:
-        (r?.company_website_domain as string) || s.company_website_domain,
-      headcount: hc,
-    };
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/* Mappers                                                              */
-/* ------------------------------------------------------------------ */
-
-function num(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  const n = typeof v === "string" ? parseFloat(v) : (v as number);
-  return Number.isFinite(n) ? n : null;
-}
-
-// Helpers: read a value that may live at `e.key`, `e.prefix.key`, or
-// `e.prefix.prefix_key` — CrustData nests sub-objects but field naming
-// differs (e.g. `glassdoor.overall_rating` vs `glassdoor.glassdoor_overall_rating`).
-function pick(obj: any, keys: string[]): unknown {
-  if (!obj) return null;
-  for (const k of keys) {
-    const v = obj[k];
-    if (v !== undefined && v !== null) return v;
-  }
-  return null;
-}
-
-function mapGlassdoor(e: Record<string, any> | null) {
-  if (!e) return null;
-  const g = (e.glassdoor as Record<string, any>) ?? e;
-  const overall = num(pick(g, ["overall_rating", "glassdoor_overall_rating"]));
-  const reviews = num(pick(g, ["review_count", "glassdoor_review_count"]));
-  const ceo = num(pick(g, ["ceo_approval", "glassdoor_ceo_approval_pct", "glassdoor_ceo_approval"]));
-  const outlook = num(pick(g, ["business_outlook", "glassdoor_business_outlook_pct", "glassdoor_business_outlook"]));
-  const recommend = num(
-    pick(g, ["recommend_to_friend", "glassdoor_recommend_to_friend_pct", "glassdoor_recommend_to_friend_percent"]),
-  );
-  if ([overall, reviews, ceo, outlook, recommend].every((v) => v == null)) return null;
-  return {
-    overall_rating: overall,
-    review_count: reviews,
-    ceo_approval: ceo,
-    business_outlook: outlook,
-    recommend_to_friend: recommend,
-  };
-}
-
-function mapG2(e: Record<string, any> | null) {
-  if (!e) return null;
-  const g = (e.g2 as Record<string, any>) ?? e;
-  const reviews = num(pick(g, ["review_count", "g2_review_count"]));
-  const rating = num(pick(g, ["average_rating", "g2_average_rating"]));
-  if (reviews == null && rating == null) return null;
-  return { review_count: reviews, average_rating: rating };
-}
-
-function mapWebTraffic(e: Record<string, any> | null) {
-  if (!e) return null;
-  const w = (e.web_traffic as Record<string, any>) ?? e;
-  const visitors = num(pick(w, ["monthly_visitors"]));
-  const mom = num(
-    pick(w, ["monthly_visitor_mom_pct", "monthly_visitors_mom_pct", "growth_mom_percent"]),
-  );
-  if (visitors == null && mom == null) return null;
-  return { monthly_visitors: visitors, growth_mom_percent: mom };
-}
-
-function mapIndustry(taxonomy: any): string | null {
-  if (!taxonomy) return null;
-  if (typeof taxonomy.linkedin_industry === "string") return taxonomy.linkedin_industry;
-  const arr = taxonomy.linkedin_industries;
-  if (Array.isArray(arr) && arr.length) {
-    const first = arr[0];
-    if (typeof first === "string") return first;
-    if (first && typeof first === "object") {
-      return (first.industry as string) ?? (first.name as string) ?? null;
-    }
-  }
-  return null;
-}
-
-interface Leader {
-  name: string;
-  title: string;
-  linkedin_url: string | null;
-  profile_picture_url: string | null;
-}
-
-function mapLeaders(arr: unknown): Leader[] {
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .map((raw: any) => {
-      const name: string =
-        raw?.name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" ").trim();
-      const title: string = raw?.title || raw?.role || raw?.position || "";
-      if (!name) return null;
-      return {
-        name,
-        title,
-        linkedin_url:
-          raw?.linkedin_url ||
-          raw?.linkedin_profile_url ||
-          raw?.profile_url ||
-          null,
-        profile_picture_url:
-          raw?.profile_picture_url ||
-          raw?.picture_url ||
-          raw?.image_url ||
-          raw?.profile_image_url ||
-          null,
-      } as Leader;
-    })
-    .filter((l): l is Leader => l !== null);
+  return out;
 }
 
 /* ------------------------------------------------------------------ */
@@ -734,7 +458,7 @@ Deno.serve(async (req) => {
     const sortedIds = [...allIds].sort((a, b) => a - b);
     const cacheKey = `${canonical.toLowerCase().trim()}:${sortedIds.join(",")}`;
 
-    // Cache check (7 days, schema_version 11)
+    // Cache check (7 days, schema_version 12)
     try {
       const { data: cached } = await supabase
         .from("company_enrichment_cache")
@@ -742,7 +466,7 @@ Deno.serve(async (req) => {
         .eq("cache_key", cacheKey)
         .maybeSingle();
 
-      if (cached?.data && (cached.data as any)?.schema_version === 11) {
+      if (cached?.data && (cached.data as any)?.schema_version === 12) {
         const age = Date.now() - new Date(cached.created_at as string).getTime();
         if (age < 7 * 24 * 60 * 60 * 1000) {
           return new Response(
@@ -757,7 +481,7 @@ Deno.serve(async (req) => {
 
     // Steps 2–3 in parallel (talent flow widens to 24mo on its own if 12mo is too sparse)
     const [enrichment, jobsResult, hiresList12, departuresList12] = await Promise.all([
-      enrich(primaryId),
+      enrich(primaryId, company_domain ?? identified?.company_website_domain ?? null),
       fetchJobs(allIds),
       fetchTalentFlow(allIds, "hires", 12),
       fetchTalentFlow(allIds, "departures", 12),
@@ -778,63 +502,46 @@ Deno.serve(async (req) => {
     }
     const talent_flow = aggregateTalentFlow(hiresList, departuresList);
 
-    // Step 4 — competitors (CrustData returns domain lists)
-    const compBlock = (enrichment?.competitors as any) ?? {};
-    const compDomains: string[] = [
-      ...((compBlock?.competitor_website_domains as string[]) ?? []),
-      ...((compBlock?.organic_seo_competitors_website_domains as string[]) ?? []),
-      ...((compBlock?.paid_seo_competitors_website_domains as string[]) ?? []),
-    ];
-    const seen = new Set<string>();
-    const uniqueDomains = compDomains.filter((d) => {
-      const k = String(d || "").trim().toLowerCase();
-      if (!k || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    const competitors = await resolveCompetitorsByDomain(uniqueDomains);
-
-    // Parse "City, State, Country" from headquarters
-    const hqStr = (enrichment?.headquarters as string) || "";
-    const hqParts = hqStr.split(",").map((s) => s.trim()).filter(Boolean);
-    const parsedHqCity = hqParts[0] ?? null;
+    // Step 4 — competitors (v2 returns domain lists under competitors.*)
+    const competitors = await resolveCompetitorsByDomain(enrichment?.competitor_domains ?? []);
 
     const company = {
-      schema_version: 11 as const,
+      schema_version: 12 as const,
       company_id: primaryId,
       crustdata_entity_ids: allIds,
       company_name:
-        (enrichment?.company_name as string) ||
+        enrichment?.company_name ||
         identified?.company_name ||
         company_name ||
         canonical,
       company_website_domain:
-        (enrichment?.company_website_domain as string) ||
+        enrichment?.company_website_domain ||
         identified?.company_website_domain ||
         company_domain ||
         null,
       linkedin_profile_url:
-        (enrichment?.linkedin_profile_url as string) ||
+        enrichment?.linkedin_profile_url ||
         identified?.linkedin_profile_url ||
         null,
-      linkedin_logo_url: (enrichment?.linkedin_logo_url as string) ?? null,
-      hq_city: parsedHqCity ?? identified?.hq_city ?? null,
-      hq_state: (enrichment?.hq_state as string) ?? null,
-      hq_country:
-        (enrichment?.hq_country as string) ?? identified?.hq_country ?? null,
-      headquarters: hqStr || null,
-      industry: mapIndustry(enrichment?.taxonomy),
-      description: (enrichment?.linkedin_company_description as string) ?? null,
-      year_founded: (enrichment?.year_founded as string | number) ?? null,
-      employee_count_range: (enrichment?.employee_count_range as string) ?? null,
+      linkedin_logo_url: enrichment?.linkedin_logo_url ?? null,
+      hq_city: enrichment?.hq_city ?? identified?.hq_city ?? null,
+      hq_state: enrichment?.hq_state ?? null,
+      hq_country: enrichment?.hq_country ?? identified?.hq_country ?? null,
+      headquarters: enrichment?.headquarters ?? null,
+      industry: enrichment?.industry ?? null,
+      description: enrichment?.description ?? null,
+      year_founded: enrichment?.year_founded ?? null,
+      employee_count_range: enrichment?.employee_count_range ?? null,
+      company_type: enrichment?.company_type ?? null,
 
       headcount: enrichment?.headcount ?? null,
-      glassdoor: mapGlassdoor((enrichment ?? null) as Record<string, unknown> | null),
-      g2: mapG2((enrichment ?? null) as Record<string, unknown> | null),
-      web_traffic: mapWebTraffic((enrichment ?? null) as Record<string, unknown> | null),
-      funding: enrichment?.funding_and_investment ?? null,
-      cxos: mapLeaders(enrichment?.cxos),
-      decision_makers: mapLeaders(enrichment?.decision_makers),
+      glassdoor: enrichment?.glassdoor ?? null,
+      g2: enrichment?.g2 ?? null,
+      web_traffic: enrichment?.web_traffic ?? null,
+      funding: enrichment?.funding ?? null,
+      cxos: enrichment?.cxos ?? [],
+      decision_makers: enrichment?.decision_makers ?? [],
+      founders: enrichment?.founders ?? [],
 
       jobs: jobsResult.jobs,
       jobs_total: jobsResult.total,
