@@ -1147,9 +1147,9 @@ export type Database = {
           meta: Json | null
           parsed_filters: Json | null
           parsed_payload: Json | null
-          provider_query: Json | null
           phase: string
           profiles_fetched: number | null
+          provider_query: Json | null
           query_text: string | null
           reported_total: number | null
           timing_ms: number | null
@@ -1167,9 +1167,9 @@ export type Database = {
           meta?: Json | null
           parsed_filters?: Json | null
           parsed_payload?: Json | null
-          provider_query?: Json | null
           phase: string
           profiles_fetched?: number | null
+          provider_query?: Json | null
           query_text?: string | null
           reported_total?: number | null
           timing_ms?: number | null
@@ -1187,9 +1187,9 @@ export type Database = {
           meta?: Json | null
           parsed_filters?: Json | null
           parsed_payload?: Json | null
-          provider_query?: Json | null
           phase?: string
           profiles_fetched?: number | null
+          provider_query?: Json | null
           query_text?: string | null
           reported_total?: number | null
           timing_ms?: number | null
@@ -1203,27 +1203,27 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
-          search_params: Json | null
           query_text: string
           result_count: number | null
+          search_params: Json | null
           user_id: string
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
-          search_params?: Json | null
           query_text: string
           result_count?: number | null
+          search_params?: Json | null
           user_id: string
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
-          search_params?: Json | null
           query_text?: string
           result_count?: number | null
+          search_params?: Json | null
           user_id?: string
         }
         Relationships: [
@@ -1250,11 +1250,11 @@ export type Database = {
           leads_total: number | null
           name: string
           parsed_payload: Json | null
-          source_query: Json | null
           review_mode: string | null
           role_description: string
           sequence_id: string | null
           sequence_mode: string | null
+          source_query: Json | null
           status: string | null
           updated_at: string | null
           user_id: string
@@ -1272,11 +1272,11 @@ export type Database = {
           leads_total?: number | null
           name: string
           parsed_payload?: Json | null
-          source_query?: Json | null
           review_mode?: string | null
           role_description: string
           sequence_id?: string | null
           sequence_mode?: string | null
+          source_query?: Json | null
           status?: string | null
           updated_at?: string | null
           user_id: string
@@ -1294,11 +1294,11 @@ export type Database = {
           leads_total?: number | null
           name?: string
           parsed_payload?: Json | null
-          source_query?: Json | null
           review_mode?: string | null
           role_description?: string
           sequence_id?: string | null
           sequence_mode?: string | null
+          source_query?: Json | null
           status?: string | null
           updated_at?: string | null
           user_id?: string
