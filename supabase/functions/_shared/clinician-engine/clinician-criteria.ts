@@ -741,10 +741,11 @@ export function reconcileParsedClinicianIntent(
       // "northeast Ohio" are adjectives on a state the recruiter named —
       // matching the band searched AZ/NM/TX/NV/OK and dropped Florida.
       const isBand = !!MULTI_STATE_REGIONS[match.key] && !SUB_STATE_REGIONS[match.key];
+      // Only an adjective when the next word(s) are an actual US state name;
+      // "southwest pain physicians" / "northeast cardiologists" keep the band.
       const directionalAsAdjective = isBand &&
-        /\b(north|south)?(east|west)(?:ern)?\s+(?!region\b|area\b|us\b|usa\b|u\.s\.|united\b|corridor\b|coast\b|states?\b)[a-z]{3,}/i
-          .test(originalQuery) &&
-        /\b(northeast|northwest|southeast|southwest|midwest)\b/i.test(originalQuery);
+        /\b(?:north|south)?(?:east|west)(?:ern)?\s+(?:alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new\s+hampshire|new\s+jersey|new\s+mexico|new\s+york|north\s+carolina|north\s+dakota|ohio|oklahoma|oregon|pennsylvania|rhode\s+island|south\s+carolina|south\s+dakota|tennessee|texas|utah|vermont|virginia|washington|west\s+virginia|wisconsin|wyoming)\b/i
+          .test(originalQuery);
       const bandOverridesNamedState = isBand && (str(location.state) || directionalAsAdjective);
       if (!bandOverridesNamedState) {
         location.region_key = match.key;
