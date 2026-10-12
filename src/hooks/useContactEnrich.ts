@@ -25,7 +25,7 @@ export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], c
     } catch { /* ignore */ }
     if (!payload) throw error;
   }
-  return payload as ContactState & { charged?: number; found?: ContactKind[]; error?: string; needed?: number };
+  return payload as unknown as ContactState & { charged?: number; found?: ContactKind[]; error?: string; needed?: number };
 }
 
 export function useContactEnrich(linkedinUrl: string | null | undefined, candidateName?: string, savedContactId?: string | null) {
