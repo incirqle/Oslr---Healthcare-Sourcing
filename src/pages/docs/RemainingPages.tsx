@@ -204,7 +204,7 @@ export function DataSourcesPage() {
       <DocHeading id="sources">Source list</DocHeading>
       <DocList
         items={[
-          "LinkedIn — Professional profiles and work history",
+          "Professional profiles and work history",
           "NPI Registry — National Provider Identifier data for healthcare providers",
           "State licensing boards — Active medical licenses and certifications",
           "Professional associations — Medical society memberships",

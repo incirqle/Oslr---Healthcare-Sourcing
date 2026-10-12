@@ -17,10 +17,9 @@ export function SearchPage() {
     >
       <DocHeading id="overview">How search works</DocHeading>
       <DocParagraph>
-        Oslr's search is powered by real-time data aggregated from over 30 sources including
-        LinkedIn, NPI registries, state licensing boards, and professional associations. When
-        you search, Oslr queries across 1.5 billion+ professional profiles to find the best
-        matches for your criteria.
+        Oslr searches professional profiles for clinicians matching your role, specialty,
+        and location criteria. Available experience and training details help you review
+        the results before saving candidates to a project.
       </DocParagraph>
 
       <DocHeading id="nl-search">Natural language search</DocHeading>
@@ -258,7 +257,7 @@ export function CandidateInsightsPage() {
           "Work history with dates",
           "Education and training",
           "Skills and certifications",
-          "LinkedIn profile URL",
+          "Professional profile URL",
           "Verified email and phone (when available)",
         ]}
       />
@@ -311,7 +310,7 @@ export function CandidateProfilesPage() {
       <DocHeading id="details">Profile details</DocHeading>
       <DocParagraph>
         The profile drawer displays the candidate's full name, current title, employer, location,
-        LinkedIn URL, email address, phone number, skills, and tags. If available, you'll also
+        professional profile URL, email address, phone number, skills, and tags. If available, you'll also
         see their work history, education details, and average tenure.
       </DocParagraph>
 
@@ -321,7 +320,7 @@ export function CandidateProfilesPage() {
           "Update candidate status (New, Contacted, Screening, Interview, Offer, Hired, Rejected)",
           "Add notes for your team",
           "Copy email or phone to clipboard",
-          "Open LinkedIn profile in a new tab",
+          "Open professional profile in a new tab",
           "Add or edit tags for categorization",
         ]}
       />

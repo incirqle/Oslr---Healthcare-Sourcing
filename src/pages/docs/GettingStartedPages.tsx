@@ -17,18 +17,17 @@ export function GettingStartedPage() {
     >
       <DocHeading id="intro">Introduction to Oslr</DocHeading>
       <DocParagraph>
-        Oslr is the modern way to source healthcare talent. Powered by real-time data aggregated
-        from LinkedIn, professional registries, and dozens of other sources, Oslr lets you search
-        for candidates using natural language — no Boolean strings required.
+        Oslr helps you source doctors, nurses, and allied health professionals using
+        natural language — no Boolean strings required.
       </DocParagraph>
       <DocParagraph>
-        From AI-powered search to verified contact enrichment, personalized email campaigns,
-        and a built-in healthcare news feed, Oslr gives recruiters everything they need in one platform.
+        Search for clinicians, enrich contact details, save candidates to Projects and Contacts,
+        and export your shortlist as a CSV.
       </DocParagraph>
 
       <DocHeading id="create-account">Create an account</DocHeading>
       <DocParagraph>
-        To get started, click the <strong>"Get Started Free"</strong> button on the Oslr homepage
+        To get started, click the <strong>"Get Started"</strong> button on the Oslr homepage
         or navigate to the sign-in page. You can create an account using your email address and a password.
       </DocParagraph>
       <DocList

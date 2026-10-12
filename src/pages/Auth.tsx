@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Users, FolderKanban, TrendingUp } from "lucide-react";
+import { Search, Users, FolderKanban, Download } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ const features = [
   { icon: Search, title: "AI-Powered Search", desc: "Find healthcare professionals with natural language queries" },
   { icon: Users, title: "Candidate Management", desc: "Track and manage your recruiting pipeline in one place" },
   { icon: FolderKanban, title: "Project Organization", desc: "Organize candidates into hiring projects by role" },
-  { icon: TrendingUp, title: "Team Analytics", desc: "Monitor sourcing performance across your team" },
+  { icon: Download, title: "CSV Export", desc: "Export saved clinicians and contact details from your projects" },
 ];
 
 export default function Auth() {
