@@ -178,6 +178,7 @@ async function runEngine(req: Request, engineBody: Row): Promise<{ status: numbe
       "Content-Type": "application/json",
       ...(req.headers.get("Authorization") ? { Authorization: req.headers.get("Authorization")! } : {}),
       ...(req.headers.get("apikey") ? { apikey: req.headers.get("apikey")! } : {}),
+      "x-oslr-user-agent": req.headers.get("user-agent") ?? "",
     },
     body: JSON.stringify(engineBody),
   });
@@ -329,6 +330,12 @@ Deno.serve(async (req: Request) => {
       return json({ snapshot: result.snapshot || "" });
     }
 
+    /* ── Search metering: usage readout + engagement pings ─────────── */
+    if (action === "search_usage" || action === "meter_engagement") {
+      const { status, data } = await runEngine(req, { action });
+      return json(data, status);
+    }
+
     /* ── Search paths ──────────────────────────────────────────────── */
     const query = typeof body.query === "string" ? body.query.trim() : "";
     if (!query) return json({ error: "Query is required" }, 400);
@@ -393,7 +400,11 @@ Deno.serve(async (req: Request) => {
 
     // Engine-level failures pass through with their message.
     if (status >= 400 || (typeof data.error === "string" && !Array.isArray(data.results))) {
-      return json({ error: data.error ?? "Search failed", detail: data.detail ?? null }, status >= 400 ? status : 502);
+      return json({
+        error: data.error ?? "Search failed",
+        detail: data.detail ?? null,
+        ...(data.limit_code ? { limit_code: data.limit_code, retry_after_ms: data.retry_after_ms ?? null, search_usage: data.search_usage ?? null } : {}),
+      }, status >= 400 ? status : 502);
     }
 
     const parsed = (data.parsed ?? clientParsed ?? {}) as Row;
