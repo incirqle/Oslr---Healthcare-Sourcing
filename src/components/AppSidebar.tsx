@@ -9,6 +9,7 @@ import {
   Users,
   BarChart2,
   BookOpen,
+  Zap,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
@@ -37,6 +38,7 @@ const mainNav = [
 ];
 
 const settingsNav = [
+  { title: "Credits", url: "/credits", icon: Zap },
   { title: "Resources", url: "/resources", icon: BookOpen },
   { title: "Team Settings", url: "/settings", icon: Settings },
 ];

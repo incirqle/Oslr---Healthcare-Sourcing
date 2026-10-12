@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ExportMenu } from "@/components/ExportMenu";
+import { BulkEnrichDialog } from "@/components/BulkEnrichDialog";
 import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 import {
   ArrowLeft,
@@ -100,6 +102,8 @@ export default function ProjectDetail() {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkEnrichOpen, setBulkEnrichOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const isLoading = projectLoading || candidatesLoading;
 
@@ -373,6 +377,9 @@ export default function ProjectDetail() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setBulkEnrichOpen(true)}>
+                    Find contact info
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -643,6 +650,12 @@ export default function ProjectDetail() {
         description={`This will permanently remove ${selectedIds.size} candidate${selectedIds.size > 1 ? "s" : ""} from this project. This action cannot be undone.`}
         confirmLabel="Remove All"
         onConfirm={handleBulkRemoveConfirm}
+      />
+      <BulkEnrichDialog
+        open={bulkEnrichOpen}
+        onOpenChange={setBulkEnrichOpen}
+        people={filteredCandidates.filter((c) => selectedIds.has(c.id)).map((c) => ({ id: c.id, full_name: c.full_name, linkedin_url: c.linkedin_url ?? null }))}
+        onDone={() => { setSelectedIds(new Set()); queryClient.invalidateQueries(); }}
       />
     </AppLayout>
   );
