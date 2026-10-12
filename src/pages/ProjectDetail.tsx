@@ -60,7 +60,6 @@ import {
   useUpdateCandidateStatus,
   useRemoveCandidate,
   useUpdateProject,
-  useProjectCampaigns,
   useBulkUpdateCandidateStatus,
   useBulkRemoveCandidates,
 } from "@/hooks/useProjects";
@@ -78,7 +77,6 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: candidates = [], isLoading: candidatesLoading } = useProjectCandidates(id!);
-  const { data: campaigns = [] } = useProjectCampaigns(id!);
   const updateStatus = useUpdateCandidateStatus();
   const removeCandidate = useRemoveCandidate();
   const updateProject = useUpdateProject();
@@ -584,56 +582,6 @@ export default function ProjectDetail() {
           </CardContent>
         </Card>
 
-        {/* Campaign History */}
-        {campaigns.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                Campaign History ({campaigns.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {campaigns.map((campaign) => (
-                  <div
-                    key={campaign.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                        <Send className="h-3.5 w-3.5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{campaign.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {campaign.sent_at
-                            ? `Sent ${new Date(campaign.sent_at).toLocaleDateString()}`
-                            : `Created ${new Date(campaign.created_at).toLocaleDateString()}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <Badge
-                        variant={campaign.status === "sent" ? "default" : "secondary"}
-                        className="text-[10px]"
-                      >
-                        {campaign.status}
-                      </Badge>
-                      <span>{campaign.recipient_count} recipients</span>
-                      {(campaign.sent_count ?? 0) > 0 && (
-                        <>
-                          <span>{campaign.sent_count} sent</span>
-                          <span>{campaign.open_count ?? 0} opens</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <CandidateDrawer

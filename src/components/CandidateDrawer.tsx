@@ -1484,13 +1484,6 @@ export function CandidateDrawer({
               >
                 {isSaved ? "Saved to Project" : isSavingCandidate ? "Saving…" : "Save to Project"}
               </Button>
-              <Button
-                type="button"
-                onClick={handleAddCampaign}
-                className="h-12 flex-1 bg-primary text-[14px] font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Add to Campaign
-              </Button>
               {candidate && (
                 <ExportMenu
                   getCandidates={() => [candidate as unknown as AnyCandidate]}

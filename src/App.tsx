@@ -12,12 +12,7 @@ import SearchPage from "./pages/SearchPage";
 import SearchEntry from "./pages/SearchEntry";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
-import Campaigns from "./pages/Campaigns";
-import CampaignDetail from "./pages/CampaignDetail";
 import Contacts from "./pages/Contacts";
-import AnalyticsOutreach from "./pages/AnalyticsOutreach";
-import AnalyticsUsage from "./pages/AnalyticsUsage";
-import AnalyticsProjects from "./pages/AnalyticsProjects";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import Resources from "./pages/Resources";
@@ -49,12 +44,8 @@ const App = () => (
             <Route path="/agents" element={<Navigate to="/dashboard" replace />} />
             <Route path="/agents/:id" element={<Navigate to="/dashboard" replace />} />
             <Route path="/contacts" element={<P><Contacts /></P>} />
-            <Route path="/campaigns" element={<P><Campaigns /></P>} />
-            <Route path="/campaigns/:id" element={<P><CampaignDetail /></P>} />
-            <Route path="/analytics" element={<Navigate to="/analytics/outreach" replace />} />
-            <Route path="/analytics/outreach" element={<P><AnalyticsOutreach /></P>} />
-            <Route path="/analytics/usage" element={<P><AnalyticsUsage /></P>} />
-            <Route path="/analytics/projects" element={<P><AnalyticsProjects /></P>} />
+            <Route path="/campaigns/*" element={<Navigate to="/projects" replace />} />
+            <Route path="/analytics/*" element={<Navigate to="/dashboard" replace />} />
             <Route path="/news" element={<P><News /></P>} />
             <Route path="/resources/*" element={<P><Resources /></P>} />
             <Route path="/settings" element={<P><TeamSettings /></P>} />

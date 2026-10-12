@@ -33,8 +33,6 @@ const mainNav = [
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Search", url: "/search", icon: Search },
   { title: "Contacts", url: "/contacts", icon: Users },
-  { title: "Analytics", url: "/analytics/outreach", icon: BarChart2 },
-  { title: "Campaigns", url: "/campaigns", icon: Mail },
   { title: "News", url: "/news", icon: Newspaper },
 ];
 
