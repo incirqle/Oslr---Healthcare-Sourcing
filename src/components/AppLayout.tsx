@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Bell } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -40,11 +39,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors relative">
-                <Bell className="h-4 w-4" />
-              </button>
             </div>
           </header>
           <div className="flex-1 p-6">

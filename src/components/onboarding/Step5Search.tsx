@@ -30,13 +30,14 @@ export function Step5Search({ onComplete }: { onComplete: () => void }) {
   }, []);
 
   const handleRunSearch = async () => {
-    if (!query.trim() || !projects || projects.length === 0) {
+    if (!projects || projects.length === 0) {
       toast.error("Create a project first.");
       return;
     }
-    await completeStep.mutateAsync("search");
+    completeStep.mutate("search");
     onComplete();
-    navigate(`/projects/${projects[0].id}/search?q=${encodeURIComponent(query.trim())}`);
+    const q = query.trim();
+    navigate(`/projects/${projects[0].id}/search${q ? `?q=${encodeURIComponent(q)}` : ""}`);
   };
 
   const handleSandbox = async () => {
@@ -70,8 +71,8 @@ export function Step5Search({ onComplete }: { onComplete: () => void }) {
         className="text-base py-3 h-12"
       />
       <div className="flex flex-wrap gap-2">
-        <Button onClick={handleRunSearch} disabled={!query.trim()}>
-          Run search
+        <Button onClick={handleRunSearch}>
+          {query.trim() ? "Run search" : "Go to search"}
         </Button>
         <Button variant="outline" onClick={handleSandbox} disabled={seeding}>
           {seeding ? (

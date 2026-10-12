@@ -23,18 +23,23 @@ export function Step2Project({ onComplete }: { onComplete: () => void }) {
   const canSubmit = name.trim().length > 0 && roleTitle.trim().length > 0;
 
   const handleCreate = async () => {
-    if (!companyId || !user || !canSubmit) return;
+    if (!canSubmit) return;
+    if (!companyId || !user) {
+      toast.error("Your workspace is still loading. Try again in a moment.");
+      return;
+    }
     setSaving(true);
     try {
-      const { error } = await supabase.from("projects").insert({
+      const { data: created, error } = await supabase.from("projects").insert({
         company_id: companyId,
         created_by: user.id,
         name: name.trim(),
         role_title: roleTitle.trim(),
         location: location.trim() || null,
         target_start_date: startDate || null,
-      });
+      }).select("id").single();
       if (error) throw error;
+      if (!created?.id) throw new Error("Project could not be saved");
       await completeStep.mutateAsync("project");
       qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success("Project created");

@@ -9,6 +9,7 @@ import { Search, Users, FolderKanban, TrendingUp } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
+import { lovable } from "@/integrations/lovable/index";
 
 const features = [
   { icon: Search, title: "AI-Powered Search", desc: "Find healthcare professionals with natural language queries" },
@@ -20,8 +21,7 @@ const features = [
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
-  // Public signups are disabled — platform is invite/admin-only.
-  const SIGNUPS_DISABLED = true;
+  const SIGNUPS_DISABLED = false;
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,6 +42,20 @@ export default function Auth() {
       setEmail(invite.email);
     })();
   }, [inviteToken]);
+
+  const handleGoogle = async () => {
+    setLoading(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      toast.error(result.error.message ?? "Google sign-in failed");
+      setLoading(false);
+      return;
+    }
+    if (result.redirected) return;
+    navigate("/dashboard");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +208,13 @@ export default function Auth() {
                   {loading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
                 </Button>
               </form>
+              <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />or<div className="h-px flex-1 bg-border" />
+              </div>
+              <Button type="button" variant="outline" className="w-full h-9" onClick={handleGoogle} disabled={loading}>
+                <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
+                Continue with Google
+              </Button>
               <div className="mt-4 text-center text-xs text-muted-foreground">
                 {SIGNUPS_DISABLED ? (
                   <span>New sign-ups are currently closed.</span>
