@@ -266,8 +266,8 @@ export function ContactDataPage() {
 
       <DocHeading id="accuracy">Accuracy rates</DocHeading>
       <DocParagraph>
-        Oslr's verified contact data achieves industry-leading accuracy rates. Email
-        deliverability typically exceeds 95% for verified addresses. If you encounter an
+        Oslr's contact data is drawn from live professional profiles and checked before it is
+        returned. If you encounter an
         invalid contact, it will be reflected in your campaign bounce metrics.
       </DocParagraph>
 
