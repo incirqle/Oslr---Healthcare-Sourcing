@@ -16,6 +16,7 @@ import Contacts from "./pages/Contacts";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import Resources from "./pages/Resources";
+import Credits from "./pages/Credits";
 import NotFound from "./pages/NotFound";
 import DocsIndex from "./pages/docs/DocsIndex";
 import DocsPageRouter from "./pages/docs/DocsPageRouter";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/analytics/*" element={<Navigate to="/dashboard" replace />} />
             <Route path="/news" element={<P><News /></P>} />
             <Route path="/resources/*" element={<P><Resources /></P>} />
+            <Route path="/credits" element={<P><Credits /></P>} />
             <Route path="/settings" element={<P><TeamSettings /></P>} />
             <Route path="/docs" element={<DocsIndex />} />
             <Route path="/docs/:slug" element={<DocsPageRouter />} />
