@@ -116,9 +116,6 @@ function GeneralTab() {
 
 function TeamTab() {
   const { companyId } = useCompany();
-  const { list, create, revoke } = useInvites();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "recruiter" | "viewer">("recruiter");
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["settings-members", companyId],
     enabled: !!companyId,
