@@ -15,6 +15,7 @@ import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { useProject, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
+import { invokeSearchPeople, fetchSearchUsage, pingEngagement, SearchLimitError, type SearchUsage } from "@/lib/search-meter";
 
 type SearchStep = "hero" | "results";
 
@@ -57,6 +58,11 @@ export default function SearchPage() {
   const [companyScope, setCompanyScope] = useState<Record<string, unknown> | null>(null);
   const [specialtyFunnel, setSpecialtyFunnel] = useState<Record<string, unknown> | null>(null);
   const [searchPhase, setSearchPhase] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [usage, setUsage] = useState<SearchUsage | null>(null);
+  const burstRetryRef = useRef(0);
+
+  useEffect(() => { fetchSearchUsage().then((u) => u && setUsage(u)); }, []);
+  useEffect(() => { if (drawerCandidate) pingEngagement(); }, [drawerCandidate?.id]);
 
   // Auto-run a search if ?q= is present (e.g. coming from onboarding step 5)
   useEffect(() => {
@@ -112,10 +118,7 @@ export default function SearchPage() {
 
     try {
       // Step 1: parse (preview) to get filter interpretation
-      const { data: previewData, error: previewError } = await supabase.functions.invoke("search-people", {
-        body: { query: q, preview: true },
-      });
-      if (previewError) throw previewError;
+      const previewData = await invokeSearchPeople({ query: q, preview: true });
       if (previewData?.error) throw new Error(previewData.error);
 
       const parsed = previewData.parsed || {};
@@ -139,7 +142,22 @@ export default function SearchPage() {
 
       // Step 2: full search
       await runResultsFetch(q, mappedFilters, parsed, 1, null);
+      burstRetryRef.current = 0;
+      fetchSearchUsage().then((u) => u && setUsage(u));
     } catch (err: unknown) {
+      if (err instanceof SearchLimitError) {
+        if (err.usage) setUsage(err.usage);
+        if (err.code === "burst" && err.retryAfterMs <= 30_000 && burstRetryRef.current < 2) {
+          burstRetryRef.current += 1;
+          toast.info(err.message);
+          setTimeout(() => runFullSearch(q, overrideFilters), Math.max(err.retryAfterMs, 3000));
+          return;
+        }
+        burstRetryRef.current = 0;
+        toast.warning(err.message, { duration: 8000 });
+        setSearchPhase("error");
+        return;
+      }
       console.error("Search error:", err);
       const msg = err instanceof Error ? err.message : "Search failed";
       toast.error(msg);
@@ -154,8 +172,7 @@ export default function SearchPage() {
     targetPage: number,
     token: string | null,
   ) => {
-    const { data, error } = await supabase.functions.invoke("search-people", {
-      body: {
+    const data = await invokeSearchPeople({
         query: q,
         filters: {
           job_titles: f.job_titles,
@@ -167,10 +184,8 @@ export default function SearchPage() {
         page: targetPage - 1,
         size: pageSize,
         scroll_token: targetPage > 1 ? token : null,
-      },
     });
 
-    if (error) throw error;
     if (data?.error) throw new Error(data.error);
 
     const mapped: Candidate[] = (data.results || []).map((r: Record<string, any>) => ({
@@ -368,7 +383,20 @@ export default function SearchPage() {
               <span className="text-sm font-medium text-foreground">Source Candidates</span>
             </>
           )}
+          {usage && (
+            <span className="ml-auto text-xs text-muted-foreground" title="Paging through results and repeating a search don't count.">
+              Daily searches: {usage.used} / {usage.limit}
+            </span>
+          )}
         </div>
+
+        {usage && usage.used >= usage.limit - 10 && (
+          <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+            {usage.used >= usage.limit
+              ? `You've used all ${usage.limit} new searches for today. Limits refresh at midnight UTC — you can still page through results.`
+              : `You've used ${usage.used} of your ${usage.limit} daily searches. Daily limits refresh at midnight UTC.`}
+          </div>
+        )}
 
         {step === "hero" && (
           <SearchHero

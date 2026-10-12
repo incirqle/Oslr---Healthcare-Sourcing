@@ -51,6 +51,7 @@ import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
 import { companyIdentifyV2, personEnrichV2, personSearchV2 } from "./lib/crustdata-v2.ts";
 import { resolveEmployerGroup } from "./employer-resolution.ts";
 import { resolveCaller } from "./lib/auth.ts";
+import { getUsage, logEngagement, meterSearch } from "./search-meter.ts";
 import {
   CLINICIAN_ENGINE_VERSION,
   logClinicianRun,
@@ -111,6 +112,18 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
     }
     const user = { id: caller.userId, email: caller.email };
     const bypassCache = bypassCacheRaw === true && caller.isAdmin === true;
+
+    if (body.action === "search_usage") {
+      return new Response(JSON.stringify({ search_usage: await getUsage(adminClient, user.id) }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (body.action === "meter_engagement") {
+      await logEngagement(adminClient, user.id, "open");
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     /* ── ACTION: profile_evidence — enrich-on-expand (30d cache) ─────
        Fires ONLY on an explicit card expand. Never called by the search
@@ -179,17 +192,21 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       );
     }
 
-    // Rate limit: 100 searches/hour per user on this engine's own table.
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count: recentSearchCount } = await adminClient
-      .from("clinician_searches")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .gte("created_at", oneHourAgo);
-    if (recentSearchCount !== null && recentSearchCount >= 100) {
+    // Search metering + bot protection (pagination/repeats/refinements free).
+    const meter = await meterSearch(adminClient, {
+      userId: user.id,
+      query,
+      page: typeof page === "number" ? page : 0,
+      userAgent: req.headers.get("x-oslr-user-agent") ?? req.headers.get("user-agent"),
+      isAdmin: caller.isAdmin === true,
+    });
+    if (!meter.ok) {
       return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. 100 searches/hour max." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({
+          error: meter.message, error_code: meter.code, limit_code: meter.code,
+          retry_after_ms: meter.retry_after_ms, search_usage: meter.usage,
+        }),
+        { status: meter.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
