@@ -127,16 +127,10 @@ function TeamTab() {
       return (p ?? []).map((m) => ({ ...m, role: r?.find((x) => x.user_id === m.user_id)?.role ?? "recruiter" }));
     },
   });
-  const pending = (list.data ?? []).filter((i) => !i.accepted_at);
-
-  const invite = async () => {
-    if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Enter a valid email");
-    try { await create.mutateAsync({ email, role }); setEmail(""); toast.success("Invite sent"); }
-    catch (e) { toast.error((e as Error).message || "Only admins can invite"); }
-  };
 
   return (
     <div className="space-y-6">
+
       <Card>
         <CardHeader><CardTitle className="font-display text-base">Members</CardTitle><CardDescription>People with access to this workspace</CardDescription></CardHeader>
         <CardContent className="divide-y divide-border">
