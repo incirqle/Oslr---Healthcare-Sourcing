@@ -46,6 +46,12 @@ export default function SearchPage() {
   const [revealedCount, setRevealedCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [browsableTotal, setBrowsableTotal] = useState(0);
+  const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
+  const revealHidden = () => {
+    setCandidates((prev) => [...prev, ...hiddenCandidates]);
+    setRevealedCount((c) => c + hiddenCandidates.length + 1000);
+    setHiddenCandidates([]);
+  };
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 15;
@@ -188,7 +194,7 @@ export default function SearchPage() {
 
     if (data?.error) throw new Error(data.error);
 
-    const mapped: Candidate[] = (data.results || []).map((r: Record<string, any>) => ({
+    const mapRow = (r: Record<string, any>): Candidate => ({
       id: r.id,
       full_name: r.full_name || "",
       title: r.job_title || null,
@@ -214,7 +220,9 @@ export default function SearchPage() {
       has_contact_info: r.has_contact_info || false,
       summary: r.summary || r.headline || null,
       raw: r,
-    }));
+    });
+    const mapped: Candidate[] = (data.results || []).map(mapRow);
+    const hidden: Candidate[] = (data.hidden_results || []).map(mapRow);
 
     // An empty page past the first one means we've run off the end of the
     // browsable pool. Never blank the screen for that — stay where we are.
@@ -227,6 +235,7 @@ export default function SearchPage() {
     }
 
     setCandidates(mapped);
+    setHiddenCandidates(hidden);
     setTotal(data.total || 0);
     setBrowsableTotal(
       typeof data.browsable_total === "number" && data.browsable_total > 0
@@ -455,8 +464,19 @@ export default function SearchPage() {
               />
             )}
 
+            {searchPhase === "done" && hiddenCandidates.length > 0 && (
+              <div className="rounded-xl border border-border/50 bg-card/40 p-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {hiddenCandidates.length} weaker {hiddenCandidates.length === 1 ? "match was" : "matches were"} hidden because they don't fit your search closely.
+                </p>
+                <button onClick={revealHidden} className="text-sm font-medium text-primary hover:underline">
+                  Show them anyway
+                </button>
+              </div>
+            )}
+
             {/* Zero-result helper after stream completes */}
-            {searchPhase === "done" && total === 0 && (
+            {searchPhase === "done" && total === 0 && hiddenCandidates.length === 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   No matches. Open{" "}
