@@ -19,7 +19,7 @@ export default function DocsIndex() {
           What you'll learn
         </h2>
         <ul className="list-disc list-inside space-y-1.5 text-muted-foreground mb-8 ml-1">
-          <li>Using natural language AI to search 1.5B+ professional profiles</li>
+          <li>Using natural language AI to search 5.1M+ U.S. healthcare profiles</li>
           <li>Building and managing candidate pipelines with projects</li>
           <li>Creating personalized email outreach campaigns</li>
           <li>Tracking campaign performance and engagement</li>

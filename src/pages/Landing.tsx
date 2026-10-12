@@ -199,25 +199,32 @@ function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
   const [value, setValue] = useState(0);
+  const decimals = Number.isInteger(target)
+    ? 0
+    : (String(target).split(".")[1] || "").length;
 
   useEffect(() => {
     if (!inView) return;
-    let start = 0;
-    const step = Math.ceil(target / 40);
-    const interval = setInterval(() => {
-      start += step;
-      if (start >= target) {
-        start = target;
-        clearInterval(interval);
-      }
-      setValue(start);
-    }, 30);
-    return () => clearInterval(interval);
+    const duration = 1200;
+    const startedAt = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(target * eased);
+      if (progress < 1) frame = requestAnimationFrame(tick);
+      else setValue(target);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [inView, target]);
 
   return (
     <span ref={ref}>
-      {value.toLocaleString()}
+      {value.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
       {suffix}
     </span>
   );
@@ -313,9 +320,10 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: 5.2, suffix: "M", label: "U.S. healthcare profiles" },
-  { value: 1.2, suffix: "M+", label: "U.S. clinical organizations" },
-  { text: "High", label: "Email deliverability" },
+  { value: 5.1, suffix: "M+", label: "U.S. healthcare profiles" },
+  { value: 2.1, suffix: "M+", label: "Nurses" },
+  { value: 1.18, suffix: "M", label: "U.S. clinical organizations" },
+  { value: 200, suffix: "K+", label: "Students & residents in medicine and nursing" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -594,13 +602,15 @@ export default function Landing() {
       {/* ---- STATS BAR ---- */}
       <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+        <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 text-center">
           {STATS.map((s) => (
-            <div key={s.label} className="space-y-1">
-              <p className="font-display text-4xl md:text-5xl font-bold text-primary">
-                {s.value !== undefined ? <CountUp target={s.value} suffix={s.suffix} /> : s.text}
+            <div key={s.label} className="space-y-2">
+              <p className="font-display text-3xl md:text-4xl xl:text-5xl font-bold text-primary">
+                <CountUp target={s.value} suffix={s.suffix} />
               </p>
-              <p className="text-white/60 text-base">{s.label}</p>
+              <p className="text-white/60 text-sm md:text-base leading-snug max-w-[22ch] mx-auto">
+                {s.label}
+              </p>
             </div>
           ))}
         </div>

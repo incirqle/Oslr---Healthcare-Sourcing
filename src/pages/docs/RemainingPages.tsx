@@ -223,8 +223,9 @@ export function DataSourcesPage() {
 
       <DocHeading id="coverage">Coverage</DocHeading>
       <DocParagraph>
-        Oslr covers 1.5 billion+ professional profiles globally, with particularly deep
-        coverage of US healthcare professionals. The platform includes data on physicians,
+        Oslr covers 5.1 million+ U.S. healthcare profiles across 1.18 million U.S. clinical
+        organizations, including 2.1 million+ nurses and 200,000+ medical and nursing students
+        and residents. The platform includes data on physicians,
         nurses, allied health professionals, healthcare executives, and administrative staff.
       </DocParagraph>
     </DocPage>
@@ -259,8 +260,9 @@ export function HelpCenterPage() {
 
       <DocParagraph><strong>How accurate is the contact data?</strong></DocParagraph>
       <DocParagraph>
-        Oslr's verified email addresses have a 95%+ deliverability rate. We use multiple
-        verification steps including MX record checks and deliverability testing.
+        Contact details are drawn from live professional profiles and checked before they are
+        returned to you. If a search does not return a verified contact, no credits are charged.
+        Oslr does not publish a deliverability guarantee.
       </DocParagraph>
 
       <DocParagraph><strong>Can multiple team members work on the same project?</strong></DocParagraph>
