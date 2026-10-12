@@ -57,15 +57,6 @@ export function BulkActionBar({
         {isSaving ? "Saving…" : `Add to ${projectName ? `"${projectName}"` : "project"}`}
       </Button>
 
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onAddToCampaign}
-        className="h-8 gap-1.5"
-      >
-        <Mail className="h-3.5 w-3.5" />
-        Add to campaign
-      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
