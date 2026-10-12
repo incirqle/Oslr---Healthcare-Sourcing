@@ -28,6 +28,7 @@ import {
   batchContactEnrich,
   personEnrichV2,
 } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
+import { handleEnrichContact } from "./contact-credits.ts";
 import {
   ENRICHMENT_TTL_MS,
   getCrustDataCache,
@@ -202,7 +203,17 @@ Deno.serve(async (req: Request) => {
     const body = (await req.json()) as Row;
     const action = (body.action as string | undefined) ?? null;
 
-    /* ── enrich_person: Crustdata profile + contact enrich ─────────── */
+    /* ── enrich_contact: credit-metered email / phone lookup ───────── */
+    if (action === "enrich_contact") {
+      const r = await handleEnrichContact(req, body);
+      return json(r.payload, r.status);
+    }
+
+    const stripContact = (d: unknown) => ({
+      ...(d as Row), work_email: "", personal_emails: [], mobile_phone: "", phone_numbers: [],
+    });
+
+    /* ── enrich_person: Crustdata profile (contact is credit-metered) ── */
     if (action === "enrich_person") {
       const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() : "";
       if (!linkedinUrl) {
@@ -212,12 +223,12 @@ Deno.serve(async (req: Request) => {
       const cacheKey = "clin:drawer:" + linkedinUrl.toLowerCase();
       const cached = await getCrustDataCache(cacheKey, ENRICHMENT_TTL_MS);
       if (cached && cached.profiles[0]) {
-        return json({ data: cached.profiles[0], likelihood: null, cached: true });
+        return json({ data: stripContact(cached.profiles[0]), likelihood: null, cached: true });
       }
       // Permanent store: once paid for, a profile is never re-purchased.
       const stored = await getPermanentEnrichment(linkedinUrl);
       if (stored) {
-        return json({ data: stored, likelihood: null, cached: true });
+        return json({ data: stripContact(stored), likelihood: null, cached: true });
       }
 
       const [profileRes, contactRes] = await Promise.all([
@@ -231,7 +242,7 @@ Deno.serve(async (req: Request) => {
           "skills",
           "certifications",
         ]).catch(() => null),
-        batchContactEnrich([{ linkedin_url: linkedinUrl }]).catch(() => null),
+        Promise.resolve(null as Awaited<ReturnType<typeof batchContactEnrich>> | null),
       ]);
 
       const person = (profileRes && profileRes.ok
