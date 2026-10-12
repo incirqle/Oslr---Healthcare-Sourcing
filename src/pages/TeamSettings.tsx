@@ -142,32 +142,6 @@ function TeamTab() {
           ))}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle className="font-display text-base">Invite a teammate</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Input placeholder="name@practice.com" value={email} onChange={(e) => setEmail(e.target.value)} className="max-w-xs" />
-            <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="recruiter">Recruiter</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectContent>
-            </Select>
-            <Button onClick={invite} disabled={create.isPending}>{create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send invite"}</Button>
-          </div>
-          {pending.length > 0 && (
-            <div className="divide-y divide-border rounded-md border border-border">
-              {pending.map((i) => (
-                <div key={i.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <span>{i.email} <span className="text-xs capitalize text-muted-foreground">· {i.role} · pending</span></span>
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" title="Copy invite link" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/auth?invite=${i.token}`); toast.success("Link copied"); }}><Copy className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" title="Cancel invite" onClick={() => revoke.mutate(i.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
