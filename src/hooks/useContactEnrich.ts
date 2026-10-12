@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,7 +29,6 @@ export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], c
 }
 
 export function useContactEnrich(linkedinUrl: string | null | undefined, candidateName?: string, savedContactId?: string | null) {
-  const qc = useQueryClient();
   const [state, setState] = useState<ContactState>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -67,31 +65,28 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
       } else {
         toast("Nothing found · no credits used");
       }
-      qc.invalidateQueries({ queryKey: ["credit-balance"] });
+      window.dispatchEvent(new Event("oslr:credits"));
     } catch {
       toast.error("Contact lookup failed. Try again shortly.");
     } finally {
       setBusy(false);
     }
-  }, [linkedinUrl, candidateName, savedContactId, qc]);
+  }, [linkedinUrl, candidateName, savedContactId]);
 
   return { state, busy, run };
 }
 
 export function useCreditBalance(companyId: string | null | undefined) {
   const [balance, setBalance] = useState<number | null>(null);
-  const qc = useQueryClient();
   useEffect(() => {
     if (!companyId) return;
     const load = () =>
       supabase.from("credit_balances").select("balance").eq("company_id", companyId).maybeSingle()
         .then(({ data }) => setBalance((data?.balance as number | undefined) ?? 0));
     void load();
-    const unsub = qc.getQueryCache().subscribe((e) => {
-      if (e.type === "removed" || e.query.queryKey[0] !== "credit-balance") return;
-      void load();
-    });
-    return unsub;
-  }, [companyId, qc]);
+    const h = () => void load();
+    window.addEventListener("oslr:credits", h);
+    return () => window.removeEventListener("oslr:credits", h);
+  }, [companyId]);
   return balance;
 }
