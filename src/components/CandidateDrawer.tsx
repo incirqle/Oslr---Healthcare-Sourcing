@@ -94,7 +94,7 @@ interface CandidateDrawerProps {
   } | null;
   isSaved?: boolean;
   isSavingCandidate?: boolean;
-  onSaveCandidate?: () => Promise<void> | void;
+  onSaveCandidate?: (contact?: { email: string | null; phone: string | null }) => Promise<void> | void;
   onAddToCampaign?: () => void;
   /** Filters from the active search — used for query-aware highlighting + match chips. */
   filters?: ParsedFilters;
@@ -390,7 +390,12 @@ export function CandidateDrawer({
 }: CandidateDrawerProps) {
   const { size: drawerSize, toggle: toggleDrawerSize, isWide } = useDrawerSize();
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
-  const contactEnrich = useContactEnrich(open ? candidate?.linkedin_url : null, candidate?.full_name, savedContactId);
+  const contactEnrich = useContactEnrich(
+    open ? candidate?.linkedin_url : null,
+    candidate?.full_name,
+    savedContactId,
+    !savedContactId && !isSaved && onSaveCandidate ? (c) => onSaveCandidate(c) : undefined,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contactUnlocked, setContactUnlocked] = useState(true);

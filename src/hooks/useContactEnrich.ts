@@ -28,7 +28,7 @@ export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], c
   return payload as unknown as ContactState & { charged?: number; found?: ContactKind[]; error?: string; needed?: number };
 }
 
-export function useContactEnrich(linkedinUrl: string | null | undefined, candidateName?: string, savedContactId?: string | null) {
+export function useContactEnrich(linkedinUrl: string | null | undefined, candidateName?: string, savedContactId?: string | null, onAutoSave?: (c: { email: string | null; phone: string | null }) => Promise<void> | void) {
   const [state, setState] = useState<ContactState>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -61,6 +61,11 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
           if (email) patch.email = email;
           if (phone) patch.phone = phone;
           if (Object.keys(patch).length) await supabase.from("candidates").update(patch).eq("id", savedContactId);
+        } else if (onAutoSave) {
+          await onAutoSave({
+            email: r.contact.work_email || r.contact.personal_emails?.[0] || null,
+            phone: r.contact.phone_numbers?.[0] || null,
+          });
         }
       } else {
         toast("Nothing found · no credits used");
@@ -71,7 +76,7 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     } finally {
       setBusy(false);
     }
-  }, [linkedinUrl, candidateName, savedContactId]);
+  }, [linkedinUrl, candidateName, savedContactId, onAutoSave]);
 
   return { state, busy, run };
 }
