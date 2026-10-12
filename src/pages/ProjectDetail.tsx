@@ -312,10 +312,15 @@ export default function ProjectDetail() {
                 <Pencil className="h-4 w-4" />
               </button>
             </div>
+            <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate(`/contacts?project=${id}`)}>
+              View in Contacts
+            </Button>
             <Button onClick={() => navigate(`/projects/${id}/search`)}>
               <Search className="h-4 w-4 mr-2" />
               Source Candidates
             </Button>
+            </div>
           </div>
         </div>
 

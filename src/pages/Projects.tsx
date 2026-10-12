@@ -178,6 +178,22 @@ export default function Projects() {
                         {new Date(project.created_at).toLocaleDateString()}
                       </span>
                     </div>
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/projects/${project.id}/search`); }}
+                      >
+                        Source Candidates
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/contacts?project=${project.id}`); }}
+                      >
+                        Contacts
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );
