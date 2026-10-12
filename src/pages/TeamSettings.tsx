@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Search, Zap, FolderKanban, Users, Activity, Trash2, Copy } from "lucide-react";
+import { Loader2, Search, Zap, FolderKanban, Users, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompany } from "@/hooks/useCompany";
-import { useInvites } from "@/hooks/useInvites";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { fetchSearchUsage, type SearchUsage } from "@/lib/search-meter";
 import { CreditsPanel } from "@/pages/Credits";
@@ -116,9 +114,6 @@ function GeneralTab() {
 
 function TeamTab() {
   const { companyId } = useCompany();
-  const { list, create, revoke } = useInvites();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "recruiter" | "viewer">("recruiter");
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["settings-members", companyId],
     enabled: !!companyId,
@@ -130,16 +125,10 @@ function TeamTab() {
       return (p ?? []).map((m) => ({ ...m, role: r?.find((x) => x.user_id === m.user_id)?.role ?? "recruiter" }));
     },
   });
-  const pending = (list.data ?? []).filter((i) => !i.accepted_at);
-
-  const invite = async () => {
-    if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Enter a valid email");
-    try { await create.mutateAsync({ email, role }); setEmail(""); toast.success("Invite sent"); }
-    catch (e) { toast.error((e as Error).message || "Only admins can invite"); }
-  };
 
   return (
     <div className="space-y-6">
+
       <Card>
         <CardHeader><CardTitle className="font-display text-base">Members</CardTitle><CardDescription>People with access to this workspace</CardDescription></CardHeader>
         <CardContent className="divide-y divide-border">
@@ -149,32 +138,6 @@ function TeamTab() {
               <Badge variant="outline" className="capitalize">{m.role}</Badge>
             </div>
           ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle className="font-display text-base">Invite a teammate</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Input placeholder="name@practice.com" value={email} onChange={(e) => setEmail(e.target.value)} className="max-w-xs" />
-            <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="recruiter">Recruiter</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectContent>
-            </Select>
-            <Button onClick={invite} disabled={create.isPending}>{create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send invite"}</Button>
-          </div>
-          {pending.length > 0 && (
-            <div className="divide-y divide-border rounded-md border border-border">
-              {pending.map((i) => (
-                <div key={i.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <span>{i.email} <span className="text-xs capitalize text-muted-foreground">· {i.role} · pending</span></span>
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" title="Copy invite link" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/auth?invite=${i.token}`); toast.success("Link copied"); }}><Copy className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" title="Cancel invite" onClick={() => revoke.mutate(i.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
