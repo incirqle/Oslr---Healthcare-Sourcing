@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Zap } from "lucide-react";
+import { Loader2, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,6 +22,28 @@ export default function Credits() {
   const { companyId } = useCompany();
   const balance = useCreditBalance(companyId);
   const [rows, setRows] = useState<Tx[]>([]);
+  const [plan, setPlan] = useState<{ subscribed: boolean; renews_at: string | null; cancel_at_period_end: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.functions.invoke("billing", { body: { action: "status" } }).then(({ data }) => {
+      if (data && !data.error) {
+        setPlan(data);
+        if (data.granted > 0) {
+          toast.success(`${data.granted} credits added to your workspace`);
+          window.dispatchEvent(new Event("oslr:credits"));
+        }
+      }
+    });
+  }, []);
+
+  const go = async (action: "checkout" | "portal") => {
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("billing", { body: { action, origin: window.location.origin } });
+    setBusy(false);
+    if (error || !data?.url) return toast.error(data?.error || "Billing is unavailable right now.");
+    window.location.href = data.url;
+  };
 
   useEffect(() => {
     if (!companyId) return;
@@ -46,6 +70,30 @@ export default function Credits() {
               <p>Work email 2 · Personal email 3 · Phone 5</p>
               <p>Only charged when something is found</p>
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <p className="text-base font-semibold">Starter plan · $115 a month</p>
+              <p className="text-sm text-muted-foreground">
+                {plan === null ? "Checking your plan…"
+                  : plan.subscribed
+                    ? plan.cancel_at_period_end
+                      ? `Ends ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : "soon"}`
+                      : `Active · renews ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : ""}`
+                    : "150 contact credits every month"}
+              </p>
+            </div>
+            {plan?.subscribed ? (
+              <Button variant="outline" disabled={busy} onClick={() => go("portal")}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Manage billing"}
+              </Button>
+            ) : (
+              <Button disabled={busy || plan === null} onClick={() => go("checkout")}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Subscribe"}
+              </Button>
+            )}
           </CardContent>
         </Card>
         <Card>

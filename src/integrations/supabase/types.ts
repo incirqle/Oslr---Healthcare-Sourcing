@@ -768,6 +768,7 @@ export type Database = {
           kind: string
           linkedin_url: string | null
           note: string | null
+          stripe_ref: string | null
           user_id: string | null
         }
         Insert: {
@@ -779,6 +780,7 @@ export type Database = {
           kind: string
           linkedin_url?: string | null
           note?: string | null
+          stripe_ref?: string | null
           user_id?: string | null
         }
         Update: {
@@ -790,6 +792,7 @@ export type Database = {
           kind?: string
           linkedin_url?: string | null
           note?: string | null
+          stripe_ref?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -1572,6 +1575,15 @@ export type Database = {
         }[]
       }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
+      grant_paid_credits: {
+        Args: {
+          _amount: number
+          _company_id: string
+          _note: string
+          _ref: string
+        }
+        Returns: boolean
+      }
       has_company_role: {
         Args: {
           _company_id: string
