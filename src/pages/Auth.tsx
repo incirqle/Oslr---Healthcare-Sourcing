@@ -109,13 +109,14 @@ export default function Auth() {
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16">
           <div className="flex items-center gap-3 mb-10">
-            <img src={oslrLogo} alt="Oslr" className="h-11 w-11 rounded-xl" />
             <img src={oslrWordmark} alt="Oslr" className="h-6" />
           </div>
 
           <h2 className="text-3xl xl:text-4xl font-bold font-display text-white leading-tight mb-3">
-            Source healthcare talent<br />
-            <span className="text-primary">10× faster</span>
+            Smarter{" "}
+            <span className="bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
+              healthcare talent sourcing
+            </span>
           </h2>
           <p className="text-[hsl(213,31%,70%)] text-base mb-10 max-w-md">
             The modern recruiting platform built for healthcare staffing teams. Find nurses, doctors, and specialists with AI-powered search.
