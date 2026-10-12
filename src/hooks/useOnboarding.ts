@@ -19,13 +19,8 @@ export interface OnboardingState {
   success_banner_dismissed: boolean;
 }
 
-const STEP_ORDER: OnboardingStepKey[] = [
-  "team",
-  "project",
-  "invites",
-  "connectors",
-  "search",
-];
+// Launch scope: invites and tool connectors are retired from setup.
+const STEP_ORDER: OnboardingStepKey[] = ["team", "project", "search"];
 
 function stepKeyToColumn(key: OnboardingStepKey) {
   return `step_${key}_complete` as const;

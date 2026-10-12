@@ -14,9 +14,8 @@ const ROLE_OPTIONS = [
   "Physicians",
   "Nurses",
   "Allied Health",
+  "Advanced Practice (NP/PA)",
   "Residents/Fellows",
-  "Executives",
-  "Other",
 ];
 
 const TEAM_SIZES = ["Just me", "2–5", "6–20", "20+"];

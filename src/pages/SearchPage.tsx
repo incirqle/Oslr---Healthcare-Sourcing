@@ -117,6 +117,7 @@ export default function SearchPage() {
     setRevealedCount(0);
     setTotal(0);
     setBrowsableTotal(0);
+    setHiddenCandidates([]);
     setHasMore(false);
     setPage(1);
     setScrollToken(null);
@@ -314,6 +315,7 @@ export default function SearchPage() {
     setRevealedCount(0);
     setTotal(0);
     setBrowsableTotal(0);
+    setHiddenCandidates([]);
     setHasMore(false);
     setPage(1);
     setSelected(new Set());

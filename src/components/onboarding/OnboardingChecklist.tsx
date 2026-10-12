@@ -4,8 +4,6 @@ import { useOnboarding, type OnboardingStepKey } from "@/hooks/useOnboarding";
 import { StepRow } from "./StepRow";
 import { Step1Team } from "./Step1Team";
 import { Step2Project } from "./Step2Project";
-import { Step3Invites } from "./Step3Invites";
-import { Step4Connectors } from "./Step4Connectors";
 import { Step5Search } from "./Step5Search";
 
 const STEPS: {
@@ -14,11 +12,9 @@ const STEPS: {
   title: string;
   description: string;
 }[] = [
-  { key: "team", index: 1, title: "Tell us about your team", description: "Help us tailor Oslr to your specialty and team size." },
-  { key: "project", index: 2, title: "Create your first project", description: "Projects organize searches and candidates for a specific role." },
-  { key: "invites", index: 3, title: "Invite your teammates", description: "Collaborate on searches and share candidate notes. You can skip this." },
-  { key: "connectors", index: 4, title: "Connect your tools (optional)", description: "Pull in existing candidates and schedule outreach from one place." },
-  { key: "search", index: 5, title: "Run your first search", description: "Find candidates using natural language. Try a sample query." },
+  { key: "team", index: 1, title: "Set your clinical focus", description: "Tell us which clinicians and specialty you recruit for." },
+  { key: "project", index: 2, title: "Create your first project", description: "A project holds the clinicians you save for one role." },
+  { key: "search", index: 3, title: "Run your first search", description: "Describe who you need in plain words, then save the people you like." },
 ];
 
 export function OnboardingChecklist() {
@@ -51,7 +47,7 @@ export function OnboardingChecklist() {
               Get started with Oslr
             </h2>
             <p className="text-base text-muted-foreground mt-1">
-              A few quick steps to set up your recruiting workspace.
+              Three quick steps and you're sourcing clinicians.
             </p>
           </div>
           <div className="text-right shrink-0">
@@ -89,8 +85,6 @@ export function OnboardingChecklist() {
               >
                 {s.key === "team" && <Step1Team onComplete={advance} />}
                 {s.key === "project" && <Step2Project onComplete={advance} />}
-                {s.key === "invites" && <Step3Invites onComplete={advance} />}
-                {s.key === "connectors" && <Step4Connectors onComplete={advance} />}
                 {s.key === "search" && <Step5Search onComplete={advance} />}
               </StepRow>
             );
