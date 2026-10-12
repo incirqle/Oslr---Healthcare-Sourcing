@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -176,7 +176,10 @@ export default function Contacts() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [projectFilter, setProjectFilter] = useState<Set<string>>(new Set());
+  const [urlParams] = useSearchParams();
+  const [projectFilter, setProjectFilter] = useState<Set<string>>(
+    () => new Set(urlParams.get("project") ? [urlParams.get("project") as string] : []),
+  );
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
