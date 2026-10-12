@@ -6,9 +6,7 @@ import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import {
   Search,
   MessageSquareText,
-  Database,
   Mail,
-  BarChart3,
   FolderKanban,
   Users,
   Zap,
@@ -16,7 +14,6 @@ import {
   Layers,
   ArrowRight,
   CheckCircle2,
-  Newspaper,
   Shield,
   Sparkles,
   Target,
@@ -24,7 +21,7 @@ import {
   Globe,
   MapPin,
   Star,
-  TrendingUp,
+  Download,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -107,7 +104,7 @@ function ProductMockup() {
   const mockCandidates = [
     { name: "Dr. Sarah Chen", title: "Orthopedic Surgeon", location: "Miami, FL", score: 97, status: "New" },
     { name: "Dr. James Rivera", title: "Orthopedic Surgeon", location: "Fort Lauderdale, FL", score: 94, status: "New" },
-    { name: "Dr. Michelle Park", title: "Sports Medicine", location: "Miami, FL", score: 91, status: "Contacted" },
+    { name: "Dr. Michelle Park", title: "Sports Medicine", location: "Miami, FL", score: 91, status: "Saved" },
     { name: "Dr. David Okafor", title: "Orthopedic Surgeon", location: "West Palm Beach, FL", score: 88, status: "New" },
   ];
 
@@ -133,7 +130,7 @@ function ProductMockup() {
           <div className="flex-1 flex justify-center">
             <div className="flex items-center gap-2 px-4 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-xs text-white/40">
               <Search className="h-3 w-3" />
-              app.oslr.io/search
+              oslr.health/projects
             </div>
           </div>
         </div>
@@ -182,7 +179,7 @@ function ProductMockup() {
                   </span>
                 </div>
                 <div className="col-span-2 flex justify-end">
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.status === 'Contacted' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'bg-primary/15 text-primary border border-primary/20'}`}>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.status === 'Saved' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'bg-primary/15 text-primary border border-primary/20'}`}>
                     {c.status}
                   </span>
                 </div>
@@ -263,8 +260,8 @@ function Section({
 const PAIN_POINTS = [
   {
     icon: Clock,
-    title: "Stale Data",
-    desc: "Most sourcing tools rely on databases that are months or years out of date. You need to know where a physician is training right now, not where they were two years ago.",
+    title: "Hard-to-find clinicians",
+    desc: "Finding the right clinician means reviewing specialty, location, experience, and training—not just matching a job title.",
     color: "from-primary/15 to-primary/5",
     iconColor: "text-primary",
     iconBg: "bg-primary/15 border-primary/20",
@@ -272,7 +269,7 @@ const PAIN_POINTS = [
   {
     icon: Layers,
     title: "Manual Workflows",
-    desc: "Copy-pasting between tabs, building spreadsheets, hand-writing outreach emails. Your time should be spent recruiting, not doing data entry.",
+    desc: "Copy-pasting profiles into spreadsheets takes time away from recruiting. Keep your shortlist and saved contact details together.",
     color: "from-primary/15 to-primary/5",
     iconColor: "text-primary",
     iconBg: "bg-primary/15 border-primary/20",
@@ -280,7 +277,7 @@ const PAIN_POINTS = [
   {
     icon: Zap,
     title: "Fragmented Tools",
-    desc: "One tool to search, another to find emails, another to send campaigns, another to read industry news. Context-switching kills productivity.",
+    desc: "Disconnected searches and contact lists make good candidates easy to lose. Bring your search results into a project you can return to and export.",
     color: "from-primary/15 to-primary/5",
     iconColor: "text-primary",
     iconBg: "bg-primary/15 border-primary/20",
@@ -291,41 +288,35 @@ const STEPS = [
   {
     num: "01",
     title: "Search in plain English",
-    desc: 'Type "ICU nurses in Dallas with CCRN certification" and Oslr\'s AI instantly translates it into structured filters across real-time data sources.',
+    desc: 'Type "ICU nurses in Dallas with CCRN certification" and Oslr\'s AI turns it into a clinical search by role, specialty, and location.',
     icon: MessageSquareText,
   },
   {
     num: "02",
-    title: "Enrich and verify",
-    desc: "One click gives you verified emails, phone numbers, work history, education, residency and fellowship details, and certifications.",
+    title: "Find contact details",
+    desc: "Review available experience and training, then choose work email, personal email, or phone enrichment. Successful lookups save to Contacts for reuse.",
     icon: Shield,
   },
   {
     num: "03",
-    title: "Sequence, track, and recruit",
-    desc: "Save candidates to hiring projects, build personalized email sequences with merge fields, and track open rates and responses.",
-    icon: Mail,
+    title: "Save to a project and export",
+    desc: "Save clinicians and their contact details to a hiring project. Return to your shortlist anytime and export it as a CSV for your existing workflow.",
+    icon: Download,
   },
 ];
 
 const FEATURES = [
-  { icon: MessageSquareText, title: "Natural Language Search", desc: "Just describe who you're looking for. No Boolean strings, no complex filters.", accent: "from-emerald-500/20 to-teal-500/10" },
-  { icon: Database, title: "Real-Time Data", desc: "Aggregated from LinkedIn, professional registries, and dozens of sources. Always current.", accent: "from-blue-500/20 to-cyan-500/10" },
-  { icon: Phone, title: "Contact Enrichment", desc: "Verified emails, direct phone numbers, and professional details in one click.", accent: "from-violet-500/20 to-purple-500/10" },
-  { icon: Mail, title: "Email Sequences", desc: "Build personalized outreach templates with merge fields and send campaigns at scale.", accent: "from-amber-500/20 to-orange-500/10" },
-  { icon: Target, title: "Match Scoring", desc: "Every candidate scored on title match, location, data completeness, and relevance.", accent: "from-rose-500/20 to-pink-500/10" },
-  { icon: FolderKanban, title: "Hiring Projects", desc: "Organize candidates by role, department, or facility. Track your pipeline.", accent: "from-sky-500/20 to-indigo-500/10" },
-  { icon: Users, title: "Team Collaboration", desc: "Invite your team, share projects, and track sourcing performance together.", accent: "from-teal-500/20 to-green-500/10" },
-  { icon: BarChart3, title: "Analytics & Tracking", desc: "Monitor campaign performance, open rates, and recruiter activity.", accent: "from-fuchsia-500/20 to-pink-500/10" },
+  { icon: MessageSquareText, title: "Clinical Search", desc: "Find doctors, nurses, and allied health professionals by role, specialty, and location.", accent: "from-primary/15 to-primary/5" },
+  { icon: Phone, title: "Contact Enrichment", desc: "Choose work email, personal email, or phone lookups. See the credit cost before enriching.", accent: "from-primary/15 to-primary/5" },
+  { icon: FolderKanban, title: "Projects & Contacts", desc: "Keep saved clinicians organized by hiring project. Enriched contact details stay saved for reuse.", accent: "from-primary/15 to-primary/5" },
+  { icon: Download, title: "CSV Export", desc: "Export saved clinicians and available contact details from your project into your recruiting workflow.", accent: "from-primary/15 to-primary/5" },
 ];
 
-const NEWS_CATEGORIES = ["PE / M&A", "Policy", "Workforce", "Expansion", "Digital Health"];
-
 const STATS = [
-  { value: 800, suffix: "M+", label: "Professional profiles indexed" },
-  { value: 95, suffix: "%", label: "Email deliverability rate" },
-  { value: 50, suffix: "+", label: "Data attributes per profile" },
-  { value: 100, suffix: "%", label: "Healthcare focused" },
+  { value: 2, suffix: " credits", label: "Work email lookup" },
+  { value: 3, suffix: " credits", label: "Personal email lookup" },
+  { value: 5, suffix: " credits", label: "Phone lookup" },
+  { value: 100, suffix: "%", label: "Clinical roles" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -378,7 +369,6 @@ export default function Landing() {
             {[
               { label: "How It Works", href: "#how-it-works" },
               { label: "Features", href: "#features" },
-              { label: "Intelligence", href: "#intelligence" },
             ].map((link) => (
               <a
                 key={link.label}
@@ -394,7 +384,7 @@ export default function Landing() {
               <Link to="/auth">Log In</Link>
             </Button>
             <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5 shadow-lg shadow-primary/20" asChild>
-              <Link to="/auth">Get Started Free</Link>
+              <Link to="/auth">Get Started</Link>
             </Button>
           </div>
         </div>
@@ -423,7 +413,7 @@ export default function Landing() {
             transition={{ duration: 0.7 }}
             className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] text-white"
           >
-            The New Way to Source{" "}
+            Oslr: Search for{" "}
             <span className="relative inline-block">
               <span className="relative z-10 bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
                 Healthcare Talent
@@ -447,7 +437,7 @@ export default function Landing() {
             transition={{ delay: 0.15, duration: 0.7 }}
             className="text-white/70 text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed"
           >
-            Real-time data. Natural language AI. Verified contact info. Email sequences. Market intelligence. All in one platform built for healthcare recruiting.
+            Find doctors, nurses, and allied health professionals. Enrich contact details, save clinicians to Projects, and export your shortlist as a CSV.
           </motion.p>
 
           <motion.div
@@ -466,7 +456,7 @@ export default function Landing() {
           >
             <GlowButton size="lg" asChild>
               <Link to="/auth">
-                Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
+                Get Started <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </GlowButton>
             <Button size="lg" variant="outline" className="border-white/25 bg-white/5 text-white hover:bg-white/10 hover:border-white/40 hover:text-white backdrop-blur-sm" asChild>
@@ -481,7 +471,7 @@ export default function Landing() {
             transition={{ delay: 0.6, duration: 0.7 }}
             className="flex flex-wrap justify-center gap-4 pt-4"
           >
-            {["1.5B+ professional profiles", "Real-time data aggregation", "AI-powered matching"].map((badge) => (
+            {["Clinical search", "Saved contact details", "Project CSV export"].map((badge) => (
               <span
                 key={badge}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs font-medium"
@@ -504,7 +494,7 @@ export default function Landing() {
             Recruiting technology hasn't kept up with healthcare
           </h2>
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            The tools most teams rely on were built for a different era. Here's what's holding you back.
+            Clinical recruiting needs more than a list of names.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -538,7 +528,7 @@ export default function Landing() {
         <div className="text-center mb-14">
           <h2 className="font-display text-4xl md:text-5xl font-bold mb-5 text-white">How It Works</h2>
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            From search to outreach in three simple steps.
+            From clinical search to an exportable shortlist.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
@@ -573,7 +563,7 @@ export default function Landing() {
             Everything you need, nothing you don't
           </h2>
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            One platform that replaces six tabs.
+            Search, contact enrichment, and organized shortlists in one place.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -602,60 +592,6 @@ export default function Landing() {
         </div>
       </Section>
 
-      {/* ---- MARKET INTELLIGENCE ---- */}
-      <Section id="intelligence">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <h2 className="font-display text-3xl md:text-4xl font-bold leading-tight text-white">
-              More than sourcing.{" "}
-              <span className="bg-gradient-to-r from-primary via-emerald-400 to-teal-400 bg-clip-text text-transparent">
-                Your daily healthcare intelligence briefing.
-              </span>
-            </h2>
-            <p className="text-white/65 leading-relaxed">
-              Stay ahead with curated news from Becker's, Healthcare Dive, Modern Healthcare, and more. Track private equity moves, M&A activity, system expansions, and policy changes. Build your daily digest so you're always the most informed recruiter in the room.
-            </p>
-            <GlowButton asChild>
-              <Link to="/auth">
-                Explore the News Feed <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </GlowButton>
-          </div>
-          {/* mock news cards */}
-          <div className="space-y-3">
-            {[
-              { title: "HCA Healthcare announces $2.1B expansion across Southeast", cat: "Expansion", catColor: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-              { title: "Private equity activity in outpatient care hits record high", cat: "PE / M&A", catColor: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
-              { title: "New CMS staffing mandates: what recruiters need to know", cat: "Policy", catColor: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-            ].map((article, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.12, duration: 0.5 }}
-                className="rounded-xl border border-white/[0.10] bg-white/[0.05] backdrop-blur-sm p-5 space-y-2.5 hover:bg-white/[0.08] hover:border-white/[0.15] shadow-lg shadow-black/15 transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <Newspaper className="h-4 w-4 text-primary" />
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${article.catColor}`}>
-                    {article.cat}
-                  </span>
-                </div>
-                <p className="text-base font-medium leading-snug text-white/90">{article.title}</p>
-              </motion.div>
-            ))}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {NEWS_CATEGORIES.map((c) => (
-                <span key={c} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs font-medium">
-                  {c}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Section>
-
       {/* ---- STATS BAR ---- */}
       <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
@@ -681,14 +617,14 @@ export default function Landing() {
             </span>
           </h2>
           <p className="text-white/65 text-lg max-w-2xl mx-auto">
-            Whether you're an in-house talent acquisition team or an agency recruiter, Oslr gives you the data advantage. Find candidates your competitors can't, reach them faster, and close roles sooner.
+            Whether you recruit for a healthcare organization or an agency, keep the clinicians you find connected to the roles you are hiring for.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
           {[
-            { icon: Zap, text: "10x faster sourcing with natural language", iconColor: "text-amber-400", iconBg: "bg-amber-500/15 border-amber-500/20" },
-            { icon: CheckCircle2, text: "Verified contact info means no dead ends", iconColor: "text-emerald-400", iconBg: "bg-emerald-500/15 border-emerald-500/20" },
-            { icon: Globe, text: "One platform instead of six tabs", iconColor: "text-sky-400", iconBg: "bg-sky-500/15 border-sky-500/20" },
+            { icon: Zap, text: "Search by clinical specialty and location", iconColor: "text-amber-400", iconBg: "bg-amber-500/15 border-amber-500/20" },
+            { icon: CheckCircle2, text: "Reuse contact details you have already enriched", iconColor: "text-emerald-400", iconBg: "bg-emerald-500/15 border-emerald-500/20" },
+            { icon: Globe, text: "Export a shortlist for your recruiting workflow", iconColor: "text-sky-400", iconBg: "bg-sky-500/15 border-sky-500/20" },
           ].map((p, i) => (
             <motion.div
               key={p.text}
@@ -712,17 +648,17 @@ export default function Landing() {
         <div className="text-center space-y-8 max-w-2xl mx-auto">
           <h2 className="font-display text-4xl md:text-5xl font-bold text-white">Stop sourcing the old way.</h2>
           <p className="text-white/65 text-lg">
-            Real-time data. AI search. Verified contacts. Email sequences. Market intelligence. All free to start.
+            Search for clinical talent, build your contact list, and keep every shortlist organized in Projects.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <GlowButton size="lg" asChild>
               <Link to="/auth">
-                Get Started Free <ArrowRight className="ml-1 h-4 w-4" />
+                Get Started <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </GlowButton>
           </div>
           <p className="text-white/30 text-xs">
-            No credit card required. Start searching in under 60 seconds.
+            A subscription is required unless access has been approved by Oslr.
           </p>
         </div>
       </Section>
@@ -740,8 +676,7 @@ export default function Landing() {
             <p className="font-semibold text-white/30 uppercase text-xs tracking-wider mb-2">Product</p>
             <Link to="/search" className="block text-white/50 hover:text-white transition-colors">Search</Link>
             <Link to="/projects" className="block text-white/50 hover:text-white transition-colors">Projects</Link>
-            <Link to="/campaigns" className="block text-white/50 hover:text-white transition-colors">Campaigns</Link>
-            <Link to="/news" className="block text-white/50 hover:text-white transition-colors">News</Link>
+            <Link to="/contacts" className="block text-white/50 hover:text-white transition-colors">Contacts</Link>
           </div>
           <div className="space-y-2 text-sm">
             <p className="font-semibold text-white/30 uppercase text-xs tracking-wider mb-2">Company</p>
