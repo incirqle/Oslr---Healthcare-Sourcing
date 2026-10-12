@@ -38,9 +38,8 @@ const mainNav = [
 ];
 
 const settingsNav = [
-  { title: "Credits", url: "/credits", icon: Zap },
   { title: "Resources", url: "/resources", icon: BookOpen },
-  { title: "Team Settings", url: "/settings", icon: Settings },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

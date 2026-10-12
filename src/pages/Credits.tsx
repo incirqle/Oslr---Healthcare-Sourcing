@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { AppLayout } from "@/components/AppLayout";
+import { Navigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ const LABEL: Record<string, string> = {
 
 interface Tx { id: string; kind: string; credits: number; candidate_name: string | null; note: string | null; created_at: string }
 
-export default function Credits() {
+export function CreditsPanel() {
   const { companyId } = useCompany();
   const balance = useCreditBalance(companyId);
   const [rows, setRows] = useState<Tx[]>([]);
@@ -54,9 +54,7 @@ export default function Credits() {
   }, [companyId, balance]);
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <h1 className="font-display text-2xl font-semibold">Credits</h1>
+    <div className="space-y-6">
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div>
@@ -120,7 +118,12 @@ export default function Credits() {
             </Table>
           </CardContent>
         </Card>
-      </div>
-    </AppLayout>
+    </div>
   );
+}
+
+export default function Credits() {
+  const { search } = useLocation();
+  const q = new URLSearchParams(search); q.set("tab", "billing");
+  return <Navigate to={`/settings?${q.toString()}`} replace />;
 }
