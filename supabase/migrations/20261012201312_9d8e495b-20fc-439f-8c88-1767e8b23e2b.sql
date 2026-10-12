@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.seed_company_credits() FROM PUBLIC, anon, authenticated;
