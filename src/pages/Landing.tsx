@@ -307,16 +307,15 @@ const STEPS = [
 
 const FEATURES = [
   { icon: MessageSquareText, title: "Clinical Search", desc: "Find doctors, nurses, and allied health professionals by role, specialty, and location.", accent: "from-primary/15 to-primary/5" },
-  { icon: Phone, title: "Contact Enrichment", desc: "Choose work email, personal email, or phone lookups. See the credit cost before enriching.", accent: "from-primary/15 to-primary/5" },
+  { icon: Phone, title: "Contact Enrichment", desc: "Find work emails, personal emails, and phone numbers to connect with the clinicians on your shortlist.", accent: "from-primary/15 to-primary/5" },
   { icon: FolderKanban, title: "Projects & Contacts", desc: "Keep saved clinicians organized by hiring project. Enriched contact details stay saved for reuse.", accent: "from-primary/15 to-primary/5" },
   { icon: Download, title: "CSV Export", desc: "Export saved clinicians and available contact details from your project into your recruiting workflow.", accent: "from-primary/15 to-primary/5" },
 ];
 
 const STATS = [
-  { value: 2, suffix: " credits", label: "Work email lookup" },
-  { value: 3, suffix: " credits", label: "Personal email lookup" },
-  { value: 5, suffix: " credits", label: "Phone lookup" },
-  { value: 100, suffix: "%", label: "Clinical roles" },
+  { value: 5.2, suffix: "M", label: "U.S. healthcare profiles" },
+  { value: 1.2, suffix: "M+", label: "U.S. clinical organizations" },
+  { text: "High", label: "Email deliverability" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -595,11 +594,11 @@ export default function Landing() {
       {/* ---- STATS BAR ---- */}
       <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
           {STATS.map((s) => (
             <div key={s.label} className="space-y-1">
               <p className="font-display text-4xl md:text-5xl font-bold text-primary">
-                <CountUp target={s.value} suffix={s.suffix} />
+                {s.value !== undefined ? <CountUp target={s.value} suffix={s.suffix} /> : s.text}
               </p>
               <p className="text-white/60 text-base">{s.label}</p>
             </div>
