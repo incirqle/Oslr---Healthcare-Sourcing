@@ -606,7 +606,7 @@ export default function Landing() {
           {STATS.map((s) => (
             <div key={s.label} className="space-y-2">
               <p className="font-display text-3xl md:text-4xl xl:text-5xl font-bold text-primary">
-                {s.value !== undefined ? <CountUp target={s.value} suffix={s.suffix} /> : s.text}
+                <CountUp target={s.value} suffix={s.suffix} />
               </p>
               <p className="text-white/60 text-sm md:text-base leading-snug max-w-[16ch] mx-auto">
                 {s.label}
