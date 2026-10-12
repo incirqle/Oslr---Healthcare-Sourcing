@@ -1,3 +1,5 @@
+import { useCompany } from "@/hooks/useCompany";
+import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FolderKanban, Search, TrendingUp } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
@@ -18,6 +20,8 @@ function deltaText(value: number, suffix: string) {
 }
 
 export default function Dashboard() {
+  const { companyId: creditCompanyId } = useCompany();
+  const credits = useCreditBalance(creditCompanyId);
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
   const { isFullyComplete, state, isLoading } = useOnboarding();
@@ -50,8 +54,8 @@ export default function Dashboard() {
     },
     {
       title: "Available Credits",
-      value: "—",
-      change: "Credits launch soon",
+      value: credits === null ? "—" : metric(credits),
+      change: "Starter plan · 150 a month",
       icon: TrendingUp,
       color: "bg-success/10 text-success",
     },

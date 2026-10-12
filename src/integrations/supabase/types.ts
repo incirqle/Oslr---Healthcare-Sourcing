@@ -694,6 +694,114 @@ export type Database = {
           },
         ]
       }
+      contact_unlocks: {
+        Row: {
+          checked: Json
+          company_id: string
+          created_at: string
+          data: Json
+          linkedin_url: string
+          updated_at: string
+        }
+        Insert: {
+          checked?: Json
+          company_id: string
+          created_at?: string
+          data?: Json
+          linkedin_url: string
+          updated_at?: string
+        }
+        Update: {
+          checked?: Json
+          company_id?: string
+          created_at?: string
+          data?: Json
+          linkedin_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_unlocks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_balances: {
+        Row: {
+          balance: number
+          company_id: string
+          monthly_allowance: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          company_id: string
+          monthly_allowance?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          company_id?: string
+          monthly_allowance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_balances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_transactions: {
+        Row: {
+          candidate_name: string | null
+          company_id: string
+          created_at: string
+          credits: number
+          id: string
+          kind: string
+          linkedin_url: string | null
+          note: string | null
+          user_id: string | null
+        }
+        Insert: {
+          candidate_name?: string | null
+          company_id: string
+          created_at?: string
+          credits: number
+          id?: string
+          kind: string
+          linkedin_url?: string | null
+          note?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          candidate_name?: string | null
+          company_id?: string
+          created_at?: string
+          credits?: number
+          id?: string
+          kind?: string
+          linkedin_url?: string | null
+          note?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crustdata_cache: {
         Row: {
           cache_key: string
@@ -1482,6 +1590,10 @@ export type Database = {
       is_company_member: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
+      }
+      spend_credits: {
+        Args: { _amount: number; _company_id: string }
+        Returns: number
       }
     }
     Enums: {

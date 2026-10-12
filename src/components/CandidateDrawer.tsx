@@ -24,6 +24,8 @@ import {
   Trash2,
   TrendingUp,
 } from "lucide-react";
+import { ContactEnrichPanel } from "@/components/ContactEnrichPanel";
+import { useContactEnrich } from "@/hooks/useContactEnrich";
 import { cn } from "@/lib/utils";
 import { FitPill } from "@/components/search/FitPill";
 import { CompanyIntelCard } from "@/components/CompanyIntelCard";
@@ -388,9 +390,10 @@ export function CandidateDrawer({
 }: CandidateDrawerProps) {
   const { size: drawerSize, toggle: toggleDrawerSize, isWide } = useDrawerSize();
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
+  const contactEnrich = useContactEnrich(open ? candidate?.linkedin_url : null, candidate?.full_name, savedContactId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [contactUnlocked, setContactUnlocked] = useState(false);
+  const [contactUnlocked, setContactUnlocked] = useState(true);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [showAllSkills, setShowAllSkills] = useState(false);
@@ -444,7 +447,6 @@ export function CandidateDrawer({
     if (!open || !candidate) {
       setEnriched(null);
       setError(null);
-      setContactUnlocked(false);
       setShowAllSkills(false);
       setActiveTab("overview");
       setNoteDraft("");
@@ -650,8 +652,11 @@ export function CandidateDrawer({
   const companyName = enriched?.job_company_name || candidate.current_employer;
   const title = enriched?.job_title || candidate.title;
   const locationLabel = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location;
-  const contactEmail = enriched?.work_email || enriched?.personal_emails?.[0] || candidate.email || null;
-  const contactPhone = enriched?.mobile_phone || enriched?.phone_numbers?.[0] || candidate.phone || null;
+  const cd = contactEnrich.state.contact;
+  const contactEmail = cd.work_email || cd.personal_emails?.[0] || candidate.email || null;
+  const contactPhone = cd.phone_numbers?.[0] || candidate.phone || null;
+  const _unusedEmail = enriched?.work_email || enriched?.personal_emails?.[0] || candidate.email || null;
+  void _unusedEmail;
   const allEmails: { address: string; label: string }[] = (() => {
     const out: { address: string; label: string }[] = [];
     const seen = new Set<string>();
@@ -662,8 +667,8 @@ export function CandidateDrawer({
       seen.add(key);
       out.push({ address: addr, label });
     };
-    push(enriched?.work_email, "Work");
-    (enriched?.personal_emails || []).forEach(e => push(e, "Personal"));
+    push(cd.work_email, "Work");
+    (cd.personal_emails || []).forEach(e => push(e, "Personal"));
     const candEmails = (candidate as unknown as { emails?: string[] }).emails;
     if (Array.isArray(candEmails)) candEmails.forEach(e => push(e, "Other"));
     push(candidate.email, "Other");
@@ -679,8 +684,7 @@ export function CandidateDrawer({
       seen.add(key);
       out.push({ number: ph, label });
     };
-    push(enriched?.mobile_phone, "Mobile");
-    (enriched?.phone_numbers || []).forEach(p => push(p, "Phone"));
+    (cd.phone_numbers || []).forEach(p => push(p, "Phone"));
     push(candidate.phone, "Phone");
     return out;
   })();
@@ -909,7 +913,7 @@ export function CandidateDrawer({
                   <span className="text-ui-text-muted/50">·</span>
 
                   {!contactEmail && !contactPhone ? (
-                    <span className="text-ui-text-muted">No contact on file</span>
+                    <button type="button" onClick={() => setActiveTab("contact")} className="font-medium text-primary hover:underline">Find contact info</button>
                   ) : contactUnlocked ? (
                     <span className="inline-flex items-center gap-2 truncate">
                       {contactEmail && (
@@ -1428,23 +1432,14 @@ export function CandidateDrawer({
               </TabsContent>
 
               <TabsContent value="contact" className="mt-0 px-6 py-6 pb-28 sm:px-7">
-                {!contactUnlocked ? (
-                  <div className="rounded-xl border border-locked-border bg-locked px-8 py-10 text-center">
-                    <Lock className="mx-auto h-[18px] w-[18px] text-ui-text-muted" />
-                    <h3 className="mt-4 text-[17px] font-semibold text-ui-text-primary">Contact info is gated</h3>
-                    <p className="mx-auto mt-2 max-w-[300px] text-[15px] leading-7 text-ui-text-tertiary">
-                      Unlock this candidate&apos;s email and phone number. This uses 1 contact credit.
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => setContactUnlocked(true)}
-                      className="mt-6 h-12 rounded-lg bg-ui-info px-7 text-[15px] font-semibold text-ui-info-foreground hover:bg-ui-info/90"
-                    >
-                      Unlock Contact Info
-                    </Button>
-                  </div>
-                ) : allEmails.length > 0 || allPhones.length > 0 ? (
-                  <div className="space-y-3">
+                <ContactEnrichPanel
+                  key={candidate.id}
+                  state={contactEnrich.state}
+                  busy={contactEnrich.busy}
+                  onEnrich={contactEnrich.run}
+                />
+                {allEmails.length > 0 || allPhones.length > 0 ? (
+                  <div className="mt-4 space-y-3">
                     {allEmails.map((e) => (
                       <ContactCard
                         key={`email-${e.address}`}
@@ -1467,7 +1462,7 @@ export function CandidateDrawer({
                     ))}
                   </div>
                 ) : (
-                  <p className="py-10 text-center text-[15px] text-ui-text-muted">No contact information available</p>
+                  null
                 )}
               </TabsContent>
             </div>
