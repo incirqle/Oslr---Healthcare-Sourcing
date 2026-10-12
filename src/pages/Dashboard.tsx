@@ -25,11 +25,6 @@ export default function Dashboard() {
   const showBanner = isFullyComplete && !state?.success_banner_dismissed;
   const showDashboard = isFullyComplete;
 
-  const responseRate = stats?.responseRate.rate;
-  const responseLabel =
-    responseRate === null || responseRate === undefined
-      ? "—"
-      : `${responseRate}%`;
 
   const kpis = [
     {
@@ -54,12 +49,9 @@ export default function Dashboard() {
       color: "bg-warning/10 text-warning",
     },
     {
-      title: "Response Rate",
-      value: responseLabel,
-      change:
-        stats?.responseRate.sent && stats.responseRate.sent > 0
-          ? `${stats.responseRate.sent} emails sent`
-          : "No outreach yet",
+      title: "Available Credits",
+      value: "—",
+      change: "Credits launch soon",
       icon: TrendingUp,
       color: "bg-success/10 text-success",
     },
