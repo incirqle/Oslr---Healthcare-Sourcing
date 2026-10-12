@@ -255,7 +255,7 @@ export default function SearchPage() {
     }
   };
 
-  const handleSaveCandidates = async (toSave: Candidate[]) => {
+  const handleSaveCandidates = async (toSave: Candidate[], contact?: { email: string | null; phone: string | null }) => {
     if (toSave.length === 0) return;
     try {
       const count = await addCandidates.mutateAsync({
@@ -266,8 +266,8 @@ export default function SearchPage() {
           current_employer: c.current_employer,
           location: c.location,
           linkedin_url: c.linkedin_url,
-          email: c.email,
-          phone: c.phone,
+          email: contact?.email || c.email,
+          phone: contact?.phone || c.phone,
           skills: c.skills,
           avg_tenure_months: c.avg_tenure_months,
           person_id: c.id,
@@ -500,7 +500,15 @@ export default function SearchPage() {
         projectId={projectId}
         isSaved={drawerCandidate ? savedIds.has(drawerCandidate.id) : false}
         isSavingCandidate={addCandidates.isPending}
-        onSaveCandidate={drawerCandidate ? () => handleSaveCandidates([drawerCandidate]) : undefined}
+        onSaveCandidate={drawerCandidate ? (contact) => handleSaveCandidates([drawerCandidate], contact) : undefined}
+        savedContactId={
+          drawerCandidate
+            ? existingCandidates.find((c) =>
+                c.person_id === drawerCandidate.id ||
+                (!!drawerCandidate.linkedin_url && normLinkedin(c.linkedin_url) === normLinkedin(drawerCandidate.linkedin_url)),
+              )?.id ?? null
+            : null
+        }
         filters={filters}
         onPrev={() => {
           if (!drawerCandidate) return;
