@@ -24,6 +24,8 @@
 import {
   CARE_SETTINGS,
   EMPLOYER_GROUPS,
+  EMPLOYMENT_MODELS,
+  type EmploymentModel,
   matchPopulationModifier,
   matchSubspecialty,
   PHYSICIAN_GENERIC_TERMS,
@@ -72,6 +74,12 @@ export type CriterionKind =
   /** Employer size ("small private practices", "large health systems") —
    *  filtered on the current employer's live LinkedIn headcount. */
   | "employer_size"
+  /** Who signs the paycheck: hospital/health-system/academic/government
+   *  employment vs an independent practice (binary by decision,
+   *  2026-10-13). Provider-side it is a positive employer-name/headcount
+   *  clause on verified paths; in-process the PRIMARY current employer is
+   *  classified and contradictions are hidden with the evidence. */
+  | "employment_model"
   | "seniority"
   | "unsupported";
 
@@ -550,6 +558,11 @@ export interface FellowshipValue {
   trained: true;
 }
 
+/** Employment model ask (see CriterionKind "employment_model"). */
+export interface EmploymentModelValue {
+  model: EmploymentModel;
+}
+
 export const SENIORITY_LEVELS: readonly string[] = [
   "CXO",
   "Owner / Partner",
@@ -597,6 +610,7 @@ export type CriterionValue =
   | TrainingStageValue
   | CareSettingValue
   | FellowshipValue
+  | EmploymentModelValue
   | SeniorityValue
   | TitleValue
   | string[]
@@ -777,6 +791,19 @@ export function reconcileParsedClinicianIntent(
     if (!queryNamesRegion) delete location.region_key;
   }
   if (Object.keys(location).length > 0) reconciled.location = location;
+
+  // Employment-model backstop: an explicit "private practice" / "not
+  // hospital-employed" / "hospital-employed" phrase in the query is a
+  // stated requirement; it must never be dropped because the parser
+  // missed the field.
+  if (!str(reconciled.employment_model)) {
+    for (const [model, def] of Object.entries(EMPLOYMENT_MODELS)) {
+      if (def.phrases.some((p) => p.test(originalQuery))) {
+        reconciled.employment_model = model;
+        break;
+      }
+    }
+  }
   return reconciled;
 }
 
@@ -1346,6 +1373,23 @@ export function mapParsedToCriteria(
             "Tenure counts whole years since the current title started: a 0-1 year minimum over-matches recently promoted long-tenured people.",
         }
         : {}),
+    });
+  }
+
+  /* ---- employment model (hard) ---- */
+  const employmentModel = str(parsed.employment_model);
+  if (employmentModel && EMPLOYMENT_MODELS[employmentModel as EmploymentModel]) {
+    const def = EMPLOYMENT_MODELS[employmentModel as EmploymentModel];
+    push({
+      kind: "employment_model",
+      label: def.label,
+      value: { model: employmentModel as EmploymentModel },
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note: employmentModel === "private_practice"
+        ? "Hospitals, health systems, academic centers, government and the physician groups they own are excluded by the PRIMARY current employer; hospital privileges listed as a second employer do not disqualify. Dental groups and PE-backed practices count as private."
+        : "Requires the PRIMARY current employer to be a hospital, health system, academic center, government facility or a physician group one of them owns.",
     });
   }
 

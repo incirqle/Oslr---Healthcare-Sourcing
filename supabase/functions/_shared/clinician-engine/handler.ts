@@ -36,6 +36,7 @@ import {
   SEARCH_LIMIT,
 } from "./credit-budget.ts";
 import { splitRoleClassNoise } from "./noise-filter.ts";
+import { applyEmploymentModel } from "./employment-model.ts";
 import {
   mapParsedToCriteria,
   reconcileParsedClinicianIntent,
@@ -331,6 +332,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         "training_stage",
         "seniority",
         "keyword",
+        "employment_model",
       ]);
       const hasIntent = criteria.some((c) =>
         INTENT_KINDS.has(c.kind) && c.enforcement !== "dropped"
@@ -788,6 +790,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           { kind: "specialty", note: "specialty ranked instead of required" },
           { kind: "credential", note: "credential verified by the grader instead of required" },
           { kind: "employer_size", note: "employer size ranked instead of required" },
+          { kind: "employment_model", note: "employment model ranked instead of required" },
           { kind: "care_setting", note: "care setting ranked instead of required" },
           { kind: "title", note: "title ranked instead of required" },
           { kind: "seniority", note: "seniority ranked instead of required" },
@@ -914,6 +917,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           company_logo_url: e.company_logo_url ?? e.logo_url ?? null,
           company_domain: e.company_website_domain ?? e.company_website ?? null,
           company_id: e.crustdata_company_id ?? null,
+          headcount: typeof e.company_headcount === "number" ? e.company_headcount : null,
           seniority_level: e.seniority_level ?? null,
           start_date: e.start_date ?? null,
           end_date: e.end_date ?? null,
@@ -996,10 +1000,25 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // proof enough. These rows never reach Opus; they ride hidden_results
       // with the evidence attached.
       const noiseSplit = splitRoleClassNoise(allResults as Array<Record<string, unknown>>, criteria);
-      const noiseRows = noiseSplit.noise as typeof allResults;
+      let noiseRows = noiseSplit.noise as typeof allResults;
       allResults = noiseSplit.clean as typeof allResults;
       if (noiseRows.length > 0) {
         console.log(JSON.stringify({ event: "role_class_noise", filtered: noiseRows.length, kept: allResults.length }));
+      }
+
+      // ── Employment model on the PRIMARY employer (2026-10-13) ───────
+      // Every row gets its hospital-employed / private-practice read for
+      // the grader and the soft ranker; a HARD ask hides contradictions
+      // with the evidence. Unknown reads stay for the grader.
+      const employment = applyEmploymentModel(allResults as Array<Record<string, unknown>>, criteria);
+      allResults = employment.kept as typeof allResults;
+      if (employment.rejected.length > 0) {
+        noiseRows = [...noiseRows, ...(employment.rejected as typeof allResults)];
+        console.log(JSON.stringify({
+          event: "employment_model_filter",
+          filtered: employment.rejected.length,
+          kept: allResults.length,
+        }));
       }
 
       // ── One-pass AI audit: grader + reranker in the SAME read ───────

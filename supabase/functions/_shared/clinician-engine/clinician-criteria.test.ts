@@ -27,6 +27,7 @@ import { widenOptions } from "./widen-criteria.ts";
 import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts";
 import { classifyEmployer } from "./employer-class.ts";
 import { noisePatternsFor, splitRoleClassNoise } from "./noise-filter.ts";
+import { applyEmploymentModel, classifyEmploymentModel, readRowEmploymentModel } from "./employment-model.ts";
 
 /* ---------- helpers ---------- */
 
@@ -1274,4 +1275,123 @@ Deno.test("role-class noise filter: therapists, PAs, recruiters and reps never r
   const paAsk = mapParsedToCriteria({ role_classes: ["surgeon", "physician_assistant"], specialties: ["orthopedic surgery"] });
   const paSplit = splitRoleClassNoise([rows[1]], paAsk);
   assertEquals(paSplit.noise.length, 0, "PAs were asked for");
+});
+
+/* ---------- employment model: hospital-employed vs private practice (2026-10-13) ---------- */
+
+Deno.test("employment model: every phrasing reaches the criteria, parser or not", () => {
+  const cases: Array<[string, string]> = [
+    ["Find me orthopedic surgeons in Miami in private practice", "private_practice"],
+    ["Find me non-hospital-employed physicians in Tampa", "private_practice"],
+    ["orthopedic surgeons in Miami who are not hospital-employed", "private_practice"],
+    ["independent practice dentists in Dallas", "private_practice"],
+    ["physician-owned cardiology groups in Atlanta", "private_practice"],
+    ["solo practitioners in dermatology, Phoenix", "private_practice"],
+    ["Hospital-employed hospitalists in Tampa", "hospital_employed"],
+    ["cardiologists employed by a health system in Ohio", "hospital_employed"],
+    ["academic surgeons in Boston", "hospital_employed"],
+  ];
+  for (const [query, model] of cases) {
+    // Parser missed the field entirely: the backstop fills it from the query.
+    const reconciled = reconcileParsedClinicianIntent({ role_class: "physician" }, query);
+    assertEquals(reconciled.employment_model, model, query);
+    const criteria = mapParsedToCriteria(reconciled);
+    const c = criteria.find((x) => x.kind === "employment_model");
+    assertExists(c, query);
+    assertEquals(c.enforcement, "hard");
+    assertEquals((c.value as { model: string }).model, model);
+  }
+  // No phrasing → no criterion (never inferred from specialty or size).
+  const none = mapParsedToCriteria(reconcileParsedClinicianIntent({ role_class: "physician", practice_size: "small" }, "family physicians at small practices in Georgia"));
+  assertEquals(none.some((c) => c.kind === "employment_model"), false);
+});
+
+Deno.test("employment model: the query only PULLS — positive clauses on verified paths, never a NOT", () => {
+  const priv = buildClinicianQuery(mapParsedToCriteria({ role_class: "surgeon", specialties: ["orthopedic surgery"], employment_model: "private_practice" }));
+  const privLeaves = leaves(priv);
+  assert(privLeaves.every((l) => l.type !== "(!)" && l.type !== "!="), "no negation leaves");
+  assert(privLeaves.some((l) => l.field === "experience.employment_details.current.company_name" && l.value === "associates"));
+  assert(privLeaves.some((l) => l.field === "experience.employment_details.current.company_headcount_latest" && l.type === "=<"));
+  const hosp = buildClinicianQuery(mapParsedToCriteria({ role_class: "physician", employment_model: "hospital_employed" }));
+  const hospLeaves = leaves(hosp);
+  assert(hospLeaves.some((l) => l.field === "experience.employment_details.current.company_name" && l.value === "health system"));
+  assert(hospLeaves.some((l) => l.field === "experience.employment_details.current.company_name" && l.value === "baptist health"));
+  assert(hospLeaves.some((l) => l.field === "experience.employment_details.current.company_headcount_latest" && l.type === "=>"));
+  // The employment-model clause ALONE touches only the two verified paths.
+  const only = buildClinicianQuery(
+    mapParsedToCriteria({ employment_model: "private_practice" }).filter((c) => c.kind === "employment_model"),
+  );
+  for (const f of fieldsUsed(only)) {
+    assert(
+      ["experience.employment_details.current.company_name", "experience.employment_details.current.company_headcount_latest"].includes(f),
+      `unverified filter path emitted: ${f}`,
+    );
+  }
+});
+
+Deno.test("employment model: classifier reads real Miami employers the way a recruiter would", () => {
+  const expect: Array<[string, string]> = [
+    ["Baptist Health", "hospital_employed"],
+    ["Baptist Health Medical Group", "hospital_employed"],
+    ["HCA Florida Physicians", "hospital_employed"],
+    ["HCA Healthcare", "hospital_employed"],
+    ["U.S. Department of Veterans Affairs", "hospital_employed"],
+    ["University of Miami Miller School of Medicine", "hospital_employed"],
+    ["UHealth - University of Miami Health System", "hospital_employed"],
+    ["Opelousas General Health System", "hospital_employed"],
+    ["Ohio Valley Surgical Hospital", "hospital_employed"],
+    ["Nova Southeastern University", "hospital_employed"],
+    ["Nicklaus Children's Hospital", "hospital_employed"],
+    ["Miami Shoulder Institute", "private_practice"],
+    ["Orthopedic Care Partners", "private_practice"],
+    ["Foot & Ankle Institute of Miami Beach", "private_practice"],
+    ["Orlando Orthopaedic Center", "private_practice"],
+    ["International Orthopaedic Specialists", "private_practice"],
+    ["John Smith, MD, PA", "private_practice"],
+    ["Coral Gables Dental Associates", "private_practice"],
+    ["Aspen Dental", "private_practice"],
+    ["OrthoAlliance", "unknown"],
+    ["Inter Miami CF Major League Soccer", "unknown"],
+  ];
+  for (const [name, model] of expect) {
+    assertEquals(classifyEmploymentModel(name).model, model, name);
+  }
+  // Headcount and owner signals resolve otherwise-unknown names.
+  assertEquals(classifyEmploymentModel("OrthoAlliance", { headcount: 1400 }).model, "unknown", "PE-backed groups are not systems");
+  assertEquals(classifyEmploymentModel("OrthoAlliance", { headcount: 6000 }).model, "hospital_employed");
+  assertEquals(classifyEmploymentModel("Rivera Holdings", { ownerSignal: true }).model, "private_practice");
+  assertEquals(classifyEmploymentModel("Rivera Holdings", { headcount: 12 }).model, "private_practice");
+});
+
+Deno.test("employment model: decided on the PRIMARY employer; hospital privileges as a second entry do not disqualify", () => {
+  const criteria = mapParsedToCriteria({ role_class: "surgeon", specialties: ["orthopedic surgery"], employment_model: "private_practice" });
+  const rows = [
+    { full_name: "a", job_title: "Orthopaedic Surgeon", job_company_name: "Miami Orthopedics & Sports Medicine Institute",
+      current_employers: [
+        { name: "Miami Orthopedics & Sports Medicine Institute", title: "Orthopaedic Surgeon", is_primary: true },
+        { name: "Baptist Health", title: "Attending Surgeon", is_primary: false },
+      ] },
+    { full_name: "b", job_title: "Vice Chairman Department of Orthopaedic Surgery", job_company_name: "HCA Healthcare",
+      current_employers: [{ name: "HCA Healthcare", is_primary: true }] },
+    { full_name: "c", job_title: "Founder", job_company_name: "OrthoNOW",
+      current_employers: [{ name: "OrthoNOW", title: "Founder", is_primary: true, seniority_level: "Owner / Partner" }] },
+    { full_name: "d", job_title: "Team Physician", job_company_name: "Inter Miami CF Major League Soccer",
+      current_employers: [{ name: "Inter Miami CF Major League Soccer", is_primary: true }] },
+  ] as Array<Record<string, unknown>>;
+  const { kept, rejected } = applyEmploymentModel(rows, criteria);
+  assertEquals(kept.map((r) => r.full_name), ["a", "c", "d"]);
+  assertEquals(rejected.map((r) => r.full_name), ["b"]);
+  assertEquals(rejected[0].audit_verdict, "reject");
+  assert(String(rejected[0].audit_reason).startsWith("Not private practice"), String(rejected[0].audit_reason));
+  // Every row carries the read for the grader, including the unknown.
+  assertEquals(kept[0].employment_model, "private_practice");
+  assertEquals(kept[2].employment_model, "unknown");
+  assertEquals(readRowEmploymentModel(rows[2]).evidence.startsWith("practice-shaped") || readRowEmploymentModel(rows[2]).evidence.startsWith("owner"), true);
+  // The inverse ask hides the private-practice rows instead.
+  const hospAsk = mapParsedToCriteria({ role_class: "surgeon", specialties: ["orthopedic surgery"], employment_model: "hospital_employed" });
+  const inverse = applyEmploymentModel(rows.map((r) => ({ ...r })), hospAsk);
+  assertEquals(inverse.kept.map((r) => r.full_name), ["b", "d"]);
+  // A SOFT (auto-widened) ask annotates but never hides.
+  const soft = criteria.map((c) => c.kind === "employment_model" ? { ...c, enforcement: "soft" as const } : c);
+  assertEquals(applyEmploymentModel(rows.map((r) => ({ ...r })), soft).rejected.length, 0);
 });

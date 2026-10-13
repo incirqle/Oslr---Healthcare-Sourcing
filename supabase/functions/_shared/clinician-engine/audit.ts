@@ -42,6 +42,8 @@ export interface AuditableResult {
   match_scope?: string | null;
   stage_fit?: string | null;
   employer_class?: string | null;
+  employment_model?: string | null;
+  employment_model_evidence?: string | null;
   experience_history?: Array<{
     company_name?: string | null;
     title?: string | null;
@@ -76,6 +78,7 @@ Rules:
 - SUBSPECIALTY DEPTH IS THE ASK. When a SUBSPECIALTY line appears below, the recruiter wants that layer, not the parent specialty. Subspecialty identity is proven by PROCEDURE language (arthroplasty, TKA/THA, ablation, TAVR, thrombectomy…), FELLOWSHIP training (an "Adult Reconstruction Fellowship" education record, an "Arthroplasty Fellow" past title), or role descriptions naming the practice focus. Judge by that evidence: clear subspecialty evidence = strong (quote it); the parent specialty with NO subspecialty evidence shown = weak ("general orthopedic surgeon — no joint reconstruction evidence shown"); a DIFFERENT subspecialty declared on the profile (a "Foot and Ankle Subspecialty" headline for a joint reconstruction ask) = weak at best, naming the actual subspecialty, and reject when the declared focus makes the ask implausible. A fellowship is subspecialty identity, but the person must still practice it NOW — a joint-reconstruction fellowship followed by a current administrative or industry role fails the tense rule as usual.
 - EMPLOYER GROUPS: "at the VA" means CURRENTLY employed by a Veterans Affairs entity (VA medical centers, Veterans Health Care Systems). A VA stint years ago is not current VA employment.
 - FELLOWSHIP TRAINED means a completed CLINICAL fellowship: a fellowship education record, a fellow-titled training role, or explicit "fellowship trained" language. Honorific fellowships (FACS, FACC — Fellow of a College) are NOT fellowship training; neither are non-clinical fellowships (research-only, "Product Management Fellowship", leadership fellowships). When the ask says fellowship trained and the only evidence is honorific or non-clinical, that is a reject with the reason named. Quote the fellowship evidence when strong.
+- EMPLOYMENT MODEL (when the filters say employment_model=Private practice or Hospital-employed): the question is WHO SIGNS THE PAYCHECK, judged on the PRIMARY current employer. Hospital-employed = a hospital, health system, academic medical center / medical school faculty practice, VA or other government facility, OR a physician group owned by one of those (a "Baptist Health Medical Group" or "HCA Florida Physicians" is hospital-employed whatever its name says). Private practice = everything else that delivers care: solo and group practices, "& Associates", MD PA / PLLC entities, ASCs, dental practices, DSOs, PE-backed groups. Hospital PRIVILEGES or a second concurrent entry at a hospital do NOT make a private-practice clinician hospital-employed; an "Owner" / "Partner" / "Founder" title or Owner / Partner seniority at a practice-sized employer is strong private-practice evidence. A profile line "employment model:" below gives the deterministic read and its evidence; override it only with better evidence from the profile, and name it. The wrong model = reject with the employer named.
 - WORKPLACE SETTING ASKS ("work in surgery centers", "at ASCs"): the employer NAME is the evidence — "Surgery Center of X" is an ambulatory surgery center. A hospital's main campus OR department is NOT an ASC; a travel nurse currently ASSIGNED to a surgery center (per role text) counts, judged from the description.
 - RECRUITERS ARE NOT CLINICIANS: a title or headline about placing, recruiting, staffing, or selling to the asked role ("CRNA Permanent Placement Consultant", "Nurse Recruiter", "CRNA staffing") is a REJECT — they hire or serve the population, they are not in it. Found live 2026-09-15: a placement consultant matched a CRNA search on his own title.
 - TRAVEL/AGENCY NURSES: an employer that is a staffing agency (Aya, AMN, Cross Country…) with facility assignments in the role text is a normal clinical career pattern — judge the clinical work, not the employer name. A travel-stint pattern is signal, not noise.
@@ -101,6 +104,9 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
     `current: ${s(r.job_title)} @ ${s(r.job_company_name)}${s(r.job_start_date) ? ` (started ${s(r.job_start_date).slice(0, 7)})` : ""}`,
   ];
   if (r.employer_class) lines.push(`employer class: ${r.employer_class}`);
+  if (r.employment_model) {
+    lines.push(`employment model: ${r.employment_model}${r.employment_model_evidence ? ` (${r.employment_model_evidence})` : ""}`);
+  }
   if (r.job_seniority_level) lines.push(`seniority class: ${r.job_seniority_level}`);
   if (r.match_scope === "secondary") {
     lines.push(`note: matched via a secondary/concurrent role, not the primary one`);

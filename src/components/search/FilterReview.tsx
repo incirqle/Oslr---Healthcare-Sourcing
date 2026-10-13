@@ -11,6 +11,8 @@ export interface ParsedFilters {
   specialties: string[];
   /** License-class population the engine gates on ("surgeon", "nurse"…). */
   role_class?: string | null;
+  /** Who signs the paycheck: "private_practice" | "hospital_employed" | null (any). */
+  employment_model?: string | null;
 }
 
 interface FilterReviewProps {

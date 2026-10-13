@@ -7,7 +7,7 @@ export type ActiveFilter = {
   /** Display label. */
   label: string;
   /** Group/category for icon and grouping. */
-  group: "Role" | "Specialty" | "Location" | "Company" | "Title" | "Keyword" | "Experience";
+  group: "Role" | "Employment" | "Specialty" | "Location" | "Company" | "Title" | "Keyword" | "Experience";
   /** True if user typed it; false if AI added it. */
   fromUser: boolean;
 };

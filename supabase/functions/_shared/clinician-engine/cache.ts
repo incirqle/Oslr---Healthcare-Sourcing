@@ -63,6 +63,13 @@ export function normalizeCrustDataV2Profile(p: any): any {
     company: e.company ?? e.company_name ?? e.name ?? null,
     title: e.title ?? null,
     company_industries: e.company_industries ?? [],
+    // Live headcount of the employer (0 / null = untracked). Read by the
+    // employment-model layer; the filter path is company_headcount_latest.
+    company_headcount: typeof e.company_headcount_latest === "number"
+      ? e.company_headcount_latest
+      : typeof e.company_headcount === "number"
+      ? e.company_headcount
+      : null,
     company_logo_url: e.company_logo_url ?? e.company_profile_picture_permalink ?? null,
     logo_url: e.logo_url ?? e.company_profile_picture_permalink ?? null,
     company_website_domain: e.company_website_domain ?? e.company_website ?? null,

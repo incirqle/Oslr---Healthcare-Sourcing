@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { MapPin, Briefcase, Building2, Clock, Tag, Hash, ChevronDown, X, Stethoscope } from "lucide-react";
+import { MapPin, Briefcase, Building2, Clock, Tag, Hash, ChevronDown, X, Stethoscope, Landmark } from "lucide-react";
 import type { ParsedFilters } from "./FilterReview";
 import { ROLE_CLASS_OPTIONS } from "./role-classes";
 
@@ -125,6 +125,19 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
               {ROLE_CLASS_OPTIONS.map((o) => (
                 <option key={o.key} value={o.key}>{o.label}</option>
               ))}
+            </select>
+          </FilterSection>
+
+          <FilterSection icon={Landmark} label="Employment" count={filters.employment_model ? 1 : 0} defaultOpen={!!filters.employment_model}>
+            <p className="text-xs text-muted-foreground mb-2">Who signs the paycheck, judged on the person's primary current employer</p>
+            <select
+              value={filters.employment_model ?? ""}
+              onChange={(e) => update("employment_model", e.target.value || null)}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Any employer</option>
+              <option value="private_practice">Private practice (not hospital-employed)</option>
+              <option value="hospital_employed">Hospital or health-system employed</option>
             </select>
           </FilterSection>
 

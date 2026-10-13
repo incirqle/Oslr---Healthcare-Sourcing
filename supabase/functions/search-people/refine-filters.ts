@@ -23,6 +23,8 @@ export interface EditorFilters {
   locations?: string[] | null;
   experience_years?: number | null;
   role_class?: string | null;
+  /** "private_practice" | "hospital_employed" | null (any). */
+  employment_model?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -212,6 +214,13 @@ export function applyEditorFilters(parsedIn: Row, filters: EditorFilters | null)
       : null;
     const derived = typeof parsed.min_years_experience === "number" ? parsed.min_years_experience : null;
     if (years !== derived) parsed.min_years_experience = years;
+  }
+
+  if (filters.employment_model !== undefined) {
+    const raw = typeof filters.employment_model === "string" ? filters.employment_model.trim().toLowerCase() : "";
+    const model = raw === "private_practice" || raw === "hospital_employed" ? raw : null;
+    const derived = typeof parsed.employment_model === "string" && parsed.employment_model ? parsed.employment_model : null;
+    if (model !== derived) parsed.employment_model = model;
   }
 
   if (filters.role_class !== undefined) {

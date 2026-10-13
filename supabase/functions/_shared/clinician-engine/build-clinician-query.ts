@@ -20,6 +20,7 @@ import type {
   CredentialValue,
   EmployerGroupValue,
   EmployerSizeValue,
+  EmploymentModelValue,
   ExperienceValue,
   JobChangeValue,
   LocationValue,
@@ -32,7 +33,15 @@ import type {
   TrainingStageValue,
 } from "./clinician-criteria.ts";
 import { canonicalizeSeniorityLevels, SUB_STATE_REGIONS } from "./clinician-criteria.ts";
-import { FILTERABLE_CREDENTIALS, GRADER_ONLY_CREDENTIALS } from "./clinical-vocabulary.ts";
+import {
+  FILTERABLE_CREDENTIALS,
+  GRADER_ONLY_CREDENTIALS,
+  HEALTH_SYSTEM_BRANDS,
+  HOSPITAL_SYSTEM_TOKENS,
+  PRACTICE_HEADCOUNT_CAP,
+  PRIVATE_PRACTICE_TOKENS,
+  SYSTEM_HEADCOUNT_FLOOR,
+} from "./clinical-vocabulary.ts";
 
 /* ------------------------------------------------------------------ */
 /*  v2 filter tree types                                               */
@@ -331,6 +340,27 @@ export function buildClinicianQuery(
         const v = c.value as ExperienceValue;
         if (typeof v.min === "number") hard.push(leaf(F.yoe, "=>", v.min));
         if (typeof v.max === "number") hard.push(leaf(F.yoe, "=<", v.max));
+        break;
+      }
+      case "employment_model": {
+        // POSITIVE clauses only, on verified paths (company_name [.] and
+        // headcount): "pull, don't remove". Negation on current.* fields is
+        // element-scoped across EVERY concurrent employer (probe log), so a
+        // private-practice surgeon who lists hospital privileges as a second
+        // employer would vanish under a NOT clause. The in-process layer
+        // (employment-model.ts) decides on the PRIMARY employer instead.
+        const v = c.value as EmploymentModelValue;
+        const clauses: V2FilterNode[] = [];
+        if (v.model === "private_practice") {
+          for (const t of PRIVATE_PRACTICE_TOKENS) clauses.push(leaf(F.curCompanyName, "[.]", t));
+          // Untracked headcount reads 0 — most practices — so a cap keeps them.
+          clauses.push(leaf(F.curCompanyHeadcount, "=<", PRACTICE_HEADCOUNT_CAP));
+        } else {
+          for (const t of HOSPITAL_SYSTEM_TOKENS) clauses.push(leaf(F.curCompanyName, "[.]", t));
+          for (const b of HEALTH_SYSTEM_BRANDS) clauses.push(leaf(F.curCompanyName, "[.]", b));
+          clauses.push(leaf(F.curCompanyHeadcount, "=>", SYSTEM_HEADCOUNT_FLOOR));
+        }
+        hard.push(or(...clauses));
         break;
       }
       case "employer_size": {

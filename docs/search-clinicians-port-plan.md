@@ -34,6 +34,13 @@ no code, table, column or dependency of it remains.
   grader (`noise-filter.ts`), first-page pool fill to `LEXICAL_POOL_CAP`,
   honest totals (`total_is_estimate`), and a criteria editor whose every
   field reaches the engine (`search-people/refine-filters.ts`).
+- 2026-10-13: employment model (`employment_model` criterion): hospital-
+  employed vs private practice, binary by decision. The query only PULLS
+  (positive employer-name and headcount clauses on verified paths); the
+  PRIMARY current employer is classified in-process (`employment-model.ts`)
+  and contradictions are hidden with the evidence; the grader gets the read
+  and a rule. Hospital privileges listed as a second employer never
+  disqualify. No live probe was needed; no new credit spend per search.
 
 ## Not in scope (unchanged)
 

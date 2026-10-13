@@ -183,6 +183,18 @@ export function scoreSoftCriteria(
         }
         break;
       }
+      case "employment_model": {
+        // Auto-widened to soft: rows whose deterministic read matches the
+        // asked model rank first. The read is attached by the handler
+        // (employment-model.ts) before this runs.
+        const asked = (c.value as { model?: string } | null)?.model;
+        const read = (row as Record<string, unknown>).employment_model;
+        if (asked && read === asked) {
+          score += 3;
+          matches.push(c.label);
+        }
+        break;
+      }
       case "employer_size":
       case "seniority":
         // Numeric/enum softs: no text surface to score here; the grader

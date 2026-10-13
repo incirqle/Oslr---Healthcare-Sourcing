@@ -28,6 +28,7 @@ const EMPTY_FILTERS: ParsedFilters = {
   experience_years: null,
   specialties: [],
   role_class: null,
+  employment_model: null,
 };
 
 export default function SearchPage() {
@@ -145,6 +146,7 @@ export default function SearchPage() {
         experience_years: parsed.min_years_experience || null,
         specialties,
         role_class: parsed.role_class || (Array.isArray(parsed.role_classes) ? parsed.role_classes[0] : null) || null,
+        employment_model: parsed.employment_model || null,
       };
 
       setFilters(mappedFilters);
@@ -192,6 +194,7 @@ export default function SearchPage() {
           locations: f.locations,
           experience_years: f.experience_years ?? null,
           role_class: f.role_class ?? null,
+          employment_model: f.employment_model ?? null,
         },
         parsed,
         page: targetPage - 1,

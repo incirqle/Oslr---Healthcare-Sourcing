@@ -93,6 +93,15 @@ Deno.test("location, experience and role edits reach the parse", () => {
   assertEquals(cleared.locations, []);
 });
 
+Deno.test("employment model edits reach the parse and can be cleared", () => {
+  const set = applyEditorFilters(MIAMI_PARSE, { employment_model: "private_practice" });
+  assertEquals(set.employment_model, "private_practice");
+  const cleared = applyEditorFilters({ ...MIAMI_PARSE, employment_model: "hospital_employed" }, { employment_model: null });
+  assertEquals(cleared.employment_model, null);
+  const junk = applyEditorFilters(MIAMI_PARSE, { employment_model: "pe-backed" });
+  assertEquals(junk.employment_model, undefined);
+});
+
 Deno.test("a state-only location edit keeps the whole state", () => {
   const out = applyEditorFilters(MIAMI_PARSE, { locations: ["Florida"] });
   const loc = out.location as Record<string, unknown>;

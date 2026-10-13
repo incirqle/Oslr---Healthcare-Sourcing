@@ -15,7 +15,7 @@
 
 import { callClaude, CLAUDE_HAIKU } from "./ai-router.ts";
 import { MULTI_STATE_REGIONS, SENIORITY_LEVELS, SUB_STATE_REGIONS } from "./clinician-criteria.ts";
-import { CARE_SETTINGS, KEYWORD_EXPANSIONS, ROLE_CLASSES } from "./clinical-vocabulary.ts";
+import { CARE_SETTINGS, EMPLOYMENT_MODELS, KEYWORD_EXPANSIONS, ROLE_CLASSES } from "./clinical-vocabulary.ts";
 
 /* ------------------------------------------------------------------ */
 /*  Post-AI keyword expansion — catches shorthand the AI might miss    */
@@ -127,6 +127,8 @@ export interface ParsedClinicianPayload {
   tenure_max_years: number | null;
   /** Employer-size ask: "small" | "midsize" | "large" | null. */
   practice_size: string | null;
+  /** Who signs the paycheck: "private_practice" | "hospital_employed" | null. */
+  employment_model: "private_practice" | "hospital_employed" | null;
   recently_changed_jobs: boolean;
   education_terms: string[];
   seniority_levels: string[];
@@ -247,6 +249,10 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
     tenure_min_years: tenureMinYears,
     tenure_max_years: tenureMaxYears,
     practice_size: practiceSize,
+    employment_model: (() => {
+      const m = toStr(r.employment_model);
+      return m === "private_practice" || m === "hospital_employed" ? m : null;
+    })(),
     recently_changed_jobs: r.recently_changed_jobs === true,
     education_terms: toStrArr(r.education_terms),
     // Case-preserving: the seniority enum is mixed-case; the mapper
@@ -287,6 +293,15 @@ function deterministicFallback(query: string): Record<string, unknown> {
   else if (/\bresidents?\b/.test(q)) parsed.role_class = "resident";
   else if (/\bpharmacists?\b/.test(q)) parsed.role_class = "pharmacist";
   else if (/\btherapists?\b/.test(q)) parsed.role_class = "therapist";
+
+  // Employment model from unambiguous phrasing (the mapper's backstop does
+  // the same on the raw query, so a model miss never drops the ask).
+  for (const [model, def] of Object.entries(EMPLOYMENT_MODELS)) {
+    if (def.phrases.some((p) => p.test(query))) {
+      parsed.employment_model = model;
+      break;
+    }
+  }
 
   expandParsedKeywords(parsed, query);
   return parsed;
@@ -386,8 +401,15 @@ RETURN THIS EXACT SHAPE:
   "tenure_min_years":     number|null,  // years at the CURRENT employer/role: "5 years at Baylor" -> 5
   "tenure_max_years":     number|null,  // cap on current-role years: "less than 2 years in their current job" -> 2
   "practice_size":        "small"|"midsize"|"large"|null,
-                         // employer-size ask: "small private practices" / "independent practices" -> "small";
+                         // employer-size ask: "small private practices" -> "small";
                          // "large health systems" / "big academic medical centers" -> "large". null when unstated.
+  "employment_model":     "private_practice"|"hospital_employed"|null,
+                         // WHO SIGNS THE PAYCHECK. "private practice", "independent", "physician-owned",
+                         // "solo", "practice owners", "not hospital-employed", "non-hospital" -> "private_practice".
+                         // "hospital-employed", "employed by a health system", "academic" -> "hospital_employed".
+                         // null when the query says nothing about the employer type. Never infer it from
+                         // the specialty or the role; "private practice" and "small" are different asks
+                         // (set practice_size only when a SIZE word is used).
   "recently_changed_jobs": boolean,
   "education_terms":     string[],   // degree/program phrases ("bsn", "doctor of nursing practice", "podiatric medicine")
   "seniority_levels":    string[],   // ONLY explicit leadership-class asks, verbatim from: ${enumList}. "nurse leaders / CNOs" -> ["CXO","Vice President","Director"]. NEVER for trainees or bedside roles. [] otherwise.
@@ -427,7 +449,17 @@ WORKED EXAMPLES (the three archetypes + the tense query):
 
 6) "Family medicine physicians at small private practices in Georgia."
    role_class: "physician", specialties: ["family medicine"],
-   practice_size: "small", care_setting: "clinic", location: {"state":"georgia", ...}
+   practice_size: "small", employment_model: "private_practice",
+   care_setting: "clinic", location: {"state":"georgia", ...}
+
+6b) "Find me orthopedic surgeons in Miami who are not hospital-employed."
+   role_class: "surgeon", specialties: ["orthopedic surgery"],
+   employment_model: "private_practice",   // "not hospital-employed" IS the private-practice ask
+   practice_size: null, location: {"city":"miami","state":"florida", ...}
+
+6c) "Hospital-employed hospitalists in Tampa."
+   role_class: "physician", specialties: ["hospital medicine"],
+   employment_model: "hospital_employed", location: {"city":"tampa","state":"florida", ...}
 
 7) "Cardiologists at the University of Miami."
    role_class: "physician", specialties: ["cardiology"],

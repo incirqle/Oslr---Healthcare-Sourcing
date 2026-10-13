@@ -949,3 +949,124 @@ export const ROLE_CLASS_NOISE: Record<string, readonly RegExp[]> = {
     /\bsales\b/i,
   ],
 };
+
+/* ------------------------------------------------------------------ */
+/*  Employment model: hospital-employed vs private practice (2026-10-13) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The dimension recruiters mean by "private practice" vs "hospital-
+ * employed": WHO SIGNS THE PAYCHECK. Binary by decision (Steven,
+ * 2026-10-13): hospitals, health systems, academic medical centers,
+ * government (VA, county, IHS) and the physician groups those systems own
+ * are "hospital_employed"; every other care-delivery employer — solo and
+ * group practices, ASCs, dental practices, DSOs, PE-backed groups — is
+ * "private_practice".
+ */
+export type EmploymentModel = "hospital_employed" | "private_practice";
+
+export interface EmploymentModelDef {
+  label: string;
+  /** Query phrasing that asks for this model (backstop when the parser misses). */
+  phrases: readonly RegExp[];
+}
+
+export const EMPLOYMENT_MODELS: Record<EmploymentModel, EmploymentModelDef> = {
+  private_practice: {
+    label: "Private practice",
+    phrases: [
+      /\bprivate[- ]practice\b/i,
+      /\bindependent (practice|practitioner|physician|doctor|dentist|group)s?\b/i,
+      /\bphysician[- ]owned\b/i,
+      /\bdoctor[- ]owned\b/i,
+      /\bself[- ]employed\b/i,
+      /\bsolo (practice|practitioner)s?\b/i,
+      /\bpractice owners?\b/i,
+      /\bown(s|ing)? (their|his|her|a) (own )?practice\b/i,
+      /\b(not|non)[- ]?hospital[- ]?(employed|affiliated|based|owned)\b/i,
+      /\bnot employed by (a |the )?(hospital|health system)s?\b/i,
+      /\boutside (of )?(a |the )?(hospital|health) system\b/i,
+      /\bnon[- ]?(academic|system)\b/i,
+    ],
+  },
+  hospital_employed: {
+    label: "Hospital-employed",
+    phrases: [
+      /\bhospital[- ](employed|based|owned)\b/i,
+      /\bemployed (by|at|with) (a |the )?(hospital|health system|medical center|academic)/i,
+      /\bhealth[- ]system[- ]employed\b/i,
+      /\bsystem[- ]employed\b/i,
+      /\bacademic (physician|surgeon|doctor|faculty|dentist)s?\b/i,
+      /\b(work|working|practicing) (at|in|for) (a |the )?hospital\b/i,
+    ],
+  },
+};
+
+/**
+ * Employer-name tokens that mean a hospital, health system, academic
+ * medical center or government care delivery — i.e. hospital-employed.
+ * Whole words/phrases; matched case-insensitively on the employer name.
+ */
+export const HOSPITAL_SYSTEM_TOKENS: readonly string[] = [
+  "hospital", "hospitals", "health system", "healthcare system", "health care system",
+  "health network", "medical center", "medical centre", "health sciences center",
+  "university", "school of medicine", "college of medicine", "medical school",
+  "faculty practice", "faculty physicians", "academic medical",
+  "veterans affairs", "veterans health", "va medical", "department of veterans",
+  "indian health service", "county health", "public health", "department of health",
+  "military", "army", "navy", "air force", "naval hospital", "medical command",
+  "children's hospital", "childrens hospital", "cancer center", "cancer institute",
+  "regional medical", "community health center", "fqhc", "health district",
+];
+
+/**
+ * Health-system BRANDS whose employed-physician groups look like practices
+ * by name ("Baptist Health Medical Group", "HCA Florida Physicians",
+ * "Memorial Physician Group", "UHealth"). A name that starts with or
+ * contains one of these is hospital-employed whatever follows.
+ */
+export const HEALTH_SYSTEM_BRANDS: readonly string[] = [
+  // national / multi-state
+  "hca", "hca healthcare", "hca florida", "commonspirit", "common spirit", "ascension",
+  "adventhealth", "advent health", "trinity health", "tenet", "community health systems",
+  "lifepoint", "universal health services", "uhs", "prime healthcare", "steward",
+  "providence", "sutter", "intermountain", "banner health", "geisinger", "northwell",
+  "kaiser", "permanente", "mayo clinic", "cleveland clinic", "johns hopkins",
+  "mass general", "massachusetts general", "brigham", "nyu langone", "mount sinai",
+  "cedars-sinai", "cedars sinai", "houston methodist", "memorial hermann", "ochsner",
+  "atrium health", "novant", "advocate", "aurora health", "sanford health", "scripps",
+  "sharp healthcare", "dignity health", "baylor scott", "ut southwestern", "ut health",
+  "uchealth", "uc health", "ucla health", "ucsf", "stanford health", "duke health",
+  "emory healthcare", "piedmont", "wellstar", "orlando health", "tampa general",
+  "baycare", "lee health", "nch healthcare", "sarasota memorial",
+  // south florida
+  "baptist health", "jackson health", "jackson memorial", "memorial healthcare",
+  "memorial physician", "uhealth", "university of miami health", "miller school",
+  "mount sinai medical center", "holy cross", "broward health", "cleveland clinic florida",
+  "nicklaus children", "joe dimaggio", "larkin community", "hialeah hospital",
+  "palm beach health", "jupiter medical", "boca raton regional", "bethesda hospital",
+];
+
+/**
+ * Employer-name tokens that mean an independent care-delivery practice.
+ * Positive recall terms for the provider-side clause; the in-process
+ * classifier still lets a system brand override them.
+ */
+export const PRIVATE_PRACTICE_TOKENS: readonly string[] = [
+  "associates", "and associates", "& associates", "partners", "group", "medical group",
+  "physicians group", "physician group", "medical associates", "specialists", "specialty",
+  "clinic", "clinics", "practice", "family practice", "institute", "center", "centre",
+  "surgery center", "surgical center", "surgicenter", "surgeons", "physicians",
+  "orthopedics", "orthopaedics", "orthopedic", "orthopaedic", "sports medicine",
+  "spine", "pain", "dermatology", "dental", "dentistry", "orthodontics", "oral surgery",
+  "eye", "vision", "ophthalmology", "ent", "allergy", "cardiology", "gastroenterology",
+  "urology", "neurology", "pediatrics", "women's", "ob/gyn", "obgyn", "obstetrics",
+  "podiatry", "foot and ankle", "foot & ankle", "plastic surgery", "aesthetics",
+  "md pa", "m.d. p.a.", "md, pa", "pa", "p.a.", "pllc", "llc", "llp", "inc",
+  "dds", "dmd", "do pa", "m.d.", "md",
+];
+
+/** Headcount at or above which an unbranded employer is treated as a system. */
+export const SYSTEM_HEADCOUNT_FLOOR = 1001;
+/** Headcount at or below which an employer is practice-sized (0 = untracked). */
+export const PRACTICE_HEADCOUNT_CAP = 250;

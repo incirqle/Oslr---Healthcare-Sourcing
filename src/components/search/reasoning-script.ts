@@ -107,6 +107,14 @@ export function classifyFilters(rawQuery: string, filters: ParsedFilters): Activ
       fromUser: true,
     });
   }
+  if (filters.employment_model) {
+    out.push({
+      id: `emp-${filters.employment_model}`,
+      label: filters.employment_model === "hospital_employed" ? "Hospital-employed" : "Private practice",
+      group: "Employment",
+      fromUser: true,
+    });
+  }
   add("Company", filters.companies, "co");
   add("Location", filters.locations, "loc");
   add("Specialty", filters.specialties, "spec");
