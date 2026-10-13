@@ -76,7 +76,7 @@ const Spinner = ({ label }: { label?: string }) => (
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
-  const [access, msg] = usePaidAccess(user?.id);
+  const [access, msg] = usePaidAccess(user?.id, () => { void signOut(); });
 
   // Editor preview without a sign-in stays open for building.
   if (IS_PREVIEW && !user && !loading) return <>{children}</>;
