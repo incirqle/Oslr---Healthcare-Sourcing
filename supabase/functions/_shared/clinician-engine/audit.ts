@@ -232,7 +232,14 @@ export function summarizeAudit(
   };
 }
 
-export const AUDIT_CHUNK_SIZE = 25;
+/**
+ * Rows per grader call. Chunks run in parallel, so wall-clock is the time
+ * of ONE chunk: 25 rows took ~34 s on a 126-row pool (2026-10-13, Fort
+ * Lauderdale), most of it output tokens. 10 rows per call roughly thirds
+ * that at the same quality — each profile is graded on the same absolute
+ * scale whichever chunk it lands in.
+ */
+export const AUDIT_CHUNK_SIZE = 10;
 
 export type AuditTransport = <T>(
   systemPrompt: string,
@@ -269,7 +276,7 @@ export async function runClinicianAudit(
       buildAuditUserMessage(query, criteria, chunk, at, opts.contextNote),
       null,
       layer,
-      { model, timeoutMs: 90_000, maxTokens: 8000 },
+      { model, timeoutMs: 60_000, maxTokens: 4000 },
     ).catch((err) => {
       console.warn(`[${layer}] chunk@${at} failed — its rows pass through unaudited`, err);
       return null;

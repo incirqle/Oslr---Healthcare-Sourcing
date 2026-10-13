@@ -11,6 +11,14 @@ import { getAvatarToneClass, getInitials } from "./candidate-ui";
  * image when there is one and fall back to initials when there is not.
  */
 
+/** A favicon lookup for an employer that has a website but no provider logo. */
+export function faviconUrl(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  const host = domain.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0];
+  if (!host || !host.includes(".")) return null;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
+}
+
 export function PersonAvatar({
   name,
   src,

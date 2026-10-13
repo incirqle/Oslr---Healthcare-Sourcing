@@ -28,7 +28,7 @@ import {
   cleanDisplayName,
   LinkedInMark,
 } from "./candidate-ui";
-import { OrgLogo, PersonAvatar } from "./Avatars";
+import { faviconUrl, OrgLogo, PersonAvatar } from "./Avatars";
 import {
   normalizeLinkedInUrl,
   toTitleCase,
@@ -66,6 +66,8 @@ export interface Candidate {
   profile_pic_url?: string | null;
   /** Current employer's logo (provider URL), when the row carries one. */
   company_logo_url?: string | null;
+  /** Current employer's website domain, for a favicon when there is no logo. */
+  company_domain?: string | null;
   inferred_salary?: string | null;
   years_experience?: number;
   clinical_skills?: string[];
@@ -166,10 +168,11 @@ function MiddleColumn({
       <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
         {orgDisplay && (
           <span className="inline-flex min-w-0 items-center gap-1.5">
-            {candidate.company_logo_url && (
+            {(candidate.company_logo_url || candidate.company_domain) && (
               <OrgLogo
                 name={orgDisplay}
                 src={candidate.company_logo_url}
+                fallbackSrc={faviconUrl(candidate.company_domain)}
                 className="h-4 w-4 rounded-sm"
                 textClassName="text-[8px]"
               />

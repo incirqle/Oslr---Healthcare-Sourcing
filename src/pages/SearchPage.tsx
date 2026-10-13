@@ -151,32 +151,11 @@ export default function SearchPage() {
     setGeoScope(null);
 
     try {
-      // Step 1: parse (preview) to get filter interpretation
-      const previewData = await invokeSearchPeople({ query: q, preview: true });
-      if (previewData?.error) throw new Error(previewData.error);
-
-      const parsed = previewData.parsed || {};
-      const locations = locationLabelsFromParsed(parsed);
-      const specialties: string[] = parsed.specialties || (parsed.specialty ? [parsed.specialty] : []);
-
-      const mappedFilters: ParsedFilters = overrideFilters ?? {
-        job_titles: parsed.job_titles || [],
-        locations,
-        companies: parsed.current_companies || parsed.companies || [],
-        // Keyword chips that only re-spell a specialty are not shown: they
-        // are not extra requirements, and they made specialty edits no-ops.
-        keywords: dropSpecialtyEchoes(parsed.required_keywords || parsed.keywords || [], specialties),
-        experience_years: parsed.min_years_experience || null,
-        specialties,
-        role_class: parsed.role_class || (Array.isArray(parsed.role_classes) ? parsed.role_classes[0] : null) || null,
-        employment_model: parsed.employment_model || null,
-      };
-
-      setFilters(mappedFilters);
-      setParsedPayload(parsed);
-
-      // Step 2: full search
-      await runResultsFetch(q, mappedFilters, parsed, 1, null);
+      // ONE request. The engine parses the sentence and returns the parse
+      // with the results; the filter chips are derived from that. A separate
+      // preview round trip used to add a parser call (~4 s) before the
+      // search even started (2026-10-13).
+      await runResultsFetch(q, overrideFilters ?? null, null, 1, null);
       burstRetryRef.current = 0;
       fetchSearchUsage().then((u) => u && setUsage(u));
     } catch (err: unknown) {
@@ -200,32 +179,62 @@ export default function SearchPage() {
     }
   };
 
+  /** The editor's filter values as the engine's parse implies them. */
+  const filtersFromParsed = (parsed: Record<string, any>): ParsedFilters => {
+    const specialties: string[] = parsed.specialties || (parsed.specialty ? [parsed.specialty] : []);
+    return {
+      job_titles: parsed.job_titles || [],
+      locations: locationLabelsFromParsed(parsed),
+      companies: parsed.current_companies || parsed.companies || [],
+      // Keyword chips that only re-spell a specialty are not shown: they
+      // are not extra requirements, and they made specialty edits no-ops.
+      keywords: dropSpecialtyEchoes(parsed.required_keywords || parsed.keywords || [], specialties),
+      experience_years: parsed.min_years_experience || null,
+      specialties,
+      role_class: parsed.role_class || (Array.isArray(parsed.role_classes) ? parsed.role_classes[0] : null) || null,
+      employment_model: parsed.employment_model || null,
+    };
+  };
+
   const runResultsFetch = async (
     q: string,
-    f: ParsedFilters,
+    // null on a fresh search: the engine parses and the chips follow its parse.
+    f: ParsedFilters | null,
     parsed: Record<string, unknown> | null,
     targetPage: number,
     token: string | null,
   ) => {
     const data = await invokeSearchPeople({
         query: q,
-        filters: {
-          job_titles: f.job_titles,
-          companies: f.companies,
-          keywords: f.keywords,
-          specialties: f.specialties,
-          locations: f.locations,
-          experience_years: f.experience_years ?? null,
-          role_class: f.role_class ?? null,
-          employment_model: f.employment_model ?? null,
-        },
-        parsed,
+        ...(f && parsed
+          ? {
+            filters: {
+              job_titles: f.job_titles,
+              companies: f.companies,
+              keywords: f.keywords,
+              specialties: f.specialties,
+              locations: f.locations,
+              experience_years: f.experience_years ?? null,
+              role_class: f.role_class ?? null,
+              employment_model: f.employment_model ?? null,
+            },
+            parsed,
+          }
+          : {}),
         page: targetPage - 1,
         size: pageSize,
         scroll_token: targetPage > 1 ? token : null,
     });
 
     if (data?.error) throw new Error(data.error);
+
+    // A fresh search: adopt the engine's parse so the chips and the editor
+    // show exactly what was enforced, and later edits re-send it.
+    if (!f || !parsed) {
+      const engineParsed = (data.parsed && typeof data.parsed === "object" ? data.parsed : {}) as Record<string, unknown>;
+      setParsedPayload(engineParsed);
+      setFilters(f ?? filtersFromParsed(engineParsed));
+    }
 
     const mapRow = (r: Record<string, any>): Candidate => ({
       id: r.id,
@@ -248,6 +257,7 @@ export default function SearchPage() {
       match_score: r.relevance_score ?? 75,
       profile_pic_url: r.profile_pic_url || null,
       company_logo_url: r.job_company_logo_url || null,
+      company_domain: r.job_company_domain || null,
       inferred_salary: null,
       years_experience: r.years_experience || r.inferred_years_experience || 0,
       clinical_skills: r.clinical_skills || [],

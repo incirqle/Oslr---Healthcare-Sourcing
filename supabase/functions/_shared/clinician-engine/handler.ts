@@ -647,79 +647,83 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       const recallFilters = buildClinicianQuery(
         criteria.filter((c) => c.kind !== "specialty"),
       ) ?? treeFilters;
+      // The two recall passes are independent provider calls; they run
+      // CONCURRENTLY and merge in a fixed order (semantic first) so results
+      // are deterministic. Serial, they added ~8 s to a 45 s search
+      // (2026-10-13) while contributing 0 rows.
       if (!cacheHit && semanticWorthRunning(criteria)) {
-        const spent = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
-        if (checkCeiling(spent, SEMANTIC_LIMIT).allow) {
-          const sem = await semanticRecall({
-            query: String(query ?? "").trim(),
-            filters: recallFilters as unknown as Record<string, unknown>,
-            fields: CARD_FIELDS,
-            limit: SEMANTIC_LIMIT,
-          });
-          semanticRan = sem.ran;
-          if (sem.ran && sem.profiles.length > 0) {
-            const semNormalized = sem.profiles.map(normalizeCrustDataV2Profile);
-            const merged = mergeSemanticRows(normalized, semNormalized, rowKey);
-            semanticAdded = merged.added;
-            if (merged.added > 0) {
-              normalized = merged.merged;
-              const semCredits = creditsForResults(semNormalized.length);
-              credits += semCredits;
-              recordSessionSpend(creditLedger, sessionKey, semCredits, SEARCH_TTL_MS);
-              totalCount = Math.max(totalCount, normalized.length);
-            }
-            console.log(JSON.stringify({ event: "semantic_recall", returned: semNormalized.length, added: merged.added }));
-          }
-        }
-      }
-      if (!cacheHit && semanticWorthRunning(criteria)) {
+        const spentBefore = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+        // Both passes together must fit under the ceiling.
+        const semanticAllowed = checkCeiling(spentBefore, SEMANTIC_LIMIT).allow;
+        const graphAllowed = checkCeiling(spentBefore, SEMANTIC_LIMIT * 2).allow;
         const specialtyTerms = criteria
           .filter((c) => c.kind === "specialty" && c.enforcement === "hard")
           .flatMap((c) => {
             const v = c.value as { terms?: string[] } | string[];
             return Array.isArray(v) ? v : (v?.terms ?? []);
           });
-        if (specialtyTerms.length > 0) {
-          const graphSpent = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
-          if (checkCeiling(graphSpent, SEMANTIC_LIMIT).allow) {
+
+        const semanticPromise = semanticAllowed
+          ? semanticRecall({
+            query: String(query ?? "").trim(),
+            filters: recallFilters as unknown as Record<string, unknown>,
+            fields: CARD_FIELDS,
+            limit: SEMANTIC_LIMIT,
+          })
+          : Promise.resolve({ profiles: [], ran: false, reason: "ceiling" });
+
+        const graphPromise = (graphAllowed && specialtyTerms.length > 0)
+          ? (async () => {
             const companyIds = await resolveSpecialtyCompanyIds(specialtyTerms);
-            if (companyIds.length > 0) {
-              const graphFilters = {
+            if (companyIds.length === 0) return { ok: false as const, companies: 0, profiles: [] as Record<string, unknown>[] };
+            const graphRes = await personSearchV2({
+              filters: {
                 op: "and",
                 conditions: [
                   recallFilters as unknown as Record<string, unknown>,
-                  {
-                    field: "experience.employment_details.current.company_id",
-                    type: "in",
-                    value: companyIds,
-                  },
+                  { field: "experience.employment_details.current.company_id", type: "in", value: companyIds },
                 ],
-              };
-              const graphRes = await personSearchV2({
-                filters: graphFilters,
-                limit: SEMANTIC_LIMIT,
-                fields: CARD_FIELDS,
-              });
-              if (graphRes.ok && graphRes.data.profiles.length > 0) {
-                const graphNormalized = graphRes.data.profiles.map(normalizeCrustDataV2Profile);
-                const merged = mergeSemanticRows(normalized, graphNormalized, rowKey);
-                companyGraphAdded = merged.added;
-                if (merged.added > 0) {
-                  normalized = merged.merged;
-                  const graphCredits = creditsForResults(graphNormalized.length);
-                  credits += graphCredits;
-                  recordSessionSpend(creditLedger, sessionKey, graphCredits, SEARCH_TTL_MS);
-                  totalCount = Math.max(totalCount, normalized.length);
-                }
-                console.log(JSON.stringify({
-                  event: "company_graph_recall",
-                  companies: companyIds.length,
-                  returned: graphNormalized.length,
-                  added: merged.added,
-                }));
-              }
-            }
+              },
+              limit: SEMANTIC_LIMIT,
+              fields: CARD_FIELDS,
+            });
+            return { ok: graphRes.ok, companies: companyIds.length, profiles: graphRes.ok ? graphRes.data.profiles : [] };
+          })()
+          : Promise.resolve({ ok: false as const, companies: 0, profiles: [] as Record<string, unknown>[] });
+
+        const [sem, graph] = await Promise.all([semanticPromise, graphPromise]);
+
+        semanticRan = sem.ran;
+        if (sem.ran && sem.profiles.length > 0) {
+          const semNormalized = sem.profiles.map(normalizeCrustDataV2Profile);
+          const merged = mergeSemanticRows(normalized, semNormalized, rowKey);
+          semanticAdded = merged.added;
+          if (merged.added > 0) {
+            normalized = merged.merged;
+            const semCredits = creditsForResults(semNormalized.length);
+            credits += semCredits;
+            recordSessionSpend(creditLedger, sessionKey, semCredits, SEARCH_TTL_MS);
+            totalCount = Math.max(totalCount, normalized.length);
           }
+          console.log(JSON.stringify({ event: "semantic_recall", returned: semNormalized.length, added: merged.added }));
+        }
+        if (graph.ok && graph.profiles.length > 0) {
+          const graphNormalized = graph.profiles.map(normalizeCrustDataV2Profile);
+          const merged = mergeSemanticRows(normalized, graphNormalized, rowKey);
+          companyGraphAdded = merged.added;
+          if (merged.added > 0) {
+            normalized = merged.merged;
+            const graphCredits = creditsForResults(graphNormalized.length);
+            credits += graphCredits;
+            recordSessionSpend(creditLedger, sessionKey, graphCredits, SEARCH_TTL_MS);
+            totalCount = Math.max(totalCount, normalized.length);
+          }
+          console.log(JSON.stringify({
+            event: "company_graph_recall",
+            companies: graph.companies,
+            returned: graphNormalized.length,
+            added: merged.added,
+          }));
         }
       }
 
