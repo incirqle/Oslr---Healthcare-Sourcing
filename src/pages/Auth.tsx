@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Users, FolderKanban, Download } from "lucide-react";
+import { Search, Users, FolderKanban, Download, Eye, EyeOff, Check } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
@@ -23,9 +23,10 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const SIGNUPS_DISABLED = false;
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(searchParams.get("mode") === "signup" || !!inviteToken);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [inviteInfo, setInviteInfo] = useState<{ email: string; companyName: string } | null>(null);
@@ -93,7 +94,19 @@ export default function Auth() {
         navigate("/dashboard");
       }
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = String(error?.message ?? "");
+      if (/invalid login credentials/i.test(msg)) {
+        toast.error("Email or password doesn't match. New here? Choose \"Create account\" at the top.");
+      } else if (/already registered|already exists/i.test(msg)) {
+        toast.error("You already have an account with this email. Choose \"Sign in\" at the top.");
+        setIsSignUp(false);
+      } else if (/email not confirmed/i.test(msg)) {
+        toast.error("Please open the confirmation email we sent you, then sign in.");
+      } else if (/password/i.test(msg)) {
+        toast.error("Please use a password with at least 6 characters.");
+      } else {
+        toast.error(msg || "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -163,6 +176,22 @@ export default function Auth() {
             </div>
           )}
 
+          {!SIGNUPS_DISABLED && (
+            <div className="mb-4 grid grid-cols-2 rounded-xl border border-border bg-muted/40 p-1" role="tablist">
+              {[{ v: false, l: "Sign in" }, { v: true, l: "Create account" }].map((t) => (
+                <button
+                  key={t.l}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSignUp === t.v}
+                  onClick={() => setIsSignUp(t.v)}
+                  className={`h-11 rounded-lg text-base font-semibold transition-colors ${isSignUp === t.v ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {t.l}
+                </button>
+              ))}
+            </div>
+          )}
           <Card className="shadow-lg border-border/60">
             <CardHeader className="text-center pb-4">
               <CardTitle className="font-display text-xl">{isSignUp ? "Create an account" : "Welcome back"}</CardTitle>
@@ -176,19 +205,19 @@ export default function Auth() {
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 {isSignUp && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="name" className="text-xs">Full name</Label>
+                    <Label htmlFor="name" className="text-sm font-medium">Full name</Label>
                     <Input
                       id="name"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Dr. Jane Smith"
                       required
-                      className="h-9"
+                      className="h-11 text-base"
                     />
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -196,18 +225,21 @@ export default function Auth() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@hospital.com"
                     required
-                    className="h-9"
+                    className="h-11 text-base"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-xs">Password</Label>
+                    <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                     {!isSignUp && (
                       <button
                         type="button"
                         className="text-xs text-primary hover:underline"
                         onClick={async () => {
-                          if (!email) return toast.error("Enter your email first, then click Forgot password.");
+                          if (!email) {
+                            document.getElementById("email")?.focus();
+                            return toast("Type your email above, then tap \"Forgot password?\" again.");
+                          }
                           const { error } = await supabase.auth.resetPasswordForEmail(email, {
                             redirectTo: `${window.location.origin}/reset-password`,
                           });
@@ -219,25 +251,42 @@ export default function Auth() {
                       </button>
                     )}
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    minLength={6}
-                    required
-                    className="h-9"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={isSignUp ? "At least 6 characters" : "Your password"}
+                      minLength={6}
+                      required
+                      className="h-11 pr-16 text-base"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {isSignUp && (
+                    <p className={`flex items-center gap-1.5 text-sm ${password.length >= 6 ? "text-primary" : "text-muted-foreground"}`}>
+                      <Check className="h-4 w-4" />
+                      {password.length >= 6 ? "Looks good" : "Any password with 6 or more characters works"}
+                    </p>
+                  )}
                 </div>
-                <Button type="submit" className="w-full h-9" disabled={loading}>
+                <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
                   {loading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
                 </Button>
               </form>
               <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
                 <div className="h-px flex-1 bg-border" />or<div className="h-px flex-1 bg-border" />
               </div>
-              <Button type="button" variant="outline" className="w-full h-9" onClick={handleGoogle} disabled={loading}>
+              <Button type="button" variant="outline" className="w-full h-11 text-base" onClick={handleGoogle} disabled={loading}>
                 <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
                 Continue with Google
               </Button>
