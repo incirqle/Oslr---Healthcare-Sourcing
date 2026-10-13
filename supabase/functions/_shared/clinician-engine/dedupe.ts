@@ -116,3 +116,105 @@ export function dedupeRows<R extends KeyedRow>(rows: R[]): { rows: R[]; removed:
   }
   return { rows: out, removed };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Same person, two profiles (2026-10-13)                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * "J. Pieter Hommen — Co-Founder, OrthoMiami" and "Jan Pieter Hommen —
+ * Orthopedic Surgeon, Hommen Orthopedic Institute" are one surgeon with two
+ * Crustdata profiles: different URL, id, name spelling AND employer, so no
+ * exact identity can join them. This is a NAME-SHAPE rule: same surname,
+ * compatible first name (equal, or one is the other's initial), equal
+ * middle names when both carry one, and the same city. The later row is
+ * not dropped — it is set aside with the reason, so a wrong merge is
+ * visible and reversible.
+ */
+export interface PersonName {
+  first: string;
+  middle: string;
+  last: string;
+}
+
+export function parsePersonName(raw: unknown): PersonName | null {
+  const cleaned = s(raw).toLowerCase()
+    .replace(/[,(].*$/, "") // ", MD" / "(he/him)"
+    .replace(/[^a-z\s.'-]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.replace(/\.+$/, ""))
+    .filter((t) => t && !NAME_NOISE.has(t));
+  if (cleaned.length < 2) return null;
+  const last = cleaned[cleaned.length - 1].replace(/-/g, "");
+  const first = cleaned[0];
+  const middle = cleaned.length > 2 ? cleaned.slice(1, -1).join(" ") : "";
+  return { first, middle, last };
+}
+
+function compatibleFirst(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length === 1 && b.startsWith(a)) return true;
+  if (b.length === 1 && a.startsWith(b)) return true;
+  return false;
+}
+
+function compatibleMiddle(a: string, b: string): boolean {
+  if (!a || !b) return true;
+  if (a === b) return true;
+  const ai = a.split(" ")[0], bi = b.split(" ")[0];
+  if (ai.length === 1 && bi.startsWith(ai)) return true;
+  if (bi.length === 1 && ai.startsWith(bi)) return true;
+  return false;
+}
+
+function city(row: Record<string, unknown>): string {
+  return squash(row.location_locality ?? row.location_city, new Set()).toLowerCase();
+}
+
+/** True when the two rows read as the same person under the name-shape rule. */
+export function samePersonByName(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const na = parsePersonName(a.full_name ?? a.name);
+  const nb = parsePersonName(b.full_name ?? b.name);
+  if (!na || !nb) return false;
+  if (na.last !== nb.last || na.last.length < 3) return false;
+  if (!compatibleFirst(na.first, nb.first)) return false;
+  if (!compatibleMiddle(na.middle, nb.middle)) return false;
+  // Two "John Smith"s with no middle name need more than a surname: the
+  // same city AND a shared first name in full (an initial is not enough).
+  const strong = na.middle && nb.middle && na.middle === nb.middle;
+  if (!strong && (na.first.length === 1 || nb.first.length === 1)) return false;
+  const ca = city(a), cb = city(b);
+  if (!ca || !cb || ca !== cb) return false;
+  return true;
+}
+
+export interface SuspectSplit<R> {
+  rows: R[];
+  suspects: R[];
+}
+
+/**
+ * Set aside later rows that read as a second profile of an earlier row.
+ * Annotated like grader rejects, naming the row they duplicate.
+ */
+export function setAsideSuspectedDuplicates<R extends Record<string, unknown>>(rows: R[]): SuspectSplit<R> {
+  const kept: R[] = [];
+  const suspects: R[] = [];
+  for (const row of rows) {
+    const twin = kept.find((k) => samePersonByName(k, row));
+    if (!twin) {
+      kept.push(row);
+      continue;
+    }
+    const twinName = s(twin.full_name ?? twin.name) || "an earlier result";
+    const twinEmployer = s(twin.job_company_name);
+    const annotated = row as Record<string, unknown>;
+    annotated.audit_verdict = "reject";
+    annotated.audit_score = 0;
+    annotated.audit_reason = `Likely a second profile of ${twinName}${twinEmployer ? ` (${twinEmployer})` : ""}, already shown.`;
+    annotated.audit_evidence = s(row.full_name ?? row.name).slice(0, 140) || null;
+    annotated.duplicate_of = twin.id ?? twin.linkedin_url ?? twinName;
+    suspects.push(row);
+  }
+  return { rows: kept, suspects };
+}

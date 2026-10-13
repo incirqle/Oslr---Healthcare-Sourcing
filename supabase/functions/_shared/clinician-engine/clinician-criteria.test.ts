@@ -28,7 +28,7 @@ import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts"
 import { classifyEmployer } from "./employer-class.ts";
 import { noisePatternsFor, splitRoleClassNoise } from "./noise-filter.ts";
 import { applyEmploymentModel, classifyEmploymentModel, readRowEmploymentModel } from "./employment-model.ts";
-import { dedupeRows, identityKeys, normalizeLinkedInUrl } from "./dedupe.ts";
+import { dedupeRows, identityKeys, normalizeLinkedInUrl, samePersonByName, setAsideSuspectedDuplicates } from "./dedupe.ts";
 
 /* ---------- helpers ---------- */
 
@@ -1215,22 +1215,48 @@ Deno.test("orthopedic surgeons: the role gate is surgeon-shaped, never bare doct
   const role = criteria.find((c) => c.kind === "role_class");
   assertExists(role);
   assertEquals(role.label, "Orthopedic Surgeons");
-  const v = role.value as { terms: string[]; employer_qualified?: { terms: string[]; employer_terms: string[] } };
-  for (const t of ["orthopedic surgeon", "orthopedic surgery", "orthopedist", "spine surgeon", "hand surgeon"]) {
+  const v = role.value as {
+    terms: string[];
+    employer_qualified?: { terms: string[]; employer_terms: string[] };
+    department_qualified?: { terms: string[]; department_terms: string[] };
+  };
+  for (const t of ["orthopedic surgeon", "orthopedist", "spine surgeon", "hand surgeon"]) {
     assert(v.terms.includes(t), `missing composed term: ${t}`);
   }
+  // Department names are NOT person titles (live 2026-10-13: "Surgical
+  // Coordinator at Advanced Orthopaedics", "MedTech Leader | Orthopedics").
+  assert(!v.terms.includes("orthopedic surgery"), "department name admitted coordinators and reps");
+  assert(!v.terms.includes("orthopedics"), "department name admitted coordinators and reps");
   assert(!v.terms.includes("doctor"), "bare 'doctor' admitted Doctors of Physical Therapy");
   assert(!v.terms.includes("physician"), "bare 'physician' admitted Physician Assistants and recruiters");
   assert(!v.terms.includes("surgeon"), "bare 'surgeon' admitted reps 'partnering with surgeons'");
   assertExists(v.employer_qualified);
   assert(v.employer_qualified.employer_terms.includes("orthopedic"));
+  assert(!v.employer_qualified.terms.includes("physician"), "'physician' admitted PAs and recruiters at every practice");
+  assertExists(v.department_qualified);
+  assert(v.department_qualified.department_terms.includes("orthopedic surgery"));
+  assert(v.department_qualified.terms.includes("attending"));
 
   const tree = buildClinicianQuery(criteria);
+  type Node = { op?: string; conditions?: Node[]; field?: string; value?: unknown };
   const titleLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.title");
   const titleValues = new Set(titleLeaves.map((l) => String(l.value).toLowerCase()));
   assert(titleValues.has("orthopaedic surgeon"), "ae spelling of the composed term");
   assert(titleValues.has("orthopedists"), "plural of the -ist form");
   assert(!titleValues.has("doctor"));
+  // The role group: free-standing members are person titles only; a
+  // department name appears only inside an AND beside a physician word.
+  const roleGroup = ((tree as Node).conditions ?? []).find((n) =>
+    n.op === "or" && (n.conditions ?? []).some((c) => c.field && String(c.value) === "orthopedic surgeon")
+  );
+  assertExists(roleGroup);
+  for (const member of roleGroup.conditions ?? []) {
+    if (member.field) {
+      assert(!["orthopedic surgery", "orthopedics", "orthopaedics"].includes(String(member.value)), `free-standing department term: ${member.value}`);
+    } else {
+      assertEquals(member.op, "and");
+    }
+  }
   // Employer-qualified arm: generic physician words only beside a specialty employer.
   const companyLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.company_name");
   assert(companyLeaves.some((l) => String(l.value) === "orthopedic"), "employer arm names the specialty");
@@ -1238,9 +1264,10 @@ Deno.test("orthopedic surgeons: the role gate is surgeon-shaped, never bare doct
 
 Deno.test("surgeon composition: compound specialties and multi-class asks", () => {
   const neuro = mapParsedToCriteria({ role_class: "surgeon", specialties: ["neurosurgery"] });
-  const nv = neuro.find((c) => c.kind === "role_class")!.value as { terms: string[] };
+  const nv = neuro.find((c) => c.kind === "role_class")!.value as { terms: string[]; department_qualified?: { department_terms: string[] } };
   assert(nv.terms.includes("neurosurgeon"));
-  assert(nv.terms.includes("neurosurgery"));
+  assert(!nv.terms.includes("neurosurgery"), "department name is not a person title");
+  assert(nv.department_qualified?.department_terms.includes("neurosurgery"));
   // "surgeons and PAs" keeps the PA class terms beside the composed surgeon terms.
   const both = mapParsedToCriteria({ role_classes: ["surgeon", "physician_assistant"], specialties: ["orthopedic surgery"] });
   const bv = both.find((c) => c.kind === "role_class")!.value as { terms: string[] };
@@ -1304,6 +1331,29 @@ Deno.test("dedupe: URL spellings, provider ids and URL-less duplicate profiles c
   const poolKeys = identityKeys(rows[0]);
   assertEquals(cardKeys, ["li:linkedin.com/in/jen-holman", "nc:jenpeterholman|miamishoulderinstitute"]);
   assert(cardKeys.every((k) => poolKeys.includes(k)), "card and pool rows share every identity they both carry");
+});
+
+Deno.test("same person, two profiles: J. Pieter Hommen and Jan Pieter Hommen are set aside as one", () => {
+  const a = { id: "p1", full_name: "J. Pieter Hommen", job_title: "Co-Founder OrthoMiami", job_company_name: "OrthoMiami", location_locality: "Miami", linkedin_url: "linkedin.com/in/jph1" };
+  const b = { id: "p2", full_name: "Jan Pieter Hommen", job_title: "Orthopedic Surgeon", job_company_name: "Hommen Orthopedic Institute", location_locality: "Miami", linkedin_url: "linkedin.com/in/jph2" };
+  assert(samePersonByName(a, b));
+  // Different middle name → different person.
+  assert(!samePersonByName(a, { full_name: "Jan Carlos Hommen", location_locality: "Miami" }));
+  // Different city → not merged on name alone.
+  assert(!samePersonByName(a, { full_name: "Jan Pieter Hommen", location_locality: "Orlando" }));
+  // Initial-only first names with no middle name are too weak: two
+  // "J. Smith"s in Miami stay separate.
+  assert(!samePersonByName({ full_name: "J. Smith", location_locality: "Miami" }, { full_name: "John Smith", location_locality: "Miami" }));
+  // Same full first + last, no middle, same city → same person (two "Michael Brown"s
+  // in one city is the accepted risk; the set-aside row stays revealable).
+  assert(samePersonByName({ full_name: "Michael Brown, MD", location_locality: "Miami" }, { full_name: "Michael Brown", location_locality: "Miami" }));
+
+  const { rows, suspects } = setAsideSuspectedDuplicates([a, b, { id: "p3", full_name: "Lee Kaplan", location_locality: "Miami" }] as Array<Record<string, unknown>>);
+  assertEquals(rows.map((r) => r.id), ["p1", "p3"]);
+  assertEquals(suspects.length, 1);
+  assertEquals(suspects[0].audit_verdict, "reject");
+  assert(String(suspects[0].audit_reason).includes("J. Pieter Hommen"), String(suspects[0].audit_reason));
+  assertEquals(suspects[0].duplicate_of, "p1");
 });
 
 /* ---------- employment model: hospital-employed vs private practice (2026-10-13) ---------- */

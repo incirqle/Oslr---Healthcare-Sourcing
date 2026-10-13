@@ -58,12 +58,25 @@ export default function SearchPage() {
   const [total, setTotal] = useState(0);
   const [totalIsEstimate, setTotalIsEstimate] = useState(false);
   const [engineVersion, setEngineVersion] = useState<string | null>(null);
+  const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
   const revealHidden = () => {
     setCandidates((prev) => [...prev, ...hiddenCandidates]);
+    setTotal((t) => t + hiddenCandidates.length);
+    setBrowsableTotal((b) => b + hiddenCandidates.length);
     setRevealedCount((c) => c + hiddenCandidates.length + 1000);
     setHiddenCandidates([]);
+    setFilteredBreakdown(null);
+  };
+  const describeSetAside = (b: Record<string, number> | null, n: number): string => {
+    if (!b) return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside.`;
+    const parts: string[] = [];
+    if (b.role_class_noise) parts.push(`${b.role_class_noise} not in the asked role (therapists, PAs, recruiters, vendors)`);
+    if (b.employment_model) parts.push(`${b.employment_model} with the wrong employer type`);
+    if (b.duplicates) parts.push(`${b.duplicates} duplicate ${b.duplicates === 1 ? "profile" : "profiles"}`);
+    if (b.grader) parts.push(`${b.grader} judged a poor fit on reading the profile`);
+    return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside: ${parts.join(", ")}.`;
   };
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -129,6 +142,7 @@ export default function SearchPage() {
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setFilteredBreakdown(null);
     setBrowsableTotal(0);
     setHiddenCandidates([]);
     setHasMore(false);
@@ -240,48 +254,38 @@ export default function SearchPage() {
       summary: r.summary || r.headline || null,
       raw: r,
     });
+    // The engine returns EVERY kept row; this page paginates in the browser.
+    // (A second server request re-read the cache, re-graded, and came up
+    // empty — 2026-10-13.)
     const mapped: Candidate[] = (data.results || []).map(mapRow);
     const hidden: Candidate[] = (data.hidden_results || []).map(mapRow);
 
-    // An empty page past the first one means we've run off the end of the
-    // browsable pool. Never blank the screen for that — stay where we are.
-    if (mapped.length === 0 && targetPage > 1) {
-      setHasMore(false);
-      setBrowsableTotal((prev) => Math.max(prev, (page - 1) * pageSize + candidates.length));
-      setSearchPhase("done");
-      toast.info("You've reached the end of these results");
-      return;
-    }
-
     setCandidates(mapped);
     setHiddenCandidates(hidden);
-    setTotal(data.total || 0);
-    setTotalIsEstimate(data.total_is_estimate === true);
+    setTotal(mapped.length);
+    setTotalIsEstimate(false);
     setEngineVersion(typeof data.engine_version === "string" ? data.engine_version : null);
-    setBrowsableTotal(
-      typeof data.browsable_total === "number" && data.browsable_total > 0
-        ? data.browsable_total
-        : (targetPage - 1) * pageSize + mapped.length,
-    );
-    setHasMore(data.hasMore === true);
-    setScrollToken(data.scroll_token || null);
+    setFilteredBreakdown(data.filtered && typeof data.filtered === "object" ? data.filtered : null);
+    setBrowsableTotal(mapped.length);
+    setHasMore(false);
+    setScrollToken(null);
     setGeoScope(data.geo_scope || null);
     setCompanyScope(data.company_scope || null);
-    setPage(targetPage);
+    setPage(1);
     setSearchPhase("done");
-    if (targetPage === 1) addEntry(q, data.total || 0);
+    if (targetPage === 1) addEntry(q, mapped.length);
 
-    // Progressive reveal only on the first page of a new search. Pagination
-    // jumps should feel instant — no drip, no unmount/remount of the list.
+    // Progressive reveal of the first page only.
+    const firstPage = Math.min(mapped.length, pageSize);
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (targetPage > 1 || reduce || mapped.length === 0) {
-      setRevealedCount(mapped.length);
+    if (reduce || firstPage === 0) {
+      setRevealedCount(firstPage);
     } else {
       setRevealedCount(0);
-      const stepMs = Math.max(60, Math.min(150, 1500 / Math.max(mapped.length, 1)));
-      mapped.forEach((_, i) => {
+      const stepMs = Math.max(60, Math.min(150, 1500 / Math.max(firstPage, 1)));
+      for (let i = 0; i < firstPage; i++) {
         setTimeout(() => setRevealedCount((c) => Math.max(c, i + 1)), 400 + i * stepMs);
-      });
+      }
     }
   };
 
@@ -314,17 +318,15 @@ export default function SearchPage() {
     }
   };
 
+  // Paging is local: every kept row is already here. No request, no drip.
   const handlePageChange = (newPage: number) => {
-    setSearchPhase("running");
+    const lastPage = Math.max(1, Math.ceil(candidates.length / pageSize));
+    const next = Math.min(Math.max(1, newPage), lastPage);
+    setPage(next);
+    setRevealedCount(candidates.length);
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-    runResultsFetch(query, filters, parsedPayload, newPage, scrollToken).catch((err) => {
-      console.error(err);
-      // Keep the page the user was on visible rather than blanking it.
-      setSearchPhase("done");
-      toast.error(err instanceof Error ? err.message : "Couldn't load that page");
-    });
   };
 
   const handleReset = () => {
@@ -334,6 +336,7 @@ export default function SearchPage() {
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setFilteredBreakdown(null);
     setBrowsableTotal(0);
     setHiddenCandidates([]);
     setHasMore(false);
@@ -392,8 +395,9 @@ export default function SearchPage() {
     return `${labels.slice(0, 3).join(", ")} +${labels.length - 3} more`;
   };
 
-  // Visible candidates list — drip in during streaming
-  const visibleCandidates = candidates.slice(0, revealedCount);
+  // Visible candidates: the current page's slice; page 1 drips in on a new search.
+  const pageSlice = candidates.slice((page - 1) * pageSize, page * pageSize);
+  const visibleCandidates = page === 1 ? pageSlice.slice(0, revealedCount) : pageSlice;
   const skeletonCount = searchPhase === "running" ? Math.max(0, 10 - revealedCount) : 0;
 
   return (
@@ -498,10 +502,10 @@ export default function SearchPage() {
             {searchPhase === "done" && hiddenCandidates.length > 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  {hiddenCandidates.length} weaker {hiddenCandidates.length === 1 ? "match was" : "matches were"} hidden because they don't fit your search closely.
+                  {describeSetAside(filteredBreakdown, hiddenCandidates.length)}
                 </p>
                 <button onClick={revealHidden} className="text-sm font-medium text-primary hover:underline">
-                  Show them anyway
+                  Show them
                 </button>
               </div>
             )}

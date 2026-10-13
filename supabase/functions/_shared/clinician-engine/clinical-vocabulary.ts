@@ -778,13 +778,18 @@ export const GRADER_ONLY_CREDENTIALS: ReadonlySet<string> = new Set([
  * covers "orthopaedist(s)" and "orthopedics" is reached from "orthopedic".
  */
 export const SURGEON_TITLE_FORMS: Record<string, string[]> = {
+  // PERSON titles only. Department names ("orthopedics", "orthopedic
+  // surgery") are NOT here: on a headline they match the surgical
+  // coordinator, the device rep and the graduate intern of that department
+  // (live 2026-10-13: 40 of the first 50 rows). They enter only through
+  // surgeonDepartmentTerms(), ANDed with a physician word in the same title.
   orthopedic: [
-    "orthopedist", "orthopedics",
+    "orthopedist",
     "spine surgeon", "hand surgeon", "foot and ankle surgeon", "sports medicine surgeon",
     "joint replacement surgeon", "arthroplasty surgeon", "shoulder surgeon",
     "orthopedic traumatologist", "pediatric orthopedic surgeon", "orthopedic oncologist",
   ],
-  orthopaedic: ["orthopaedist", "orthopaedics"],
+  orthopaedic: ["orthopaedist"],
   ortho: ["orthopedic surgeon", "orthopedist"],
   spine: ["spine surgeon", "spinal surgeon"],
   neuro: ["neurosurgeon", "neurosurgery", "neurological surgeon"],
@@ -817,10 +822,12 @@ export const SURGEON_TITLE_FORMS: Record<string, string[]> = {
   surgical: ["surgical oncologist"],
 };
 
-/** Abbreviated employer-name tokens per specialty root ("Ortho Miami"). */
+/** Employer-name tokens per specialty root that name a PRACTICE of it.
+ *  "ortho" (device companies: Ortho Development, Ortho Solutions) and
+ *  "sports medicine" (non-surgeon sports physicians) are deliberately out. */
 const SPECIALTY_EMPLOYER_ABBREVIATIONS: Record<string, string[]> = {
-  orthopedic: ["ortho", "orthopedics", "orthopaedics", "bone and joint", "bone & joint", "sports medicine"],
-  orthopaedic: ["ortho", "orthopaedics"],
+  orthopedic: ["orthopedics", "orthopaedics", "bone and joint", "bone & joint"],
+  orthopaedic: ["orthopaedics"],
   neuro: ["neurosurgery", "neurosurgical", "brain and spine"],
   plastic: ["plastic surgery", "aesthetic", "cosmetic surgery"],
   spine: ["spine", "brain and spine"],
@@ -840,9 +847,10 @@ export function specialtyRoot(phrase: string): string {
 }
 
 /**
- * Title/headline match terms for "<specialty> surgeons". Composed, never a
- * bare "surgeon"/"doctor"/"physician": every term names the surgical
- * population itself. The builder adds spelling and plural variants.
+ * Title/headline match terms for "<specialty> surgeons". PERSON titles
+ * only ("orthopedic surgeon", "orthopedist", "spine surgeon"), never a bare
+ * "surgeon"/"doctor"/"physician" and never a department name. The builder
+ * adds spelling and plural variants.
  */
 export function surgeonTitleTerms(specialties: readonly string[]): string[] {
   const out: string[] = [];
@@ -854,28 +862,57 @@ export function surgeonTitleTerms(specialties: readonly string[]): string[] {
     const root = specialtyRoot(phrase);
     if (!root) continue;
     if (/surgery$/.test(root) && !/\s/.test(root)) {
-      // "neurosurgery": the compound noun is itself a title token and the
-      // table carries the -surgeon form.
-      add(root);
-    } else {
-      add(`${root} surgeon`);
-      add(`${root} surgery`);
+      // "neurosurgery": the table carries the -surgeon form.
+      for (const extra of SURGEON_TITLE_FORMS[root] ?? []) add(extra);
+      if (out.length === 0) add(root.replace(/surgery$/, "surgeon"));
+      continue;
     }
+    add(`${root} surgeon`);
     for (const extra of SURGEON_TITLE_FORMS[root] ?? []) add(extra);
   }
   return out;
 }
 
 /**
+ * DEPARTMENT names for a surgical specialty ("orthopedic surgery",
+ * "orthopedics"). A title that carries one is a surgeon only when the SAME
+ * title also carries a physician word: "Attending, Orthopedic Surgery",
+ * "Chief of Orthopaedic Surgery", "Professor of Orthopedic Surgery". The
+ * builder ANDs the two on the current title; neither stands alone.
+ */
+export function surgeonDepartmentTerms(specialties: readonly string[]): string[] {
+  const out: string[] = [];
+  const add = (t: string) => {
+    const v = t.toLowerCase().trim();
+    if (v && !out.includes(v)) out.push(v);
+  };
+  for (const phrase of specialties) {
+    const root = specialtyRoot(phrase);
+    if (!root) continue;
+    if (/surgery$/.test(root) && !/\s/.test(root)) {
+      add(root);
+      continue;
+    }
+    add(`${root} surgery`);
+    add(`${root}s`);
+  }
+  return out;
+}
+
+/** Physician words that, in the SAME title as a department name, make it a surgeon's title. */
+export const DEPARTMENT_PHYSICIAN_TERMS: readonly string[] = [
+  "attending", "chief", "surgeon", "professor", "medical director", "md", "do", "physician",
+];
+
+/**
  * Generic physician words for the EMPLOYER-QUALIFIED arm of a surgeon ask:
- * "Medical Doctor at Orthopedic Care Partners", "Physician & Founder" at a
- * Foot & Ankle institute. Only ever ANDed with a specialty-named employer,
- * never a free-standing gate. "md" is allowed here because the employer
- * clause pins it to a clinical practice (and the noise filter drops
- * managing directors).
+ * "Medical Doctor at Orthopedic Care Partners". Only ever ANDed with a
+ * specialty-named employer, never a free-standing gate. "physician" is out:
+ * it admitted "Physician Assistant", "Physician Consultant" (recruiters)
+ * and "Physician Relations" at every orthopedic practice.
  */
 export const PHYSICIAN_GENERIC_TERMS: readonly string[] = [
-  "physician", "surgeon", "attending", "medical doctor", "md", "chief of surgery",
+  "surgeon", "attending", "medical doctor", "md", "chief of surgery",
 ];
 
 /** Employer-name terms that identify a specialty practice for that arm. */

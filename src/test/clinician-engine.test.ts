@@ -94,16 +94,25 @@ describe("live failure 2026-10-12: orthopedic surgeons in Miami, Florida", async
       n.op === "or" && (n.conditions ?? []).some((c) => c.field && String(c.value) === "orthopedic surgeon")
     );
     expect(roleGroup).toBeTruthy();
-    const bare = new Set(["physician", "surgeon", "doctor"]);
+    const bare = new Set(["physician", "surgeon", "doctor", "md"]);
+    const departments = new Set(["orthopedic surgery", "orthopaedic surgery", "orthopedics", "orthopaedics"]);
     for (const member of roleGroup!.conditions ?? []) {
       if (member.field) {
+        // Free-standing members are person titles: never a bare physician
+        // word, never a department name.
         expect(bare.has(String(member.value))).toBe(false);
+        expect(departments.has(String(member.value))).toBe(false);
       } else {
+        // The two qualified arms are ANDs: generic word + specialty employer,
+        // or physician word + department name in the same title.
         expect(member.op).toBe("and");
-        const hasEmployer = (member.conditions ?? []).some((c) =>
-          (c.conditions ?? []).some((l) => l.field === "experience.employment_details.current.company_name")
+        const fieldsInArm = new Set(
+          (member.conditions ?? []).flatMap((c) => (c.conditions ?? []).map((l) => l.field)),
         );
-        expect(hasEmployer).toBe(true);
+        const employerArm = fieldsInArm.has("experience.employment_details.current.company_name");
+        const departmentArm = !employerArm &&
+          fieldsInArm.size === 1 && fieldsInArm.has("experience.employment_details.current.title");
+        expect(employerArm || departmentArm).toBe(true);
       }
     }
   });

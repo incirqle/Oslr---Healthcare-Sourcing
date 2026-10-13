@@ -105,6 +105,16 @@ export function normalizeCrustDataV2Profile(p: any): any {
   };
 }
 
+/**
+ * Pools are stored in CHUNKS of CACHE_CHUNK_ROWS profiles: the head row
+ * under the key (provider total + cursor), continuation rows under
+ * `${key}:c1`, `:c2`, …, and the chunk count in a tiny `${key}:chunks` row.
+ * Why: a 235-row pool (2026-10-13) never persisted — the single-row upsert
+ * failed silently past ~50 rows, so page 2 re-fetched, re-graded and came up
+ * empty. 50-row writes are the size known to succeed.
+ */
+export const CACHE_CHUNK_ROWS = 50;
+
 export async function getCrustDataCache(
   cacheKey: string,
   ttlMs: number = SEARCH_TTL_MS,
@@ -118,9 +128,31 @@ export async function getCrustDataCache(
   if (error || !data) return null;
   const age = Date.now() - new Date(data.created_at as string).getTime();
   if (age > ttlMs) return null;
+  // deno-lint-ignore no-explicit-any
+  let profiles: any[] = (data.data as any[]) ?? [];
+  const { data: meta } = await sb
+    .from("crustdata_cache")
+    .select("total, created_at")
+    .eq("cache_key", `${cacheKey}:chunks`)
+    .maybeSingle();
+  const chunks = meta && typeof meta.total === "number" ? meta.total : 1;
+  if (chunks > 1) {
+    const headWritten = new Date(data.created_at as string).getTime();
+    for (let i = 1; i < chunks; i++) {
+      const { data: part } = await sb
+        .from("crustdata_cache")
+        .select("data, created_at")
+        .eq("cache_key", `${cacheKey}:c${i}`)
+        .maybeSingle();
+      if (!part) break;
+      // A continuation older than the head belongs to a previous pool.
+      if (new Date(part.created_at as string).getTime() < headWritten - 60_000) break;
+      // deno-lint-ignore no-explicit-any
+      profiles = profiles.concat((part.data as any[]) ?? []);
+    }
+  }
   return {
-    // deno-lint-ignore no-explicit-any
-    profiles: (data.data as any[]) ?? [],
+    profiles,
     total_count: data.total as number,
     next_cursor: (data.next_cursor as string | null) ?? null,
   };
@@ -134,13 +166,42 @@ export async function setCrustDataCache(
   nextCursor: string | null,
 ): Promise<void> {
   const sb = getServiceClient();
-  await sb.from("crustdata_cache").upsert({
+  const now = new Date().toISOString();
+  const chunks = Math.max(1, Math.ceil(data.length / CACHE_CHUNK_ROWS));
+  const head = await sb.from("crustdata_cache").upsert({
     cache_key: cacheKey,
     total,
-    data,
+    data: data.slice(0, CACHE_CHUNK_ROWS),
     next_cursor: nextCursor,
-    created_at: new Date().toISOString(),
+    created_at: now,
   });
+  if (head.error) {
+    console.warn(`[cache] head write failed for ${cacheKey.slice(0, 20)}…: ${head.error.message}`);
+    return;
+  }
+  for (let i = 1; i < chunks; i++) {
+    const part = await sb.from("crustdata_cache").upsert({
+      cache_key: `${cacheKey}:c${i}`,
+      total,
+      data: data.slice(i * CACHE_CHUNK_ROWS, (i + 1) * CACHE_CHUNK_ROWS),
+      next_cursor: null,
+      created_at: now,
+    });
+    if (part.error) {
+      console.warn(`[cache] chunk ${i} write failed for ${cacheKey.slice(0, 20)}…: ${part.error.message}`);
+      return;
+    }
+  }
+  const meta = await sb.from("crustdata_cache").upsert({
+    cache_key: `${cacheKey}:chunks`,
+    total: chunks,
+    data: [],
+    next_cursor: null,
+    created_at: now,
+  });
+  if (meta.error) {
+    console.warn(`[cache] chunk-count write failed for ${cacheKey.slice(0, 20)}…: ${meta.error.message}`);
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -23,6 +23,7 @@
 
 import {
   CARE_SETTINGS,
+  DEPARTMENT_PHYSICIAN_TERMS,
   EMPLOYER_GROUPS,
   EMPLOYMENT_MODELS,
   type EmploymentModel,
@@ -34,6 +35,7 @@ import {
   containsWholePhrase,
   specialtyEmployerTerms,
   specialtyRoot,
+  surgeonDepartmentTerms,
   surgeonTitleTerms,
   TRAINING_STAGES,
   type EmployerGroupDef,
@@ -525,6 +527,12 @@ export interface RoleClassValue {
    * title is just "Physician" without re-admitting every physician.
    */
   employer_qualified?: { terms: string[]; employer_terms: string[] };
+  /**
+   * Department-qualified arm: a department name ("orthopedic surgery",
+   * "orthopedics") counts only when the SAME current title also carries a
+   * physician word ("Attending, Orthopedic Surgery"). ANDed on the title.
+   */
+  department_qualified?: { terms: string[]; department_terms: string[] };
 }
 
 export interface CredentialValue {
@@ -1065,6 +1073,10 @@ export function mapParsedToCriteria(
         value.employer_qualified = {
           terms: [...PHYSICIAN_GENERIC_TERMS],
           employer_terms: specialtyEmployerTerms(surgeonSpecialties),
+        };
+        value.department_qualified = {
+          terms: [...DEPARTMENT_PHYSICIAN_TERMS],
+          department_terms: surgeonDepartmentTerms(surgeonSpecialties),
         };
         label = [
           `${titleCase(specialtyRoot(surgeonSpecialties[0]))} Surgeons`,

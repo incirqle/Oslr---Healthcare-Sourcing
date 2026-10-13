@@ -417,6 +417,22 @@ export function buildClinicianQuery(
             clauses.push(and(or(...generic), or(...employer)));
           }
         }
+        // Department-qualified arm: "Attending, Orthopedic Surgery" — the
+        // department name and a physician word in the SAME current title.
+        const dq = v.department_qualified;
+        if (dq && dq.terms.length > 0 && dq.department_terms.length > 0) {
+          const words: V2FilterNode[] = [];
+          for (const t of dq.terms) {
+            for (const variant of lexicalVariants(t)) words.push(leaf(F.curTitle, "[.]", variant));
+          }
+          const depts: V2FilterNode[] = [];
+          for (const t of dq.department_terms) {
+            for (const variant of lexicalVariants(t)) depts.push(leaf(F.curTitle, "[.]", variant));
+          }
+          if (words.length > 0 && depts.length > 0) {
+            clauses.push(and(or(...words), or(...depts)));
+          }
+        }
         if (clauses.length === 0) break;
         hard.push(clauses.length === 1 ? clauses[0] : or(...clauses));
         break;

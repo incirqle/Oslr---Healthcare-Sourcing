@@ -37,7 +37,7 @@ import {
 } from "./credit-budget.ts";
 import { splitRoleClassNoise } from "./noise-filter.ts";
 import { applyEmploymentModel } from "./employment-model.ts";
-import { dedupeRows, rowIdentity } from "./dedupe.ts";
+import { dedupeRows, rowIdentity, setAsideSuspectedDuplicates } from "./dedupe.ts";
 import {
   mapParsedToCriteria,
   reconcileParsedClinicianIntent,
@@ -1014,13 +1014,24 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // with the evidence. Unknown reads stay for the grader.
       const employment = applyEmploymentModel(allResults as Array<Record<string, unknown>>, criteria);
       allResults = employment.kept as typeof allResults;
-      if (employment.rejected.length > 0) {
-        noiseRows = [...noiseRows, ...(employment.rejected as typeof allResults)];
+      const employmentRows = employment.rejected as typeof allResults;
+      if (employmentRows.length > 0) {
         console.log(JSON.stringify({
           event: "employment_model_filter",
-          filtered: employment.rejected.length,
+          filtered: employmentRows.length,
           kept: allResults.length,
         }));
+      }
+
+      // ── Same person, two profiles (2026-10-13) ──────────────────────
+      // "J. Pieter Hommen @ OrthoMiami" and "Jan Pieter Hommen @ Hommen
+      // Orthopedic Institute" share no URL, id, spelling or employer. The
+      // name-shape rule sets the later one aside, naming the first.
+      const twins = setAsideSuspectedDuplicates(allResults as Array<Record<string, unknown>>);
+      allResults = twins.rows as typeof allResults;
+      const duplicateRows = twins.suspects as typeof allResults;
+      if (duplicateRows.length > 0) {
+        console.log(JSON.stringify({ event: "suspected_duplicates", set_aside: duplicateRows.length }));
       }
 
       // ── One-pass AI audit: grader + reranker in the SAME read ───────
@@ -1089,24 +1100,31 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // them with the grader's reason attached. (A page that found people
       // and rendered blank was the Neuvora beta's #1 complaint.)
       const isReject = (r: Record<string, unknown>) => r.audit_verdict === "reject";
-      const auditedCount = allResults.length;
-      const hiddenResults = [...allResults.filter(isReject), ...noiseRows];
+      const graderRows = allResults.filter(isReject);
       allResults = allResults.filter((r: Record<string, unknown>) => !isReject(r));
+      // Set-aside rows, by reason, in the order the recruiter would want to
+      // see them if revealed: grader rejects (closest), hospital-employed,
+      // duplicates, then non-clinicians.
+      const hiddenResults = [...graderRows, ...employmentRows, ...duplicateRows, ...noiseRows];
       const rejectedFiltered = hiddenResults.length;
+      const filteredBreakdown = {
+        grader: graderRows.length,
+        employment_model: employmentRows.length,
+        duplicates: duplicateRows.length,
+        role_class_noise: noiseRows.length,
+      };
 
-      // ── Honest total ───────────────────────────────────────────────
-      // The provider's total is the size of the FILTER's population, not the
-      // recruiter's. When the whole pool was fetched, the total IS the kept
-      // count. When it was not, extrapolate the keep rate over the provider
-      // total and say so (total_is_estimate) — never "573" for 13 people.
-      const fetchedPool = auditedCount + noiseRows.length;
-      const keepRate = fetchedPool > 0 ? allResults.length / fetchedPool : 0;
-      const totalIsEstimate = !pastHoldersFallback && !poolComplete && lexicalTotal > lexicalFetched;
-      const displayTotal = pastHoldersFallback || !totalIsEstimate
-        ? allResults.length
-        : Math.max(allResults.length, Math.round(lexicalTotal * keepRate));
+      // ── The number is the kept count. Nothing else. ─────────────────
+      // Estimates ("~131") were worse than no number (2026-10-13). What the
+      // page says is what the recruiter can open. provider_total and
+      // pool_complete ride the response for the log and a future "search
+      // deeper" action, never the headline.
+      const totalIsEstimate = false;
+      const displayTotal = allResults.length;
 
-      const results = allResults.slice(page * size, (page + 1) * size);
+      // The page gets EVERY kept row and pages in the browser: a second
+      // request re-read the cache, re-graded and came up empty (2026-10-13).
+      const results = allResults;
 
       await logClinicianSearch(adminClient, {
         userId: user.id,
@@ -1132,6 +1150,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           lexical_fetched: lexicalFetched,
           pool_complete: poolComplete,
           noise_filtered: noiseRows.length,
+          filtered: filteredBreakdown,
           total_is_estimate: totalIsEstimate,
         },
         result_count: results.length,
@@ -1158,7 +1177,9 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         // extrapolation of the keep rate over the provider's total.
         total_is_estimate: totalIsEstimate,
         provider_total: lexicalTotal,
+        pool_complete: poolComplete,
         noise_filtered: noiseRows.length,
+        filtered: filteredBreakdown,
         // How many rows can actually be paged through (the kept pool).
         browsable_total: allResults.length,
         page,
@@ -1172,7 +1193,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           : null,
         rejected_filtered: rejectedFiltered,
         hidden_results: hiddenResults,
-        hasMore: (page + 1) * size < allResults.length,
+        // Every kept row is in `results`; the browser pages them.
+        hasMore: false,
         scroll_token: null,
         engine: "clinician",
         engine_version: CLINICIAN_ENGINE_VERSION,
