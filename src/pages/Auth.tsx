@@ -10,6 +10,7 @@ import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable/index";
+import { useAuth } from "@/hooks/useAuth";
 
 const features = [
   { icon: Search, title: "AI-Powered Search", desc: "Find healthcare professionals with natural language queries" },
@@ -43,10 +44,16 @@ export default function Auth() {
     })();
   }, [inviteToken]);
 
+  // Already signed in (including the return trip from Google): go into the app.
+  const { user, loading: authLoading } = useAuth();
+  useEffect(() => {
+    if (!authLoading && user) navigate("/dashboard", { replace: true });
+  }, [user, authLoading, navigate]);
+
   const handleGoogle = async () => {
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: `${window.location.origin}/auth`,
     });
     if (result.error) {
       toast.error(result.error.message ?? "Google sign-in failed");
