@@ -391,7 +391,7 @@ export default function Landing() {
               <Link to="/auth">Log In</Link>
             </Button>
             <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5 shadow-lg shadow-primary/20" asChild>
-              <Link to="/auth">Get Started</Link>
+              <Link to="/auth?mode=signup">Get Started</Link>
             </Button>
           </div>
         </div>
@@ -451,7 +451,7 @@ export default function Landing() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <GlowButton size="lg" asChild>
-              <Link to="/auth">
+              <Link to="/auth?mode=signup">
                 Get Started <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </GlowButton>
@@ -651,7 +651,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <GlowButton size="lg" asChild>
-              <Link to="/auth">
+              <Link to="/auth?mode=signup">
                 Get Started <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </GlowButton>
@@ -680,7 +680,7 @@ export default function Landing() {
           <div className="space-y-2 text-sm">
             <p className="font-semibold text-white/30 uppercase text-xs tracking-wider mb-2">Company</p>
             <Link to="/auth" className="block text-white/50 hover:text-white transition-colors">Log In</Link>
-            <Link to="/auth" className="block text-white/50 hover:text-white transition-colors">Sign Up</Link>
+            <Link to="/auth?mode=signup" className="block text-white/50 hover:text-white transition-colors">Sign Up</Link>
           </div>
         </div>
         <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/[0.04] text-center text-white/25 text-xs">
