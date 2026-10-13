@@ -590,6 +590,17 @@ export default function SearchPage() {
         total={total}
       />
 
+      <SaveToProjectDialog
+        open={!!pendingSave}
+        onOpenChange={(open) => !open && setPendingSave(null)}
+        candidates={pendingSave?.candidates ?? []}
+        onPick={async (id, name) => {
+          if (!pendingSave) return;
+          await handleSaveCandidates(pendingSave.candidates, pendingSave.contact, { id, name });
+          setPendingSave(null);
+        }}
+      />
+
       <CandidateDrawer
         open={!!drawerCandidate}
         onOpenChange={(open) => !open && setDrawerCandidate(null)}
