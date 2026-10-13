@@ -187,6 +187,77 @@ export type Database = {
         }
         Relationships: []
       }
+      beta_access: {
+        Row: {
+          activated_at: string
+          company_id: string
+          enrich_limit: number
+          expires_at: string
+          search_limit: number
+          user_id: string
+        }
+        Insert: {
+          activated_at?: string
+          company_id: string
+          enrich_limit?: number
+          expires_at?: string
+          search_limit?: number
+          user_id: string
+        }
+        Update: {
+          activated_at?: string
+          company_id?: string
+          enrich_limit?: number
+          expires_at?: string
+          search_limit?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beta_access_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      beta_feedback: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          easy_to_use: string | null
+          experience: string | null
+          id: string
+          intuitive: string | null
+          suggestions: string | null
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          easy_to_use?: string | null
+          experience?: string | null
+          id?: string
+          intuitive?: string | null
+          suggestions?: string | null
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          easy_to_use?: string | null
+          experience?: string | null
+          id?: string
+          intuitive?: string | null
+          suggestions?: string | null
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       billing_exemptions: {
         Row: {
           company_id: string
@@ -1592,6 +1663,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      beta_status: {
+        Args: never
+        Returns: {
+          active: boolean
+          enrich_limit: number
+          enriches_used: number
+          expires_at: string
+          search_limit: number
+          searches_used: number
+        }[]
+      }
       get_invite_by_token: {
         Args: { _token: string }
         Returns: {
@@ -1629,6 +1711,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      redeem_beta_code: { Args: { _code: string }; Returns: boolean }
       spend_credits: {
         Args: { _amount: number; _company_id: string }
         Returns: number
