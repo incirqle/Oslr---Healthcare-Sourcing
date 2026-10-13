@@ -9,7 +9,6 @@ import Dashboard from "./pages/Dashboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./hooks/useAuth";
 import SearchPage from "./pages/SearchPage";
-import SearchEntry from "./pages/SearchEntry";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Contacts from "./pages/Contacts";
