@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
@@ -351,6 +352,12 @@ function GlowButton({ children, size = "lg", className = "", ...props }: { child
 
 export default function Landing() {
   const [navScrolled, setNavScrolled] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  // Someone already signed in goes straight back into the app.
+  useEffect(() => {
+    if (!authLoading && user) navigate("/dashboard", { replace: true });
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     const handleScroll = () => setNavScrolled(window.scrollY > 20);

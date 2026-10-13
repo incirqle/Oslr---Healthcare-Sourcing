@@ -23,9 +23,10 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const SIGNUPS_DISABLED = false;
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(searchParams.get("mode") === "signup" || !!inviteToken);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [inviteInfo, setInviteInfo] = useState<{ email: string; companyName: string } | null>(null);
@@ -93,7 +94,19 @@ export default function Auth() {
         navigate("/dashboard");
       }
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = String(error?.message ?? "");
+      if (/invalid login credentials/i.test(msg)) {
+        toast.error("Email or password doesn't match. New here? Choose \"Create account\" at the top.");
+      } else if (/already registered|already exists/i.test(msg)) {
+        toast.error("You already have an account with this email. Choose \"Sign in\" at the top.");
+        setIsSignUp(false);
+      } else if (/email not confirmed/i.test(msg)) {
+        toast.error("Please open the confirmation email we sent you, then sign in.");
+      } else if (/password/i.test(msg)) {
+        toast.error("Please use a password with at least 6 characters.");
+      } else {
+        toast.error(msg || "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
