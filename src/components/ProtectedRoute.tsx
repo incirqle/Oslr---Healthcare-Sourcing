@@ -15,7 +15,23 @@ const okKey = (uid: string) => `oslr_access_ok:${uid}`;
  * owner has approved (billing_exemptions). Everyone else goes straight
  * to checkout.
  */
-function usePaidAccess(userId: string | undefined): [Access, string | null] {
+class SignedOutError extends Error {}
+
+/** Call the billing function; a rejected login becomes SignedOutError, other failures carry the real reason. */
+async function callBilling(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("billing", { body });
+  if (error) {
+    const res = (error as { context?: Response }).context;
+    let reason: string | undefined;
+    try { reason = res ? (await res.clone().json())?.error : undefined; } catch { /* not json */ }
+    if (res?.status === 401) throw new SignedOutError(reason || "Please sign in again.");
+    throw new Error(reason || "Checkout is unavailable right now. Try again shortly.");
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+function usePaidAccess(userId: string | undefined, onSignedOut: () => void): [Access, string | null] {
   const [access, setAccess] = useState<Access>("checking");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -27,24 +43,25 @@ function usePaidAccess(userId: string | undefined): [Access, string | null] {
       try {
         const { data: prof } = await supabase.from("profiles").select("company_id").eq("user_id", userId).maybeSingle();
         const companyId = prof?.company_id;
-        if (companyId) {
-          const { data: ex } = await supabase.from("billing_exemptions" as never).select("company_id").eq("company_id", companyId).maybeSingle();
-          if (ex) { sessionStorage.setItem(okKey(userId), "1"); if (!cancelled) setAccess("ok"); return; }
-        }
-        const { data: status } = await supabase.functions.invoke("billing", { body: { action: "status" } });
+        if (!companyId) throw new SignedOutError("No workspace found.");
+        const { data: ex } = await supabase.from("billing_exemptions" as never).select("company_id").eq("company_id", companyId).maybeSingle();
+        if (ex) { sessionStorage.setItem(okKey(userId), "1"); if (!cancelled) setAccess("ok"); return; }
+        const status = await callBilling({ action: "status" });
         if (status?.subscribed) { sessionStorage.setItem(okKey(userId), "1"); if (!cancelled) setAccess("ok"); return; }
         if (cancelled) return;
         setAccess("redirecting");
-        const { data, error } = await supabase.functions.invoke("billing", { body: { action: "checkout", origin: window.location.origin } });
-        if (error || !data?.url) throw new Error(data?.error || "Checkout is unavailable right now.");
-        window.location.href = data.url;
+        const checkout = await callBilling({ action: "checkout", origin: window.location.origin });
+        if (!checkout?.url) throw new Error("Checkout is unavailable right now. Try again shortly.");
+        window.location.href = checkout.url;
       } catch (e) {
         if (cancelled) return;
+        if (e instanceof SignedOutError) { onSignedOut(); return; }
         setMsg(e instanceof Error ? e.message : "Checkout is unavailable right now.");
         setAccess("error");
       }
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   return [access, msg];
@@ -59,7 +76,7 @@ const Spinner = ({ label }: { label?: string }) => (
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
-  const [access, msg] = usePaidAccess(user?.id);
+  const [access, msg] = usePaidAccess(user?.id, () => { void signOut(); });
 
   // Editor preview without a sign-in stays open for building.
   if (IS_PREVIEW && !user && !loading) return <>{children}</>;
