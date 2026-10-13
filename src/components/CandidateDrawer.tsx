@@ -1427,33 +1427,10 @@ export function CandidateDrawer({
                   state={contactEnrich.state}
                   busy={contactEnrich.busy}
                   onEnrich={contactEnrich.run}
+                  onCopy={(v, l) => void handleCopy(v, l)}
+                  fallbackEmail={allEmails.find((e) => e.label === "Other")?.address ?? null}
+                  fallbackPhone={cd.phone_numbers?.length ? null : allPhones[0]?.number ?? null}
                 />
-                {allEmails.length > 0 || allPhones.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {allEmails.map((e) => (
-                      <ContactCard
-                        key={`email-${e.address}`}
-                        icon={<Mail className="h-4 w-4" />}
-                        label={`${e.label} email`}
-                        value={e.address}
-                        href={`mailto:${e.address}`}
-                        onCopy={() => handleCopy(e.address, `${e.label} email`)}
-                      />
-                    ))}
-                    {allPhones.map((p) => (
-                      <ContactCard
-                        key={`phone-${p.number}`}
-                        icon={<Phone className="h-4 w-4" />}
-                        label={p.label}
-                        value={p.number}
-                        href={`tel:${p.number}`}
-                        onCopy={() => handleCopy(p.number, p.label)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  null
-                )}
               </TabsContent>
             </div>
           </Tabs>
