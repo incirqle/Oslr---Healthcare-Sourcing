@@ -212,10 +212,8 @@ function guessDomain(name: string | null | undefined, school = false): string | 
   const key = name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");
   if (!key) return null;
   if (SCHOOL_DOMAINS[key]) return SCHOOL_DOMAINS[key];
-  if (school) return null;
-  const words = name.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w && !["inc","llc","the","of","pc","pa","group"].includes(w));
-  if (!words.length || words.join("").length > 24) return null;
-  return `${words.join("")}.com`;
+  void school;
+  return null;
 }
 
 function logoUrl(domain: string | null): string | null {
