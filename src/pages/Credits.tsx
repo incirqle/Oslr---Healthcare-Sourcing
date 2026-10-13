@@ -24,6 +24,12 @@ export function CreditsPanel() {
   const [rows, setRows] = useState<Tx[]>([]);
   const [plan, setPlan] = useState<{ subscribed: boolean; renews_at: string | null; cancel_at_period_end: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [exempt, setExempt] = useState(false);
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.from("billing_exemptions" as never).select("company_id").eq("company_id", companyId).maybeSingle()
+      .then(({ data }) => setExempt(!!data));
+  }, [companyId]);
 
   useEffect(() => {
     supabase.functions.invoke("billing", { body: { action: "status" } }).then(({ data }) => {
@@ -80,6 +86,7 @@ export function CreditsPanel() {
                     ? plan.cancel_at_period_end
                       ? `Ends ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : "soon"}`
                       : `Active · renews ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : ""}`
+                    : exempt ? "Approved access — no payment needed"
                     : "150 contact credits every month"}
               </p>
             </div>
@@ -87,7 +94,7 @@ export function CreditsPanel() {
               <Button variant="outline" disabled={busy} onClick={() => go("portal")}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Manage billing"}
               </Button>
-            ) : (
+            ) : exempt ? null : (
               <Button disabled={busy || plan === null} onClick={() => go("checkout")}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Subscribe"}
               </Button>
