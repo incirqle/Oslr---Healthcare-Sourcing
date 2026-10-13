@@ -11,6 +11,14 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      // The edge-function suites import Deno's std asserts by URL; run them
+      // here against a local stand-in (src/test/clinician-engine.test.ts).
+      {
+        find: /^https:\/\/deno\.land\/std@[\d.]+\/testing\/asserts\.ts$/,
+        replacement: path.resolve(__dirname, "./src/test/deno-asserts.ts"),
+      },
+    ],
   },
 });

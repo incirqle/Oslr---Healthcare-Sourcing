@@ -1,6 +1,7 @@
 import type { ReasoningLine } from "@/components/search/AgentReasoningPanel";
 import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import type { ParsedFilters } from "@/components/search/FilterReview";
+import { roleClassLabel } from "@/components/search/role-classes";
 
 /**
  * Build the streamed reasoning script — kept intentionally terse (≤3 lines).
@@ -98,6 +99,14 @@ export function classifyFilters(rawQuery: string, filters: ParsedFilters): Activ
     }
   };
 
+  if (filters.role_class) {
+    out.push({
+      id: `role-${filters.role_class}`,
+      label: roleClassLabel(filters.role_class) ?? titleCase(filters.role_class),
+      group: "Role",
+      fromUser: true,
+    });
+  }
   add("Company", filters.companies, "co");
   add("Location", filters.locations, "loc");
   add("Specialty", filters.specialties, "spec");

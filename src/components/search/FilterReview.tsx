@@ -9,6 +9,8 @@ export interface ParsedFilters {
   keywords: string[];
   experience_years?: number | null;
   specialties: string[];
+  /** License-class population the engine gates on ("surgeon", "nurse"…). */
+  role_class?: string | null;
 }
 
 interface FilterReviewProps {

@@ -487,6 +487,19 @@ export const ROLE_CLASSES: Record<string, RoleClassDef> = {
     label: "Physician Assistants",
     terms: ["physician assistant", "physician associate", "pa-c"],
   },
+  surgeon: {
+    label: "Surgeons",
+    // "X surgeons" is a SURGICAL population, not the whole physician class.
+    // When a specialty is stated the mapper REPLACES this bare term with the
+    // composed forms from surgeonTitleTerms() ("orthopedic surgeon",
+    // "orthopedist", "spine surgeon"…) plus an employer-qualified arm; the
+    // bare word stands only for an unqualified "surgeons" ask. Live failure
+    // 2026-10-12 (orthopedic surgeons, Miami): the physician class matched
+    // "Doctor of Physical Therapy", "Physician Assistant", "Physician
+    // Recruiter" and "partnering with surgeons" headlines — 37 of 50 rows.
+    terms: ["surgeon"],
+    note: "Matched on surgeon-shaped titles composed with the stated specialty; non-surgeon clinicians, recruiters and vendors are filtered before grading.",
+  },
   resident: {
     label: "Residents",
     terms: ["resident physician", "medical resident", "resident", "house officer", "chief resident"],
@@ -751,3 +764,188 @@ export const FILTERABLE_CREDENTIALS: ReadonlySet<string> = new Set([
 export const GRADER_ONLY_CREDENTIALS: ReadonlySet<string> = new Set([
   "md", "do", "pa", "ma", "dc",
 ]);
+
+/* ------------------------------------------------------------------ */
+/*  Surgeon composition + role-class noise (2026-10-12)                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Extra title forms per specialty ROOT (the specialty phrase with a trailing
+ * "surgery"/"surgeon(s)" stripped). The generic rule already yields
+ * "<root> surgeon" and "<root> surgery"; this table adds the -ist forms and
+ * the subspecialty surgeon titles people actually carry. The builder's
+ * lexicalVariants() adds ae/e spellings and plurals, so "orthopedist" also
+ * covers "orthopaedist(s)" and "orthopedics" is reached from "orthopedic".
+ */
+export const SURGEON_TITLE_FORMS: Record<string, string[]> = {
+  orthopedic: [
+    "orthopedist", "orthopedics",
+    "spine surgeon", "hand surgeon", "foot and ankle surgeon", "sports medicine surgeon",
+    "joint replacement surgeon", "arthroplasty surgeon", "shoulder surgeon",
+    "orthopedic traumatologist", "pediatric orthopedic surgeon", "orthopedic oncologist",
+  ],
+  orthopaedic: ["orthopaedist", "orthopaedics"],
+  ortho: ["orthopedic surgeon", "orthopedist"],
+  spine: ["spine surgeon", "spinal surgeon"],
+  neuro: ["neurosurgeon", "neurosurgery", "neurological surgeon"],
+  neurological: ["neurosurgeon", "neurosurgery"],
+  neurosurgery: ["neurosurgeon"],
+  plastic: ["plastic surgeon", "cosmetic surgeon", "aesthetic surgeon", "reconstructive surgeon"],
+  cardiothoracic: ["cardiac surgeon", "heart surgeon", "thoracic surgeon", "cardiovascular surgeon"],
+  cardiac: ["cardiothoracic surgeon", "heart surgeon", "cardiovascular surgeon"],
+  cardiovascular: ["cardiothoracic surgeon", "cardiac surgeon", "heart surgeon"],
+  vascular: ["vascular surgeon", "endovascular surgeon"],
+  general: ["general surgeon"],
+  colorectal: ["colorectal surgeon", "colon and rectal surgeon"],
+  bariatric: ["bariatric surgeon", "metabolic surgeon"],
+  thoracic: ["thoracic surgeon"],
+  transplant: ["transplant surgeon"],
+  trauma: ["trauma surgeon", "acute care surgeon"],
+  oral: ["oral surgeon", "oral and maxillofacial surgeon", "maxillofacial surgeon"],
+  maxillofacial: ["oral and maxillofacial surgeon"],
+  ent: ["otolaryngologist", "head and neck surgeon", "ent surgeon"],
+  otolaryngology: ["otolaryngologist", "head and neck surgeon"],
+  urologic: ["urologist", "urological surgeon"],
+  urology: ["urologist", "urological surgeon"],
+  ophthalmic: ["ophthalmologist", "eye surgeon"],
+  ophthalmology: ["ophthalmologist", "eye surgeon"],
+  gynecologic: ["gynecologic surgeon", "gynecologic oncologist"],
+  pediatric: ["pediatric surgeon"],
+  hand: ["hand surgeon", "upper extremity surgeon"],
+  "foot and ankle": ["foot and ankle surgeon"],
+  breast: ["breast surgeon", "breast surgical oncologist"],
+  surgical: ["surgical oncologist"],
+};
+
+/** Abbreviated employer-name tokens per specialty root ("Ortho Miami"). */
+const SPECIALTY_EMPLOYER_ABBREVIATIONS: Record<string, string[]> = {
+  orthopedic: ["ortho", "orthopedics", "orthopaedics", "bone and joint", "bone & joint", "sports medicine"],
+  orthopaedic: ["ortho", "orthopaedics"],
+  neuro: ["neurosurgery", "neurosurgical", "brain and spine"],
+  plastic: ["plastic surgery", "aesthetic", "cosmetic surgery"],
+  spine: ["spine", "brain and spine"],
+};
+
+/**
+ * Reduce a stated specialty phrase to its surgical ROOT:
+ *   "orthopedic surgery" → "orthopedic"; "spine surgeons" → "spine";
+ *   "neurosurgery" → "neurosurgery" (compound word, kept whole).
+ */
+export function specialtyRoot(phrase: string): string {
+  return phrase.toLowerCase().trim()
+    .replace(/\s+surgeons?$/, "")
+    .replace(/\s+surgery$/, "")
+    .replace(/\s+surgical$/, "")
+    .trim();
+}
+
+/**
+ * Title/headline match terms for "<specialty> surgeons". Composed, never a
+ * bare "surgeon"/"doctor"/"physician": every term names the surgical
+ * population itself. The builder adds spelling and plural variants.
+ */
+export function surgeonTitleTerms(specialties: readonly string[]): string[] {
+  const out: string[] = [];
+  const add = (t: string) => {
+    const v = t.toLowerCase().trim();
+    if (v && !out.includes(v)) out.push(v);
+  };
+  for (const phrase of specialties) {
+    const root = specialtyRoot(phrase);
+    if (!root) continue;
+    if (/surgery$/.test(root) && !/\s/.test(root)) {
+      // "neurosurgery": the compound noun is itself a title token and the
+      // table carries the -surgeon form.
+      add(root);
+    } else {
+      add(`${root} surgeon`);
+      add(`${root} surgery`);
+    }
+    for (const extra of SURGEON_TITLE_FORMS[root] ?? []) add(extra);
+  }
+  return out;
+}
+
+/**
+ * Generic physician words for the EMPLOYER-QUALIFIED arm of a surgeon ask:
+ * "Medical Doctor at Orthopedic Care Partners", "Physician & Founder" at a
+ * Foot & Ankle institute. Only ever ANDed with a specialty-named employer,
+ * never a free-standing gate. "md" is allowed here because the employer
+ * clause pins it to a clinical practice (and the noise filter drops
+ * managing directors).
+ */
+export const PHYSICIAN_GENERIC_TERMS: readonly string[] = [
+  "physician", "surgeon", "attending", "medical doctor", "md", "chief of surgery",
+];
+
+/** Employer-name terms that identify a specialty practice for that arm. */
+export function specialtyEmployerTerms(specialties: readonly string[]): string[] {
+  const out: string[] = [];
+  const add = (t: string) => {
+    const v = t.toLowerCase().trim();
+    if (v && !out.includes(v)) out.push(v);
+  };
+  for (const phrase of specialties) {
+    const root = specialtyRoot(phrase);
+    if (!root) continue;
+    add(root);
+    add(`${root} surgery`);
+    for (const extra of SPECIALTY_EMPLOYER_ABBREVIATIONS[root] ?? []) add(extra);
+  }
+  return out;
+}
+
+/**
+ * Role-class NOISE: title/headline patterns that prove a row is NOT in the
+ * asked license class even though a loose word matched. Applied in-process
+ * (noise-filter.ts) before the grader, so the engine never pays a model
+ * call to reject a physical therapist for a surgeon ask. Every pattern was
+ * seen live on 2026-10-12 (Miami orthopedic surgeons) or in the probe log.
+ * Keyed by role class; classes absent here are never filtered.
+ */
+const PHYSICIAN_NOISE: readonly RegExp[] = [
+  /\bphysician (assistant|associate)s?\b/i,
+  /\bpa-c\b/i,
+  /\bphysical therap/i,
+  /\bdoctor of physical therapy\b/i,
+  /\bdpt\b/i,
+  /\boccupational therap/i,
+  /\brespiratory therap/i,
+  /\bathletic trainer/i,
+  /\bchiropract/i,
+  /\bpodiatr/i,
+  /\bdpm\b/i,
+  /\bacupunctur/i,
+  /\bnurse\b/i,
+  /\bnursing\b/i,
+  /\b(rn|np|aprn|fnp|crna|lpn)\b/i,
+  /\brecruit/i,
+  /\bstaffing\b/i,
+  /\btalent acquisition\b/i,
+  /\bplacement\b/i,
+  /\bsales\b/i,
+  /\baccount (executive|manager)\b/i,
+  /\bterritory\b/i,
+  /\bbusiness development\b/i,
+  /\bmarketing\b/i,
+  /\bmanaging director\b/i,
+  /\bmedical device/i,
+  /\bdistributor/i,
+  /\bscribe/i,
+  /\bmedical student/i,
+  /\bpharmac/i,
+  /\bdentist|\bdds\b|\bdmd\b/i,
+  /\bdoctor of business|\bdba\b/i,
+  /\bveterinar/i,
+];
+
+export const ROLE_CLASS_NOISE: Record<string, readonly RegExp[]> = {
+  physician: PHYSICIAN_NOISE,
+  surgeon: PHYSICIAN_NOISE,
+  resident: [
+    /\bpharmacy resident/i,
+    /\brecruit/i,
+    /\bstaffing\b/i,
+    /\bsales\b/i,
+  ],
+};

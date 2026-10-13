@@ -26,6 +26,7 @@ import { containsWholePhrase, matchSubspecialty } from "./clinical-vocabulary.ts
 import { widenOptions } from "./widen-criteria.ts";
 import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts";
 import { classifyEmployer } from "./employer-class.ts";
+import { noisePatternsFor, splitRoleClassNoise } from "./noise-filter.ts";
 
 /* ---------- helpers ---------- */
 
@@ -1195,4 +1196,82 @@ Deno.test("pain medicine: maps to ONE subspecialty criterion carrying procedure 
   const values = new Set(leaves(tree).map((l) => String(l.value).toLowerCase()));
   assert(values.has("interventional pain"));
   assert(values.has("epidural"));
+});
+
+/* ---------- surgeon composition (live failure 2026-10-12, Miami) ---------- */
+
+Deno.test("orthopedic surgeons: the role gate is surgeon-shaped, never bare doctor/physician", () => {
+  const parsed = validateAIOutput({
+    role_class: "surgeon",
+    specialty: "orthopedic surgery",
+    specialties: ["orthopedic surgery"],
+    specialty_tense: "current",
+    location: { city: "miami", state: "florida" },
+  }) as unknown as Record<string, unknown>;
+  expandParsedKeywords(parsed, "Find orthopedic surgeons in Miami, Florida.");
+  const criteria = mapParsedToCriteria(reconcileParsedClinicianIntent(parsed, "Find orthopedic surgeons in Miami, Florida."));
+  const role = criteria.find((c) => c.kind === "role_class");
+  assertExists(role);
+  assertEquals(role.label, "Orthopedic Surgeons");
+  const v = role.value as { terms: string[]; employer_qualified?: { terms: string[]; employer_terms: string[] } };
+  for (const t of ["orthopedic surgeon", "orthopedic surgery", "orthopedist", "spine surgeon", "hand surgeon"]) {
+    assert(v.terms.includes(t), `missing composed term: ${t}`);
+  }
+  assert(!v.terms.includes("doctor"), "bare 'doctor' admitted Doctors of Physical Therapy");
+  assert(!v.terms.includes("physician"), "bare 'physician' admitted Physician Assistants and recruiters");
+  assert(!v.terms.includes("surgeon"), "bare 'surgeon' admitted reps 'partnering with surgeons'");
+  assertExists(v.employer_qualified);
+  assert(v.employer_qualified.employer_terms.includes("orthopedic"));
+
+  const tree = buildClinicianQuery(criteria);
+  const titleLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.title");
+  const titleValues = new Set(titleLeaves.map((l) => String(l.value).toLowerCase()));
+  assert(titleValues.has("orthopaedic surgeon"), "ae spelling of the composed term");
+  assert(titleValues.has("orthopedists"), "plural of the -ist form");
+  assert(!titleValues.has("doctor"));
+  // Employer-qualified arm: generic physician words only beside a specialty employer.
+  const companyLeaves = leaves(tree).filter((l) => l.field === "experience.employment_details.current.company_name");
+  assert(companyLeaves.some((l) => String(l.value) === "orthopedic"), "employer arm names the specialty");
+});
+
+Deno.test("surgeon composition: compound specialties and multi-class asks", () => {
+  const neuro = mapParsedToCriteria({ role_class: "surgeon", specialties: ["neurosurgery"] });
+  const nv = neuro.find((c) => c.kind === "role_class")!.value as { terms: string[] };
+  assert(nv.terms.includes("neurosurgeon"));
+  assert(nv.terms.includes("neurosurgery"));
+  // "surgeons and PAs" keeps the PA class terms beside the composed surgeon terms.
+  const both = mapParsedToCriteria({ role_classes: ["surgeon", "physician_assistant"], specialties: ["orthopedic surgery"] });
+  const bv = both.find((c) => c.kind === "role_class")!.value as { terms: string[] };
+  assert(bv.terms.includes("orthopedic surgeon"));
+  assert(bv.terms.includes("physician assistant"));
+  // Unqualified "surgeons" keeps the bare word (nothing to compose with).
+  const bare = mapParsedToCriteria({ role_class: "surgeon" });
+  assertEquals((bare.find((c) => c.kind === "role_class")!.value as { terms: string[] }).terms, ["surgeon"]);
+});
+
+Deno.test("role-class noise filter: therapists, PAs, recruiters and reps never reach the grader", () => {
+  const criteria = mapParsedToCriteria({ role_class: "surgeon", specialties: ["orthopedic surgery"] });
+  const rows = [
+    { full_name: "a", job_title: "Physical Therapist", headline: "Doctor of Physical Therapy" },
+    { full_name: "b", job_title: "Physician Assistant Certified", headline: "Urology" },
+    { full_name: "c", job_title: "Physician Consultant", headline: "Recruiter @ Weatherby Healthcare | Orthopedic Surgery" },
+    { full_name: "d", job_title: "Founder and Area Sales Representative", headline: "Partnering with Hand & Plastic Surgeons" },
+    { full_name: "e", job_title: "Regional Sales Director", headline: "Doctor of Business Administration" },
+    { full_name: "f", job_title: "Orthopaedic Surgeon", headline: "Orthopaedic Surgeon (Hip and Knee Replacement) at HCA" },
+    { full_name: "g", job_title: "Medical Doctor", headline: "Medical Doctor at Orthopedic Care Partners" },
+    { full_name: "h", job_title: "Team Physician", headline: "Orthopedic Sports Medicine Surgeon" },
+  ] as Array<Record<string, unknown>>;
+  const { clean, noise } = splitRoleClassNoise(rows, criteria);
+  assertEquals(clean.map((r) => r.full_name), ["f", "g", "h"]);
+  assertEquals(noise.length, 5);
+  for (const n of noise) {
+    assertEquals(n.audit_verdict, "reject");
+    assert(String(n.audit_reason).startsWith("Not a surgeon"), String(n.audit_reason));
+  }
+  // A therapist ask never filters therapists; a multi-class ask keeps the
+  // classes it was asked for.
+  assertEquals(noisePatternsFor(["therapist"]).length, 0);
+  const paAsk = mapParsedToCriteria({ role_classes: ["surgeon", "physician_assistant"], specialties: ["orthopedic surgery"] });
+  const paSplit = splitRoleClassNoise([rows[1]], paAsk);
+  assertEquals(paSplit.noise.length, 0, "PAs were asked for");
 });

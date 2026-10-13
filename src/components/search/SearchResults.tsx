@@ -100,6 +100,8 @@ interface SearchResultsProps {
   query: string;
   candidates: Candidate[];
   total: number;
+  /** True when `total` extrapolates a keep rate over an unfetched pool. */
+  totalIsEstimate?: boolean;
   selected: Set<string>;
   savedIds?: Set<string>;
   projectName?: string;
@@ -415,6 +417,7 @@ export function SearchResults({
   query,
   candidates,
   total,
+  totalIsEstimate = false,
   selected,
   savedIds = new Set(),
   projectName,
@@ -592,7 +595,7 @@ export function SearchResults({
       <div className="flex flex-col gap-2 border-b border-border/50 pb-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold leading-tight text-foreground">
-            {total.toLocaleString()} candidates
+            {totalIsEstimate ? "About " : ""}{total.toLocaleString()} candidates
           </h2>
           {queryContext && (
             <p className="mt-0.5 truncate text-sm text-muted-foreground">{queryContext}</p>

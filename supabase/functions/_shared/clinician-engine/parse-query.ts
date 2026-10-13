@@ -282,7 +282,8 @@ function deterministicFallback(query: string): Record<string, unknown> {
   // Unambiguous role-class words only.
   if (/\bnurses?\b/.test(q) && !/\bnurse practitioners?\b/.test(q)) parsed.role_class = "nurse";
   else if (/\bnurse practitioners?\b/.test(q)) parsed.role_class = "nurse_practitioner";
-  else if (/\bphysicians?\b|\bdoctors?\b|\bsurgeons?\b/.test(q)) parsed.role_class = "physician";
+  else if (/\bsurgeons?\b/.test(q)) parsed.role_class = "surgeon";
+  else if (/\bphysicians?\b|\bdoctors?\b/.test(q)) parsed.role_class = "physician";
   else if (/\bresidents?\b/.test(q)) parsed.role_class = "resident";
   else if (/\bpharmacists?\b/.test(q)) parsed.role_class = "pharmacist";
   else if (/\btherapists?\b/.test(q)) parsed.role_class = "therapist";
@@ -321,6 +322,11 @@ Extract only what the user actually asked for. An empty array is a correct
 and common answer. In particular:
   - "nurses", "physicians", "residents", "doctors" are ROLE CLASSES, not
     titles. Set role_class; leave job_titles [].
+  - "surgeons" / "<specialty> surgeons" is the SURGICAL population →
+    role_class "surgeon" (NEVER "physician": the physician class admits
+    every doctor, PA and therapist whose headline says "doctor"). Put the
+    surgical specialty in specialties ("orthopedic surgery", "plastic
+    surgery", "neurosurgery"); the engine composes the surgeon titles.
   - Only fill job_titles when the user names an actual title: "charge
     nurses", "nurse managers", "chief residents", "medical directors".
   - NEVER turn a role class into a guessed title list. An invented title is
@@ -431,7 +437,7 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    // never expand employer entities yourself.
 
 8) "Find me joint reconstruction orthopedic surgeons in Golden, Colorado or Boulder, Colorado."
-   role_class: "physician", job_titles: [],
+   role_class: "surgeon", job_titles: [],
    specialties: ["joint reconstruction", "orthopedic"],  // SUBSPECIALTY phrase kept VERBATIM
    specialty_tense: "current",
    location: {"city":"golden","state":"colorado", ...},
@@ -444,9 +450,16 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    // language; never expand or paraphrase it yourself.
 
 9) "Find me fellowship trained cardiovascular surgeons."
-   role_class: "physician", fellowship_trained: true,
+   role_class: "surgeon", fellowship_trained: true,
    specialties: ["cardiovascular surgery"],  // surgeon phrasing = the SURGICAL specialty, not cardiology
    specialty_tense: "current", job_titles: []
+
+9b) "Find orthopedic surgeons in Miami, Florida."
+   role_class: "surgeon", job_titles: [],
+   specialties: ["orthopedic surgery"], specialty_tense: "current",
+   location: {"city":"miami","state":"florida", ...}
+   // Do NOT add bare "orthopedic" beside "orthopedic surgery" — the engine
+   // derives the spelling, plural and -ist forms itself.
 
 10) "Find me nurses that work in surgery centers in South Carolina."
    role_class: "nurse", care_setting: "asc", care_setting_is_workplace: true,

@@ -29,6 +29,7 @@ import {
   personEnrichV2,
 } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 import { handleEnrichContact } from "./contact-credits.ts";
+import { applyEditorFilters, type EditorFilters } from "./refine-filters.ts";
 import {
   ENRICHMENT_TTL_MS,
   getCrustDataCache,
@@ -360,43 +361,14 @@ Deno.serve(async (req: Request) => {
     // criterion ids positionally stable across the two calls.
     let clientParsed = body.parsed && typeof body.parsed === "object" ? { ...(body.parsed as Row) } : null;
 
-    // Refine support: the filter editor sends edited arrays in body.filters.
-    // SearchPage derives those arrays FROM the preview's parsed, so a value
-    // identical to its derivation is untouched; only a genuine edit (added /
-    // removed / changed entries) overrides the parsed payload the engine maps.
+    // Refine support: the filter editor sends its current values in
+    // body.filters. Every field the editor shows (titles, specialties,
+    // keywords, companies, locations, experience, role class) is overlaid
+    // onto the parse; values identical to their derivation are untouched so
+    // criterion ids stay positionally stable. See refine-filters.ts.
     const bodyFilters = body.filters && typeof body.filters === "object" ? body.filters as Row : null;
     if (clientParsed && bodyFilters) {
-      const arr = (v: unknown): string[] | null =>
-        Array.isArray(v) ? (v as unknown[]).filter((x): x is string => typeof x === "string") : null;
-      const same = (a: string[] | null, b: string[]): boolean =>
-        !!a && a.length === b.length && a.every((x, i) => x === b[i]);
-      const edited = (sent: string[] | null, derived: string[]): sent is string[] =>
-        sent !== null && !same(sent, derived);
-
-      const dJobTitles = arr(clientParsed.job_titles) ?? [];
-      const dSpecialties = arr(clientParsed.specialties) ??
-        (typeof clientParsed.specialty === "string" && clientParsed.specialty ? [clientParsed.specialty] : []);
-      const dKeywords = arr(clientParsed.required_keywords) ?? arr(clientParsed.keywords) ?? [];
-      const dCompanies = arr(clientParsed.current_companies) ?? arr(clientParsed.companies) ?? [];
-
-      const fJobTitles = arr(bodyFilters.job_titles);
-      const fSpecialties = arr(bodyFilters.specialties);
-      const fKeywords = arr(bodyFilters.keywords);
-      const fCompanies = arr(bodyFilters.companies);
-
-      if (edited(fJobTitles, dJobTitles)) clientParsed.job_titles = fJobTitles;
-      if (edited(fSpecialties, dSpecialties)) {
-        clientParsed.specialties = fSpecialties;
-        clientParsed.specialty = fSpecialties[0] ?? null;
-      }
-      if (edited(fKeywords, dKeywords)) {
-        clientParsed.required_keywords = fKeywords;
-        clientParsed.keywords = fKeywords;
-      }
-      if (edited(fCompanies, dCompanies)) {
-        clientParsed.current_companies = fCompanies;
-        clientParsed.companies = fCompanies;
-      }
+      clientParsed = applyEditorFilters(clientParsed, bodyFilters as unknown as EditorFilters);
     }
 
     const engineBody: Row = {
@@ -424,9 +396,12 @@ Deno.serve(async (req: Request) => {
     const total = typeof data.total === "number" ? data.total : 0;
 
     if (preview) {
+      // Preview is a free parse: no provider call, no count. The results
+      // call (next) is the only call that spends credits.
       return json({
         preview: true,
-        total,
+        preview_supported: false,
+        total: null,
         parsed,
         parsed_categories: [],
         parsed_keywords: [],
@@ -452,6 +427,9 @@ Deno.serve(async (req: Request) => {
     return json({
       results: rows,
       total,
+      total_is_estimate: data.total_is_estimate === true,
+      provider_total: typeof data.provider_total === "number" ? data.provider_total : null,
+      noise_filtered: typeof data.noise_filtered === "number" ? data.noise_filtered : 0,
       browsable_total: typeof data.browsable_total === "number" ? data.browsable_total : rows.length,
       parsed,
       parsed_categories: [],

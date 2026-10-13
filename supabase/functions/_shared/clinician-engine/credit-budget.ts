@@ -26,10 +26,23 @@
 import type { SearchCriteria } from "./clinician-criteria.ts";
 import { CLINICIAN_ENGINE_VERSION } from "./lib/run-log.ts";
 
-export const CREDIT_CEILING = 6;
+/**
+ * Session ceiling. Raised 6 → 15 on 2026-10-12: the first page now fills
+ * the lexical pool up to LEXICAL_POOL_CAP rows (6 credits) and keeps the
+ * semantic + company-graph recall rows (up to 3 credits) instead of
+ * discarding them, with headroom for one widen round. A 50-row page that
+ * the grader cut to 13 was the Miami orthopedic-surgeon failure.
+ */
+export const CREDIT_CEILING = 15;
 export const COST_PER_RESULT = 0.03;
-/** One page of card results; also the worst-case result count per search. */
+/** Rows per provider call; the cursor is followed to fill the pool. */
 export const SEARCH_LIMIT = 50;
+/**
+ * How many lexical rows the FIRST page pulls before ranking and grading
+ * (provider total permitting). 200 rows = 6 credits. Dial this, not
+ * SEARCH_LIMIT, to trade credits for depth.
+ */
+export const LEXICAL_POOL_CAP = 200;
 
 /** Round to cents so accumulated 0.03s never drift (0.1 + 0.2 !== 0.3). */
 function round2(n: number): number {

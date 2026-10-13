@@ -13,6 +13,7 @@ import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
 import { SearchNetworkLoader } from "@/components/search/SearchNetworkLoader";
 import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
+import { dropSpecialtyEchoes, locationLabelsFromParsed } from "@/components/search/filter-utils";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { useProject, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
 import { invokeSearchPeople, fetchSearchUsage, pingEngagement, SearchLimitError, type SearchUsage } from "@/lib/search-meter";
@@ -26,6 +27,7 @@ const EMPTY_FILTERS: ParsedFilters = {
   keywords: [],
   experience_years: null,
   specialties: [],
+  role_class: null,
 };
 
 export default function SearchPage() {
@@ -45,6 +47,7 @@ export default function SearchPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [revealedCount, setRevealedCount] = useState(0);
   const [total, setTotal] = useState(0);
+  const [totalIsEstimate, setTotalIsEstimate] = useState(false);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
   const revealHidden = () => {
@@ -129,19 +132,19 @@ export default function SearchPage() {
       if (previewData?.error) throw new Error(previewData.error);
 
       const parsed = previewData.parsed || {};
-      const loc = parsed.location || {};
-      const locations: string[] = [];
-      if (loc.city && loc.state) locations.push(`${loc.city} ${loc.state}`);
-      else if (loc.state) locations.push(loc.state);
-      else if (loc.city) locations.push(loc.city);
+      const locations = locationLabelsFromParsed(parsed);
+      const specialties: string[] = parsed.specialties || (parsed.specialty ? [parsed.specialty] : []);
 
       const mappedFilters: ParsedFilters = overrideFilters ?? {
         job_titles: parsed.job_titles || [],
         locations,
         companies: parsed.current_companies || parsed.companies || [],
-        keywords: parsed.required_keywords || parsed.keywords || [],
+        // Keyword chips that only re-spell a specialty are not shown: they
+        // are not extra requirements, and they made specialty edits no-ops.
+        keywords: dropSpecialtyEchoes(parsed.required_keywords || parsed.keywords || [], specialties),
         experience_years: parsed.min_years_experience || null,
-        specialties: parsed.specialties || (parsed.specialty ? [parsed.specialty] : []),
+        specialties,
+        role_class: parsed.role_class || (Array.isArray(parsed.role_classes) ? parsed.role_classes[0] : null) || null,
       };
 
       setFilters(mappedFilters);
@@ -186,6 +189,9 @@ export default function SearchPage() {
           companies: f.companies,
           keywords: f.keywords,
           specialties: f.specialties,
+          locations: f.locations,
+          experience_years: f.experience_years ?? null,
+          role_class: f.role_class ?? null,
         },
         parsed,
         page: targetPage - 1,
@@ -238,6 +244,7 @@ export default function SearchPage() {
     setCandidates(mapped);
     setHiddenCandidates(hidden);
     setTotal(data.total || 0);
+    setTotalIsEstimate(data.total_is_estimate === true);
     setBrowsableTotal(
       typeof data.browsable_total === "number" && data.browsable_total > 0
         ? data.browsable_total
@@ -428,6 +435,7 @@ export default function SearchPage() {
               errored={searchPhase === "error"}
               done={searchPhase === "done"}
               totalCount={total}
+              totalIsEstimate={totalIsEstimate}
               filterSummary={buildFilterSummary(activeFilters)}
               onRefine={() => setFilterEditorOpen(true)}
             />
@@ -441,6 +449,7 @@ export default function SearchPage() {
                 query={query}
                 candidates={visibleCandidates}
                 total={total}
+                totalIsEstimate={totalIsEstimate}
                 selected={selected}
                 savedIds={savedIds}
                 projectName={project?.name}

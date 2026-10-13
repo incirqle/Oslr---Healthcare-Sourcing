@@ -3,8 +3,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { MapPin, Briefcase, Building2, Clock, Tag, Hash, ChevronDown, X } from "lucide-react";
+import { MapPin, Briefcase, Building2, Clock, Tag, Hash, ChevronDown, X, Stethoscope } from "lucide-react";
 import type { ParsedFilters } from "./FilterReview";
+import { ROLE_CLASS_OPTIONS } from "./role-classes";
 
 interface FilterEditorProps {
   open: boolean;
@@ -100,7 +101,7 @@ function FilterSection({ icon: Icon, label, count, children, defaultOpen = false
 }
 
 export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, total }: FilterEditorProps) {
-  const update = (key: keyof ParsedFilters, value: any) => {
+  const update = <K extends keyof ParsedFilters>(key: K, value: ParsedFilters[K]) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 
@@ -109,10 +110,24 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader className="flex flex-row items-center justify-between pr-0">
           <SheetTitle className="text-lg">Edit Search Criteria</SheetTitle>
-          <span className="text-sm text-muted-foreground">{total.toLocaleString()} matches</span>
+          <span className="text-sm text-muted-foreground">{total.toLocaleString()} matches · re-runs on each change</span>
         </SheetHeader>
 
         <div className="space-y-3 mt-6">
+          <FilterSection icon={Stethoscope} label="Role" count={filters.role_class ? 1 : 0} defaultOpen={!!filters.role_class}>
+            <p className="text-xs text-muted-foreground mb-2">License class the search requires (titles and headlines are matched against it)</p>
+            <select
+              value={filters.role_class ?? ""}
+              onChange={(e) => update("role_class", e.target.value || null)}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Any role</option>
+              {ROLE_CLASS_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+            </select>
+          </FilterSection>
+
           <FilterSection icon={MapPin} label="Locations" count={filters.locations.length} defaultOpen={filters.locations.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Search by state, city, or radius from a city</p>
             <TagInput tags={filters.locations} onChange={(v) => update("locations", v)} placeholder="e.g., Dallas, Texas, California..." />
@@ -145,7 +160,7 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
           </FilterSection>
 
           <FilterSection icon={Hash} label="Keywords" count={filters.keywords.length} defaultOpen={filters.keywords.length > 0}>
-            <p className="text-xs text-muted-foreground mb-2">Required skills, certifications, or keywords</p>
+            <p className="text-xs text-muted-foreground mb-2">Extra required terms. Other spellings of a specialty are matched automatically and are not listed here.</p>
             <TagInput tags={filters.keywords} onChange={(v) => update("keywords", v)} placeholder="Start typing a keyword..." />
           </FilterSection>
         </div>

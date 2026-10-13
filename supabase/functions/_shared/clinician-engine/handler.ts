@@ -31,9 +31,11 @@ import {
   creditLedger,
   creditsForResults,
   getSessionSpend,
+  LEXICAL_POOL_CAP,
   recordSessionSpend,
   SEARCH_LIMIT,
 } from "./credit-budget.ts";
+import { splitRoleClassNoise } from "./noise-filter.ts";
 import {
   mapParsedToCriteria,
   reconcileParsedClinicianIntent,
@@ -378,8 +380,34 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // PREVIEW = the parse and its criteria, for free. No provider call.
+      // Until 2026-10-12 the preview ran the lexical search AND both recall
+      // passes, cached only the lexical rows, and returned a count; the
+      // results call then hit that cache and skipped recall (recall only
+      // runs on a cache miss). Every UI search paid for up to 150 rows and
+      // showed 50. The reference engine made the same change on 2026-10-06.
+      if (preview) {
+        return new Response(JSON.stringify({
+          preview: true,
+          preview_supported: false,
+          total: null,
+          results: [],
+          parsed, criteria, relaxed,
+          exact: relaxed.length === 0,
+          widen_options: [],
+          engine: "clinician",
+          engine_version: CLINICIAN_ENGINE_VERSION,
+          run_id: runId,
+          provider: "crustdata-v2",
+          credits: 0,
+          credits_session: getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS),
+          credit_ceiling: CREDIT_CEILING,
+          cache_hit: false,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       // 4. ONE v2 person search per resolved criteria set — cached 4h,
-      //    preview folded into the same limit-N call, credit-ceilinged.
+      //    cursor-followed to fill the pool, credit-ceilinged.
       const cacheKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS);
       // deno-lint-ignore no-explicit-any
       let normalized: any[];
@@ -565,25 +593,25 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
-      // ── Deep pagination (cursor continuation) ───────────────────────
-      // One 50-row fetch used to be the hard ceiling on how far a recruiter
-      // could browse a 19,000-person pool. When the requested page reaches
-      // past what is fetched and the provider handed back a cursor, follow
-      // it — ceiling-checked per hop, deduped, capped at 200 rows (exactly
-      // the 6-credit session ceiling), cache updated so the next page is
-      // free.
-      const DEEP_PAGE_CAP = 200;
+      // ── Pool fill (cursor continuation) ─────────────────────────────
+      // The FIRST page pulls the whole lexical pool up front, up to
+      // LEXICAL_POOL_CAP rows, so ranking and grading see the market, not
+      // its first 50 rows (2026-10-12: a dense-metro ask fetched 50, the
+      // grader kept 13, the page said 573). Later pages only extend past
+      // what is fetched. Ceiling-checked per hop, deduped, cache updated so
+      // the next page is free.
+      const DEEP_PAGE_CAP = LEXICAL_POOL_CAP;
       {
         const needed = (Number(page) + 1) * Number(size);
+        const target = Number(page) === 0
+          ? Math.min(Math.max(totalCount, 0), LEXICAL_POOL_CAP)
+          : Math.min(needed + Number(size), DEEP_PAGE_CAP);
         const seen = new Set<string>();
         for (const row of normalized) {
           const k = rowKey(row);
           if (k) seen.add(k);
         }
-        while (
-          !preview && nextCursor &&
-          normalized.length < Math.min(needed + Number(size), DEEP_PAGE_CAP)
-        ) {
+        while (!preview && nextCursor && normalized.length < target) {
           const spent = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
           if (!checkCeiling(spent, SEARCH_LIMIT).allow) break;
           const more = await personSearchV2({
@@ -613,6 +641,12 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           if (fresh.length === 0) break;
         }
       }
+
+      // Snapshot of the lexical pool before recall rows join it: the honest
+      // total below needs to know whether the market was fetched in full.
+      const lexicalTotal = totalCount;
+      const lexicalFetched = normalized.length;
+      const poolComplete = nextCursor === null || lexicalFetched >= lexicalTotal;
 
       // ── Recall trio, passes b + c (additive, fail-soft, ceilinged) ──
       let semanticAdded = 0;
@@ -695,6 +729,13 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             }
           }
         }
+      }
+
+      // Recall rows are part of the pool: cache the MERGED pool so a repeat
+      // of the same criteria within the TTL pages the same people instead
+      // of a lexical-only subset.
+      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0) && normalized.length > 0) {
+        await setCrustDataCache(cacheKey, totalCount, normalized, nextCursor);
       }
 
       // ── Past-role-holders fallback (tense relaxation FIRST) ─────────
@@ -949,6 +990,18 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       allResults = rankByStageFit(allResults, criteria); // annotates stage_fit
       allResults = rankDeterministic(allResults, criteria);
 
+      // ── Deterministic role-class noise, BEFORE the grader ───────────
+      // A title or headline that names another license class (Doctor of
+      // Physical Therapy, Physician Assistant) or a vendor/recruiter role is
+      // proof enough. These rows never reach Opus; they ride hidden_results
+      // with the evidence attached.
+      const noiseSplit = splitRoleClassNoise(allResults as Array<Record<string, unknown>>, criteria);
+      const noiseRows = noiseSplit.noise as typeof allResults;
+      allResults = noiseSplit.clean as typeof allResults;
+      if (noiseRows.length > 0) {
+        console.log(JSON.stringify({ event: "role_class_noise", filtered: noiseRows.length, kept: allResults.length }));
+      }
+
       // ── One-pass AI audit: grader + reranker in the SAME read ───────
       let auditSummary: Record<string, unknown> | null = null;
       if (body.audit !== false && (Deno.env.get("ANTHROPIC_API_KEY") ?? "") !== "") {
@@ -1015,12 +1068,22 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // them with the grader's reason attached. (A page that found people
       // and rendered blank was the Neuvora beta's #1 complaint.)
       const isReject = (r: Record<string, unknown>) => r.audit_verdict === "reject";
-      const hiddenResults = allResults.filter(isReject);
+      const auditedCount = allResults.length;
+      const hiddenResults = [...allResults.filter(isReject), ...noiseRows];
       allResults = allResults.filter((r: Record<string, unknown>) => !isReject(r));
       const rejectedFiltered = hiddenResults.length;
-      const displayTotal = pastHoldersFallback
+
+      // ── Honest total ───────────────────────────────────────────────
+      // The provider's total is the size of the FILTER's population, not the
+      // recruiter's. When the whole pool was fetched, the total IS the kept
+      // count. When it was not, extrapolate the keep rate over the provider
+      // total and say so (total_is_estimate) — never "573" for 13 people.
+      const fetchedPool = auditedCount + noiseRows.length;
+      const keepRate = fetchedPool > 0 ? allResults.length / fetchedPool : 0;
+      const totalIsEstimate = !pastHoldersFallback && !poolComplete && lexicalTotal > lexicalFetched;
+      const displayTotal = pastHoldersFallback || !totalIsEstimate
         ? allResults.length
-        : Math.max(totalCount - rejectedFiltered, allResults.length);
+        : Math.max(allResults.length, Math.round(lexicalTotal * keepRate));
 
       const results = allResults.slice(page * size, (page + 1) * size);
 
@@ -1044,6 +1107,11 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           semantic_added: semanticAdded,
           graph_added: companyGraphAdded,
           fallback: pastHoldersFallback ? "past_role_holders" : null,
+          provider_total: lexicalTotal,
+          lexical_fetched: lexicalFetched,
+          pool_complete: poolComplete,
+          noise_filtered: noiseRows.length,
+          total_is_estimate: totalIsEstimate,
         },
         result_count: results.length,
         total_count: displayTotal,
@@ -1065,8 +1133,12 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       return new Response(JSON.stringify({
         results,
         total: displayTotal,
-        // How many rows can actually be paged through (the fetched pool),
-        // as opposed to the provider's market-size estimate in `total`.
+        // true when the pool was not fetched in full and `total` is an
+        // extrapolation of the keep rate over the provider's total.
+        total_is_estimate: totalIsEstimate,
+        provider_total: lexicalTotal,
+        noise_filtered: noiseRows.length,
+        // How many rows can actually be paged through (the kept pool).
         browsable_total: allResults.length,
         page,
         size,

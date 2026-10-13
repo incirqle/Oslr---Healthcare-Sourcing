@@ -21,6 +21,8 @@ interface AgentReasoningPanelProps {
   done?: boolean;
   /** Total result count, for the condensed summary line. */
   totalCount?: number;
+  /** True when totalCount extrapolates a keep rate over an unfetched pool. */
+  totalIsEstimate?: boolean;
   /** Short filter summary (e.g. "Panorama Orthopedics, Colorado, Orthopedics +1"). */
   filterSummary?: string;
   /** Open the refine sheet from the condensed line. */
@@ -130,6 +132,7 @@ export function AgentReasoningPanel({
   errored = false,
   done = false,
   totalCount,
+  totalIsEstimate = false,
   filterSummary,
   onRefine,
 }: AgentReasoningPanelProps) {
@@ -145,7 +148,7 @@ export function AgentReasoningPanel({
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
           <span className="text-foreground">
-            Found <span className="font-semibold">{count.toLocaleString()}</span>{" "}
+            Found {totalIsEstimate ? "about " : ""}<span className="font-semibold">{count.toLocaleString()}</span>{" "}
             {count === 1 ? "candidate" : "candidates"} for{" "}
             <span className="text-muted-foreground">"{query}"</span>
           </span>

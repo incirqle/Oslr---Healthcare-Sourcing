@@ -364,6 +364,29 @@ export function buildClinicianQuery(
             clauses.push(leaf(F.headline, "[.]", variant));
           }
         }
+        // Employer-qualified arm (surgeon asks): generic physician words are
+        // only admitted when the CURRENT employer's name carries the
+        // specialty — "Medical Doctor @ Orthopedic Care Partners". ANDed
+        // inside the OR, so it widens recall without reopening the gate.
+        const eq = v.employer_qualified;
+        if (eq && eq.terms.length > 0 && eq.employer_terms.length > 0) {
+          const generic: V2FilterNode[] = [];
+          for (const t of eq.terms) {
+            for (const variant of lexicalVariants(t)) {
+              generic.push(leaf(F.curTitle, "[.]", variant));
+              generic.push(leaf(F.headline, "[.]", variant));
+            }
+          }
+          const employer: V2FilterNode[] = [];
+          for (const t of eq.employer_terms) {
+            for (const variant of lexicalVariants(t)) {
+              employer.push(leaf(F.curCompanyName, "[.]", variant));
+            }
+          }
+          if (generic.length > 0 && employer.length > 0) {
+            clauses.push(and(or(...generic), or(...employer)));
+          }
+        }
         if (clauses.length === 0) break;
         hard.push(clauses.length === 1 ? clauses[0] : or(...clauses));
         break;

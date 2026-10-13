@@ -26,9 +26,13 @@ import {
   EMPLOYER_GROUPS,
   matchPopulationModifier,
   matchSubspecialty,
+  PHYSICIAN_GENERIC_TERMS,
   ROLE_CLASSES,
   SPECIALTY_UMBRELLA_NOUNS,
   containsWholePhrase,
+  specialtyEmployerTerms,
+  specialtyRoot,
+  surgeonTitleTerms,
   TRAINING_STAGES,
   type EmployerGroupDef,
 } from "./clinical-vocabulary.ts";
@@ -506,6 +510,13 @@ export interface RoleClassValue {
   class: string;
   /** Match terms — the class's curated, index-verified term list. */
   terms: string[];
+  /**
+   * Employer-qualified arm (surgeon asks, 2026-10-12): generic physician
+   * words ("physician", "medical doctor", "md") ANDed with a specialty-named
+   * CURRENT employer ("Orthopedic Care Partners"). Reaches the surgeon whose
+   * title is just "Physician" without re-admitting every physician.
+   */
+  employer_qualified?: { terms: string[]; employer_terms: string[] };
 }
 
 export interface CredentialValue {
@@ -1000,15 +1011,51 @@ export function mapParsedToCriteria(
   ]).filter((k) => ROLE_CLASSES[k]);
   if (roleClassKeys.length > 0) {
     const defs = roleClassKeys.map((k) => ROLE_CLASSES[k]);
-    const terms = dedupe(defs.flatMap((d) => d.terms));
+    let terms = dedupe(defs.flatMap((d) => d.terms));
+    let label = defs.map((d) => d.label).join(" / ");
+    let note = defs.map((d) => d.note).filter(Boolean).join(" ") || undefined;
+    const value: RoleClassValue = { class: roleClassKeys.join("+"), terms };
+
+    // SURGEON COMPOSITION (live failure 2026-10-12, orthopedic surgeons in
+    // Miami): "<specialty> surgeons" names the SURGICAL population of that
+    // specialty. Gating on the whole physician word list ("doctor",
+    // "physician", "surgeon") admitted Doctors of Physical Therapy,
+    // Physician Assistants, physician recruiters and reps "partnering with
+    // surgeons" — 37 of 50 rows. The bare "surgeon" term is replaced by
+    // composed title forms ("orthopedic surgeon", "orthopedist", "spine
+    // surgeon"…) plus an employer-qualified arm for the surgeon whose title
+    // is just "Physician" at an orthopedic practice.
+    const surgeonSpecialties = dedupe([
+      ...(str(parsed.specialty) ? [str(parsed.specialty) as string] : []),
+      ...strArr(parsed.specialties),
+    ]);
+    if (roleClassKeys.includes("surgeon") && surgeonSpecialties.length > 0) {
+      const composed = surgeonTitleTerms(surgeonSpecialties);
+      if (composed.length > 0) {
+        const otherDefs = defs.filter((d) => d !== ROLE_CLASSES.surgeon);
+        terms = dedupe([...composed, ...otherDefs.flatMap((d) => d.terms)]);
+        value.terms = terms;
+        value.employer_qualified = {
+          terms: [...PHYSICIAN_GENERIC_TERMS],
+          employer_terms: specialtyEmployerTerms(surgeonSpecialties),
+        };
+        label = [
+          `${titleCase(specialtyRoot(surgeonSpecialties[0]))} Surgeons`,
+          ...otherDefs.map((d) => d.label),
+        ].join(" / ");
+        note =
+          "Matched on surgeon-shaped titles for this specialty (and generic physician titles at a specialty-named practice). Therapists, PAs, recruiters and vendors are filtered before grading.";
+      }
+    }
+
     push({
       kind: "role_class",
-      label: defs.map((d) => d.label).join(" / "),
-      value: { class: roleClassKeys.join("+"), terms },
+      label,
+      value,
       enforcement: "hard",
       source: "user",
       evidenceSource: "search",
-      note: defs.map((d) => d.note).filter(Boolean).join(" ") || undefined,
+      note,
     });
   }
 
