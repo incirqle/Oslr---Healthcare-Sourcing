@@ -15,8 +15,12 @@ import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
 import { dropSpecialtyEchoes, locationLabelsFromParsed } from "@/components/search/filter-utils";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
-import { useProject, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
+import { useProject, useProjects, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
 import { invokeSearchPeople, fetchSearchUsage, pingEngagement, SearchLimitError, type SearchUsage } from "@/lib/search-meter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SaveToProjectDialog } from "@/components/SaveToProjectDialog";
+
+const NO_PROJECT = "__none__";
 
 type SearchStep = "hero" | "results";
 
@@ -47,7 +51,12 @@ export default function SearchPage() {
 
   const { data: project } = useProject(projectId ?? "");
   const { data: existingCandidates = [] } = useProjectCandidates(projectId ?? "");
+  const { data: allProjects = [] } = useProjects();
   const addCandidates = useAddCandidates();
+  const [pendingSave, setPendingSave] = useState<{
+    candidates: Candidate[];
+    contact?: { email: string | null; phone: string | null };
+  } | null>(null);
 
   const { history, addEntry, clearHistory } = useSearchHistory(projectId);
   const [step, setStep] = useState<SearchStep>("hero");
@@ -99,7 +108,7 @@ export default function SearchPage() {
   // Auto-run a search if ?q= is present (e.g. coming from onboarding step 5)
   useEffect(() => {
     const q = searchParams.get("q");
-    if (q && !autoRanRef.current && projectId) {
+    if (q && !autoRanRef.current) {
       autoRanRef.current = true;
       runFullSearch(q);
       const next = new URLSearchParams(searchParams);
@@ -108,8 +117,6 @@ export default function SearchPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
-
-  if (!projectId) return null;
 
   // A person counts as saved when their provider id OR their LinkedIn URL is
   // already in the project — LinkedIn matching keeps candidates saved under
@@ -300,11 +307,22 @@ export default function SearchPage() {
     }
   };
 
-  const handleSaveCandidates = async (toSave: Candidate[], contact?: { email: string | null; phone: string | null }) => {
+  const handleSaveCandidates = async (
+    toSave: Candidate[],
+    contact?: { email: string | null; phone: string | null },
+    target?: { id: string; name: string },
+  ) => {
     if (toSave.length === 0) return;
+    const destId = target?.id ?? projectId;
+    const destName = target?.name ?? project?.name ?? "project";
+    if (!destId) {
+      // Not in a project: ask which one to save into.
+      setPendingSave({ candidates: toSave, contact });
+      return;
+    }
     try {
       const count = await addCandidates.mutateAsync({
-        projectId,
+        projectId: destId,
         candidates: toSave.map((c) => ({
           full_name: c.full_name,
           title: c.title,
@@ -321,7 +339,7 @@ export default function SearchPage() {
           raw_data: c.raw ?? null,
         })),
       });
-      toast.success(`${count} candidate${count === 1 ? "" : "s"} saved to "${project?.name}"`);
+      toast.success(`${count} candidate${count === 1 ? "" : "s"} saved to "${destName}"`);
       setSelected(new Set());
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save candidates";
@@ -415,20 +433,33 @@ export default function SearchPage() {
     <AppLayout>
       <div className="space-y-6">
         {/* Project context header */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(`/projects/${projectId}`)}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {project?.name ?? "Back to Project"}
-          </button>
-          {project && (
-            <>
-              <span className="text-muted-foreground/40">/</span>
-              <span className="text-sm font-medium text-foreground">Source Candidates</span>
-            </>
+        <div className="flex flex-wrap items-center gap-3">
+          {projectId && (
+            <button
+              onClick={() => navigate(`/projects/${projectId}`)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
           )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Project:</span>
+            <Select
+              value={projectId ?? NO_PROJECT}
+              onValueChange={(v) => navigate(v === NO_PROJECT ? "/search" : `/projects/${v}/search`)}
+            >
+              <SelectTrigger className="h-8 w-[220px] text-sm">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PROJECT}>None (not in a project)</SelectItem>
+                {allProjects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {usage && (
             <span className="ml-auto text-xs text-muted-foreground" title="Paging through results and repeating a search don't count.">
               Daily searches: {usage.used} / {usage.limit}
@@ -557,6 +588,17 @@ export default function SearchPage() {
           });
         }}
         total={total}
+      />
+
+      <SaveToProjectDialog
+        open={!!pendingSave}
+        onOpenChange={(open) => !open && setPendingSave(null)}
+        candidates={pendingSave?.candidates ?? []}
+        onPick={async (id, name) => {
+          if (!pendingSave) return;
+          await handleSaveCandidates(pendingSave.candidates, pendingSave.contact, { id, name });
+          setPendingSave(null);
+        }}
       />
 
       <CandidateDrawer
