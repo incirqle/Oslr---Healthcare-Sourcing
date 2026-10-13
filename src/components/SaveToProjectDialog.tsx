@@ -40,9 +40,11 @@ interface SaveToProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   candidates: SearchCandidate[];
+  /** When given, the dialog only picks the project; the caller saves. */
+  onPick?: (projectId: string, projectName: string) => Promise<void>;
 }
 
-export function SaveToProjectDialog({ open, onOpenChange, candidates }: SaveToProjectDialogProps) {
+export function SaveToProjectDialog({ open, onOpenChange, candidates, onPick }: SaveToProjectDialogProps) {
   const { data: projects = [] } = useProjects();
   const createProject = useCreateProject();
   const addCandidates = useAddCandidates();
@@ -55,13 +57,24 @@ export function SaveToProjectDialog({ open, onOpenChange, candidates }: SaveToPr
     setSaving(true);
     try {
       let projectId = selectedProjectId;
+      let projectName = projects.find((p) => p.id === projectId)?.name ?? "";
 
       if (showCreate && newProjectName.trim()) {
         projectId = await createProject.mutateAsync({ name: newProjectName.trim() });
-        toast.success(`Project "${newProjectName.trim()}" created`);
+        projectName = newProjectName.trim();
+        toast.success(`Project "${projectName}" created`);
       }
 
       if (!projectId) return;
+
+      if (onPick) {
+        await onPick(projectId, projectName);
+        setSelectedProjectId("");
+        setShowCreate(false);
+        setNewProjectName("");
+        onOpenChange(false);
+        return;
+      }
 
       const count = await addCandidates.mutateAsync({
         projectId,
