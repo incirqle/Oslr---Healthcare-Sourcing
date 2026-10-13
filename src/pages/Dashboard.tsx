@@ -83,7 +83,7 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {!isLoading && !isFullyComplete && <OnboardingChecklist />}
+        {!isLoading && !isFullyComplete && recent && !recent.searches.length && <OnboardingChecklist />}
         {showBanner && <SuccessBanner />}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
