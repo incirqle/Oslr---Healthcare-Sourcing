@@ -272,12 +272,38 @@ export default function Auth() {
                       {showPassword ? "Hide" : "Show"}
                     </button>
                   </div>
-                  {isSignUp && (
-                    <p className={`flex items-center gap-1.5 text-sm ${password.length >= 6 ? "text-primary" : "text-muted-foreground"}`}>
-                      <Check className="h-4 w-4" />
-                      {password.length >= 6 ? "Looks good" : "Any password with 6 or more characters works"}
-                    </p>
-                  )}
+                  {isSignUp && (() => {
+                    const p = password;
+                    let s = 0;
+                    if (p.length >= 6) s++;
+                    if (p.length >= 10) s++;
+                    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++;
+                    if (/\d/.test(p)) s++;
+                    if (/[^A-Za-z0-9]/.test(p)) s++;
+                    const level = p.length === 0 ? 0 : p.length < 6 ? 1 : s <= 2 ? 2 : s <= 3 ? 3 : 4;
+                    const labels = ["", "Too short", "Fair", "Good", "Strong"];
+                    const colors = ["bg-muted", "bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary"];
+                    const texts = ["text-muted-foreground", "text-destructive", "text-orange-500", "text-yellow-600", "text-primary"];
+                    return (
+                      <div className="space-y-1.5 pt-0.5" aria-live="polite">
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className={`h-1.5 rounded-full transition-colors duration-200 ${i <= level ? colors[level] : "bg-muted"}`} />
+                          ))}
+                        </div>
+                        <p className={`flex items-center gap-1.5 text-sm ${texts[level]}`}>
+                          {level >= 2 && <Check className="h-4 w-4" />}
+                          {level === 0
+                            ? "Use 6 or more characters"
+                            : level === 1
+                              ? `Too short — ${6 - p.length} more character${6 - p.length === 1 ? "" : "s"}`
+                              : level < 4
+                                ? `${labels[level]} — add numbers, symbols or capitals to make it stronger`
+                                : "Strong password"}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
                   {loading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
