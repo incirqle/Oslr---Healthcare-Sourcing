@@ -12,6 +12,7 @@ import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
 import { SuccessBanner } from "@/components/onboarding/SuccessBanner";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchSearchUsage } from "@/lib/search-meter";
 
 function metric(value: number) {
   return value === 0 ? "—" : value.toLocaleString();
