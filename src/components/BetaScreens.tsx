@@ -74,8 +74,6 @@ export function BetaEnded({ userId, email, onCheckout, onSignOut }: { userId: st
       user_id: userId, company_id: prof?.company_id ?? null, user_email: email ?? null,
       experience, intuitive, easy_to_use: easy, suggestions: suggestions.trim() || null,
     });
-    if (!error) {
-      supabase.functions.invoke("beta-feedback", { body: { experience, intuitive, easy_to_use: easy, suggestions } }).catch(() => {});
     }
     setBusy(false);
     if (error) return toast.error("Your feedback didn't send. Try again.");
