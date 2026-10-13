@@ -1,3 +1,4 @@
+import { resolveCompanyDomain } from "@/lib/company-domains";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -190,6 +191,28 @@ function extractDomain(...candidates: (string | null | undefined)[]): string | n
     const host = s.split("/")[0].split("?")[0];
     if (host && host.includes(".")) return host.toLowerCase();
   }
+  return null;
+}
+
+const SCHOOL_DOMAINS: Record<string, string> = {
+  newyorkuniversity: "nyu.edu", harvarduniversity: "harvard.edu", harvardmedicalschool: "hms.harvard.edu",
+  stanforduniversity: "stanford.edu", yaleuniversity: "yale.edu", columbiauniversity: "columbia.edu",
+  universityofpennsylvania: "upenn.edu", johnshopkinsuniversity: "jhu.edu", dukeuniversity: "duke.edu",
+  universityofmiami: "miami.edu", universityofflorida: "ufl.edu", floridastateuniversity: "fsu.edu",
+  universityofcentralflorida: "ucf.edu", universityofsouthflorida: "usf.edu", floridainternationaluniversity: "fiu.edu",
+  novasoutheasternuniversity: "nova.edu", emoryuniversity: "emory.edu", vanderbiltuniversity: "vanderbilt.edu",
+  universityofmichigan: "umich.edu", northwesternuniversity: "northwestern.edu", cornelluniversity: "cornell.edu",
+  bostonuniversity: "bu.edu", georgetownuniversity: "georgetown.edu", universityoftexasataustin: "utexas.edu",
+  ohiostateuniversity: "osu.edu", theohiostateuniversity: "osu.edu", pennstateuniversity: "psu.edu",
+  universityofwashington: "uw.edu", universityofchicago: "uchicago.edu", tulaneuniversity: "tulane.edu",
+};
+/** Last-resort domain for a logo when the data has none. */
+function guessDomain(name: string | null | undefined, school = false): string | null {
+  if (!name) return null;
+  const key = name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");
+  if (!key) return null;
+  if (SCHOOL_DOMAINS[key]) return SCHOOL_DOMAINS[key];
+  void school;
   return null;
 }
 
@@ -1117,7 +1140,7 @@ export function CandidateDrawer({
                             <OrgLogo
                               name={group.company || companyInitials}
                               src={group.logoUrl}
-                              fallbackSrc={logoUrl(group.logoDomain)}
+                              fallbackSrc={logoUrl(group.logoDomain ?? resolveCompanyDomain(group.company) ?? guessDomain(group.company))}
                               className="h-10 w-10"
                             />
                             <div className="min-w-0 flex-1">
@@ -1214,7 +1237,7 @@ export function CandidateDrawer({
                         <OrgLogo
                           name={entry.school || schoolInitials}
                           src={entry.logoUrl}
-                          fallbackSrc={logoUrl(entry.logoDomain)}
+                          fallbackSrc={logoUrl(entry.logoDomain ?? resolveCompanyDomain(entry.school) ?? guessDomain(entry.school, true))}
                           className="h-10 w-10"
                         />
                         <div className="min-w-0 flex-1">
@@ -1427,33 +1450,10 @@ export function CandidateDrawer({
                   state={contactEnrich.state}
                   busy={contactEnrich.busy}
                   onEnrich={contactEnrich.run}
+                  onCopy={(v, l) => void handleCopy(v, l)}
+                  fallbackEmail={allEmails.find((e) => e.label === "Other")?.address ?? null}
+                  fallbackPhone={cd.phone_numbers?.length ? null : allPhones[0]?.number ?? null}
                 />
-                {allEmails.length > 0 || allPhones.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {allEmails.map((e) => (
-                      <ContactCard
-                        key={`email-${e.address}`}
-                        icon={<Mail className="h-4 w-4" />}
-                        label={`${e.label} email`}
-                        value={e.address}
-                        href={`mailto:${e.address}`}
-                        onCopy={() => handleCopy(e.address, `${e.label} email`)}
-                      />
-                    ))}
-                    {allPhones.map((p) => (
-                      <ContactCard
-                        key={`phone-${p.number}`}
-                        icon={<Phone className="h-4 w-4" />}
-                        label={p.label}
-                        value={p.number}
-                        href={`tel:${p.number}`}
-                        onCopy={() => handleCopy(p.number, p.label)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  null
-                )}
               </TabsContent>
             </div>
           </Tabs>
