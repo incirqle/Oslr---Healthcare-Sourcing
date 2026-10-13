@@ -1,3 +1,4 @@
+import { resolveCompanyDomain } from "@/lib/company-domains";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -191,6 +192,30 @@ function extractDomain(...candidates: (string | null | undefined)[]): string | n
     if (host && host.includes(".")) return host.toLowerCase();
   }
   return null;
+}
+
+const SCHOOL_DOMAINS: Record<string, string> = {
+  newyorkuniversity: "nyu.edu", harvarduniversity: "harvard.edu", harvardmedicalschool: "hms.harvard.edu",
+  stanforduniversity: "stanford.edu", yaleuniversity: "yale.edu", columbiauniversity: "columbia.edu",
+  universityofpennsylvania: "upenn.edu", johnshopkinsuniversity: "jhu.edu", dukeuniversity: "duke.edu",
+  universityofmiami: "miami.edu", universityofflorida: "ufl.edu", floridastateuniversity: "fsu.edu",
+  universityofcentralflorida: "ucf.edu", universityofsouthflorida: "usf.edu", floridainternationaluniversity: "fiu.edu",
+  novasoutheasternuniversity: "nova.edu", emoryuniversity: "emory.edu", vanderbiltuniversity: "vanderbilt.edu",
+  universityofmichigan: "umich.edu", northwesternuniversity: "northwestern.edu", cornelluniversity: "cornell.edu",
+  bostonuniversity: "bu.edu", georgetownuniversity: "georgetown.edu", universityoftexasataustin: "utexas.edu",
+  ohiostateuniversity: "osu.edu", theohiostateuniversity: "osu.edu", pennstateuniversity: "psu.edu",
+  universityofwashington: "uw.edu", universityofchicago: "uchicago.edu", tulaneuniversity: "tulane.edu",
+};
+/** Last-resort domain for a logo when the data has none. */
+function guessDomain(name: string | null | undefined, school = false): string | null {
+  if (!name) return null;
+  const key = name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");
+  if (!key) return null;
+  if (SCHOOL_DOMAINS[key]) return SCHOOL_DOMAINS[key];
+  if (school) return null;
+  const words = name.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w && !["inc","llc","the","of","pc","pa","group"].includes(w));
+  if (!words.length || words.join("").length > 24) return null;
+  return `${words.join("")}.com`;
 }
 
 function logoUrl(domain: string | null): string | null {
@@ -1117,7 +1142,7 @@ export function CandidateDrawer({
                             <OrgLogo
                               name={group.company || companyInitials}
                               src={group.logoUrl}
-                              fallbackSrc={logoUrl(group.logoDomain)}
+                              fallbackSrc={logoUrl(group.logoDomain ?? resolveCompanyDomain(group.company) ?? guessDomain(group.company))}
                               className="h-10 w-10"
                             />
                             <div className="min-w-0 flex-1">
@@ -1214,7 +1239,7 @@ export function CandidateDrawer({
                         <OrgLogo
                           name={entry.school || schoolInitials}
                           src={entry.logoUrl}
-                          fallbackSrc={logoUrl(entry.logoDomain)}
+                          fallbackSrc={logoUrl(entry.logoDomain ?? resolveCompanyDomain(entry.school) ?? guessDomain(entry.school, true))}
                           className="h-10 w-10"
                         />
                         <div className="min-w-0 flex-1">
