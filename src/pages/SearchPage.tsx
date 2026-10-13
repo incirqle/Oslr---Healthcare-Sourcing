@@ -15,12 +15,17 @@ import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
 import { dropSpecialtyEchoes, locationLabelsFromParsed } from "@/components/search/filter-utils";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
-import { useProject, useProjects, useAddCandidates, useProjectCandidates } from "@/hooks/useProjects";
+import { useProject, useProjects, useAddCandidates, useProjectCandidates, useCreateProject } from "@/hooks/useProjects";
 import { invokeSearchPeople, fetchSearchUsage, pingEngagement, SearchLimitError, type SearchUsage } from "@/lib/search-meter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToProjectDialog } from "@/components/SaveToProjectDialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 const NO_PROJECT = "__none__";
+const NEW_PROJECT = "__new__";
 
 type SearchStep = "hero" | "results";
 
@@ -53,6 +58,21 @@ export default function SearchPage() {
   const { data: existingCandidates = [] } = useProjectCandidates(projectId ?? "");
   const { data: allProjects = [] } = useProjects();
   const addCandidates = useAddCandidates();
+  const createProject = useCreateProject();
+  const [newOpen, setNewOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const handleCreateProject = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      const id = await createProject.mutateAsync({ name });
+      setNewOpen(false);
+      toast.success(`Project "${name}" created. Saves now go there.`);
+      navigate(`/projects/${id}/search`, { replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create project");
+    }
+  };
   const [pendingSave, setPendingSave] = useState<{
     candidates: Candidate[];
     contact?: { email: string | null; phone: string | null };
@@ -447,18 +467,25 @@ export default function SearchPage() {
             <span className="text-sm text-muted-foreground">Project:</span>
             <Select
               value={projectId ?? NO_PROJECT}
-              onValueChange={(v) => navigate(v === NO_PROJECT ? "/search" : `/projects/${v}/search`)}
+              onValueChange={(v) => {
+                if (v === NEW_PROJECT) { setNewName(""); setNewOpen(true); return; }
+                navigate(v === NO_PROJECT ? "/search" : `/projects/${v}/search`);
+              }}
             >
               <SelectTrigger className="h-8 w-[220px] text-sm">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NEW_PROJECT}>+ Create new project</SelectItem>
                 <SelectItem value={NO_PROJECT}>None (not in a project)</SelectItem>
                 {allProjects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <Button size="sm" variant="outline" className="h-8" onClick={() => { setNewName(""); setNewOpen(true); }}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> New project
+            </Button>
           </div>
           {usage && (
             <span className="ml-auto text-xs text-muted-foreground" title="Paging through results and repeating a search don't count.">
@@ -589,6 +616,27 @@ export default function SearchPage() {
         }}
         total={total}
       />
+
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">New project</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="e.g. ICU Nurses - Q1 Hiring"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateProject} disabled={!newName.trim() || createProject.isPending}>
+              {createProject.isPending ? "Creating..." : "Create project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SaveToProjectDialog
         open={!!pendingSave}
