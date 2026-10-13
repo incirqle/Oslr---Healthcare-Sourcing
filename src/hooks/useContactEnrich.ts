@@ -68,7 +68,10 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
           });
         }
       } else {
-        toast("Nothing found · no credits used");
+        const onlyEmail = kinds.every((k) => k !== "phone");
+        toast(onlyEmail
+          ? "No email was found. You will not be charged."
+          : "No email or no contact information was found. You will not be charged.");
       }
       window.dispatchEvent(new Event("oslr:credits"));
     } catch {

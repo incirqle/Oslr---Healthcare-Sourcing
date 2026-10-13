@@ -101,7 +101,9 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
                     {r.value}
                   </a>
                 ) : r.status === "missing" ? (
-                  <p className="text-[14px] text-ui-text-tertiary">Not available · no credits used</p>
+                  <p className="text-[14px] text-ui-text-tertiary">
+                    {r.kind === "phone" ? "No phone number was found" : "No email was found"} · you will not be charged
+                  </p>
                 ) : (
                   <p className="text-[14px] text-ui-text-tertiary">{CONTACT_PRICES[r.kind as ContactKind]} credits if found</p>
                 )}

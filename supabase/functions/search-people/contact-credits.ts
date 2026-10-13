@@ -3,7 +3,7 @@
 // Once found, a contact type is stored per workspace and never charged again.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
-import { batchContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
+import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 
 export const PRICES = { work_email: 2, personal_email: 3, phone: 5 } as const;
 export type ContactKind = keyof typeof PRICES;
@@ -77,7 +77,13 @@ export async function handleEnrichContact(
     return { status: 402, payload: { ...summary(), error: "insufficient_credits", needed: maxCost } };
   }
 
-  const res = await batchContactEnrich([{ linkedin_url: url }], toFetch.map((k) => FIELD[k]));
+  // Instant lookup first; fall back to the batch pipeline only if it errors.
+  const wanted = toFetch.map((k) => FIELD[k]);
+  let res = await syncContactEnrich([url], wanted);
+  if (!res.ok && !res.insufficientCredits) {
+    console.warn(`[enrich_contact] sync lookup failed (${res.status}): ${res.detail.slice(0, 200)} — falling back to batch`);
+    res = await batchContactEnrich([{ linkedin_url: url }], wanted);
+  }
   if (!res.ok) return { status: 502, payload: { ...summary(), error: "Contact lookup is unavailable right now. Try again shortly." } };
   const r = res.data[0];
 
