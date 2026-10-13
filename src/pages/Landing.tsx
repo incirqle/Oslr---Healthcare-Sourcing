@@ -483,6 +483,23 @@ export default function Landing() {
         <ProductMockup />
       </section>
 
+      {/* ---- STATS BAR ---- */}
+      <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+        <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 text-center">
+          {STATS.map((s) => (
+            <div key={s.label} className="space-y-2">
+              <p className="font-display text-3xl md:text-4xl xl:text-5xl font-bold text-primary">
+                <CountUp target={s.value} suffix={s.suffix} />
+              </p>
+              <p className="text-white/60 text-sm md:text-base leading-snug max-w-[22ch] mx-auto">
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ---- PROBLEM ---- */}
       <Section elevated>
         <div className="text-center mb-14">
@@ -588,22 +605,6 @@ export default function Landing() {
         </div>
       </Section>
 
-      {/* ---- STATS BAR ---- */}
-      <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 text-center">
-          {STATS.map((s) => (
-            <div key={s.label} className="space-y-2">
-              <p className="font-display text-3xl md:text-4xl xl:text-5xl font-bold text-primary">
-                <CountUp target={s.value} suffix={s.suffix} />
-              </p>
-              <p className="text-white/60 text-sm md:text-base leading-snug max-w-[22ch] mx-auto">
-                {s.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ---- FOR RECRUITERS ---- */}
       <Section>
