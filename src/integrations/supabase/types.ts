@@ -187,6 +187,32 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_exemptions: {
+        Row: {
+          company_id: string
+          created_at: string
+          note: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          note?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_exemptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_sends: {
         Row: {
           bounced: boolean
