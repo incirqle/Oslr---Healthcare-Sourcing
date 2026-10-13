@@ -37,6 +37,7 @@ import {
 } from "./credit-budget.ts";
 import { splitRoleClassNoise } from "./noise-filter.ts";
 import { applyEmploymentModel } from "./employment-model.ts";
+import { dedupeRows, rowIdentity } from "./dedupe.ts";
 import {
   mapParsedToCriteria,
   reconcileParsedClinicianIntent,
@@ -68,20 +69,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/** Identity of a result row for de-duplicating recall rows. */
+/** Identity of a result row for de-duplicating recall rows (dedupe.ts). */
 function rowKey(row: Record<string, unknown>): string | null {
-  const li = row.linkedin_url ?? row.linkedin_profile_url;
-  if (typeof li === "string" && li.trim()) return `li:${li.trim().toLowerCase()}`;
-  const id = row.id ?? row.crustdata_person_id ?? row.person_id;
-  if (typeof id === "string" && id.trim()) return `id:${id.trim()}`;
-  if (typeof id === "number") return `id:${id}`;
-  const name = typeof row.full_name === "string"
-    ? row.full_name.toLowerCase().trim()
-    : typeof row.name === "string"
-    ? row.name.toLowerCase().trim()
-    : "";
-  const co = typeof row.job_company_name === "string" ? row.job_company_name.toLowerCase().trim() : "";
-  return name ? `nc:${name}|${co}` : null;
+  return rowIdentity(row);
 }
 
 export async function handleClinicianSearch(req: Request): Promise<Response> {
@@ -855,6 +845,18 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       }
 
       const creditsSession = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+
+      // ── One person, one row (2026-10-13) ───────────────────────────
+      // Every merge point keys on identity, but the pool can still carry
+      // the same person under two URL spellings or two provider profiles.
+      // Final pass, every identity (URL, id, name + primary employer).
+      {
+        const deduped = dedupeRows(normalized as Array<Record<string, unknown>>);
+        if (deduped.removed > 0) {
+          normalized = deduped.rows;
+          console.log(JSON.stringify({ event: "dedupe", removed: deduped.removed, pool: normalized.length }));
+        }
+      }
 
       // ── Deterministic ranking: match scope, then stage-fit ─────────
       const scoped = rankByMatchScope(normalized, criteria);

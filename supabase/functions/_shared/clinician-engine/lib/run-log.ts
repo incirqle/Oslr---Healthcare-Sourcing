@@ -4,7 +4,12 @@
 // fail a search (blueprint §9).
 
 export const CLINICIAN_ENGINE = "clinician" as const;
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v3";
+// v4 (2026-10-13): surgeon-shaped role gate, noise filter, free preview,
+// pool fill, honest totals, employment model, dedupe. The version rides
+// every run-log row and every cache key, so the log proves WHICH BUILD
+// answered — a push does not redeploy a Lovable edge function, and the
+// 2026-10-13 00:29 Miami run was answered by v3 code under a v4 UI.
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v4";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

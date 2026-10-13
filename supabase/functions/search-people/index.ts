@@ -445,6 +445,9 @@ Deno.serve(async (req: Request) => {
       ai_reranked: !!data.audit,
       ai_rerank_model: data.audit ? "claude-opus" : null,
       engine: "clinician",
+      // The build that answered. The UI compares it with the build it was
+      // written for: a push does not redeploy a Lovable edge function.
+      engine_version: data.engine_version ?? null,
       run_id: data.run_id ?? null,
       criteria,
       relaxed,

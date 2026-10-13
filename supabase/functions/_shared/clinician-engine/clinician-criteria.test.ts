@@ -28,6 +28,7 @@ import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts"
 import { classifyEmployer } from "./employer-class.ts";
 import { noisePatternsFor, splitRoleClassNoise } from "./noise-filter.ts";
 import { applyEmploymentModel, classifyEmploymentModel, readRowEmploymentModel } from "./employment-model.ts";
+import { dedupeRows, identityKeys, normalizeLinkedInUrl } from "./dedupe.ts";
 
 /* ---------- helpers ---------- */
 
@@ -1275,6 +1276,34 @@ Deno.test("role-class noise filter: therapists, PAs, recruiters and reps never r
   const paAsk = mapParsedToCriteria({ role_classes: ["surgeon", "physician_assistant"], specialties: ["orthopedic surgery"] });
   const paSplit = splitRoleClassNoise([rows[1]], paAsk);
   assertEquals(paSplit.noise.length, 0, "PAs were asked for");
+});
+
+/* ---------- one person, one row (2026-10-13) ---------- */
+
+Deno.test("dedupe: URL spellings, provider ids and URL-less duplicate profiles collapse to one row", () => {
+  assertEquals(normalizeLinkedInUrl("https://www.linkedin.com/in/jen-holman/?trk=x"), "linkedin.com/in/jen-holman");
+  assertEquals(normalizeLinkedInUrl("LinkedIn.com/in/Jen-Holman"), "linkedin.com/in/jen-holman");
+  assertEquals(normalizeLinkedInUrl("https://fr.linkedin.com/in/jen-holman"), "linkedin.com/in/jen-holman");
+
+  const rows = [
+    { name: "Jen Peter Holman", linkedin_profile_url: "https://www.linkedin.com/in/jen-holman/", person_id: 1, current_employers: [{ name: "Miami Shoulder Institute", is_default: true }] },
+    { name: "Jen Peter Holman", linkedin_profile_url: "linkedin.com/in/jen-holman", person_id: 2, current_employers: [{ name: "Miami Shoulder Institute" }] },
+    { name: "Jen Peter Holman, MD", linkedin_profile_url: null, person_id: null, current_employers: [{ name: "Miami Shoulder Institute, PA" }] },
+    { name: "Dr. Jen Peter-Holman", person_id: 3, current_employers: [{ name: "Miami Shoulder Institute" }] },
+    // Same name, different practice: a different person — kept.
+    { name: "Jen Peter Holman", person_id: 4, current_employers: [{ name: "Baptist Health" }] },
+    // No identity at all: kept.
+    { headline: "Orthopaedic Surgeon" },
+  ] as Array<Record<string, unknown>>;
+  const { rows: out, removed } = dedupeRows(rows);
+  assertEquals(removed, 3);
+  assertEquals(out.map((r) => r.person_id ?? null), [1, 4, null]);
+  // Card rows (full_name / linkedin_url / job_company_name) key the same way
+  // as pool rows (name / linkedin_profile_url / current_employers).
+  const cardKeys = identityKeys({ full_name: "Jen Peter Holman", linkedin_url: "https://linkedin.com/in/jen-holman", job_company_name: "Miami Shoulder Institute" });
+  const poolKeys = identityKeys(rows[0]);
+  assertEquals(cardKeys, ["li:linkedin.com/in/jen-holman", "nc:jenpeterholman|miamishoulderinstitute"]);
+  assert(cardKeys.every((k) => poolKeys.includes(k)), "card and pool rows share every identity they both carry");
 });
 
 /* ---------- employment model: hospital-employed vs private practice (2026-10-13) ---------- */
