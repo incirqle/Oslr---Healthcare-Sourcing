@@ -12,6 +12,8 @@ export interface ExperienceEntryLike {
   endDate: string | null;
   isCurrent: boolean;
   logoDomain: string | null;
+  /** The provider's logo URL for the employer, when the row carries one. */
+  logoUrl?: string | null;
   location?: string | null;
   summary?: string | null;
   salary?: string | null;
@@ -155,6 +157,7 @@ export function deriveAchievements(
 export interface CompanyGroup {
   company: string | null;
   logoDomain: string | null;
+  logoUrl: string | null;
   totalMonths: number;
   roles: ExperienceEntryLike[];
 }
@@ -171,10 +174,12 @@ export function groupExperienceByCompany(entries: ExperienceEntryLike[]): Compan
     if (last && (last.company || "").toLowerCase().trim() === key) {
       last.roles.push(entry);
       last.logoDomain = last.logoDomain || entry.logoDomain;
+      last.logoUrl = last.logoUrl || entry.logoUrl || null;
     } else {
       groups.push({
         company: entry.company,
         logoDomain: entry.logoDomain,
+        logoUrl: entry.logoUrl ?? null,
         totalMonths: 0,
         roles: [entry],
       });

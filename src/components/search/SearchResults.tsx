@@ -27,6 +27,9 @@ import {
 import {
   cleanDisplayName,
   LinkedInMark,
+} from "./candidate-ui";
+import { OrgLogo, PersonAvatar } from "./Avatars";
+import {
   normalizeLinkedInUrl,
   toTitleCase,
 } from "@/components/search/candidate-ui";
@@ -61,6 +64,8 @@ export interface Candidate {
   match_score?: number;
   relevance_summary?: string;
   profile_pic_url?: string | null;
+  /** Current employer's logo (provider URL), when the row carries one. */
+  company_logo_url?: string | null;
   inferred_salary?: string | null;
   years_experience?: number;
   clinical_skills?: string[];
@@ -160,13 +165,23 @@ function MiddleColumn({
       )}
       <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
         {orgDisplay && (
-          <span
-            className={cn(
-              "truncate",
-              suppressCompany ? "text-muted-foreground/70" : "text-muted-foreground",
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            {candidate.company_logo_url && (
+              <OrgLogo
+                name={orgDisplay}
+                src={candidate.company_logo_url}
+                className="h-4 w-4 rounded-sm"
+                textClassName="text-[8px]"
+              />
             )}
-          >
-            {orgDisplay}
+            <span
+              className={cn(
+                "truncate",
+                suppressCompany ? "text-muted-foreground/70" : "text-muted-foreground",
+              )}
+            >
+              {orgDisplay}
+            </span>
           </span>
         )}
         {orgDisplay && locDisplay && (
@@ -346,28 +361,33 @@ function CandidateRow({
 
         {/* Main grid: identity + middle + chips + actions */}
         <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 lg:grid-cols-12">
-          {/* Identity (name + linkedin) — col 1-3 */}
+          {/* Identity (headshot + name + linkedin) — col 1-3 */}
           <div className="lg:col-span-3 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="truncate text-[15px] font-semibold text-foreground">{displayName}</h3>
-              {candidate.linkedin_url && (
-                <a
-                  href={normalizeLinkedInUrl(candidate.linkedin_url) ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-linkedin-foreground hover:opacity-80"
-                  onClick={(event) => event.stopPropagation()}
-                  aria-label={`Open ${displayName} on LinkedIn`}
-                >
-                  <LinkedInMark className="h-3.5 w-3.5" />
-                </a>
-              )}
+            <div className="flex items-center gap-2.5">
+              <PersonAvatar name={displayName} src={candidate.profile_pic_url} className="h-9 w-9" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="truncate text-[15px] font-semibold text-foreground">{displayName}</h3>
+                  {candidate.linkedin_url && (
+                    <a
+                      href={normalizeLinkedInUrl(candidate.linkedin_url) ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-linkedin-foreground hover:opacity-80"
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={`Open ${displayName} on LinkedIn`}
+                    >
+                      <LinkedInMark className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
+                {candidate.years_experience ? (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {candidate.years_experience}y experience
+                  </p>
+                ) : null}
+              </div>
             </div>
-            {candidate.years_experience ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {candidate.years_experience}y experience
-              </p>
-            ) : null}
           </div>
 
           {/* Middle column: title + org + location — col 4-7 */}
@@ -712,7 +732,10 @@ export function SearchResults({
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages || hasMore === false || isLoading}
+              // Every kept row is already on the page, so the page count is
+              // the only truth. The server's hasMore flag (always false now)
+              // used to disable Next — 2026-10-13.
+              disabled={page >= totalPages || isLoading}
               onClick={() => onPageChange(page + 1)}
               className="h-9 gap-1.5 transition-opacity"
             >

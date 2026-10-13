@@ -53,6 +53,7 @@ import {
   toStringArray,
   toTitleCase,
 } from "@/components/search/candidate-ui";
+import { OrgLogo, PersonAvatar } from "@/components/search/Avatars";
 import {
   deriveAchievements,
   formatMonths,
@@ -149,6 +150,8 @@ interface ExperienceEntry {
   endDate: string | null;
   isCurrent: boolean;
   logoDomain: string | null;
+  /** Provider logo URL (Crustdata). Preferred over the domain lookup. */
+  logoUrl: string | null;
   location: string | null;
   summary: string | null;
   salary: string | null;
@@ -161,6 +164,8 @@ interface EducationEntry {
   startDate: string | null;
   endDate: string | null;
   logoDomain: string | null;
+  /** Provider logo URL (Crustdata). Preferred over the domain lookup. */
+  logoUrl: string | null;
   summary: string | null;
 }
 
@@ -203,6 +208,7 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
       endDate: entry.end_date ?? null,
       isCurrent: !entry.end_date || entry.is_primary,
       logoDomain: extractDomain(entry.company?.website, entry.company?.linkedin_url),
+      logoUrl: null,
       location: Array.isArray(entry.location_names) && entry.location_names.length > 0 ? entry.location_names[0] : null,
       summary: typeof entry.summary === "string" ? entry.summary : null,
       salary: null,
@@ -246,10 +252,12 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
     isCurrent: Boolean(entry.is_current ?? entry.is_primary ?? !entry.end_date),
     logoDomain: extractDomain(
       typeof entry.company_website === "string" ? entry.company_website : null,
+      typeof entry.company_domain === "string" ? entry.company_domain : null,
       typeof entry.company_url === "string" ? entry.company_url : null,
       typeof entry.company_linkedin_url === "string" ? entry.company_linkedin_url : null,
       (entry.company as { website?: string } | null)?.website ?? null,
     ),
+    logoUrl: typeof entry.company_logo_url === "string" && entry.company_logo_url ? entry.company_logo_url : null,
     location: typeof entry.location === "string"
       ? entry.location
       : Array.isArray(entry.location_names) && typeof entry.location_names[0] === "string"
@@ -271,6 +279,7 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
       startDate: entry.start_date ?? null,
       endDate: entry.end_date ?? null,
       logoDomain: extractDomain(entry.school?.website, entry.school?.linkedin_url),
+      logoUrl: null,
       summary: typeof entry.summary === "string" ? entry.summary : null,
     }));
   }
@@ -294,6 +303,7 @@ function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enrich
       typeof entry.school_linkedin_url === "string" ? entry.school_linkedin_url : null,
       (entry.school as { website?: string } | null)?.website ?? null,
     ),
+    logoUrl: typeof entry.school_logo_url === "string" && entry.school_logo_url ? entry.school_logo_url : null,
     summary: typeof entry.summary === "string" ? entry.summary : null,
   }));
 
@@ -694,7 +704,12 @@ export function CandidateDrawer({
     return out;
   })();
   const topCompanyDomain = companyGroups[0]?.logoDomain ?? null;
+  const topCompanyLogo = companyGroups[0]?.logoUrl ??
+    (typeof candidate.raw?.job_company_logo_url === "string" ? (candidate.raw.job_company_logo_url as string) : null);
   const topSchoolDomain = topEducation?.logoDomain ?? null;
+  const topSchoolLogo = topEducation?.logoUrl ?? null;
+  const headshot = enriched?.profile_pic_url || candidate.profile_pic_url ||
+    (typeof candidate.raw?.profile_picture_url === "string" ? (candidate.raw.profile_picture_url as string) : null);
   const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
 
 
@@ -785,6 +800,12 @@ export function CandidateDrawer({
           {/* Row 2: Identity — Juicebox-style: name, location, company + school chips */}
           <div className="shrink-0 border-b border-ui-border-light px-5 py-4 pr-12 sm:px-6">
             <div className="flex items-start gap-3">
+              <PersonAvatar
+                name={toTitleCase(cleanDisplayName(candidate.full_name))}
+                src={headshot}
+                className="mt-0.5 h-14 w-14"
+                textClassName="text-base"
+              />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <SheetTitle className="truncate text-[20px] font-bold leading-tight text-ui-text-primary">
                   {toTitleCase(cleanDisplayName(candidate.full_name))}
@@ -796,39 +817,33 @@ export function CandidateDrawer({
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-0.5">
                     {companyName && (
                       <div className="inline-flex items-center gap-1.5 text-[13px] text-ui-text-secondary">
-                        <div className="relative h-4 w-4 shrink-0 overflow-hidden rounded-sm bg-white">
-                          {topCompanyDomain ? (
-                            <img
-                              src={logoUrl(topCompanyDomain) ?? ""}
-                              alt=""
-                              className="absolute inset-0 h-full w-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <Building2 className="h-4 w-4 text-ui-text-muted" />
-                          )}
-                        </div>
+                        {topCompanyLogo || topCompanyDomain ? (
+                          <OrgLogo
+                            name={companyName}
+                            src={topCompanyLogo}
+                            fallbackSrc={logoUrl(topCompanyDomain)}
+                            className="h-4 w-4 rounded-sm border-0"
+                            textClassName="text-[8px]"
+                          />
+                        ) : (
+                          <Building2 className="h-4 w-4 shrink-0 text-ui-text-muted" />
+                        )}
                         <span className="truncate font-medium">{toTitleCase(companyName)}</span>
                       </div>
                     )}
                     {topEducation?.school && (
                       <div className="inline-flex items-center gap-1.5 text-[13px] text-ui-text-secondary">
-                        <div className="relative h-4 w-4 shrink-0 overflow-hidden rounded-sm bg-white">
-                          {topSchoolDomain ? (
-                            <img
-                              src={logoUrl(topSchoolDomain) ?? ""}
-                              alt=""
-                              className="absolute inset-0 h-full w-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <GraduationCap className="h-4 w-4 text-ui-text-muted" />
-                          )}
-                        </div>
+                        {topSchoolLogo || topSchoolDomain ? (
+                          <OrgLogo
+                            name={topEducation.school}
+                            src={topSchoolLogo}
+                            fallbackSrc={logoUrl(topSchoolDomain)}
+                            className="h-4 w-4 rounded-sm border-0"
+                            textClassName="text-[8px]"
+                          />
+                        ) : (
+                          <GraduationCap className="h-4 w-4 shrink-0 text-ui-text-muted" />
+                        )}
                         <span className="truncate">{toTitleCase(topEducation.school)}</span>
                       </div>
                     )}
@@ -1099,27 +1114,12 @@ export function CandidateDrawer({
                         <section key={`${group.company}-${gi}`} className="space-y-3">
                           {/* Company header */}
                           <div className="flex items-center gap-3">
-                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
-                              {group.logoDomain && (
-                                <img
-                                  src={logoUrl(group.logoDomain) ?? ""}
-                                  alt=""
-                                  className="absolute inset-0 h-full w-full object-contain p-1"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                  }}
-                                />
-                              )}
-                              <div
-                                className={cn(
-                                  "flex h-full w-full items-center justify-center text-[11px] font-bold",
-                                  getAvatarToneClass(group.company || "x"),
-                                )}
-                                aria-hidden="true"
-                              >
-                                {companyInitials}
-                              </div>
-                            </div>
+                            <OrgLogo
+                              name={group.company || companyInitials}
+                              src={group.logoUrl}
+                              fallbackSrc={logoUrl(group.logoDomain)}
+                              className="h-10 w-10"
+                            />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-[15px] font-semibold text-ui-text-primary">{companyName}</p>
                               {totalLabel && (
@@ -1211,27 +1211,12 @@ export function CandidateDrawer({
                         key={`${entry.school}-${index}`}
                         className="flex gap-3 rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/30 px-4 py-3"
                       >
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-ui-border-light bg-white">
-                          {entry.logoDomain && (
-                            <img
-                              src={logoUrl(entry.logoDomain) ?? ""}
-                              alt=""
-                              className="absolute inset-0 h-full w-full object-contain p-1"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                              }}
-                            />
-                          )}
-                          <div
-                            className={cn(
-                              "flex h-full w-full items-center justify-center text-[11px] font-bold",
-                              getAvatarToneClass(entry.school || "edu"),
-                            )}
-                            aria-hidden="true"
-                          >
-                            {schoolInitials}
-                          </div>
-                        </div>
+                        <OrgLogo
+                          name={entry.school || schoolInitials}
+                          src={entry.logoUrl}
+                          fallbackSrc={logoUrl(entry.logoDomain)}
+                          className="h-10 w-10"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-[14px] font-semibold text-ui-text-primary">{school}</p>
                           {degreeInfo.display && (

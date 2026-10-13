@@ -247,6 +247,7 @@ export default function SearchPage() {
       has_experience: (r.experience_history?.length || r.experience?.length || 0) > 0,
       match_score: r.relevance_score ?? 75,
       profile_pic_url: r.profile_pic_url || null,
+      company_logo_url: r.job_company_logo_url || null,
       inferred_salary: null,
       years_experience: r.years_experience || r.inferred_years_experience || 0,
       clinical_skills: r.clinical_skills || [],
