@@ -200,7 +200,25 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-xs">Password</Label>
+                    {!isSignUp && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={async () => {
+                          if (!email) return toast.error("Enter your email first, then click Forgot password.");
+                          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                            redirectTo: `${window.location.origin}/reset-password`,
+                          });
+                          if (error) return toast.error(error.message);
+                          toast.success("Check your email for a link to reset your password.");
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
                   <Input
                     id="password"
                     type="password"
