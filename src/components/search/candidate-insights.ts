@@ -28,8 +28,7 @@ export type AchievementId =
   | "high_tenure"
   | "long_tenure"
   | "international"
-  | "top_school"
-  | "career_switcher";
+  | "top_school";
 
 export interface Achievement {
   id: AchievementId;
@@ -143,12 +142,6 @@ export function deriveAchievements(
   const matchedSchool = education.find((e) => isTopSchool(e.school));
   if (matchedSchool && matchedSchool.school) {
     out.push({ id: "top_school", label: "Top US University", reason: `Educated at ${toTitleCase(matchedSchool.school)}` });
-  }
-
-  // Career switcher — distinct companies across many years
-  const companies = new Set(experience.map((e) => (e.company || "").toLowerCase().trim()).filter(Boolean));
-  if (companies.size >= 5 && experience.length >= 5) {
-    out.push({ id: "career_switcher", label: "Diverse Background", reason: `${companies.size} different employers across career` });
   }
 
   return out.slice(0, 6);
