@@ -788,3 +788,45 @@ async function fetchBatchOutput(url: string): Promise<V2Result<Record<string, un
 // it lazy-imports a facility-crustdata module that is outside this engine's
 // fork set, and nothing in this engine calls it. Single-profile contact
 // enrichment routes through batchContactEnrich above.
+
+/**
+ * Synchronous single-request contact enrich (POST /person/contact/enrich).
+ * Returns in about a second, so it's used for one-profile lookups; the batch
+ * pipeline above stays for bulk work. Output is normalized to the same
+ * BatchEnrichResult shape so callers can treat both identically.
+ */
+export async function syncContactEnrich(
+  linkedinUrls: string[],
+  requiredFields: readonly string[] = DEFAULT_REQUIRED_FIELDS,
+): Promise<V2Result<BatchEnrichResult[]>> {
+  if (!linkedinUrls.length) return { ok: true, data: [] };
+  const FIELD_MAP: Record<string, string> = {
+    business_email: "contact.business_emails",
+    personal_emails: "contact.personal_emails",
+    mobile_phone: "contact.phone_numbers",
+    phone_numbers: "contact.phone_numbers",
+  };
+  const fields = [...new Set(requiredFields.map((f) => FIELD_MAP[f] ?? f))];
+  type Email = { email?: string; status?: string } | string;
+  type Row = {
+    matched_on?: string;
+    matches?: { person_data?: { contact?: { business_emails?: Email[]; personal_emails?: Email[]; phone_numbers?: string[] } } }[];
+  };
+  const r = await call<Row[]>("/person/contact/enrich", {
+    method: "POST",
+    body: JSON.stringify({ professional_network_profile_urls: linkedinUrls.slice(0, 25), fields }),
+  });
+  if (!r.ok) return r;
+  const rows = Array.isArray(r.data) ? r.data : [];
+  return {
+    ok: true,
+    data: rows.map((row) => {
+      const c = row.matches?.[0]?.person_data?.contact ?? {};
+      return pickHasContact({
+        professional_network_url: row.matched_on ?? "",
+        business_email: c.business_emails ?? [],
+        personal_contact_info: { personal_emails: c.personal_emails ?? [], phone_numbers: c.phone_numbers ?? [] },
+      });
+    }),
+  };
+}
