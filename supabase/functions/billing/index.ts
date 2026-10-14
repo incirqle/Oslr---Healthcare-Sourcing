@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     // status (default): report plan and grant credits for any paid invoice not yet credited.
     if (!customerId) return json({ subscribed: false, granted: 0 });
     const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
-    const starter = subs.data.find((s: { items: { data: { price: { id: string } } }[]; status: string }) =>
+    const starter = subs.data.find((s: { items: { data: { price: { id: string } } }[] } & { status: string }) =>
       s.items.data.some((i: { price: { id: string } }) => i.price.id === STARTER_PRICE) &&
       ["active", "trialing", "past_due"].includes(s.status));
     const invoices = await stripe.invoices.list({ customer: customerId, status: "paid", limit: 24 });
