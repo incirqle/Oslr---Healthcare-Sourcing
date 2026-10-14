@@ -37,6 +37,7 @@ const load = (dir: string, file: string) => import(/* @vite-ignore */ dir + file
 
 await load(engineDir, "clinician-criteria.test.ts");
 await load(engineDir, "employer-groups.test.ts");
+await load(engineDir, "military-affiliation.test.ts");
 const engineCount = collected.length;
 await load(adapterDir, "refine-filters.test.ts");
 

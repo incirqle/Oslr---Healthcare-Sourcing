@@ -58,22 +58,170 @@ export const EMPLOYER_GROUPS: Record<string, EmployerGroupDef> = {
   /* ------------------------------------------------------------ */
   va: {
     label: "VA (Veterans Affairs)",
-    aliases: ["the va", "va ", "veterans affairs", "veterans health", "veterans administration", "veterans health administration"],
+    aliases: [
+      "the va", "va ", "veterans affairs", "veteran affairs", "veterans health", "veterans administration",
+      "veterans health administration", "department of veterans affairs", "va hospital", "va medical center",
+      "vamc", "veterans hospital", "va health care system", "va healthcare system",
+    ],
     company_ids: [
-      1129891, // U.S. Department of Veterans Affairs (va.gov, 10001+)
+      1129891, // U.S. Department of Veterans Affairs (va.gov, 10001+) — what most VA physicians list
       6891547, // South Texas Veterans Health Care System
       7575637, // Gulf Coast Veterans Health Care System
       6820262, // Southeast Louisiana Veterans Health Care System
       12974094, // VA Pacific Island Health Care System
       8082851, // Salem VA (Veterans Health Administration)
+      6503188, // VA Eastern Colorado Health Care System (2026-10-14)
+      6690641, // VA Puget Sound Health Care System
+      10577774, // VA Puget Sound - American Lake Division
+      8581685, // VA Boston Healthcare System - Jamaica Plain
+      6108613, // Atlanta VA Medical Center
+      6329118, // Memphis VA Medical Center
+      6352687, // Coatesville VA Medical Center
     ],
     domains: ["va.gov"],
     name_variants: [
+      // Measured 2026-10-14 in Colorado: the first five found 132 physicians,
+      // the additions below take it to 142 (misspellings, the singular
+      // "Veteran Affairs", "VA Hospital", "VAMC").
       "veterans affairs",
       "veterans health administration",
       "veterans health care system",
       "va medical center",
       "va healthcare system",
+      "veteran affairs",
+      "veterans administration",
+      "va health care system",
+      "va hospital",
+      "veterans hospital",
+      "vamc",
+      "department of veteran",
+      "veterans health",
+    ],
+  },
+  ihs: {
+    label: "Indian Health Service",
+    aliases: ["indian health service", "ihs", "tribal health"],
+    company_ids: [1296287],
+    domains: ["ihs.gov"],
+    name_variants: ["indian health service", "indian health", "tribal health"],
+  },
+  /* ------------------------------------------------------------ */
+  /*  Department of Defense / Military Health System (2026-10-14)   */
+  /*                                                                */
+  /*  Military physicians tag the SERVICE ("US Army", "US Navy",    */
+  /*  "USN", "United States Air Force") far more often than the      */
+  /*  hospital; the hospital records are duplicated; podiatrists    */
+  /*  never tag the hospital. A facility is service + geography, so */
+  /*  the group carries every service and every facility record,   */
+  /*  and MILITARY_FACILITIES below supplies the metro for a named  */
+  /*  base. Guard and Reserve are a SEPARATE group: a civilian      */
+  /*  surgeon with a part-time commission is a different population.*/
+  /*  Never use afreserve.com / goang.com as reserve signals — they  */
+  /*  are the active Air Force entity's own domains.                */
+  /* ------------------------------------------------------------ */
+  dod: {
+    label: "Department of Defense (military health)",
+    aliases: [
+      "dod", "department of defense", "military", "military health", "military health system",
+      "defense health agency", "dha", "active duty", "armed forces", "uniformed services", "medical corps",
+      "us army", "u.s. army", "united states army", "army medicine", "army medical",
+      "us navy", "u.s. navy", "united states navy", "navy medicine", "navy medical",
+      "us air force", "u.s. air force", "united states air force", "usaf", "air force", "air force medical",
+      "us marine corps", "marine corps", "military treatment facility", "mtf",
+      "military hospital", "military medical center", "army hospital", "naval hospital", "naval medical center",
+      "army medical center", "army community hospital",
+      // facility nicknames — MILITARY_FACILITIES narrows these to the base
+      "walter reed", "bethesda naval", "wrnmmc", "brooke army", "bamc", "sammc", "madigan", "tripler", "womack",
+      "evans army", "balboa", "nmcsd", "nmc portsmouth", "portsmouth naval", "naval medical center portsmouth",
+      "camp lejeune", "landstuhl", "eisenhower army", "darnall", "william beaumont army", "wbamc", "keller army",
+      "martin army", "winn army", "blanchfield", "fort belvoir community hospital", "wright-patterson medical",
+      "wright patterson medical", "david grant medical", "keesler medical", "mike o'callaghan", "usafa",
+      "uniformed services university", "usuhs",
+    ],
+    company_ids: [
+      1040041, // US Army (army.mil) — the single most common tag
+      1476804, // United States Department of the Army
+      9988770, // U.S. Army Medical Command
+      1034053, // US Navy (navy.mil)
+      2056768, // United States Department of the Navy
+      1980549, // US Navy Bureau of Medicine and Surgery
+      1100685, // United States Air Force
+      1295078, // United States Air Force Academy
+      1040040, // United States Marine Corps
+      1257916, // Defense Health Agency
+      3083301, // Defense Health Agency (dha.mil)
+      61296201, // Defense Health Network East
+      8221751, // Military Health System (health.mil)
+      1690954, // Uniformed Services University
+      6066156, // Walter Reed National Military Medical Center
+      2216341, // Walter Reed Army Medical Center (legacy)
+      4947246, // Brooke Army Medical Center
+      6410911, // Tripler Army Medical Center
+      6355570, // Madigan Army Medical Center
+      7446990, // Womack Army Medical Center
+      1224616, // Womack Army Medical Center (duplicate record)
+      7661026, // Evans Army Community Hospital
+      2004532, // Keller Army Community Hospital
+      6584223, // Martin Army Community Hospital
+      6286319, // Winn Army Community Hospital
+      8177843, // Blanchfield Army Community Hospital
+      7223295, // Naval Medical Center Portsmouth
+      6797583, // Naval Medical Center Camp Lejeune
+      6518802, // Naval Medical Center San Diego
+      7423349, // Naval Medical Center San Diego (duplicate record)
+      6239042, // Landstuhl Regional Medical Center
+      21232352, // Wright Patterson Medical Center
+      7790094, // David Grant Medical Center
+      13873681, // David Grant Medical Center (GME)
+    ],
+    domains: ["army.mil", "navy.mil", "af.mil", "airforce.com", "marines.mil", "dha.mil", "health.mil", "tricare.mil", "usuhs.edu"],
+    name_variants: [
+      "us army", "u.s. army", "united states army", "us navy", "u.s. navy", "united states navy", "usn",
+      "us air force", "u.s. air force", "united states air force", "usaf", "united states marine corps", "us marine corps",
+      "defense health agency", "defense health network", "military health system", "department of defense",
+      "army medical center", "army community hospital", "army hospital", "naval medical center", "naval hospital",
+      "naval health clinic", "navy medicine", "army medicine", "army medical corps", "navy medical corps",
+      "air force medical", "uniformed services", "military medical center", "military hospital",
+      "walter reed", "landstuhl", "fort belvoir community hospital", "wright-patterson medical center",
+      "wright patterson medical center", "david grant medical center", "keesler medical center", "air force academy",
+      "nmcsd", "medical group-usaf", "medical group usaf",
+      // Air Force clinics are "Nth Medical Group". A bare "medical group" variant
+      // matches every civilian "X Medical Group" (it inflated a 2026-10-14 count
+      // from 285 to 662), so the major ones are enumerated.
+      "1st medical group", "4th medical group", "6th medical group", "10th medical group", "15th medical group",
+      "18th medical group", "20th medical group", "23d medical group", "23rd medical group", "27th special operations medical group",
+      "28th medical group", "45th medical group", "48th medical group", "52nd medical group", "55th medical group",
+      "59th medical wing", "60th medical group", "75th medical group", "81st medical group", "86th medical group",
+      "88th medical group", "90th medical group", "96th medical group", "97th medical group", "99th medical group",
+      "325th medical group", "412th medical group", "579th medical group", "633d medical group", "633rd medical group",
+      "673d medical group", "673rd medical group",
+    ],
+  },
+  guard_reserve: {
+    label: "Guard and Reserve",
+    aliases: [
+      "guard and reserve", "guard or reserve", "reserve component", "reservist", "reservists",
+      "army reserve", "army reserves", "us army reserve", "u.s. army reserve", "united states army reserve",
+      "navy reserve", "navy reserves", "us navy reserve", "u.s. navy reserve", "united states navy reserve",
+      "air force reserve", "air force reserves", "us air force reserve", "u.s. air force reserve", "air force reserve command",
+      "national guard", "army national guard", "air national guard", "usar", "usnr", "afrc", "ang",
+    ],
+    company_ids: [
+      1477295, // United States Army Reserve
+      1086585, // U.S. Navy Reserve
+      6668052, // United States Air Force Reserve
+      906200, // Army National Guard
+      1293040, // Air National Guard
+      32500162, // Air National Guard (second record)
+    ],
+    // nationalguard.com only. afreserve.com / goang.com belong to the active
+    // Air Force entity and would tag every active Air Force surgeon as Reserve.
+    domains: ["nationalguard.com"],
+    name_variants: [
+      "army reserve", "army reserves", "navy reserve", "navy reserves", "air force reserve", "air force reserves",
+      "army national guard", "air national guard", "usar", "usnr", "reserve component",
+      // NOT bare "national guard": the Saudi "Ministry of National Guard Health
+      // Affairs" employs hundreds of surgeons and matched it (2026-10-14).
     ],
   },
 
@@ -712,5 +860,236 @@ export const EMPLOYER_GROUPS: Record<string, EmployerGroupDef> = {
     company_ids: [1204283],
     domains: ["healthcare.utah.edu", "utah.edu"],
     name_variants: ["university of utah health", "university of utah hospital", "university of utah school of medicine", "university of utah", "huntsman cancer", "u of u health", "moran eye center"],
+  },
+};
+
+/** The service-level DoD entities: what a named base is combined with. */
+export const DOD_SERVICE_IDS: readonly number[] = [
+  1040041, 1476804, 9988770, 1034053, 2056768, 1980549, 1100685, 1295078, 1040040,
+  1257916, 3083301, 61296201, 8221751, 1690954,
+];
+export const DOD_SERVICE_VARIANTS: readonly string[] = [
+  "us army", "u.s. army", "united states army", "us navy", "u.s. navy", "united states navy", "usn",
+  "us air force", "u.s. air force", "united states air force", "usaf", "united states marine corps", "us marine corps",
+  "defense health agency", "defense health network", "military health system", "department of defense",
+  "navy medicine", "army medicine", "army medical corps", "navy medical corps", "air force medical", "uniformed services",
+];
+
+/* ------------------------------------------------------------------ */
+/*  Military treatment facilities — service + geography               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A named base hospital narrows the dod group to its own records PLUS every
+ * service entity (people tag "US Navy", not the hospital), and supplies the
+ * metro the location clip should use when the user gave none. The facility
+ * ids and variants also drive a location-free recall pass: military
+ * clinicians rotate every 2-4 years and many never update their location,
+ * so a facility-tagged profile in another state is a transfer signal, not
+ * noise (Balboa probe, 2026-10-14: 3 of 9 staff surgeons listed other
+ * states).
+ */
+export interface MilitaryFacilityDef {
+  label: string;
+  /** Lowercase phrases in a query that mean this facility (nicknames first). */
+  aliases: string[];
+  /** Every Crustdata record for the facility (duplicates are common). */
+  company_ids: number[];
+  /** Employer-name variants people actually list. */
+  name_variants: string[];
+  /** Metro for the location clip when the user named only the base. */
+  city: string | null;
+  state: string | null;
+}
+
+export const MILITARY_FACILITIES: Record<string, MilitaryFacilityDef> = {
+  nmcsd: {
+    label: "Naval Medical Center San Diego (Balboa)",
+    aliases: ["balboa", "nmcsd", "naval medical center san diego", "navy medicine readiness and training command san diego", "balboa naval"],
+    company_ids: [6518802, 7423349],
+    name_variants: ["naval medical center san diego", "naval medical center - san diego", "naval medical center -san diego", "nmcsd", "balboa naval", "naval hospital san diego", "navy medicine readiness and training command san diego"],
+    city: "san diego", state: "california",
+  },
+  walter_reed: {
+    label: "Walter Reed National Military Medical Center",
+    aliases: ["walter reed", "wrnmmc", "bethesda naval", "national naval medical center"],
+    company_ids: [6066156, 2216341],
+    name_variants: ["walter reed", "national naval medical center", "wrnmmc"],
+    city: "bethesda", state: "maryland",
+  },
+  bamc: {
+    label: "Brooke Army Medical Center",
+    aliases: ["brooke army", "bamc", "sammc", "san antonio military medical center"],
+    company_ids: [4947246],
+    name_variants: ["brooke army medical center", "bamc", "san antonio military medical center", "sammc"],
+    city: "san antonio", state: "texas",
+  },
+  madigan: {
+    label: "Madigan Army Medical Center",
+    aliases: ["madigan"],
+    company_ids: [6355570],
+    name_variants: ["madigan"],
+    city: "tacoma", state: "washington",
+  },
+  tripler: {
+    label: "Tripler Army Medical Center",
+    aliases: ["tripler"],
+    company_ids: [6410911],
+    name_variants: ["tripler"],
+    city: "honolulu", state: "hawaii",
+  },
+  womack: {
+    label: "Womack Army Medical Center",
+    aliases: ["womack", "fort bragg", "fort liberty"],
+    company_ids: [7446990, 1224616],
+    name_variants: ["womack"],
+    city: "fayetteville", state: "north carolina",
+  },
+  evans: {
+    label: "Evans Army Community Hospital",
+    aliases: ["evans army", "fort carson"],
+    company_ids: [7661026],
+    name_variants: ["evans army community hospital", "evans army"],
+    city: "colorado springs", state: "colorado",
+  },
+  nmc_portsmouth: {
+    label: "Naval Medical Center Portsmouth",
+    aliases: ["nmc portsmouth", "portsmouth naval", "naval medical center portsmouth", "nmcp"],
+    company_ids: [7223295],
+    name_variants: ["naval medical center portsmouth", "nmc portsmouth", "nmcp", "naval hospital portsmouth"],
+    city: "portsmouth", state: "virginia",
+  },
+  nmc_camp_lejeune: {
+    label: "Naval Medical Center Camp Lejeune",
+    aliases: ["camp lejeune"],
+    company_ids: [6797583],
+    name_variants: ["camp lejeune"],
+    city: "jacksonville", state: "north carolina",
+  },
+  landstuhl: {
+    label: "Landstuhl Regional Medical Center",
+    aliases: ["landstuhl"],
+    company_ids: [6239042],
+    name_variants: ["landstuhl"],
+    city: null, state: null,
+  },
+  eisenhower: {
+    label: "Dwight D. Eisenhower Army Medical Center",
+    aliases: ["eisenhower army", "fort gordon", "fort eisenhower"],
+    company_ids: [],
+    name_variants: ["eisenhower army medical center", "eisenhower army"],
+    city: "augusta", state: "georgia",
+  },
+  darnall: {
+    label: "Carl R. Darnall Army Medical Center",
+    aliases: ["darnall", "fort hood", "fort cavazos"],
+    company_ids: [],
+    name_variants: ["darnall army medical center", "darnall"],
+    city: "killeen", state: "texas",
+  },
+  wbamc: {
+    label: "William Beaumont Army Medical Center",
+    aliases: ["william beaumont army", "wbamc", "fort bliss"],
+    company_ids: [],
+    name_variants: ["william beaumont army medical center", "wbamc"],
+    city: "el paso", state: "texas",
+  },
+  keller: {
+    label: "Keller Army Community Hospital",
+    aliases: ["keller army", "west point hospital"],
+    company_ids: [2004532],
+    name_variants: ["keller army community hospital", "keller army"],
+    city: "west point", state: "new york",
+  },
+  martin: {
+    label: "Martin Army Community Hospital",
+    aliases: ["martin army", "fort benning", "fort moore"],
+    company_ids: [6584223],
+    name_variants: ["martin army community hospital", "martin army"],
+    city: "columbus", state: "georgia",
+  },
+  winn: {
+    label: "Winn Army Community Hospital",
+    aliases: ["winn army", "fort stewart"],
+    company_ids: [6286319],
+    name_variants: ["winn army community hospital", "winn army"],
+    city: "hinesville", state: "georgia",
+  },
+  blanchfield: {
+    label: "Blanchfield Army Community Hospital",
+    aliases: ["blanchfield", "fort campbell"],
+    company_ids: [8177843],
+    name_variants: ["blanchfield"],
+    city: "clarksville", state: "tennessee",
+  },
+  fort_belvoir: {
+    label: "Fort Belvoir Community Hospital",
+    aliases: ["fort belvoir community hospital", "fort belvoir"],
+    company_ids: [],
+    name_variants: ["fort belvoir community hospital", "fort belvoir"],
+    city: "fort belvoir", state: "virginia",
+  },
+  wright_patterson: {
+    label: "Wright-Patterson Medical Center",
+    aliases: ["wright-patterson medical", "wright patterson medical", "wright-patterson", "wright patterson", "88th medical group"],
+    company_ids: [21232352],
+    name_variants: ["wright-patterson medical center", "wright patterson medical center", "wright-patterson", "wright patterson", "88th medical group"],
+    city: "dayton", state: "ohio",
+  },
+  david_grant: {
+    label: "David Grant Medical Center (Travis AFB)",
+    aliases: ["david grant medical", "david grant", "travis afb", "travis air force base", "60th medical group"],
+    company_ids: [7790094, 13873681],
+    name_variants: ["david grant medical center", "david grant", "60th medical group", "travis air force base"],
+    city: "fairfield", state: "california",
+  },
+  keesler: {
+    label: "Keesler Medical Center",
+    aliases: ["keesler medical", "keesler", "81st medical group"],
+    company_ids: [],
+    name_variants: ["keesler medical center", "keesler", "81st medical group"],
+    city: "biloxi", state: "mississippi",
+  },
+  ocallaghan: {
+    label: "Mike O'Callaghan Military Medical Center (Nellis AFB)",
+    aliases: ["mike o'callaghan", "o'callaghan", "nellis", "99th medical group"],
+    company_ids: [],
+    name_variants: ["o'callaghan", "o'callahan", "99th medical group", "nellis air force base"],
+    city: "las vegas", state: "nevada",
+  },
+  usafa: {
+    label: "10th Medical Group (Air Force Academy)",
+    aliases: ["usafa", "air force academy hospital", "10th medical group"],
+    company_ids: [1295078],
+    name_variants: ["10th medical group", "usaf academy hospital", "air force academy"],
+    city: "colorado springs", state: "colorado",
+  },
+  naval_hospital_jacksonville: {
+    label: "Naval Hospital Jacksonville",
+    aliases: ["naval hospital jacksonville", "nh jacksonville"],
+    company_ids: [],
+    name_variants: ["naval hospital jacksonville"],
+    city: "jacksonville", state: "florida",
+  },
+  naval_hospital_pensacola: {
+    label: "Naval Hospital Pensacola",
+    aliases: ["naval hospital pensacola"],
+    company_ids: [],
+    name_variants: ["naval hospital pensacola"],
+    city: "pensacola", state: "florida",
+  },
+  naval_hospital_camp_pendleton: {
+    label: "Naval Hospital Camp Pendleton",
+    aliases: ["camp pendleton"],
+    company_ids: [],
+    name_variants: ["camp pendleton"],
+    city: "oceanside", state: "california",
+  },
+  naval_hospital_bremerton: {
+    label: "Naval Hospital Bremerton",
+    aliases: ["naval hospital bremerton", "bremerton naval"],
+    company_ids: [],
+    name_variants: ["naval hospital bremerton"],
+    city: "bremerton", state: "washington",
   },
 };

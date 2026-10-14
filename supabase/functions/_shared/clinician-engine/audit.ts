@@ -44,6 +44,9 @@ export interface AuditableResult {
   employer_class?: string | null;
   employment_model?: string | null;
   employment_model_evidence?: string | null;
+  military_affiliation?: string | null;
+  military_evidence?: string | null;
+  location_note?: string | null;
   experience_history?: Array<{
     company_name?: string | null;
     title?: string | null;
@@ -79,6 +82,7 @@ Rules:
 - EMPLOYER GROUPS: "at the VA" means CURRENTLY employed by a Veterans Affairs entity (VA medical centers, Veterans Health Care Systems). A VA stint years ago is not current VA employment.
 - FELLOWSHIP TRAINED means a completed CLINICAL fellowship: a fellowship education record, a fellow-titled training role, or explicit "fellowship trained" language. Honorific fellowships (FACS, FACC — Fellow of a College) are NOT fellowship training; neither are non-clinical fellowships (research-only, "Product Management Fellowship", leadership fellowships). When the ask says fellowship trained and the only evidence is honorific or non-clinical, that is a reject with the reason named. Quote the fellowship evidence when strong.
 - EMPLOYMENT MODEL (when the filters say employment_model=Private practice or Hospital-employed): the question is WHO SIGNS THE PAYCHECK, judged on the PRIMARY current employer. Hospital-employed = a hospital, health system, academic medical center / medical school faculty practice, VA or other government facility, OR a physician group owned by one of those (a "Baptist Health Medical Group" or "HCA Florida Physicians" is hospital-employed whatever its name says). Private practice = everything else that delivers care: solo and group practices, "& Associates", MD PA / PLLC entities, ASCs, dental practices, DSOs, PE-backed groups. Hospital PRIVILEGES or a second concurrent entry at a hospital do NOT make a private-practice clinician hospital-employed; an "Owner" / "Partner" / "Founder" title or Owner / Partner seniority at a practice-sized employer is strong private-practice evidence. A profile line "employment model:" below gives the deterministic read and its evidence; override it only with better evidence from the profile, and name it. The wrong model = reject with the employer named.
+- MILITARY AND VA (when the employer is a service branch, a base hospital, the Defense Health Agency, Guard / Reserve, or the VA): military clinicians rotate every 2-4 years and many never update their profile, so a "location note" line means the location is a transfer signal, not a mismatch — do not reject on it. Weigh the NEWEST current employer: a surgeon who now lists a civilian health system first has left or is Guard / Reserve ("military affiliation: likely_reserve"). A "military affiliation: active" read with only military employers is the active-duty population. Podiatrists and many surgeons tag the service ("US Navy") rather than the hospital; that is normal, not weak evidence.
 - WORKPLACE SETTING ASKS ("work in surgery centers", "at ASCs"): the employer NAME is the evidence — "Surgery Center of X" is an ambulatory surgery center. A hospital's main campus OR department is NOT an ASC; a travel nurse currently ASSIGNED to a surgery center (per role text) counts, judged from the description.
 - RECRUITERS ARE NOT CLINICIANS: a title or headline about placing, recruiting, staffing, or selling to the asked role ("CRNA Permanent Placement Consultant", "Nurse Recruiter", "CRNA staffing") is a REJECT — they hire or serve the population, they are not in it. Found live 2026-09-15: a placement consultant matched a CRNA search on his own title.
 - TRAVEL/AGENCY NURSES: an employer that is a staffing agency (Aya, AMN, Cross Country…) with facility assignments in the role text is a normal clinical career pattern — judge the clinical work, not the employer name. A travel-stint pattern is signal, not noise.
@@ -104,6 +108,10 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
     `current: ${s(r.job_title)} @ ${s(r.job_company_name)}${s(r.job_start_date) ? ` (started ${s(r.job_start_date).slice(0, 7)})` : ""}`,
   ];
   if (r.employer_class) lines.push(`employer class: ${r.employer_class}`);
+  if (r.military_affiliation) {
+    lines.push(`military affiliation: ${r.military_affiliation}${r.military_evidence ? ` (${r.military_evidence})` : ""}`);
+  }
+  if (r.location_note) lines.push(`location note: ${r.location_note}`);
   if (r.employment_model) {
     lines.push(`employment model: ${r.employment_model}${r.employment_model_evidence ? ` (${r.employment_model_evidence})` : ""}`);
   }

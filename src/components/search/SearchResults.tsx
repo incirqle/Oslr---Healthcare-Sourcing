@@ -68,6 +68,10 @@ export interface Candidate {
   company_logo_url?: string | null;
   /** Current employer's website domain, for a favicon when there is no logo. */
   company_domain?: string | null;
+  /** active | reserve | likely_reserve | veteran — read from the employer list (military-affiliation.ts). */
+  military_affiliation?: string | null;
+  /** Facility-recall rows that list another location than the base asked for. */
+  location_note?: string | null;
   inferred_salary?: string | null;
   years_experience?: number;
   clinical_skills?: string[];
@@ -196,7 +200,26 @@ function MiddleColumn({
             {locDisplay}
           </span>
         )}
+        {candidate.military_affiliation && (
+          <span
+            className="rounded-full border border-ui-border-light px-1.5 py-px text-[10px] font-medium text-muted-foreground"
+            title={candidate.military_affiliation === "active"
+              ? "Only military employers listed"
+              : candidate.military_affiliation === "veteran"
+              ? "Military service in past roles only"
+              : "A civilian employer sits alongside the service"}
+          >
+            {candidate.military_affiliation === "active"
+              ? "Active duty"
+              : candidate.military_affiliation === "veteran"
+              ? "Veteran"
+              : "Guard/Reserve"}
+          </span>
+        )}
       </div>
+      {candidate.location_note && (
+        <p className="text-[11px] text-amber-700 dark:text-amber-400">{candidate.location_note}</p>
+      )}
     </div>
   );
 }

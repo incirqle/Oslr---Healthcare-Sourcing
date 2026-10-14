@@ -37,12 +37,13 @@ import {
 } from "./credit-budget.ts";
 import { splitRoleClassNoise } from "./noise-filter.ts";
 import { applyEmploymentModel } from "./employment-model.ts";
+import { annotateFacilityLocation, applyMilitaryAffiliation } from "./military-affiliation.ts";
 import { dedupeRows, rowIdentity, setAsideSuspectedDuplicates } from "./dedupe.ts";
 import {
   mapParsedToCriteria,
   reconcileParsedClinicianIntent,
 } from "./clinician-criteria.ts";
-import type { CompanyValue, SearchCriteria } from "./clinician-criteria.ts";
+import type { CompanyValue, EmployerGroupValue, SearchCriteria } from "./clinician-criteria.ts";
 import { applyRelaxations, reorderLadderByRemarks, widenOptions } from "./widen-criteria.ts";
 import { classifySearchError, searchErrorFields } from "./errors.ts";
 import { buildClinicianQuery, CARD_FIELDS, safeTitleTerms } from "./build-clinician-query.ts";
@@ -727,10 +728,58 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
+      // ── Facility recall, location-free (2026-10-14) ─────────────────
+      // A named base hospital's own records and employer-name variants,
+      // queried WITHOUT the location clip: military clinicians rotate every
+      // 2-4 years and many never update their location (Balboa probe: 3 of
+      // 9 staff surgeons listed another state). Rows are flagged and the
+      // transfer note is attached downstream, never silently dropped.
+      let facilityRecallAdded = 0;
+      const facilityCriterion = criteria.find((c) =>
+        c.kind === "employer_group" && c.enforcement !== "dropped" && !!(c.value as EmployerGroupValue).facility
+      );
+      if (!cacheHit && facilityCriterion && criteria.some((c) => c.kind === "location")) {
+        const FACILITY_RECALL_LIMIT = 50;
+        const fv = (facilityCriterion.value as EmployerGroupValue).facility!;
+        const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+        if ((fv.company_ids.length > 0 || fv.name_variants.length > 0) && checkCeiling(spentNow, FACILITY_RECALL_LIMIT).allow) {
+          const facilityCriteria = criteria
+            .filter((c) => c.kind !== "location")
+            .map((c) => c === facilityCriterion
+              ? { ...c, value: { ...(c.value as EmployerGroupValue), company_ids: [...fv.company_ids], domains: [], name_variants: [...fv.name_variants] } }
+              : c);
+          const facilityFilters = buildClinicianQuery(facilityCriteria as SearchCriteria[]);
+          if (facilityFilters) {
+            const facRes = await personSearchV2({
+              filters: facilityFilters as unknown as Record<string, unknown>,
+              limit: FACILITY_RECALL_LIMIT,
+              fields: CARD_FIELDS,
+            });
+            if (facRes.ok && facRes.data.profiles.length > 0) {
+              const facNormalized = facRes.data.profiles
+                .map(normalizeCrustDataV2Profile)
+                .map((p: Record<string, unknown>) => ({ ...p, _facility_recall: true }));
+              const merged = mergeSemanticRows(normalized, facNormalized, rowKey);
+              facilityRecallAdded = merged.added;
+              if (merged.added > 0) {
+                normalized = merged.merged;
+                const facCredits = creditsForResults(facNormalized.length);
+                credits += facCredits;
+                recordSessionSpend(creditLedger, sessionKey, facCredits, SEARCH_TTL_MS);
+                totalCount = Math.max(totalCount, normalized.length);
+              }
+              console.log(JSON.stringify({ event: "facility_recall", facility: fv.key, returned: facNormalized.length, added: merged.added }));
+            } else if (!facRes.ok) {
+              console.warn(`[clinician] facility recall HTTP ${facRes.status}: ${facRes.detail.slice(0, 200)}`);
+            }
+          }
+        }
+      }
+
       // Recall rows are part of the pool: cache the MERGED pool so a repeat
       // of the same criteria within the TTL pages the same people instead
       // of a lexical-only subset.
-      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0) && normalized.length > 0) {
+      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0 || facilityRecallAdded > 0) && normalized.length > 0) {
         await setCrustDataCache(cacheKey, totalCount, normalized, nextCursor);
       }
 
@@ -988,6 +1037,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           current_employers: currentEmployers,
           match_scope: scopeByIndex[idx] ?? "primary",
           semantic_recall: p._semantic_recall === true,
+          facility_recall: p._facility_recall === true,
           past_role_match: p.past_role_match === true,
         };
       });
@@ -1023,6 +1073,27 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         console.log(JSON.stringify({
           event: "employment_model_filter",
           filtered: employmentRows.length,
+          kept: allResults.length,
+        }));
+      }
+
+      // ── Military affiliation and thin profiles (2026-10-14) ─────────
+      // Every row gets its uniform read (active / reserve / likely_reserve /
+      // veteran) for the grader. A DoD ask sets Guard / Reserve and
+      // civilian-primary rows aside with the evidence; a Guard / Reserve ask
+      // sets active-only rows aside; both set aside the fabricated-looking
+      // "Surgeon at US Army" shells. Facility-recall rows listing another
+      // state get a transfer note, never a rejection.
+      annotateFacilityLocation(allResults as Array<Record<string, unknown>>, criteria);
+      const military = applyMilitaryAffiliation(allResults as Array<Record<string, unknown>>, criteria);
+      allResults = military.kept as typeof allResults;
+      const militaryRows = military.reserve as typeof allResults;
+      const thinRows = military.thin as typeof allResults;
+      if (militaryRows.length + thinRows.length > 0) {
+        console.log(JSON.stringify({
+          event: "military_affiliation_filter",
+          reserve_set_aside: militaryRows.length,
+          thin_set_aside: thinRows.length,
           kept: allResults.length,
         }));
       }
@@ -1109,11 +1180,13 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // Set-aside rows, by reason, in the order the recruiter would want to
       // see them if revealed: grader rejects (closest), hospital-employed,
       // duplicates, then non-clinicians.
-      const hiddenResults = [...graderRows, ...employmentRows, ...duplicateRows, ...noiseRows];
+      const hiddenResults = [...graderRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows];
       const rejectedFiltered = hiddenResults.length;
       const filteredBreakdown = {
         grader: graderRows.length,
         employment_model: employmentRows.length,
+        military_reserve: militaryRows.length,
+        thin_profile: thinRows.length,
         duplicates: duplicateRows.length,
         role_class_noise: noiseRows.length,
       };

@@ -40,6 +40,12 @@ import {
   TRAINING_STAGES,
   type EmployerGroupDef,
 } from "./clinical-vocabulary.ts";
+import {
+  DOD_SERVICE_IDS,
+  DOD_SERVICE_VARIANTS,
+  MILITARY_FACILITIES,
+  type MilitaryFacilityDef,
+} from "./employer-groups.ts";
 
 export type CriterionKind =
   | "location"
@@ -455,6 +461,20 @@ export interface EmployerGroupValue {
   company_ids: number[];
   domains: string[];
   name_variants: string[];
+  /**
+   * A named military treatment facility (2026-10-14): its own records and
+   * employer-name variants, plus the metro for the location clip. The group
+   * ids/variants above already include the service entities; the facility
+   * fields drive the location-free recall pass and the transfer note.
+   */
+  facility?: {
+    key: string;
+    label: string;
+    company_ids: number[];
+    name_variants: string[];
+    city: string | null;
+    state: string | null;
+  };
 }
 
 /** Career years — a range, not just a floor ("5-10 years", "under 3 years"). */
@@ -854,6 +874,20 @@ export function matchEmployerGroup(name: string): { key: string; def: EmployerGr
   return best ? { key: best.key, def: best.def } : null;
 }
 
+/** Resolve a stated employer to a military treatment facility (longest alias wins). */
+export function matchMilitaryFacility(name: string): { key: string; def: MilitaryFacilityDef } | null {
+  const n = name.toLowerCase().trim();
+  let best: { key: string; def: MilitaryFacilityDef; len: number } | null = null;
+  for (const [key, def] of Object.entries(MILITARY_FACILITIES)) {
+    for (const a of def.aliases) {
+      if (!containsWholePhrase(n, a)) continue;
+      const len = a.trim().length;
+      if (!best || len > best.len) best = { key, def, len };
+    }
+  }
+  return best ? { key: best.key, def: best.def } : null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Mapper: parsed payload → criteria                                  */
 /* ------------------------------------------------------------------ */
@@ -993,10 +1027,47 @@ export function mapParsedToCriteria(
   }
 
   const groupedNames = new Set<string>();
+  let facilityMetro: { city: string; state: string; label: string } | null = null;
   for (const name of currentNames) {
     const group = matchEmployerGroup(name);
     if (!group) continue;
     groupedNames.add(name);
+    // A named base hospital (Balboa, Walter Reed, Madigan …) is service +
+    // geography: its own records and the service entities, with the base's
+    // metro as the location when the user gave none. People tag "US Navy"
+    // far more often than the hospital (Balboa probe, 2026-10-14).
+    const facility = group.key === "dod" ? matchMilitaryFacility(name) : null;
+    if (facility) {
+      const ids = [...new Set([...facility.def.company_ids, ...DOD_SERVICE_IDS])];
+      const variants = [...new Set([...facility.def.name_variants, ...DOD_SERVICE_VARIANTS])];
+      if (facility.def.city && facility.def.state) {
+        facilityMetro = { city: facility.def.city, state: facility.def.state, label: facility.def.label };
+      }
+      push({
+        kind: "employer_group",
+        label: facility.def.label,
+        value: {
+          group_key: group.key,
+          name: facility.def.label,
+          company_ids: ids,
+          domains: [...group.def.domains],
+          name_variants: variants,
+          facility: {
+            key: facility.key,
+            label: facility.def.label,
+            company_ids: [...facility.def.company_ids],
+            name_variants: [...facility.def.name_variants],
+            city: facility.def.city,
+            state: facility.def.state,
+          },
+        },
+        enforcement: "hard",
+        source: "user",
+        evidenceSource: "search",
+        note: "A base hospital is matched as its own records plus every service branch, clipped to the base's metro; facility-tagged profiles elsewhere are pulled by a location-free pass and flagged.",
+      });
+      continue;
+    }
     push({
       kind: "employer_group",
       label: group.def.label,
@@ -1494,7 +1565,17 @@ export function mapParsedToCriteria(
   }
 
   /* ---- default geography (inferred) ---- */
-  if (!criteria.some((c) => c.kind === "location")) {
+  if (!criteria.some((c) => c.kind === "location") && facilityMetro) {
+    push({
+      kind: "location",
+      label: `${titleCase(facilityMetro.city)}, ${titleCase(facilityMetro.state)} (base metro)`,
+      value: { level: "city", city: facilityMetro.city, state: facilityMetro.state },
+      enforcement: "hard",
+      source: "inferred",
+      evidenceSource: "search",
+      note: `No location given — using ${facilityMetro.label}'s metro. Military clinicians rotate; facility-tagged profiles listing another state are pulled separately and flagged.`,
+    });
+  } else if (!criteria.some((c) => c.kind === "location")) {
     push({
       kind: "location",
       label: "United States (default)",

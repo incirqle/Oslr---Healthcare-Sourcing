@@ -56,24 +56,44 @@ of the podiatrists. Podiatrists tag the service, never the hospital.
    own department pages and residency faculty roster. Treat LinkedIn-sourced
    duty stations as unconfirmed until a human checks.
 
-## What to build (not yet built)
+## What was built (2026-10-14, commit after this doc)
 
-- `dod` employer group: service entities, DHA, MHS, every facility record
-  (all duplicates), .mil domains, service-name variants ("us navy", "usn",
-  "u.s. navy", "united states navy", "us army", "united states air force",
-  "usaf", "defense health agency", "navy medicine", "army medical",
-  "naval medical", "naval hospital", "army community hospital").
-- Facility nickname table: alias → facility ids + the parent service +
-  the metro to use for the location clip.
-- Military title terms in the physician role class: "medical officer",
-  "flight surgeon", "brigade surgeon", "group surgeon", "medical corps",
-  "general medical officer", "gmo".
-- Parser examples: "DoD physicians", "military surgeons", "active duty",
-  "at Balboa", "at Walter Reed".
-- `ihs` group for Indian Health Service (1296287, ihs.gov).
-- VA group: add "veteran affairs", "veterans administration", "va health
-  care system", "va hospital", "veterans hospital", "vamc", "department of
-  veteran" (closes a measured 7% gap in Colorado: 132 → 142).
-- Known-answer tests: Balboa orthopaedic surgeons must reach both halves
-  (≥ 17 staff surgeons across the two tags); "US Navy" podiatrists in San
-  Diego ≥ 3.
+- `employer-groups.ts`: `dod` group (every service entity, DHA, MHS, USU,
+  every base-hospital record including duplicates, the .mil domains, the
+  service-name variants, the enumerated Air Force "Nth Medical Group"
+  clinics); `guard_reserve` group (Reserve and Guard entities, names and
+  titles only — never the Air Force's afreserve.com / goang.com domains,
+  never the bare "national guard" variant); `ihs` group; the VA group gains
+  the measured variants and seven more facility records.
+- `MILITARY_FACILITIES`: 27 bases with nicknames, every Crustdata record,
+  the employer-name variants people list, and the metro. A named base
+  becomes its own records + every service entity, clipped to the base's
+  metro when the user gave no location.
+- `handler.ts`: a location-free facility recall pass (up to 50 rows) pulls
+  facility-tagged profiles in other states; `annotateFacilityLocation`
+  attaches "lists Norfolk, Virginia; facility-tagged, likely transferred"
+  instead of dropping them.
+- `military-affiliation.ts`: active / reserve / likely_reserve / veteran per
+  row; a DoD ask sets Guard, Reserve and civilian-primary rows aside with
+  the evidence, a Guard/Reserve ask sets active-only rows aside; the thin
+  "Surgeon at US Army" shells are set aside under either military ask. The
+  foreign traps (Saudi National Guard, Australian Army Reserve, Royal Navy)
+  never read as military.
+- Parser: rules and examples for "DoD", "military", "active duty", a base
+  nickname, "reservist" / "Guard"; the deterministic fallback maps the same
+  words. Grader: a MILITARY AND VA rule plus "military affiliation" and
+  "location note" profile lines.
+- UI: an Active duty / Guard-Reserve / Veteran tag on the row, the transfer
+  note under the location, and the set-aside line names the new buckets.
+- Tests: 19 new (military-affiliation.test.ts), including the Balboa and
+  Colorado known answers.
+
+## Still open
+
+- Civilian-primary detection is a name heuristic (hospital / health /
+  medical / clinic / ortho / surg …). A reservist whose civilian employer
+  has an opaque name ("Tenaya") reads as active. The grader sees the full
+  employer list and the rule tells it to weigh the newest employer.
+- Podiatrists at branch clinics (Camp Pendleton, North Island) list "US
+  Navy" with a San Diego address; the metro clip keeps them, the facility
+  cannot be confirmed from the profile.

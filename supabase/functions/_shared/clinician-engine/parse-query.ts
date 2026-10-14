@@ -303,6 +303,18 @@ function deterministicFallback(query: string): Record<string, unknown> {
     }
   }
 
+  // Federal and military employers (2026-10-14). The alias table resolves
+  // these words to the DoD / Guard-Reserve / VA groups; the fallback only has
+  // to put the right word in current_companies.
+  const companies: string[] = [];
+  if (/\b(reservists?|reserves?|national guard|guard and reserve)\b/.test(q)) companies.push("guard and reserve");
+  else if (/\b(dod|department of defense|military|active[- ]duty|armed forces|uniformed services)\b/.test(q)) companies.push("department of defense");
+  if (/\b(the va|va hospital|va medical center|veterans affairs|veterans administration|vamc)\b/.test(q)) companies.push("the va");
+  if (companies.length > 0) {
+    parsed.current_companies = companies;
+    parsed.companies = companies;
+  }
+
   expandParsedKeywords(parsed, query);
   return parsed;
 }
@@ -436,6 +448,20 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    specialties: ["orthopedic"], specialty_tense: "current",
    current_companies: ["the va"]   // the engine resolves the VA entity group
 
+3b) "DoD orthopedic surgeons in Colorado." / "military orthopedic surgeons" / "active duty surgeons"
+   role_class: "surgeon", specialties: ["orthopedic surgery"], specialty_tense: "current",
+   current_companies: ["department of defense"]   // every service branch, DHA and base hospital
+   location: {"state":"colorado", ...}
+
+3c) "Navy orthopaedic surgeons at Balboa." / "orthopedic surgeons at Walter Reed"
+   role_class: "surgeon", specialties: ["orthopedic surgery"],
+   current_companies: ["balboa"]   // a base nickname: the engine supplies the base's records, the service, and its metro
+   // Do NOT add a location the user did not state; the engine infers the base metro.
+
+3d) "Army Reserve orthopedic surgeons in Texas." / "reservist surgeons" / "National Guard physicians"
+   role_class: "surgeon", specialties: ["orthopedic surgery"],
+   current_companies: ["army reserve"]   // "reservist" / "Guard and Reserve" when no branch is named
+
 4) "Nurses who used to work in the operating room and are now on a med-surg floor in Dallas."
    role_class: "nurse", job_titles: [],
    specialties: ["operating room", "perioperative"], specialty_tense: "past",
@@ -520,6 +546,11 @@ WORKED EXAMPLES (the three archetypes + the tense query):
 COMPANY EXTRACTION:
   Each employer appears in EXACTLY ONE company field.
    "at [X]" / "works at [X]"                          -> current_companies
+   "DoD" / "military" / "active duty" / "armed forces" -> current_companies: ["department of defense"]
+   a service ("Army", "Navy", "Air Force") or a base   -> current_companies with that word as stated
+     nickname ("Balboa", "Walter Reed", "BAMC", "Madigan")
+   "reservist" / "Reserve" / "National Guard"          -> current_companies: ["guard and reserve"] (or the branch's reserve as stated)
+   "the VA" / "VA hospital" / "Veterans Affairs"       -> current_companies: ["the va"]
    "former [X]" / "used to work at [X]" / "left [X]"  -> past_companies AND exclude_current_companies
    "ever worked at [X]" / "background at [X]"         -> any_companies
   Default to current when unqualified. Cap 5 per field. Health systems keep

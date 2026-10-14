@@ -103,6 +103,8 @@ export default function SearchPage() {
     const parts: string[] = [];
     if (b.role_class_noise) parts.push(`${b.role_class_noise} not in the asked role (therapists, PAs, recruiters, vendors)`);
     if (b.employment_model) parts.push(`${b.employment_model} with the wrong employer type`);
+    if (b.military_reserve) parts.push(`${b.military_reserve} Guard or Reserve with a civilian primary employer`);
+    if (b.thin_profile) parts.push(`${b.thin_profile} thin ${b.thin_profile === 1 ? "profile" : "profiles"} with no location, history or summary`);
     if (b.duplicates) parts.push(`${b.duplicates} duplicate ${b.duplicates === 1 ? "profile" : "profiles"}`);
     if (b.grader) parts.push(`${b.grader} judged a poor fit on reading the profile`);
     return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside: ${parts.join(", ")}.`;
@@ -285,6 +287,8 @@ export default function SearchPage() {
       profile_pic_url: r.profile_pic_url || null,
       company_logo_url: r.job_company_logo_url || null,
       company_domain: r.job_company_domain || null,
+      military_affiliation: (r.military_affiliation as string | null | undefined) ?? null,
+      location_note: (r.location_note as string | null | undefined) ?? null,
       inferred_salary: null,
       years_experience: r.years_experience || r.inferred_years_experience || 0,
       clinical_skills: r.clinical_skills || [],
