@@ -17,7 +17,7 @@ const pageTitles: Record<string, string> = {
   "/contacts": "Contacts",
   "/campaigns": "Campaigns",
   "/resources": "Resources",
-  "/settings": "Team Settings",
+  "/settings": "Settings",
 };
 
 export function AppLayout({ children }: { children: ReactNode }) {

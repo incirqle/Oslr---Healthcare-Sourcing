@@ -3,10 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { ReactNode, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PaywallChoice, BetaEnded } from "@/components/BetaScreens";
 
 const IS_PREVIEW = window.location.hostname.includes("-preview--");
 
-type Access = "checking" | "ok" | "redirecting" | "error";
+type Access = "checking" | "ok" | "choose" | "beta-ended" | "redirecting" | "error";
 // Remember a passed check for this browser tab so every page isn't re-checked.
 const okKey = (uid: string) => `oslr_access_ok:${uid}`;
 
@@ -31,14 +32,29 @@ async function callBilling(body: Record<string, unknown>) {
   return data;
 }
 
-function usePaidAccess(userId: string | undefined, onSignedOut: () => void): [Access, string | null] {
+type BetaRow = { active: boolean } | null;
+async function getBeta(): Promise<BetaRow> {
+  const { data } = await supabase.rpc("beta_status");
+  const row = Array.isArray(data) ? data[0] : null;
+  return row ? { active: !!row.active } : null;
+}
+
+async function goToCheckout() {
+  const checkout = await callBilling({ action: "checkout", origin: window.location.origin });
+  if (!checkout?.url) throw new Error("Checkout is unavailable right now. Try again shortly.");
+  window.location.href = checkout.url;
+}
+
+function usePaidAccess(userId: string | undefined, onSignedOut: () => void) {
   const [access, setAccess] = useState<Access>("checking");
   const [msg, setMsg] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
     if (sessionStorage.getItem(okKey(userId))) { setAccess("ok"); return; }
     let cancelled = false;
+    let timer: number | undefined;
     (async () => {
       try {
         const { data: prof } = await supabase.from("profiles").select("company_id").eq("user_id", userId).maybeSingle();
@@ -48,11 +64,15 @@ function usePaidAccess(userId: string | undefined, onSignedOut: () => void): [Ac
         if (ex) { sessionStorage.setItem(okKey(userId), "1"); if (!cancelled) setAccess("ok"); return; }
         const status = await callBilling({ action: "status" });
         if (status?.subscribed) { sessionStorage.setItem(okKey(userId), "1"); if (!cancelled) setAccess("ok"); return; }
+        const beta = await getBeta();
         if (cancelled) return;
-        setAccess("redirecting");
-        const checkout = await callBilling({ action: "checkout", origin: window.location.origin });
-        if (!checkout?.url) throw new Error("Checkout is unavailable right now. Try again shortly.");
-        window.location.href = checkout.url;
+        if (beta?.active) {
+          setAccess("ok");
+          // Re-check every minute so the pass locks the moment a limit is hit.
+          timer = window.setTimeout(() => setTick((t) => t + 1), 60_000);
+          return;
+        }
+        setAccess(beta ? "beta-ended" : "choose");
       } catch (e) {
         if (cancelled) return;
         if (e instanceof SignedOutError) { onSignedOut(); return; }
@@ -60,11 +80,15 @@ function usePaidAccess(userId: string | undefined, onSignedOut: () => void): [Ac
         setAccess("error");
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, tick]);
 
-  return [access, msg];
+  const checkout = async () => {
+    setAccess("redirecting");
+    try { await goToCheckout(); } catch (e) { setMsg(e instanceof Error ? e.message : "Checkout is unavailable right now."); setAccess("error"); }
+  };
+  return { access, msg, checkout, recheck: () => setTick((t) => t + 1) };
 }
 
 const Spinner = ({ label }: { label?: string }) => (
@@ -76,7 +100,7 @@ const Spinner = ({ label }: { label?: string }) => (
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
-  const [access, msg] = usePaidAccess(user?.id, () => { void signOut(); });
+  const { access, msg, checkout, recheck } = usePaidAccess(user?.id, () => { void signOut(); });
 
   // Editor preview without a sign-in stays open for building.
   if (IS_PREVIEW && !user && !loading) return <>{children}</>;
@@ -84,6 +108,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!user) return <Navigate to="/auth" replace />;
 
   if (access === "ok") return <>{children}</>;
+  if (access === "choose") return <PaywallChoice onCheckout={checkout} onRedeemed={recheck} onSignOut={() => signOut()} />;
+  if (access === "beta-ended") return <BetaEnded userId={user.id} email={user.email} onCheckout={checkout} onSignOut={() => signOut()} />;
   if (access === "error") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 p-6 text-center">

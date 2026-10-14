@@ -70,7 +70,7 @@ export function BulkEnrichDialog({ open, onOpenChange, people, onDone }: {
             </label>
           ))}
           {people.length > eligible.length && (
-            <p className="text-xs text-muted-foreground">{people.length - eligible.length} people have no LinkedIn link and will be skipped.</p>
+            <p className="text-xs text-muted-foreground">{people.length - eligible.length} people have no profile link and will be skipped.</p>
           )}
           {running && <Progress value={(done / Math.max(1, eligible.length)) * 100} />}
           <p className="text-xs text-muted-foreground">

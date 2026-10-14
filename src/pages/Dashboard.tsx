@@ -12,6 +12,7 @@ import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
 import { SuccessBanner } from "@/components/onboarding/SuccessBanner";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchSearchUsage } from "@/lib/search-meter";
 
 function metric(value: number) {
   return value === 0 ? "—" : value.toLocaleString();
@@ -30,9 +31,12 @@ export default function Dashboard() {
   const { companyId } = useCompany();
   const credits = useCreditBalance(companyId);
   const { user } = useAuth();
-  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
+  const rawName = (user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "there") as string;
+  const firstName = rawName.split(/[ .]/)[0].replace(/^./, (c) => c.toUpperCase());
   const { isFullyComplete, state, isLoading } = useOnboarding();
   const { data: stats } = useDashboardStats();
+  // Same counter the search limit uses, so both pages always agree.
+  const { data: usage } = useQuery({ queryKey: ["search_usage", user?.id], enabled: !!user, queryFn: fetchSearchUsage });
   const showBanner = isFullyComplete && !state?.success_banner_dismissed;
 
   const { data: recent } = useQuery({
@@ -79,7 +83,7 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {!isLoading && !isFullyComplete && <OnboardingChecklist />}
+        {!isLoading && !isFullyComplete && recent && !recent.searches.length && <OnboardingChecklist />}
         {showBanner && <SuccessBanner />}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

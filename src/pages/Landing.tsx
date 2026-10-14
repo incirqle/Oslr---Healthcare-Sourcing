@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
@@ -351,6 +352,12 @@ function GlowButton({ children, size = "lg", className = "", ...props }: { child
 
 export default function Landing() {
   const [navScrolled, setNavScrolled] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  // Someone already signed in goes straight back into the app.
+  useEffect(() => {
+    if (!authLoading && user) navigate("/dashboard", { replace: true });
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     const handleScroll = () => setNavScrolled(window.scrollY > 20);
@@ -391,7 +398,7 @@ export default function Landing() {
               <Link to="/auth">Log In</Link>
             </Button>
             <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-base px-5 shadow-lg shadow-primary/20" asChild>
-              <Link to="/auth">Get Started</Link>
+              <Link to="/auth?mode=signup">Get Started</Link>
             </Button>
           </div>
         </div>
@@ -451,7 +458,7 @@ export default function Landing() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <GlowButton size="lg" asChild>
-              <Link to="/auth">
+              <Link to="/auth?mode=signup">
                 Get Started <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </GlowButton>
@@ -481,6 +488,23 @@ export default function Landing() {
 
         {/* Product mockup */}
         <ProductMockup />
+      </section>
+
+      {/* ---- STATS BAR ---- */}
+      <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+        <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 text-center">
+          {STATS.map((s) => (
+            <div key={s.label} className="space-y-2">
+              <p className="font-display text-3xl md:text-4xl xl:text-5xl font-bold text-primary">
+                <CountUp target={s.value} suffix={s.suffix} />
+              </p>
+              <p className="text-white/60 text-sm md:text-base leading-snug max-w-[22ch] mx-auto">
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ---- PROBLEM ---- */}
@@ -588,22 +612,6 @@ export default function Landing() {
         </div>
       </Section>
 
-      {/* ---- STATS BAR ---- */}
-      <section className="relative py-16 md:py-20 px-4 bg-[hsl(222,47%,9%)] border-y border-white/[0.06]">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 text-center">
-          {STATS.map((s) => (
-            <div key={s.label} className="space-y-2">
-              <p className="font-display text-3xl md:text-4xl xl:text-5xl font-bold text-primary">
-                <CountUp target={s.value} suffix={s.suffix} />
-              </p>
-              <p className="text-white/60 text-sm md:text-base leading-snug max-w-[22ch] mx-auto">
-                {s.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ---- FOR RECRUITERS ---- */}
       <Section>
@@ -650,7 +658,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <GlowButton size="lg" asChild>
-              <Link to="/auth">
+              <Link to="/auth?mode=signup">
                 Get Started <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </GlowButton>
@@ -679,7 +687,7 @@ export default function Landing() {
           <div className="space-y-2 text-sm">
             <p className="font-semibold text-white/30 uppercase text-xs tracking-wider mb-2">Company</p>
             <Link to="/auth" className="block text-white/50 hover:text-white transition-colors">Log In</Link>
-            <Link to="/auth" className="block text-white/50 hover:text-white transition-colors">Sign Up</Link>
+            <Link to="/auth?mode=signup" className="block text-white/50 hover:text-white transition-colors">Sign Up</Link>
           </div>
         </div>
         <div className="max-w-6xl mx-auto mt-10 pt-6 border-t border-white/[0.04] text-center text-white/25 text-xs">
