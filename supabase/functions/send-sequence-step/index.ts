@@ -108,7 +108,7 @@ serve(async (req) => {
   });
 });
 
-async function fetchDueEvents(supabase: ReturnType<typeof createClient>): Promise<DueEvent[]> {
+async function fetchDueEvents(supabase: any): Promise<DueEvent[]> {
   const { data, error } = await supabase
     .from("sequence_step_events")
     .select(`
@@ -134,7 +134,7 @@ async function fetchDueEvents(supabase: ReturnType<typeof createClient>): Promis
 }
 
 async function sendOne(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   ev: DueEvent,
   resendApiKey: string,
   fromDomain: string,
@@ -199,21 +199,21 @@ async function sendOne(
   }
 }
 
-async function markSent(supabase: ReturnType<typeof createClient>, eventId: string, resendMessageId: string) {
+async function markSent(supabase: any, eventId: string, resendMessageId: string) {
   await supabase
     .from("sequence_step_events")
     .update({ sent_at: new Date().toISOString(), resend_message_id: resendMessageId })
     .eq("id", eventId);
 }
 
-async function markSkipped(supabase: ReturnType<typeof createClient>, eventId: string, reason: string) {
+async function markSkipped(supabase: any, eventId: string, reason: string) {
   await supabase
     .from("sequence_step_events")
     .update({ sent_at: new Date().toISOString(), resend_message_id: `skipped:${reason}` })
     .eq("id", eventId);
 }
 
-async function markFailed(supabase: ReturnType<typeof createClient>, eventId: string, message: string) {
+async function markFailed(supabase: any, eventId: string, message: string) {
   await supabase
     .from("sequence_step_events")
     .update({ bounce_type: `send_failed:${message.slice(0, 200)}` })
@@ -221,7 +221,7 @@ async function markFailed(supabase: ReturnType<typeof createClient>, eventId: st
 }
 
 async function previousMessageId(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   enrollmentId: string,
   currentStepIndex: number,
 ): Promise<string | null> {
@@ -236,7 +236,7 @@ async function previousMessageId(
   return (data as { resend_message_id?: string } | null)?.resend_message_id ?? null;
 }
 
-async function logActivity(supabase: ReturnType<typeof createClient>, ev: DueEvent) {
+async function logActivity(supabase: any, ev: DueEvent) {
   await supabase.from("activity_log").insert({
     company_id: ev.enrollment.sequence.company_id,
     candidate_id: ev.enrollment.candidate_id,

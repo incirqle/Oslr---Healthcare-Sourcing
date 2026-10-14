@@ -29,7 +29,7 @@ function hourAgoIso(): string {
 }
 
 async function genUnsubToken(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   companyId: string,
   email: string,
   campaignId: string,

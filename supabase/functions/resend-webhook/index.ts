@@ -277,7 +277,7 @@ serve(async (req) => {
         .single();
 
       if (current) {
-        const newVal = ((current as Record<string, number>)[counterColumn] || 0) + 1;
+        const newVal = ((current as unknown as Record<string, number>)[counterColumn] || 0) + 1;
         await adminClient
           .from("email_campaigns")
           .update({ [counterColumn]: newVal })
