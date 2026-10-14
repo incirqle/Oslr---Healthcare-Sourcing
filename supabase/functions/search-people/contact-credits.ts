@@ -37,7 +37,7 @@ export async function handleEnrichContact(
   body: Record<string, unknown>,
 ): Promise<{ status: number; payload: unknown }> {
   const db = admin();
-  const caller = await resolveCaller(db, req);
+  const caller = await resolveCaller(db as unknown as Parameters<typeof resolveCaller>[0], req);
   if (!caller) return { status: 401, payload: { error: "Please sign in again." } };
 
   const { data: prof } = await db.from("profiles").select("company_id").eq("user_id", caller.userId).maybeSingle();

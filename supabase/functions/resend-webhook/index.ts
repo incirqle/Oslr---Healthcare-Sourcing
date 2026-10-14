@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const TRACKED_EVENTS: Record<string, string> = {
   "email.sent": "sent",
@@ -277,7 +277,7 @@ serve(async (req) => {
         .single();
 
       if (current) {
-        const newVal = ((current as Record<string, number>)[counterColumn] || 0) + 1;
+        const newVal = ((current as unknown as Record<string, number>)[counterColumn] || 0) + 1;
         await adminClient
           .from("email_campaigns")
           .update({ [counterColumn]: newVal })
