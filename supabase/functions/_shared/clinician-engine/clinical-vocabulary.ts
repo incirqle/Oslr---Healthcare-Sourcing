@@ -693,56 +693,12 @@ export const CARE_SETTINGS: Record<string, CareSettingDef> = {
 /*  Employer groups                                                    */
 /* ------------------------------------------------------------------ */
 
-export interface EmployerGroupDef {
-  label: string;
-  /** Lowercase phrases in a query that mean this group. */
-  aliases: string[];
-  /**
-   * Anchor crustdata company ids, resolved via free /company/identify
-   * 2026-09-14 (probe log). NEVER a bare short-token name filter ("VA").
-   */
-  company_ids: number[];
-  domains: string[];
-  /** Employer-name substring variants ORed in for entities the id set missed. */
-  name_variants: string[];
-}
-
-export const EMPLOYER_GROUPS: Record<string, EmployerGroupDef> = {
-  va: {
-    label: "VA (Veterans Affairs)",
-    aliases: ["the va", "va ", "veterans affairs", "veterans health", "veterans administration", "veterans health administration"],
-    company_ids: [
-      1129891, // U.S. Department of Veterans Affairs (va.gov, 10001+)
-      6891547, // South Texas Veterans Health Care System
-      7575637, // Gulf Coast Veterans Health Care System
-      6820262, // Southeast Louisiana Veterans Health Care System
-      12974094, // VA Pacific Island Health Care System
-      8082851, // Salem VA (Veterans Health Administration)
-    ],
-    domains: ["va.gov"],
-    name_variants: [
-      "veterans affairs",
-      "veterans health administration",
-      "veterans health care system",
-      "va medical center",
-      "va healthcare system",
-    ],
-  },
-  hca: {
-    label: "HCA Healthcare",
-    aliases: ["hca", "hca healthcare"],
-    company_ids: [1125547],
-    domains: ["hcahealthcare.com"],
-    name_variants: ["hca healthcare", "medical city healthcare", "hca florida", "hca houston"],
-  },
-  kaiser: {
-    label: "Kaiser Permanente",
-    aliases: ["kaiser", "kaiser permanente"],
-    company_ids: [],
-    domains: ["kaiserpermanente.org", "kp.org"],
-    name_variants: ["kaiser permanente", "kaiser foundation"],
-  },
-};
+/**
+ * Curated health-system employer groups live in employer-groups.ts (moved
+ * 2026-10-14 after the Kaiser / Colorado Permanente miss). Re-exported here
+ * so existing imports keep working.
+ */
+export { EMPLOYER_GROUPS, type EmployerGroupDef } from "./employer-groups.ts";
 
 /* ------------------------------------------------------------------ */
 /*  Credentials                                                        */

@@ -98,15 +98,24 @@ interface CandidateEntity {
   domains: string[];
 }
 
-/** Distinctive brand tokens harvested from surviving entity names. */
+/**
+ * Distinctive brand tokens harvested from the stated name AND the surviving
+ * entity names. Tokens inside the stated name are deliberately INCLUDED
+ * (2026-10-14): the person-index autocomplete is prefix-only, so the probe
+ * "kaiser permanente" can never surface "Permanente Medical Group, Inc."
+ * and "sutter health" can never surface "Sutter Medical Group" — only the
+ * bare tokens "permanente" / "sutter" can. The stated name's own tokens go
+ * first so they survive the probe cap.
+ */
 function harvestBrandTokens(names: string[], stated: string): string[] {
   const out = new Set<string>();
+  const split = (s: string) => s.toLowerCase().split(/[\s,&\-/()]+/).filter(Boolean);
+  for (const tok of split(stated)) {
+    if (tok.length >= 5 && !STOP_TOKENS.has(tok) && /^[a-z][a-z0-9]+$/.test(tok)) out.add(tok);
+  }
   for (const name of names) {
-    const tokens = name.toLowerCase().split(/[\s,&\-\/()]+/).filter(Boolean);
-    for (const tok of tokens) {
-      if (tok.length >= 5 && !STOP_TOKENS.has(tok) && !stated.includes(tok) && /^[a-z][a-z0-9]+$/.test(tok)) {
-        out.add(tok);
-      }
+    for (const tok of split(name)) {
+      if (tok.length >= 5 && !STOP_TOKENS.has(tok) && /^[a-z][a-z0-9]+$/.test(tok)) out.add(tok);
     }
   }
   return [...out].slice(0, 4);
@@ -147,7 +156,7 @@ export async function resolveEmployerGroup(
   // "vanderbilt health" (and "vanderbilt") seeds.
   const seedTokens = BRAND_SEEDS[stated] ??
     Object.entries(BRAND_SEEDS)
-      .filter(([k]) => stated.includes(k))
+      .filter(([k]) => stated.includes(k) || k.includes(stated))
       .sort((a, b) => b[0].length - a[0].length)[0]?.[1] ?? [];
   const candidates: CandidateEntity[] = matches.map((m) => {
     const info = (m.company_data?.basic_info ?? {}) as Record<string, unknown>;

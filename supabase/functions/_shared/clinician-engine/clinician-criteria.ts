@@ -838,10 +838,20 @@ function rawStrArr(v: unknown): string[] {
 /** Resolve an employer mention to a known employer group, if it is one. */
 export function matchEmployerGroup(name: string): { key: string; def: EmployerGroupDef } | null {
   const n = name.toLowerCase().trim();
+  // The LONGEST matching alias across every group wins, whatever the table
+  // order: "St. John Providence" is Ascension (alias "st. john providence"),
+  // not Providence (alias "providence"); "Swedish Hospital" is Endeavor, not
+  // Providence Swedish. First-match-in-table-order was the 2026-10-14 bug's
+  // neighbour.
+  let best: { key: string; def: EmployerGroupDef; len: number } | null = null;
   for (const [key, def] of Object.entries(EMPLOYER_GROUPS)) {
-    if (def.aliases.some((a) => containsWholePhrase(n, a))) return { key, def };
+    for (const a of def.aliases) {
+      if (!containsWholePhrase(n, a)) continue;
+      const len = a.trim().length;
+      if (!best || len > best.len) best = { key, def, len };
+    }
   }
-  return null;
+  return best ? { key: best.key, def: best.def } : null;
 }
 
 /* ------------------------------------------------------------------ */
