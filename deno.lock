@@ -1,5 +1,13 @@
 {
   "version": "5",
+  "specifiers": {
+    "jsr:@supabase/functions-js@*": "2.117.3"
+  },
+  "jsr": {
+    "@supabase/functions-js@2.117.3": {
+      "integrity": "ecc3b8567ecf8758e01a008717a542bebfeaa993a1719bda599e98e721721e8b"
+    }
+  },
   "redirects": {
     "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.116.0"
   },
@@ -98,6 +106,7 @@
         "npm:lovable-tagger@^1.1.13",
         "npm:lucide-react@0.462",
         "npm:next-themes@0.3",
+        "npm:openai@^4.52.5",
         "npm:postcss@^8.5.6",
         "npm:postgres@^3.4.9",
         "npm:react-day-picker@^8.10.1",
