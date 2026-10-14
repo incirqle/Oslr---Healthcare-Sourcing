@@ -68,15 +68,15 @@ Deno.serve(async (req) => {
     // status (default): report plan and grant credits for any paid invoice not yet credited.
     if (!customerId) return json({ subscribed: false, granted: 0 });
     const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
-    const starter = subs.data.find((s) => s.items.data.some((i) => i.price.id === STARTER_PRICE) &&
+    const starter = subs.data.find((s: { items: { data: { price: { id: string } } }[]; status: string }) =>
+      s.items.data.some((i: { price: { id: string } }) => i.price.id === STARTER_PRICE) &&
       ["active", "trialing", "past_due"].includes(s.status));
     const invoices = await stripe.invoices.list({ customer: customerId, status: "paid", limit: 24 });
     let granted = 0;
     for (const inv of invoices.data) {
-      const isStarter = inv.lines.data.some((l) =>
-        (l as unknown as { pricing?: { price_details?: { price?: string } }; price?: { id?: string } })
-          .pricing?.price_details?.price === STARTER_PRICE ||
-        (l as unknown as { price?: { id?: string } }).price?.id === STARTER_PRICE
+      const isStarter = inv.lines.data.some((l: { pricing?: { price_details?: { price?: string } }; price?: { id?: string } }) =>
+          l.pricing?.price_details?.price === STARTER_PRICE ||
+          l.price?.id === STARTER_PRICE
       );
       if (!isStarter || !inv.id || (inv.amount_paid ?? 0) <= 0) continue;
       const { data: ok } = await db.rpc("grant_paid_credits", {
