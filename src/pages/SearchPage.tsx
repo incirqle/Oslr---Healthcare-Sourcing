@@ -98,6 +98,14 @@ export default function SearchPage() {
     setHiddenCandidates([]);
     setFilteredBreakdown(null);
   };
+  const [resultsTab, setResultsTab] = useState<"results" | "set_aside">("results");
+  const restoreCandidate = (c: Candidate) => {
+    setHiddenCandidates((prev) => prev.filter((x) => x.id !== c.id));
+    setCandidates((prev) => [...prev, { ...c, restored: true }]);
+    setTotal((t) => t + 1);
+    setBrowsableTotal((b) => b + 1);
+    setRevealedCount((n) => n + 1);
+  };
   const describeSetAside = (b: Record<string, number> | null, n: number): string => {
     if (!b) return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside.`;
     const parts: string[] = [];
@@ -331,6 +339,7 @@ export default function SearchPage() {
 
     setCandidates(mapped);
     setHiddenCandidates(hidden);
+    if (targetPage === 1) setResultsTab("results");
     setTotal(mapped.length);
     setTotalIsEstimate(false);
     setEngineVersion(typeof data.engine_version === "string" ? data.engine_version : null);
@@ -568,7 +577,32 @@ export default function SearchPage() {
             {/* Animated dot-network loader while results stream in */}
             {skeletonCount > 0 && <SearchNetworkLoader />}
 
-            {visibleCandidates.length > 0 && (
+            {searchPhase === "done" && hiddenCandidates.length > 0 && (
+              <div className="flex items-center gap-1 border-b border-border/60" role="tablist" aria-label="Search views">
+                {(["results", "set_aside"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={resultsTab === t}
+                    onClick={() => setResultsTab(t)}
+                    className={cn(
+                      "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                      resultsTab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t === "results" ? "Results" : "Set aside"}{" "}
+                    <span className="tabular-nums text-muted-foreground">{t === "results" ? total : hiddenCandidates.length}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {resultsTab === "set_aside" && searchPhase === "done" && hiddenCandidates.length > 0 && (
+              <SetAsideTab candidates={hiddenCandidates} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
+            )}
+
+            {resultsTab === "results" && visibleCandidates.length > 0 && (
               <SearchResults
                 query={query}
                 candidates={visibleCandidates}
@@ -599,13 +633,13 @@ export default function SearchPage() {
               />
             )}
 
-            {searchPhase === "done" && hiddenCandidates.length > 0 && (
+            {resultsTab === "results" && searchPhase === "done" && hiddenCandidates.length > 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                   {describeSetAside(filteredBreakdown, hiddenCandidates.length)}
                 </p>
-                <button onClick={revealHidden} className="text-sm font-medium text-primary hover:underline">
-                  Show them
+                <button onClick={() => setResultsTab("set_aside")} className="text-sm font-medium text-primary hover:underline">
+                  See why
                 </button>
               </div>
             )}
