@@ -37,6 +37,8 @@ import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { FitPill } from "@/components/search/FitPill";
 import { EngineDetails } from "@/components/search/EngineDetails";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
+import { ResultsTable, type TableSort } from "@/components/search/ResultsTable";
+import type { RankingCriterion, RequiredCriterion } from "@/lib/ranking";
 
 import { buildMatchChips, queryIsCompanySpecific, type MatchChip } from "@/components/search/match-chips";
 import type { ParsedFilters } from "@/components/search/FilterReview";
@@ -175,7 +177,17 @@ interface SearchResultsProps {
   specialtyFunnel?: SpecialtyFunnel | null;
   sort?: SortOption;
   onSortChange?: (s: SortOption) => void;
+  /** Table (default, spec 15) or List (cards). */
+  view?: ResultsView;
+  onViewChange?: (v: ResultsView) => void;
+  ranking?: RankingCriterion[];
+  requiredCriteria?: RequiredCriterion[];
+  onReorderRanking?: (next: RankingCriterion[]) => void;
+  tableSort?: TableSort;
+  onTableSortChange?: (s: TableSort) => void;
 }
+
+export type ResultsView = "table" | "list";
 
 const SORT_LABELS: Record<SortOption, string> = {
   relevance: "Relevance",
@@ -259,7 +271,7 @@ function MiddleColumn({
   );
 }
 
-function ContactIcons({ candidate }: { candidate: Candidate }) {
+export function ContactIcons({ candidate }: { candidate: Candidate }) {
   const workEmail = candidate.work_email || null;
   const personalEmail = candidate.personal_email || null;
   const legacyEmail = !workEmail && !personalEmail ? candidate.email : null;
@@ -530,6 +542,13 @@ export function SearchResults({
   specialtyFunnel = null,
   sort = "relevance",
   onSortChange,
+  view = "list",
+  onViewChange,
+  ranking = [],
+  requiredCriteria = [],
+  onReorderRanking,
+  tableSort = null,
+  onTableSortChange,
 }: SearchResultsProps) {
   const [queryDraft, setQueryDraft] = useState(query);
   // Pages must follow the profiles we can actually show, not the provider's
@@ -698,6 +717,24 @@ export function SearchResults({
 
 
         <div className="flex flex-wrap items-center gap-2">
+          {onViewChange && (
+            <div className="inline-flex h-9 rounded-md border border-border p-0.5" role="group" aria-label="Results view">
+              {(["table", "list"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  onClick={() => onViewChange(v)}
+                  className={cn(
+                    "rounded px-3 text-sm font-medium transition-colors",
+                    view === v ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {v === "table" ? "Table" : "List"}
+                </button>
+              ))}
+            </div>
+          )}
           {onSortChange && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -730,6 +767,24 @@ export function SearchResults({
         </div>
       </div>
 
+      {view === "table" ? (
+        <ResultsTable
+          rows={candidates}
+          ranking={ranking}
+          required={requiredCriteria}
+          selected={selected}
+          savedIds={savedIds}
+          fitMap={fitMap as Map<string, FitStatus> | undefined}
+          sort={tableSort}
+          onSortChange={(s) => onTableSortChange?.(s)}
+          onToggleSelect={onToggleSelect}
+          onToggleSelectAll={onToggleSelectAll}
+          onOpen={onOpenCandidate}
+          onFitChange={handleFitChange}
+          onReorder={(next) => onReorderRanking?.(next)}
+          ContactIcons={ContactIcons}
+        />
+      ) : (
       <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
         {candidates.map((candidate) => (
           <CandidateRow
@@ -746,6 +801,7 @@ export function SearchResults({
           />
         ))}
       </div>
+      )}
 
       {totalPages > 1 && onPageChange && (
         <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
