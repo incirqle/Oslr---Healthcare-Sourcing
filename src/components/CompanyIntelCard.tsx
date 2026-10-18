@@ -6,6 +6,8 @@ import { normalizeDomain, resolveCompanyDomain } from "@/lib/company-domains";
 interface CompanyIntelCardProps {
   companyName: string | null | undefined;
   domain?: string | null;
+  /** Crustdata company id from the candidate row (job_company_id), when known. */
+  companyId?: number | null;
 }
 
 function CompanyLogo({
@@ -52,7 +54,7 @@ function CompanyLogo({
   );
 }
 
-export function CompanyIntelCard({ companyName, domain }: CompanyIntelCardProps) {
+export function CompanyIntelCard({ companyName, domain, companyId }: CompanyIntelCardProps) {
   const [open, setOpen] = useState(false);
 
   const seedDomain = useMemo(
@@ -77,13 +79,13 @@ export function CompanyIntelCard({ companyName, domain }: CompanyIntelCardProps)
             </p>
             <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-ui-text-muted">
               <Building2 className="h-3 w-3" />
-              Employer intel
+              Company brief
               <span className="text-ui-border-medium">·</span>
-              <span className="hidden sm:inline">Headcount · Leadership · Glassdoor</span>
+              <span className="hidden sm:inline">People · Movement</span>
             </div>
           </div>
           <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ui-border-light bg-white px-3 py-1.5 text-[12px] font-medium text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary/5">
-            View intel
+            Open brief
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
           </div>
         </div>
@@ -94,6 +96,7 @@ export function CompanyIntelCard({ companyName, domain }: CompanyIntelCardProps)
         onOpenChange={setOpen}
         companyName={companyName}
         domain={domain}
+        companyId={companyId}
       />
     </>
   );

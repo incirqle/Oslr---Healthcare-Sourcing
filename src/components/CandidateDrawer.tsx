@@ -1120,7 +1120,11 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                <CompanyIntelCard companyName={companyName} domain={topCompanyDomain} />
+                <CompanyIntelCard
+                  companyName={companyName}
+                  domain={topCompanyDomain}
+                  companyId={typeof candidate.raw?.job_company_id === "number" ? (candidate.raw.job_company_id as number) : null}
+                />
 
                 {error && <p className="text-[13px] text-ui-text-muted">{error}</p>}
               </TabsContent>
