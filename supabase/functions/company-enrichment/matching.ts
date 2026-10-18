@@ -95,12 +95,66 @@ export function pickBestCandidate(
   return top.c;
 }
 
+// deno-lint-ignore no-explicit-any
+function domainsOf(c: any): Set<string> {
+  const out = new Set<string>();
+  const add = (d: unknown) => {
+    if (typeof d !== "string") return;
+    const s = d.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    if (s.includes(".")) out.add(s);
+  };
+  add(c?.company_website_domain);
+  if (Array.isArray(c?.all_domains)) c.all_domains.forEach(add);
+  return out;
+}
+
+/** Legal and filler words that are not part of how people write a practice's name. */
+const LEGAL_SUFFIX_TOKENS: ReadonlySet<string> = new Set([
+  "management", "pa", "p", "a", "pllc", "llc", "llp", "inc", "pc", "ltd", "corp",
+  "co", "company", "md", "m", "d", "do", "dds", "dmd", "sc", "lp", "plc",
+]);
+
 /**
- * The entity set for talent-flow / jobs queries: the primary plus
- * candidates that share a DISTINCTIVE token with the canonical name. A
- * name with no distinctive tokens ("Pain Management Group") requires every
- * token to be present. Capped so one generic word cannot fan out to 25
- * unrelated companies.
+ * The name as staff write it on their own profiles: lowercase words, legal
+ * suffixes and a leading "the" removed.
+ *   "DALLAS PLASTIC SURGERY INSTITUTE MANAGEMENT, PA" → "dallas plastic surgery institute"
+ *   "Bone and Joint Institute of Tennessee"          → "bone and joint institute of tennessee"
+ */
+export function coreName(name: string): string {
+  const toks = nameTokens(name.replace(/&/g, " and "));
+  while (toks.length > 1 && LEGAL_SUFFIX_TOKENS.has(toks[toks.length - 1])) toks.pop();
+  if (toks.length > 1 && toks[0] === "the") toks.shift();
+  return toks.join(" ");
+}
+
+/** Whole-phrase containment on word boundaries ("rush university" is in "rush university medical center"). */
+export function containsPhrase(haystack: string, phrase: string): boolean {
+  if (!phrase) return false;
+  return ` ${coreName(haystack)} `.includes(` ${phrase} `) ||
+    ` ${nameTokens(haystack.replace(/&/g, " and ")).join(" ")} `.includes(` ${phrase} `);
+}
+
+/**
+ * The entity set for roster and talent-flow queries: the primary plus its
+ * true siblings (duplicate records, doctor-named pages of one practice,
+ * hospital fragments of one system).
+ *
+ * A candidate joins when it shares a website domain with the primary, OR
+ * its name contains the primary's whole core name as a phrase AND it does
+ * not have a different website of its own while the primary has one.
+ *
+ * History:
+ *  - Before 2026-10-18 ANY one distinctive token was enough: "Bone and
+ *    Joint Institute of Tennessee" pulled in nine other "Bone and Joint"
+ *    practices, and "Dallas Plastic Surgery Institute" pulled unrelated
+ *    "Plastic Surgery" pages (India, Lebanon), which is where the panel's
+ *    "Medical Assistant at Plastic Surgery" hires came from.
+ *  - The first fix required every distinctive token. Live identify for
+ *    Dallas Plastic Surgery Institute (2026-10-18) still admitted "North
+ *    Dallas Plastic Surgery Associates" and "Clinique Dallas Plastic
+ *    Surgery" (dallas + plastic). The whole-phrase rule keeps them out and
+ *    keeps "Sam Jejurikar M.D., Dallas Plastic Surgery Institute" and "John
+ *    Burns MD - Dallas Plastic Surgery Institute" in.
  */
 export function selectRelatedEntityIds(
   // deno-lint-ignore no-explicit-any
@@ -109,18 +163,93 @@ export function selectRelatedEntityIds(
   canonicalName: string,
   cap: number = MAX_RELATED_ENTITY_IDS,
 ): number[] {
-  const all = nameTokens(canonicalName);
-  const distinct = distinctiveTokens(canonicalName);
+  const phrase = coreName(canonicalName);
+  const primary = candidates.find((c) => c?.company_id === primaryId);
+  const primaryDomains = primary ? domainsOf(primary) : new Set<string>();
   const out: number[] = [primaryId];
   for (const c of candidates) {
     if (out.length >= cap) break;
     const id = c?.company_id;
     if (typeof id !== "number" || out.includes(id)) continue;
-    const cTokens = new Set(nameTokens(String(c.company_name ?? "")));
-    const related = distinct.length > 0
-      ? distinct.some((t) => cTokens.has(t))
-      : all.length > 0 && all.every((t) => cTokens.has(t));
-    if (related) out.push(id);
+    const cDomains = domainsOf(c);
+    const sharesDomain = [...cDomains].some((d) => primaryDomains.has(d));
+    if (sharesDomain) {
+      out.push(id);
+      continue;
+    }
+    const ownWebsiteElsewhere = cDomains.size > 0 && primaryDomains.size > 0;
+    if (ownWebsiteElsewhere) continue;
+    if (phrase && containsPhrase(String(c.company_name ?? ""), phrase)) out.push(id);
   }
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* Employment-entry matcher (ids + the practice's written name)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Live 2026-10-18, Dallas Plastic Surgery Institute: 6 people have a
+ * current entry linked to the practice's three company ids, 49 have one
+ * whose NAME is the practice with company id 0 (an unlinked entry),
+ * including the founding surgeons. Matching on ids alone misses most of a
+ * private practice. The matcher accepts:
+ *   - an entry whose company id is in the entity set, or
+ *   - an unlinked entry (id 0/missing) whose name contains the core name
+ *     as a whole phrase, when that phrase is specific enough (2+ words and
+ *     at least one distinctive word) and the person is in the practice's
+ *     state when both are known (drops a Reno surgeon whose 2018 fellowship
+ *     entry at the Dallas practice was never closed).
+ */
+export interface EntityMatcher {
+  ids: Set<number>;
+  /** Null when the name is too generic to match on ("Pain Management Group"). */
+  phrase: string | null;
+  hqState: string | null;
+}
+
+const US_STATES: Record<string, string> = {
+  al: "alabama", ak: "alaska", az: "arizona", ar: "arkansas", ca: "california", co: "colorado",
+  ct: "connecticut", de: "delaware", dc: "district of columbia", fl: "florida", ga: "georgia",
+  hi: "hawaii", id: "idaho", il: "illinois", in: "indiana", ia: "iowa", ks: "kansas",
+  ky: "kentucky", la: "louisiana", me: "maine", md: "maryland", ma: "massachusetts",
+  mi: "michigan", mn: "minnesota", ms: "mississippi", mo: "missouri", mt: "montana",
+  ne: "nebraska", nv: "nevada", nh: "new hampshire", nj: "new jersey", nm: "new mexico",
+  ny: "new york", nc: "north carolina", nd: "north dakota", oh: "ohio", ok: "oklahoma",
+  or: "oregon", pa: "pennsylvania", ri: "rhode island", sc: "south carolina",
+  sd: "south dakota", tn: "tennessee", tx: "texas", ut: "utah", vt: "vermont", va: "virginia",
+  wa: "washington", wv: "west virginia", wi: "wisconsin", wy: "wyoming",
+};
+
+/** "TX", "Texas", " texas " → "texas". */
+export function normState(s: string | null | undefined): string | null {
+  if (typeof s !== "string" || !s.trim()) return null;
+  const v = s.trim().toLowerCase();
+  return US_STATES[v] ?? v;
+}
+
+export function buildMatcher(ids: number[], canonicalName: string, hqState: string | null): EntityMatcher {
+  const phrase = coreName(canonicalName);
+  const usable = phrase.split(" ").length >= 2 && distinctiveTokens(phrase).length > 0;
+  return { ids: new Set(ids), phrase: usable ? phrase : null, hqState: normState(hqState) };
+}
+
+// deno-lint-ignore no-explicit-any
+function entryId(e: any): number {
+  const id = e?.crustdata_company_id ?? e?.company_id;
+  return typeof id === "number" ? id : 0;
+}
+
+/** "id" for a linked match, "name" for an unlinked name match, null otherwise. */
+// deno-lint-ignore no-explicit-any
+export function matchEntry(m: EntityMatcher, e: any, personState?: string | null): "id" | "name" | null {
+  const id = entryId(e);
+  if (id > 0) return m.ids.has(id) ? "id" : null;
+  if (!m.phrase) return null;
+  const name = String(e?.name ?? e?.company_name ?? "");
+  if (!containsPhrase(name, m.phrase)) return null;
+  const ps = normState(personState);
+  if (m.hqState && ps && ps !== m.hqState) return null;
+  return "name";
+}
+
