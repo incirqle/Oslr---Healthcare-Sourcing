@@ -35,6 +35,7 @@ import {
 } from "@/components/search/candidate-ui";
 import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { FitPill } from "@/components/search/FitPill";
+import { EngineDetails } from "@/components/search/EngineDetails";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
 
 import { buildMatchChips, queryIsCompanySpecific, type MatchChip } from "@/components/search/match-chips";
@@ -472,6 +473,11 @@ function CandidateRow({
                 Saved
               </span>
             )}
+          </div>
+
+          {/* Engine reasons, evidence and tags (spec 9.3) */}
+          <div className="min-w-0 lg:col-span-9 lg:col-start-4">
+            <EngineDetails candidate={candidate} />
           </div>
         </div>
       </div>
