@@ -1124,9 +1124,9 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // ── Ranking criteria (docs/oslr-criteria-ranking-spec.md) ───────
       // Required = hard, Preferred = soft in parse order, Can't check =
       // dropped. Rules run first; the grader is asked only what they leave.
-      const rankingSplit = splitCriteria(criteria as never);
+      const rankingSplit = splitCriteria(criteria);
       const rankingCriteria = rankingSplit.ranking;
-      const criteriaById = new Map((criteria as Array<{ id: string }>).map((c) => [c.id, c])) as Map<string, never>;
+      const criteriaById = new Map(criteria.map((c) => [c.id, c]));
       const ruleCache = new WeakMap<object, Map<string, CriterionResult | null>>();
       const rulesFor = (r: Record<string, unknown>) => {
         let m = ruleCache.get(r);
