@@ -18,7 +18,7 @@ export function GettingStartedPage() {
       <DocHeading id="intro">Introduction to Oslr</DocHeading>
       <DocParagraph>
         Oslr helps you source doctors, nurses, and allied health professionals using
-        natural language — no Boolean strings required.
+        natural language, no Boolean strings required.
       </DocParagraph>
       <DocParagraph>
         Search for clinicians, enrich contact details, save candidates to Projects and Contacts,
@@ -91,7 +91,7 @@ export function ManageAccountPage() {
       <DocHeading id="profile">Your profile</DocHeading>
       <DocParagraph>
         Your profile includes your name, email address, and avatar. This information appears
-        across the platform — in team activity feeds, project history, and campaign attribution.
+        across the platform, in team activity feeds, project history, and campaign attribution.
       </DocParagraph>
 
       <DocHeading id="team">Team members</DocHeading>
@@ -101,9 +101,9 @@ export function ManageAccountPage() {
       </DocParagraph>
       <DocList
         items={[
-          "Admin — Full access to all features, settings, and team management",
-          "Recruiter — Can search, manage projects, and send campaigns",
-          "Viewer — Read-only access to projects and candidate data",
+          "Admin, Full access to all features, settings, and team management",
+          "Recruiter, Can search, manage projects, and send campaigns",
+          "Viewer, Read-only access to projects and candidate data",
         ]}
       />
 
@@ -147,10 +147,10 @@ export function CreditsUsagePage() {
       <DocHeading id="what-costs">What uses credits</DocHeading>
       <DocList
         items={[
-          "People search queries — Each search against the candidate database uses credits based on the number of results returned",
-          "Contact enrichment — Retrieving verified email addresses and phone numbers",
-          "AI filter parsing — Converting natural language queries into structured search filters",
-          "Email campaigns — Sending outreach emails to candidates",
+          "People search queries, Each search against the candidate database uses credits based on the number of results returned",
+          "Contact enrichment, Retrieving verified email addresses and phone numbers",
+          "AI filter parsing, Converting natural language queries into structured search filters",
+          "Email campaigns, Sending outreach emails to candidates",
         ]}
       />
       <DocTip>

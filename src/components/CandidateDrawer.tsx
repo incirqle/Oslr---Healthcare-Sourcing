@@ -348,7 +348,7 @@ function buildSummaryPrompt(
   const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience || "Unknown";
   const career = experience
     .slice(0, 3)
-    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} — ${formatDateLabelSmart(entry.endDate)})`)
+    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} to ${formatDateLabelSmart(entry.endDate)})`)
     .join("; ");
   const educationSummary = education
     .slice(0, 3)
@@ -1088,13 +1088,13 @@ export function CandidateDrawer({
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
                       <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Avg tenure</p>
                       <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary">
-                        {avgTenureMonths > 0 ? formatMonths(Math.round(avgTenureMonths)) : "—"}
+                        {avgTenureMonths > 0 ? formatMonths(Math.round(avgTenureMonths)) : "-"}
                       </p>
                     </div>
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
                       <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Current tenure</p>
                       <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary">
-                        {currentTenureMonths > 0 ? formatMonths(currentTenureMonths) : "—"}
+                        {currentTenureMonths > 0 ? formatMonths(currentTenureMonths) : "-"}
                       </p>
                     </div>
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
@@ -1104,7 +1104,7 @@ export function CandidateDrawer({
                           ? formatMonths(totalMonthsAll)
                           : yearsExperience
                             ? `${yearsExperience} yrs`
-                            : "—"}
+                            : "-"}
                       </p>
                     </div>
                   </div>
@@ -1124,7 +1124,7 @@ export function CandidateDrawer({
                       {currentRoleEntry.company ? toTitleCase(currentRoleEntry.company) : "Unknown company"}
                     </p>
                     <p className="mt-0.5 text-[12px] text-ui-text-muted">
-                      {formatDateLabelSmart(currentRoleEntry.startDate)} — {formatDateLabelSmart(currentRoleEntry.endDate) || "Present"}
+                      {formatDateLabelSmart(currentRoleEntry.startDate)} to {formatDateLabelSmart(currentRoleEntry.endDate) || "Present"}
                       {(() => {
                         const dur = formatExperienceDuration(currentRoleEntry.startDate, currentRoleEntry.endDate);
                         return dur ? ` · ${dur}` : "";
@@ -1205,7 +1205,7 @@ export function CandidateDrawer({
                                       )}
                                     </div>
                                     <p className="shrink-0 text-[12px] text-ui-text-muted">
-                                      {formatDateLabelSmart(role.startDate)} — {formatDateLabelSmart(role.endDate) || "Present"}
+                                      {formatDateLabelSmart(role.startDate)} to {formatDateLabelSmart(role.endDate) || "Present"}
                                       {duration ? ` · ${duration}` : ""}
                                     </p>
                                   </div>
@@ -1245,7 +1245,7 @@ export function CandidateDrawer({
                     const schoolInitials = getInitials(entry.school || "?");
                     const startYear = formatDateLabelSmart(entry.startDate);
                     const endYear = formatDateLabelSmart(entry.endDate);
-                    const dateLabel = startYear && endYear ? `${startYear} — ${endYear}` : endYear || startYear || null;
+                    const dateLabel = startYear && endYear ? `${startYear} to ${endYear}` : endYear || startYear || null;
                     return (
                       <div
                         key={`${entry.school}-${index}`}
@@ -1376,7 +1376,7 @@ export function CandidateDrawer({
               <TabsContent value="notes" className="mt-0 space-y-5 px-6 py-6 pb-28 sm:px-7">
                 <div className="flex items-center gap-2 text-[12px] text-ui-text-muted">
                   <StickyNote className="h-3.5 w-3.5" />
-                  Private — only you can see these notes.
+                  Private, only you can see these notes.
                 </div>
 
                 <form
@@ -1401,7 +1401,7 @@ export function CandidateDrawer({
                   <Textarea
                     value={noteDraft}
                     onChange={(e) => setNoteDraft(e.target.value)}
-                    placeholder="e.g. Reached out via LinkedIn 4/16 — waiting on reply…"
+                    placeholder="e.g. Reached out via LinkedIn 4/16, waiting on reply…"
                     rows={3}
                     className="resize-none border-ui-border-medium bg-card text-[14px]"
                   />

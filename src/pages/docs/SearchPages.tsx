@@ -35,7 +35,7 @@ export function SearchPage() {
         ]}
       />
       <DocParagraph>
-        Oslr's AI automatically translates your query into structured search filters — extracting
+        Oslr's AI automatically translates your query into structured search filters, extracting
         job titles, locations, specialties, certifications, and experience requirements.
       </DocParagraph>
 
@@ -46,13 +46,13 @@ export function SearchPage() {
       </DocParagraph>
       <DocList
         items={[
-          "Job title — Current or past role",
-          "Location — City, state, or region",
-          "Company — Current or past employer",
-          "Skills — Technical skills and certifications",
-          "Industry — Healthcare sub-sectors",
-          "Education — Degree, school, or program",
-          "Experience — Years of experience range",
+          "Job title, Current or past role",
+          "Location, City, state, or region",
+          "Company, Current or past employer",
+          "Skills, Technical skills and certifications",
+          "Industry, Healthcare sub-sectors",
+          "Education, Degree, school, or program",
+          "Experience, Years of experience range",
         ]}
       />
 
@@ -79,7 +79,7 @@ export function FiltersVsNLPage() {
   return (
     <DocPage
       title="Filters vs Natural Language"
-      description="Understand the difference between typing a natural language query and using structured filters — and when to use each."
+      description="Understand the difference between typing a natural language query and using structured filters, and when to use each."
       slug="filters-vs-natural-language"
       toc={[
         { id: "nl", label: "Natural language" },
@@ -98,7 +98,7 @@ export function FiltersVsNLPage() {
       <DocHeading id="filters">Structured filters</DocHeading>
       <DocParagraph>
         Structured filters give you precise control over every search parameter. After the AI
-        parses your natural language query, you can fine-tune the extracted filters — adjusting
+        parses your natural language query, you can fine-tune the extracted filters, adjusting
         locations, adding skills, or changing experience ranges.
       </DocParagraph>
 
@@ -203,7 +203,7 @@ export function SearchCriteriaPage() {
       <DocHeading id="location">Location filters</DocHeading>
       <DocParagraph>
         Search by city, metropolitan area, state, or region. Oslr understands common location
-        aliases — for example, "NYC" maps to "New York, NY" and "Bay Area" covers the
+        aliases, for example, "NYC" maps to "New York, NY" and "Bay Area" covers the
         San Francisco metropolitan region.
       </DocParagraph>
 
@@ -391,7 +391,7 @@ export function SearchLibraryPage() {
       <DocHeading id="rerun">Re-running searches</DocHeading>
       <DocParagraph>
         Click on any previous search to instantly re-run it with the same parameters. This is
-        useful for recurring sourcing needs — for example, running a weekly search for new
+        useful for recurring sourcing needs, for example, running a weekly search for new
         candidates matching your criteria.
       </DocParagraph>
 
@@ -441,7 +441,7 @@ export function TipsTricksPage() {
         items={[
           "Use standard medical specialty names (e.g., 'Orthopedic Surgery' not 'Ortho')",
           "Include certification acronyms (CCRN, ACLS, BLS, CNOR) for more precise results",
-          "Search by training stage — 'completing fellowship' or 'PGY-3' work as natural language inputs",
+          "Search by training stage, 'completing fellowship' or 'PGY-3' work as natural language inputs",
           "Use health system names to target candidates at specific organizations",
           "Try location-based searches like 'within 50 miles of Nashville' for regional sourcing",
         ]}

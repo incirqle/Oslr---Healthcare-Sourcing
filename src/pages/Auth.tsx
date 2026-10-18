@@ -296,9 +296,9 @@ export default function Auth() {
                           {level === 0
                             ? "Use 6 or more characters"
                             : level === 1
-                              ? `Too short — ${6 - p.length} more character${6 - p.length === 1 ? "" : "s"}`
+                              ? `Too short, ${6 - p.length} more character${6 - p.length === 1 ? "" : "s"}`
                               : level < 4
-                                ? `${labels[level]} — add numbers, symbols or capitals to make it stronger`
+                                ? `${labels[level]}, add numbers, symbols or capitals to make it stronger`
                                 : "Strong password"}
                         </p>
                       </div>

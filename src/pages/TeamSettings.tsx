@@ -188,10 +188,10 @@ function MonitoringTab() {
         </CardContent>
       </Card>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat icon={Zap} label="Credits left" value={balance ?? "—"} />
-        <Stat icon={Activity} label="Credits used this month" value={data?.spent ?? "—"} sub={data ? `${data.found} contact details found` : undefined} />
-        <Stat icon={Users} label="Saved contacts" value={data?.saved ?? "—"} />
-        <Stat icon={FolderKanban} label="Projects" value={data?.projects ?? "—"} />
+        <Stat icon={Zap} label="Credits left" value={balance ?? "-"} />
+        <Stat icon={Activity} label="Credits used this month" value={data?.spent ?? "-"} sub={data ? `${data.found} contact details found` : undefined} />
+        <Stat icon={Users} label="Saved contacts" value={data?.saved ?? "-"} />
+        <Stat icon={FolderKanban} label="Projects" value={data?.projects ?? "-"} />
       </div>
       <Card>
         <CardHeader><CardTitle className="font-display text-base">Searches in the last 7 days</CardTitle></CardHeader>

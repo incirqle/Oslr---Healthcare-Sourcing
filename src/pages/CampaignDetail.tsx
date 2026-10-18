@@ -159,7 +159,7 @@ export default function CampaignDetail() {
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit campaign
               </Button>
-              <Button onClick={() => toast.info("Add contacts — stub")}>
+              <Button onClick={() => toast.info("Add contacts, stub")}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add contacts
               </Button>
@@ -361,21 +361,21 @@ function ContactRow({
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-0.5">
           <button
-            onClick={() => toast.info("Pause — stub")}
+            onClick={() => toast.info("Pause, stub")}
             className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary"
             title="Pause"
           >
             <Pause className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => toast.info("Skip step — stub")}
+            onClick={() => toast.info("Skip step, stub")}
             className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary"
             title="Skip step"
           >
             <SkipForward className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => toast.info("Remove — stub")}
+            onClick={() => toast.info("Remove, stub")}
             className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             title="Remove"
           >

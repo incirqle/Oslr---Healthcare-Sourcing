@@ -66,7 +66,7 @@ export function CreditsPanel() {
             <div>
               <p className="text-sm text-muted-foreground">Available credits</p>
               <p className="mt-1 flex items-center gap-2 text-3xl font-semibold">
-                <Zap className="h-6 w-6 text-primary" />{balance ?? "—"}
+                <Zap className="h-6 w-6 text-primary" />{balance ?? "-"}
               </p>
             </div>
             <div className="text-right text-sm text-muted-foreground">
@@ -86,7 +86,7 @@ export function CreditsPanel() {
                     ? plan.cancel_at_period_end
                       ? `Ends ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : "soon"}`
                       : `Active · renews ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : ""}`
-                    : exempt ? "Approved access — no payment needed"
+                    : exempt ? "Approved access, no payment needed"
                     : "150 contact credits every month"}
               </p>
             </div>
@@ -115,7 +115,7 @@ export function CreditsPanel() {
                   <TableRow key={r.id}>
                     <TableCell className="text-sm">{new Date(r.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-sm">{r.note || LABEL[r.kind] || r.kind}</TableCell>
-                    <TableCell className="text-sm">{r.candidate_name || "—"}</TableCell>
+                    <TableCell className="text-sm">{r.candidate_name || "-"}</TableCell>
                     <TableCell className={`text-right text-sm font-medium ${r.credits > 0 ? "text-primary" : ""}`}>
                       {r.credits > 0 ? `+${r.credits}` : r.credits}
                     </TableCell>

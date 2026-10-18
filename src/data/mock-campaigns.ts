@@ -279,23 +279,23 @@ interface Archetype {
   steps: StepSpec[];
 }
 
-const EMAIL_INTRO = `<p>Hi {{first_name}},</p><p>I came across your work as {{job_title}} at {{current_company}} — your background in patient outcomes really stood out. We're partnering with several leading health systems on roles that look like a strong match.</p><p>Open to a quick 15-minute chat next week?</p><p>Best,<br/>{{sender_first_name}}</p>`;
+const EMAIL_INTRO = `<p>Hi {{first_name}},</p><p>I came across your work as {{job_title}} at {{current_company}}, your background in patient outcomes really stood out. We're partnering with several leading health systems on roles that look like a strong match.</p><p>Open to a quick 15-minute chat next week?</p><p>Best,<br/>{{sender_first_name}}</p>`;
 
 const EMAIL_BUMP = `<p>Hi {{first_name}},</p><p>Just floating this back to the top of your inbox. Happy to send the role overview ahead of any call so you can decide if it's worth your time.</p><p>{{sender_first_name}}</p>`;
 
 const EMAIL_VALUE = `<p>Hi {{first_name}},</p><p>Two of the systems we're working with just opened {{job_title}} positions with sign-on bonuses in the $40–60k range and relocation. I can share specifics if helpful.</p><p>{{sender_first_name}}</p>`;
 
-const EMAIL_BREAKUP = `<p>Hi {{first_name}},</p><p>I don't want to keep cluttering your inbox — happy to close the loop here. If timing's better in a few months, just reply "later" and I'll circle back then.</p><p>{{sender_first_name}}</p>`;
+const EMAIL_BREAKUP = `<p>Hi {{first_name}},</p><p>I don't want to keep cluttering your inbox, happy to close the loop here. If timing's better in a few months, just reply "later" and I'll circle back then.</p><p>{{sender_first_name}}</p>`;
 
-const LI_CONNECT = `Hi {{first_name}}, came across your profile while researching top {{job_title}}s in the region — would love to connect.`;
-const LI_FOLLOWUP = `Thanks for connecting, {{first_name}}! Quick question — are you open to hearing about {{job_title}} roles at top-tier systems right now, or fully heads-down at {{current_company}}?`;
+const LI_CONNECT = `Hi {{first_name}}, came across your profile while researching top {{job_title}}s in the region, would love to connect.`;
+const LI_FOLLOWUP = `Thanks for connecting, {{first_name}}! Quick question, are you open to hearing about {{job_title}} roles at top-tier systems right now, or fully heads-down at {{current_company}}?`;
 
 const CALL_NOTE = `Reference their recent LinkedIn post / publication. Lead with curiosity about their current scope at {{current_company}}, then mention 1–2 named opportunities. Keep under 4 minutes.`;
 
 const ARCHETYPES: Archetype[] = [
   {
     id: "camp-cardio-fellows",
-    name: "Cardiothoracic Surgeons — West Coast",
+    name: "Cardiothoracic Surgeons, West Coast",
     status: "active",
     owner: "Steven Flutie-Davis",
     rolePool: ROLE_POOLS.surgery,
@@ -316,7 +316,7 @@ const ARCHETYPES: Archetype[] = [
   },
   {
     id: "camp-icu-nurse-mgrs",
-    name: "ICU Nurse Manager Outreach — Q2",
+    name: "ICU Nurse Manager Outreach, Q2",
     status: "active",
     owner: "Priya Patel",
     rolePool: ROLE_POOLS.nursing,
@@ -326,8 +326,8 @@ const ARCHETYPES: Archetype[] = [
     enrollmentCount: 38,
     createdDaysAgo: 14,
     steps: [
-      { type: "Email", subject: "ICU leadership roles — worth a look?", body: EMAIL_INTRO, delayDays: 0, mailbox: "hello@oslr.health" },
-      { type: "Email", subject: "Re: ICU leadership roles — worth a look?", body: EMAIL_BUMP, delayDays: 3, mailbox: "hello@oslr.health" },
+      { type: "Email", subject: "ICU leadership roles, worth a look?", body: EMAIL_INTRO, delayDays: 0, mailbox: "hello@oslr.health" },
+      { type: "Email", subject: "Re: ICU leadership roles, worth a look?", body: EMAIL_BUMP, delayDays: 3, mailbox: "hello@oslr.health" },
       { type: "LinkedIn Message", body: LI_CONNECT, delayDays: 2, mailbox: "hello@oslr.health" },
       { type: "Email", subject: "A couple of ICU openings I'd love your take on", body: EMAIL_VALUE, delayDays: 4, mailbox: "hello@oslr.health" },
       { type: "Call", body: CALL_NOTE, delayDays: 3, mailbox: "hello@oslr.health" },
@@ -335,7 +335,7 @@ const ARCHETYPES: Archetype[] = [
   },
   {
     id: "camp-device-sales",
-    name: "Medical Device Sales — Reactivation",
+    name: "Medical Device Sales, Reactivation",
     status: "paused",
     owner: "Marcus Reyes",
     rolePool: ROLE_POOLS.device,
@@ -351,7 +351,7 @@ const ARCHETYPES: Archetype[] = [
   },
   {
     id: "camp-allied-pt",
-    name: "Allied Health — PTs & OTs (Boston)",
+    name: "Allied Health, PTs & OTs (Boston)",
     status: "draft",
     owner: "Aisha Okafor",
     rolePool: ROLE_POOLS.allied,
@@ -361,8 +361,8 @@ const ARCHETYPES: Archetype[] = [
     enrollmentCount: 30,
     createdDaysAgo: 4,
     steps: [
-      { type: "Email", subject: "Boston-area PT roles — quick intro", body: EMAIL_INTRO, delayDays: 0, mailbox: "hello@oslr.health" },
-      { type: "Email", subject: "Re: Boston-area PT roles — quick intro", body: EMAIL_BUMP, delayDays: 3, mailbox: "hello@oslr.health" },
+      { type: "Email", subject: "Boston-area PT roles, quick intro", body: EMAIL_INTRO, delayDays: 0, mailbox: "hello@oslr.health" },
+      { type: "Email", subject: "Re: Boston-area PT roles, quick intro", body: EMAIL_BUMP, delayDays: 3, mailbox: "hello@oslr.health" },
       { type: "LinkedIn Message", body: LI_CONNECT, delayDays: 2, mailbox: "hello@oslr.health" },
       { type: "Email", subject: "Closing the loop on PT openings", body: EMAIL_BREAKUP, delayDays: 6, mailbox: "hello@oslr.health" },
     ],

@@ -723,7 +723,7 @@ export default function SearchPage() {
         {usage && usage.used >= usage.limit - 10 && (
           <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
             {usage.used >= usage.limit
-              ? `You've used all ${usage.limit} new searches for today. Limits refresh at midnight UTC — you can still page through results.`
+              ? `You've used all ${usage.limit} new searches for today. Limits refresh at midnight UTC, you can still page through results.`
               : `You've used ${usage.used} of your ${usage.limit} daily searches. Daily limits refresh at midnight UTC.`}
           </div>
         )}

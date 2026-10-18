@@ -30,11 +30,11 @@ export function EmailCampaignsPage() {
       <DocHeading id="steps">Campaign builder steps</DocHeading>
       <DocList
         items={[
-          "1. Name — Give your campaign a descriptive name",
-          "2. Template — Select an email template or create a new one",
-          "3. Recipients — Choose a project and select candidates with email addresses",
-          "4. Preview — Review personalized emails with merge fields resolved",
-          "5. Confirm — Review daily quota and send the campaign",
+          "1. Name, Give your campaign a descriptive name",
+          "2. Template, Select an email template or create a new one",
+          "3. Recipients, Choose a project and select candidates with email addresses",
+          "4. Preview, Review personalized emails with merge fields resolved",
+          "5. Confirm, Review daily quota and send the campaign",
         ]}
       />
 
@@ -78,12 +78,12 @@ export function TemplatesPage() {
       </DocParagraph>
       <DocList
         items={[
-          "{{first_name}} — Candidate's first name",
-          "{{last_name}} — Candidate's last name",
-          "{{full_name}} — Candidate's full name",
-          "{{title}} — Current job title",
-          "{{company}} — Current employer",
-          "{{location}} — City and state",
+          "{{first_name}}, Candidate's first name",
+          "{{last_name}}, Candidate's last name",
+          "{{full_name}}, Candidate's full name",
+          "{{title}}, Current job title",
+          "{{company}}, Current employer",
+          "{{location}}, City and state",
         ]}
       />
 
@@ -92,7 +92,7 @@ export function TemplatesPage() {
         items={[
           "Keep subject lines under 50 characters for better open rates",
           "Personalize the first line with the candidate's name and role",
-          "Keep emails concise — 3-5 sentences is ideal for initial outreach",
+          "Keep emails concise, 3-5 sentences is ideal for initial outreach",
           "Include a clear call-to-action (e.g., schedule a call)",
           "Test your template by previewing with a real candidate before sending",
         ]}
@@ -120,20 +120,20 @@ export function CampaignTrackingPage() {
       </DocParagraph>
       <DocList
         items={[
-          "Sent — Email was accepted by the delivery provider",
-          "Delivered — Email was successfully delivered to the recipient's inbox",
-          "Opened — Recipient opened the email (tracked via pixel)",
-          "Clicked — Recipient clicked a link in the email",
-          "Bounced — Email could not be delivered (invalid address, full inbox, etc.)",
+          "Sent, Email was accepted by the delivery provider",
+          "Delivered, Email was successfully delivered to the recipient's inbox",
+          "Opened, Recipient opened the email (tracked via pixel)",
+          "Clicked, Recipient clicked a link in the email",
+          "Bounced, Email could not be delivered (invalid address, full inbox, etc.)",
         ]}
       />
 
       <DocHeading id="statuses">Campaign statuses</DocHeading>
       <DocList
         items={[
-          "Draft — Campaign created but not yet sent",
-          "Sent — Campaign has been dispatched",
-          "Completed — All tracking data has been collected",
+          "Draft, Campaign created but not yet sent",
+          "Sent, Campaign has been dispatched",
+          "Completed, All tracking data has been collected",
         ]}
       />
 
@@ -170,18 +170,18 @@ export function CampaignAnalyticsPage() {
       <DocHeading id="metrics">Key metrics</DocHeading>
       <DocList
         items={[
-          "Send rate — Percentage of campaign emails successfully dispatched",
-          "Delivery rate — Percentage of sent emails that reached the inbox",
-          "Open rate — Percentage of delivered emails that were opened",
-          "Click rate — Percentage of opened emails with at least one click",
-          "Bounce rate — Percentage of emails that bounced",
+          "Send rate, Percentage of campaign emails successfully dispatched",
+          "Delivery rate, Percentage of sent emails that reached the inbox",
+          "Open rate, Percentage of delivered emails that were opened",
+          "Click rate, Percentage of opened emails with at least one click",
+          "Bounce rate, Percentage of emails that bounced",
         ]}
       />
 
       <DocHeading id="improving">Improving performance</DocHeading>
       <DocParagraph>
         Low open rates? Try shorter, more compelling subject lines. High bounce rates?
-        Review your candidate data quality — stale email addresses are a common cause.
+        Review your candidate data quality, stale email addresses are a common cause.
         Oslr's contact enrichment provides verified emails to minimize bounces.
       </DocParagraph>
     </DocPage>

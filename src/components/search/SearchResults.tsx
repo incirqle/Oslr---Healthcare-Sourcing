@@ -595,13 +595,13 @@ export function SearchResults({
     const scope = geoScope?.effective_scope;
     const city = geoScope?.requested_city;
     if (scope === "state" && city && geoScope?.requested_state) {
-      return `Few results in ${toTitleCase(city)} — expanded to all of ${toTitleCase(geoScope.requested_state)}`;
+      return `Few results in ${toTitleCase(city)}, expanded to all of ${toTitleCase(geoScope.requested_state)}`;
     }
     if (scope === "metro" && city) {
-      return `Few results in ${toTitleCase(city)} — expanded to the wider metro area`;
+      return `Few results in ${toTitleCase(city)}, expanded to the wider metro area`;
     }
     if (scope === "semantic" && city) {
-      return `Few exact matches in ${toTitleCase(city)} — relaxed specialty/title filters but kept the location`;
+      return `Few exact matches in ${toTitleCase(city)}, relaxed specialty/title filters but kept the location`;
     }
     return null;
   })();
@@ -653,7 +653,7 @@ export function SearchResults({
             spans multiple affiliated entities
             {(companyScope.sample_affiliates?.length ?? 0) > 0 && (
               <>
-                {" "}— including{" "}
+                {" "}including{" "}
                 <span className="text-muted-foreground">
                   {companyScope.sample_affiliates!
                     .slice(0, 3)
@@ -714,7 +714,7 @@ export function SearchResults({
           {specialtyFunnel?.parsed_specialties && specialtyFunnel.parsed_specialties.length > 0 && typeof specialtyFunnel.on_specialty_count === "number" && (
             <p className="mt-0.5 text-xs text-muted-foreground/80">
               Specialty: <span className="text-foreground/80">{toTitleCase(specialtyFunnel.parsed_specialties[0])}</span>
-              {" — "}
+              {", "}
               {specialtyFunnel.on_specialty_count} on-specialty of {candidates.length} shown
               {typeof specialtyFunnel.on_specialty_pct === "number" && ` (${Math.round(specialtyFunnel.on_specialty_pct * 100)}%)`}
             </p>

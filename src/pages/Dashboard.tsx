@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchSearchUsage } from "@/lib/search-meter";
 
 function metric(value: number) {
-  return value === 0 ? "—" : value.toLocaleString();
+  return value === 0 ? "-" : value.toLocaleString();
 }
 
 function timeAgo(iso: string) {
@@ -65,7 +65,7 @@ export default function Dashboard() {
     { title: "Saved Clinicians", value: metric(stats?.candidates.total ?? 0), sub: `+${stats?.candidates.thisWeek ?? 0} this week`, icon: Users, to: "/contacts" },
     { title: "Active Projects", value: metric(stats?.projects.total ?? 0), sub: `${stats?.projects.activeRecent ?? 0} active this week`, icon: FolderKanban, to: "/projects" },
     { title: "Searches Today", value: metric(stats?.searches.today ?? 0), sub: "of 150 daily", icon: Search, to: "/settings?tab=monitoring" },
-    { title: "Available Credits", value: credits === null ? "—" : credits.toLocaleString(), sub: "Starter · 150 a month", icon: Zap, to: "/settings?tab=billing" },
+    { title: "Available Credits", value: credits === null ? "-" : credits.toLocaleString(), sub: "Starter · 150 a month", icon: Zap, to: "/settings?tab=billing" },
   ];
 
   return (

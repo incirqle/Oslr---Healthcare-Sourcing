@@ -10,9 +10,9 @@ interface Props {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
@@ -87,7 +87,7 @@ export function TalentFlowPeopleList({ hires, departures }: Props) {
                   )}
                 </div>
                 <p className="truncate text-[11.5px] text-ui-text-secondary">
-                  {title ?? p.headline ?? "—"}
+                  {title ?? p.headline ?? "-"}
                   {company && (
                     <>
                       {" "}

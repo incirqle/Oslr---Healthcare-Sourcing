@@ -5,7 +5,7 @@ export function ProjectsPage() {
   return (
     <DocPage
       title="Projects"
-      description="Projects are the core organizational unit in Oslr. Each project represents a hiring initiative — a role, department, or facility you're recruiting for."
+      description="Projects are the core organizational unit in Oslr. Each project represents a hiring initiative, a role, department, or facility you're recruiting for."
       slug="projects"
       toc={[
         { id: "overview", label: "What are projects?" },
@@ -66,13 +66,13 @@ export function CandidateStatusPage() {
       <DocHeading id="statuses">Available statuses</DocHeading>
       <DocList
         items={[
-          "New — Candidate has been added to the project but not yet contacted",
-          "Contacted — Initial outreach has been sent",
-          "Screening — Candidate is being screened or evaluated",
-          "Interview — Candidate is in the interview process",
-          "Offer — An offer has been extended",
-          "Hired — Candidate has accepted and been hired",
-          "Rejected — Candidate has been disqualified or declined",
+          "New, Candidate has been added to the project but not yet contacted",
+          "Contacted, Initial outreach has been sent",
+          "Screening, Candidate is being screened or evaluated",
+          "Interview, Candidate is in the interview process",
+          "Offer, An offer has been extended",
+          "Hired, Candidate has accepted and been hired",
+          "Rejected, Candidate has been disqualified or declined",
         ]}
       />
 

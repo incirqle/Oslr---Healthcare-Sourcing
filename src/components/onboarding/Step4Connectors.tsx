@@ -102,7 +102,7 @@ export function Step4Connectors({ onComplete }: { onComplete: () => void }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pending ? CONNECTORS.find((c) => c.key === pending)?.label : ""} — coming soon
+              {pending ? CONNECTORS.find((c) => c.key === pending)?.label : ""}, coming soon
             </DialogTitle>
             <DialogDescription>
               {pending ? CONNECTORS.find((c) => c.key === pending)?.blurb : ""} Join the waitlist
