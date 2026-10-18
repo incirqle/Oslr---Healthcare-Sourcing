@@ -441,6 +441,11 @@ Deno.serve(async (req: Request) => {
       hasMore: data.hasMore === true,
       rejected_filtered: typeof data.rejected_filtered === "number" ? data.rejected_filtered : hiddenRows.length,
       hidden_results: hiddenRows,
+      // Ranked criteria (docs/oslr-criteria-ranking-spec.md 3.3), passed through unchanged.
+      ranking_criteria: Array.isArray(data.ranking_criteria) ? data.ranking_criteria : [],
+      required_criteria: Array.isArray(data.required_criteria) ? data.required_criteria : [],
+      cant_check: Array.isArray(data.cant_check) ? data.cant_check : [],
+      ranking_version: data.ranking_version ?? null,
       cascade_used: relaxed.length > 0,
       cascade_plan: relaxed,
       geo_scope: deriveGeoScope(parsed, relaxed),
