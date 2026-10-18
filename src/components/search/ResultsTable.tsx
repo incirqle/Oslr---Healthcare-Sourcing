@@ -15,6 +15,8 @@ import { VERDICT_LABEL } from "./EngineDetails";
 import { scoredCriteria, sectionLabel, weightPercent, type RankingCriterion, type RequiredCriterion } from "@/lib/ranking";
 import { prefersReducedMotion } from "./CriteriaPanel";
 
+export type CriterionCheck = { state: "checking"; count: number } | { state: "error"; message: string };
+
 export type TableSort = { key: "match"; dir: "desc" | "asc" } | { key: "criterion"; id: string } | null;
 
 const ICON: Record<CriterionVerdict, typeof Check> = { met: Check, partial: Minus, unknown: CircleDashed, not_met: CircleSlash };
@@ -30,7 +32,11 @@ const reindex = (list: RankingCriterion[]) => list.map((c, i) => ({ ...c, positi
 export function ResultsTable({
   rows, ranking, required, selected, savedIds, fitMap, sort, onSortChange,
   onToggleSelect, onToggleSelectAll, onOpen, onFitChange, onReorder, ContactIcons,
+  checks = {}, onRetry, onReview,
 }: {
+  checks?: Record<string, CriterionCheck>;
+  onRetry?: (id: string) => void;
+  onReview?: (c: Candidate) => void;
   rows: Candidate[];
   ranking: RankingCriterion[];
   required: RequiredCriterion[];
@@ -124,6 +130,8 @@ export function ResultsTable({
                       onSort={() => onSortChange(sort?.key === "criterion" && sort.id === c.id ? null : { key: "criterion", id: c.id })}
                       onMove={(d) => move(i, i + d)}
                       className={th}
+                      check={checks[c.id]}
+                      onRetry={onRetry ? () => onRetry(c.id) : undefined}
                     />
                   ))}
                 </SortableContext>
@@ -149,7 +157,7 @@ export function ResultsTable({
                       <PersonAvatar name={name} src={c.profile_pic_url} className="h-8 w-8" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(c); }} className="truncate text-left font-semibold text-foreground hover:underline">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); (onReview ?? onOpen)(c); }} className="truncate text-left font-semibold text-foreground hover:underline">
                             {name}
                           </button>
                           {c.linkedin_url && (
@@ -193,7 +201,9 @@ export function ResultsTable({
                   {ranking.map((rc) => (
                     <td key={rc.id} className={td}>
                       {rc.pending ? (
-                        <span className="text-xs text-muted-foreground">Not checked yet</span>
+                        <span className="text-xs text-muted-foreground">
+                          {checks[rc.id]?.state === "checking" ? "Checking" : checks[rc.id]?.state === "error" ? "Not checked" : "Not checked yet"}
+                        </span>
                       ) : (
                         <VerdictCell
                           status={byId.get(rc.id)?.status ?? "unknown"}
@@ -201,6 +211,7 @@ export function ResultsTable({
                           section={byId.get(rc.id)?.section ?? null}
                           title={rc.title}
                           mustHave={rc.must_have}
+                          explanation={byId.get(rc.id)?.explanation ?? null}
                         />
                       )}
                     </td>
@@ -222,8 +233,8 @@ export function ResultsTable({
   );
 }
 
-function VerdictCell({ status, evidence, section, title, mustHave }: {
-  status: CriterionVerdict; evidence: string | null; section: string | null; title: string; mustHave?: boolean;
+function VerdictCell({ status, evidence, section, title, mustHave, explanation }: {
+  status: CriterionVerdict; evidence: string | null; section: string | null; title: string; mustHave?: boolean; explanation?: string | null;
 }) {
   const Icon = ICON[status];
   const label = VERDICT_LABEL[status];
@@ -246,14 +257,16 @@ function VerdictCell({ status, evidence, section, title, mustHave }: {
       <TooltipContent side="top" className="max-w-xs text-xs">
         <p className="font-medium">{title}: {label}{mustHave && status === "unknown" ? " (must-have not shown)" : ""}</p>
         {evidence ? <p className="mt-0.5 text-muted-foreground">"{evidence}"</p> : <p className="mt-0.5 text-muted-foreground">The profile does not say.</p>}
+        {explanation && <p className="mt-0.5">{explanation}</p>}
         {where && <p className="mt-0.5 text-muted-foreground">From: {where}</p>}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-function CriterionHeader({ c, weight, sorted, onSort, onMove, className }: {
+function CriterionHeader({ c, weight, sorted, onSort, onMove, className, check, onRetry }: {
   c: RankingCriterion; weight: number | null; sorted: boolean; onSort: () => void; onMove: (d: number) => void; className: string;
+  check?: CriterionCheck; onRetry?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: c.id,
@@ -289,6 +302,15 @@ function CriterionHeader({ c, weight, sorted, onSort, onMove, className }: {
           {sorted && <ArrowDown className="h-3 w-3" aria-hidden="true" />}
         </button>
       </span>
+      {check?.state === "checking" && (
+        <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground" role="status">Checking {check.count} profiles</span>
+      )}
+      {check?.state === "error" && (
+        <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-normal text-destructive" role="alert">
+          <span className="max-w-[160px] truncate" title={check.message}>{check.message}</span>
+          {onRetry && <button type="button" onClick={onRetry} className="font-medium text-foreground underline">Retry</button>}
+        </span>
+      )}
     </th>
   );
 }

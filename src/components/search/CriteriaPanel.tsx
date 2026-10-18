@@ -31,12 +31,17 @@ export function CriteriaPanel({
   ranking,
   onChange,
   suggestions,
+  onApply,
+  checking = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ranking: RankingCriterion[];
   onChange: (next: RankingCriterion[]) => void;
   suggestions: string[];
+  /** Check added or edited criteria (rank_criteria). */
+  onApply?: () => void;
+  checking?: boolean;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -134,10 +139,12 @@ export function CriteriaPanel({
         <div className="space-y-2 border-t border-border px-5 py-3">
           {pendingCount > 0 && (
             <p className="text-xs text-muted-foreground">
-              {pendingCount} new or edited {pendingCount === 1 ? "criterion is" : "criteria are"} not checked yet and do not count toward Match.
+              {pendingCount} new or edited {pendingCount === 1 ? "criterion is" : "criteria are"} not checked yet and {pendingCount === 1 ? "does" : "do"} not count toward Match. Apply checks {pendingCount === 1 ? "it" : "them"} against these results at no credit cost.
             </p>
           )}
-          <Button className="w-full" onClick={() => onOpenChange(false)}>Apply</Button>
+          <Button className="w-full" disabled={checking} onClick={() => { if (pendingCount > 0) onApply?.(); onOpenChange(false); }}>
+            {checking ? "Checking..." : "Apply"}
+          </Button>
         </div>
       </SheetContent>
     </Sheet>
