@@ -317,7 +317,6 @@ export default function SearchPage() {
       soft_matches: r.soft_matches ?? [],
       criteria_results: (Array.isArray(r.criteria_results) ? r.criteria_results : []).map((x: Record<string, any>): CandidateCriterionResult => ({
         ...(x as CandidateCriterionResult),
-        ...x,
         title: criterionMeta.get(String(x.criterion_id))?.title ?? String(x.criterion_id),
         group: criterionMeta.get(String(x.criterion_id))?.group ?? "preferred",
       })),
