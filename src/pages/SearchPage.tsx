@@ -13,6 +13,8 @@ import { SetAsideTab } from "@/components/search/SetAsideTab";
 import { QueryReadback, type FilterField } from "@/components/search/QueryReadback";
 import { CriteriaPanel } from "@/components/search/CriteriaPanel";
 import { ReviewMode } from "@/components/search/ReviewMode";
+import { SearchAnalytics, type AnalyticsFilter } from "@/components/search/SearchAnalytics";
+import { buildSearchAnalytics } from "@/lib/buildSearchAnalytics";
 import type { CriterionCheck } from "@/components/search/ResultsTable";
 import type { ResultsView } from "@/components/search/SearchResults";
 import type { TableSort } from "@/components/search/ResultsTable";
@@ -117,7 +119,7 @@ export default function SearchPage() {
   const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
-  const [resultsTab, setResultsTab] = useState<"results" | "set_aside">("results");
+  const [resultsTab, setResultsTab] = useState<"results" | "set_aside" | "analytics">("results");
   // Ranked criteria (docs/oslr-criteria-ranking-spec.md 3.3, 6.1, 9).
   const [ranking, setRankingState] = useState<RankingCriterion[]>([]);
   const rankingRef = useRef<RankingCriterion[]>([]);
@@ -128,7 +130,9 @@ export default function SearchPage() {
     rankingRef.current = next;
     setRankingState(next);
   };
-  const [requiredCriteria, setRequiredCriteria] = useState<RequiredCriterion[]>([]);
+  const [requiredCriteria, setRequiredCriteria] = useState<(RequiredCriterion & { subspecialty?: boolean })[]>([]);
+  const [providerTotal, setProviderTotal] = useState<number | null>(null);
+  const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
   const [cantCheck, setCantCheck] = useState<{ id: string; label: string }[]>([]);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [filterFocus, setFilterFocus] = useState<FilterField | null>(null);
@@ -225,6 +229,21 @@ export default function SearchPage() {
       });
   };
   const displayRows = useMemo(() => {
+    if (analyticsFilter?.kind === "set_aside") {
+      return ranked.setAside.filter((c) => (c.set_aside_reason || (c.audit_verdict === "reject" ? "grader" : "other")) === analyticsFilter.reason);
+    }
+    const base = analyticsFilter?.kind === "criterion"
+      ? ranked.kept.filter((c) => (c.criteria_results?.find((r) => r.criterion_id === analyticsFilter.id)?.status ?? "unknown") === analyticsFilter.status)
+      : ranked.kept;
+    if (view !== "table" || !tableSort) return base;
+    if (tableSort.key === "criterion") return sortByCriterion(base, tableSort.id);
+    return tableSort.dir === "desc" ? base : [...base].reverse();
+  }, [ranked, view, tableSort, analyticsFilter]);
+  const analytics = useMemo(
+    () => buildSearchAnalytics(ranked.kept, ranked.setAside, requiredCriteria, ranking, { providerTotal }),
+    [ranked, requiredCriteria, ranking, providerTotal],
+  );
+  const _unusedDisplay = useMemo(() => {
     if (view !== "table" || !tableSort) return ranked.kept;
     if (tableSort.key === "criterion") return sortByCriterion(ranked.kept, tableSort.id);
     return tableSort.dir === "desc" ? ranked.kept : [...ranked.kept].reverse();
@@ -328,6 +347,8 @@ export default function SearchPage() {
     removedRef.current = new Set();
     setRanking([]);
     setChecks({});
+    setAnalyticsFilter(null);
+    setProviderTotal(null);
     setExplanations({});
     explainAsked.current = new Set();
     setRunId(null);
@@ -437,11 +458,12 @@ export default function SearchPage() {
       }));
     setRanking(!f || !parsed ? serverRanking : mergeRanking(rankingRef.current, serverRanking, removedRef.current));
     if (typeof data.run_id === "string") setRunId(data.run_id);
+    setProviderTotal(typeof data.provider_total === "number" ? data.provider_total : null);
     if (Array.isArray(data.suggested_criteria) && data.suggested_criteria.length > 0) {
       setServerSuggestions(data.suggested_criteria.filter((x: unknown): x is string => typeof x === "string"));
     } else if (!f || !parsed) setServerSuggestions([]);
     setRequiredCriteria(((Array.isArray(data.required_criteria) ? data.required_criteria : []) as Array<Record<string, any>>)
-      .filter((c) => c?.id).map((c) => ({ id: String(c.id), kind: String(c.kind ?? ""), label: String(c.label ?? c.id) })));
+      .filter((c) => c?.id).map((c) => ({ id: String(c.id), kind: String(c.kind ?? ""), label: String(c.label ?? c.id), subspecialty: !!(c.value && typeof c.value === "object" && !Array.isArray(c.value) && c.value.subspecialty) })));
     setCantCheck(((Array.isArray(data.cant_check) ? data.cant_check : []) as Array<Record<string, any>>)
       .filter((c) => c?.id).map((c) => ({ id: String(c.id), label: String(c.label ?? c.id) })));
     const mapRow = (r: Record<string, any>): Candidate => ({
