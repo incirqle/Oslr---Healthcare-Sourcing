@@ -1,6 +1,6 @@
 /**
- * People tab: pick which groups to pull, see the count and cost first,
- * then the people. Groups someone already pulled show up loaded and free.
+ * People tab: pick which groups to pull, see the counts, then the people.
+ * Groups someone already pulled show up loaded.
  */
 
 import { useMemo, useState } from "react";
@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyBriefState, PullGroup, RosterPerson } from "@/hooks/useCompanyBrief";
 import { PersonAvatar } from "./PersonAvatar";
 import { LinkedInBadge } from "./LinkedInBadge";
-import { fmtCount, fmtCredits, fmtMonth, GROUP_LABEL, GROUP_ORDER, tenure } from "./brief-utils";
+import { fmtCount, fmtMonth, GROUP_LABEL, GROUP_ORDER, tenure } from "./brief-utils";
 import { cn } from "@/lib/utils";
 
 /** Profiles per pull page (matches PULL_PAGE_SIZE in the edge function). */
@@ -19,7 +19,6 @@ const SPECIALTY_GROUPS: PullGroup[] = ["doctors", "trainees"];
 export function PeoplePanel({ s }: { s: CompanyBriefState }) {
   const [picked, setPicked] = useState<PullGroup[]>([]);
   const [spec, setSpec] = useState<Partial<Record<PullGroup, string>>>({});
-  const per = s.preview?.credits_per_profile ?? 0.03;
 
   const rows = GROUP_ORDER.map((g) => {
     const pv = s.preview?.groups.find((x) => x.group === g);
@@ -45,9 +44,8 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
         <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ui-border-light px-5 py-3.5">
           <div>
             <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Who do you want to see?</h3>
-            <p className="text-[12.5px] text-ui-text-secondary">Counts are free to view. You only pay for the groups you pull.</p>
+            <p className="text-[12.5px] text-ui-text-secondary">Pick the groups you want to see.</p>
           </div>
-          {s.preview && <p className="text-[11.5px] text-ui-text-muted">{fmtCredits(per)} credits per profile</p>}
         </header>
 
         <ul className="divide-y divide-ui-border-light">
@@ -81,8 +79,6 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
                   <span className="font-medium text-[#1F6B57] dark:text-[#7AC5B0]">Pulled</span>
                 ) : r.busy ? (
                   <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin" />
-                ) : r.firstPage ? (
-                  `${fmtCredits(r.firstPage * per)} cr`
                 ) : (
                   ""
                 )}
@@ -108,7 +104,7 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
               )}
               {(r.count ?? 0) > PAGE_SIZE && !r.pulled && (
                 <p className="col-start-2 col-end-5 mt-1 text-[11.5px] text-ui-text-muted">
-                  Pulls the first {PAGE_SIZE}. Load the next {PAGE_SIZE} for {fmtCredits(PAGE_SIZE * per)} credits at a time.
+                  Pulls the first {PAGE_SIZE}. Load more {PAGE_SIZE} at a time.
                 </p>
               )}
               {r.error && <p className="col-start-2 col-end-5 mt-1 text-[12px] text-destructive">Couldn't load this group. {r.error}</p>}
@@ -120,10 +116,7 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
           <p className="text-[12.5px] text-ui-text-secondary">
             {chosen.length === 0
               ? s.previewState === "error" ? "Counts didn't load. Close and reopen the company to try again." : "Check the groups you want."
-              : <>
-                <span className="font-semibold tabular-nums text-ui-text-primary">{profiles}</span> profiles ·{" "}
-                <span className="font-semibold tabular-nums text-ui-text-primary">{fmtCredits(profiles * per)}</span> credits
-              </>}
+              : <><span className="font-semibold tabular-nums text-ui-text-primary">{profiles}</span> profiles</>}
           </p>
           <button
             type="button"
@@ -148,7 +141,6 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
 function Results({ s }: { s: CompanyBriefState }) {
   const [q, setQ] = useState("");
   const [only, setOnly] = useState<PullGroup | "all">("all");
-  const per = s.preview?.credits_per_profile ?? 0.03;
   const groups = GROUP_ORDER.filter((g) => s.pulled[g]);
 
   // A person can match two groups ("President, Plastic Surgeon"): show them once, in the first group.
@@ -235,7 +227,7 @@ function Results({ s }: { s: CompanyBriefState }) {
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ui-border-medium px-3 text-[12.5px] font-medium text-ui-text-primary transition-colors duration-150 hover:bg-ui-surface-subtle disabled:opacity-50"
                   >
                     {s.busy[g] && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Load next {Math.min(PAGE_SIZE, remaining ?? PAGE_SIZE)} · {fmtCredits(Math.min(PAGE_SIZE, remaining ?? PAGE_SIZE) * per)} cr
+                    Load next {Math.min(PAGE_SIZE, remaining ?? PAGE_SIZE)}
                   </button>
                 )}
               </div>

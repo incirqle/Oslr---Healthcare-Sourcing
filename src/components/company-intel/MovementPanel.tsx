@@ -1,6 +1,6 @@
 /**
  * Movement tab: who joined and who left in the last 24 months. Shows the
- * counts and cost first; pulls on request.
+ * counts first; pulls on request.
  */
 
 import { useState } from "react";
@@ -10,14 +10,13 @@ import type { CompanyBriefState, MovementPerson } from "@/hooks/useCompanyBrief"
 import { PersonAvatar } from "./PersonAvatar";
 import { LinkedInBadge } from "./LinkedInBadge";
 import { Chip } from "./PeoplePanel";
-import { fmtCount, fmtCredits, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter, netFlow } from "./brief-utils";
+import { fmtCount, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter, netFlow } from "./brief-utils";
 import { cn } from "@/lib/utils";
 
 /** Profiles pulled per direction at most (matches MOVEMENT_LIMIT in the edge function). */
 const MOVEMENT_LIMIT = 100;
 
 export function MovementPanel({ s }: { s: CompanyBriefState }) {
-  const per = s.preview?.credits_per_profile ?? 0.03;
   const mv = s.preview?.movement;
 
   if (!s.movement) {
@@ -42,7 +41,7 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
         </div>
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-ui-border-light px-5 py-3.5">
           <p className="text-[12.5px] text-ui-text-secondary">
-            {rows > 0 ? <><span className="font-semibold tabular-nums text-ui-text-primary">{rows}</span> profiles · <span className="font-semibold tabular-nums text-ui-text-primary">{fmtCredits(rows * per)}</span> credits</> : "No movement found in this window."}
+            {rows > 0 ? <><span className="font-semibold tabular-nums text-ui-text-primary">{rows}</span> profiles</> : "No movement found in this window."}
           </p>
           <button
             type="button"
