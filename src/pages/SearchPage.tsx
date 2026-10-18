@@ -265,6 +265,14 @@ export default function SearchPage() {
       setFilters(f ?? filtersFromParsed(engineParsed));
     }
 
+    // Criterion titles for the per-candidate results (spec 3.3).
+    const criterionMeta = new Map<string, { title: string; group: "required" | "preferred" }>();
+    for (const c of (Array.isArray(data.required_criteria) ? data.required_criteria : []) as Array<Record<string, any>>) {
+      if (c?.id) criterionMeta.set(String(c.id), { title: String(c.label ?? c.id), group: "required" });
+    }
+    for (const c of (Array.isArray(data.ranking_criteria) ? data.ranking_criteria : []) as Array<Record<string, any>>) {
+      if (c?.id) criterionMeta.set(String(c.id), { title: String(c.title || c.text || c.id), group: "preferred" });
+    }
     const mapRow = (r: Record<string, any>): Candidate => ({
       id: r.id,
       full_name: r.full_name || "",
@@ -294,6 +302,25 @@ export default function SearchPage() {
       clinical_skills: r.clinical_skills || [],
       has_contact_info: r.has_contact_info || false,
       summary: r.summary || r.headline || null,
+      audit_verdict: r.audit_verdict ?? null,
+      audit_reason: r.audit_reason ?? null,
+      audit_evidence: r.audit_evidence ?? null,
+      audit_score: r.audit_score ?? null,
+      match_scope: r.match_scope ?? null,
+      stage_fit: r.stage_fit ?? null,
+      employment_model: r.employment_model ?? null,
+      employment_model_evidence: r.employment_model_evidence ?? null,
+      military_evidence: r.military_evidence ?? null,
+      evidence_snippet: r.evidence_snippet ?? null,
+      soft_matches: r.soft_matches ?? [],
+      criteria_results: (Array.isArray(r.criteria_results) ? r.criteria_results : []).map((x: Record<string, any>) => ({
+        ...x,
+        title: criterionMeta.get(String(x.criterion_id))?.title ?? String(x.criterion_id),
+        group: criterionMeta.get(String(x.criterion_id))?.group ?? "preferred",
+      })),
+      match_rate: r.match_rate ?? null,
+      set_aside_reason: r.set_aside_reason ?? null,
+      set_aside_note: r.set_aside_note ?? null,
       raw: r,
     });
     // The engine returns EVERY kept row; this page paginates in the browser.
