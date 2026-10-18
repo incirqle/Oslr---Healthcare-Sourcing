@@ -479,7 +479,7 @@ export function CampaignBuilder({
                     rows={6}
                     maxLength={300}
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
-                    placeholder="Keep it short, LinkedIn limits apply."
+                    placeholder="Keep it short, message limits apply."
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     {active.body.length}/300 characters

@@ -1401,7 +1401,7 @@ export function CandidateDrawer({
                   <Textarea
                     value={noteDraft}
                     onChange={(e) => setNoteDraft(e.target.value)}
-                    placeholder="e.g. Reached out via LinkedIn 4/16, waiting on reply…"
+                    placeholder="e.g. Reached out 4/16, waiting on reply…"
                     rows={3}
                     className="resize-none border-ui-border-medium bg-card text-[14px]"
                   />

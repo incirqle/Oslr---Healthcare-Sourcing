@@ -146,7 +146,7 @@ function ProfileIcons({ c }: { c: ContactRow }) {
 
 function toCsv(rows: ContactRow[]): string {
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["Full Name", "Title", "Organization", "Location", "Email", "Phone", "LinkedIn", "Project", "Status", "Date Added"];
+  const header = ["Full Name", "Title", "Organization", "Location", "Email", "Phone", "Profile URL", "Project", "Status", "Date Added"];
   const lines = rows.map((c) =>
     [c.full_name, c.title, c.current_employer, c.location, c.email, c.phone, c.linkedin_url, c.projects?.name, c.status, c.created_at?.slice(0, 10)]
       .map(esc).join(",")
