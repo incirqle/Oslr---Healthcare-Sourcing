@@ -15,7 +15,7 @@ describe("client ranking recompute (spec 7)", () => {
 
   it("scores met, not shown x2, partly as 50", () => {
     const r = scoreRow([res("a", "met"), res("b", "not_met"), res("c", "unknown"), res("d", "partial")], [rc("a"), rc("b"), rc("c"), rc("d")]);
-    expect(r.match_rate).toBe(4 * 1 + 3 * 0 + 2 * 0.25 + 1 * 0.5 === 5 ? 50 : -1);
+    expect(r.match_rate).toBe(50);
   });
 
   it("scores no, not shown, partly, yes as 28", () => {
