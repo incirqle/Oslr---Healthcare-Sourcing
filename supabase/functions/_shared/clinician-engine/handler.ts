@@ -68,6 +68,8 @@ import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
 import { companyIdentifyV2, personEnrichV2, personSearchV2 } from "./lib/crustdata-v2.ts";
 import { resolveEmployerGroup } from "./employer-resolution.ts";
 import { resolveCaller } from "./lib/auth.ts";
+import { handleRankAction, saveRunSnapshot, suggestionsFor } from "./rank-route.ts";
+import { cleanTitle, TITLE_NOTE, titlesFromRaw } from "./rank-actions.ts";
 import { getUsage, logEngagement, meterSearch } from "./search-meter.ts";
 import {
   CLINICIAN_ENGINE_VERSION,
@@ -123,6 +125,11 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       return new Response(JSON.stringify({ search_usage: await getUsage(adminClient, user.id) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    // Re-rank / explain on a finished run (spec 6.2, 6.4). Cached rows only:
+    // no provider call, no credits, no search metering.
+    if (body.action === "rank_criteria" || body.action === "explain_criteria") {
+      return await handleRankAction(body, user.id, corsHeaders);
     }
     if (body.action === "meter_engagement") {
       await logEngagement(adminClient, user.id, "open");
@@ -220,6 +227,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
     // targetIds stay positionally stable).
     const clientParsed = body.cached_parsed;
     const hasClientParsed = !!(clientParsed && typeof clientParsed === "object" && Object.keys(clientParsed).length > 0);
+    // "Suggested for this search" runs alongside the search (no added wait).
+    const suggestionsP: Promise<string[]> = preview || hasClientParsed ? Promise.resolve([]) : suggestionsFor(String(query ?? ""));
     const parsed = await parseQuery(query.trim(), hasClientParsed ? clientParsed : null);
 
     let resolvedCriteria: SearchCriteria[] = [];
@@ -1145,12 +1154,15 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       if (body.audit !== false && (Deno.env.get("ANTHROPIC_API_KEY") ?? "") !== "") {
         const auditModel = Deno.env.get("CLINICIAN_AUDIT_MODEL") || CLAUDE_OPUS;
         const auditKey = cacheKey + (pastHoldersFallback ? ":pastrole" : "") + ":audit:r" + RANKING_VERSION;
-        type CachedAudit = { summary: Record<string, unknown>; rows: Array<Record<string, unknown> | null> };
+        type CachedAudit = { summary: Record<string, unknown>; rows: Array<Record<string, unknown> | null>; titles?: Record<string, string> };
+        const graderTitles: Record<string, string> = {};
+        const titleOpts = rankingCriteria.length > 0 ? { onRaw: (raw: unknown) => Object.assign(graderTitles, titlesFromRaw(raw)) } : {};
         const cachedAuditRow = bypassCache ? null : await getCrustDataCache(auditKey, SEARCH_TTL_MS);
         const cachedAudit = (cachedAuditRow?.profiles?.[0] ?? null) as CachedAudit | null;
         if (cachedAudit && Array.isArray(cachedAudit.rows) && cachedAudit.rows.length === allResults.length) {
           allResults.forEach((r: Record<string, unknown>, i: number) => Object.assign(r, cachedAudit.rows[i] ?? {}));
           auditSummary = { ...cachedAudit.summary, cached: true };
+          Object.assign(graderTitles, cachedAudit.titles ?? {});
         } else {
           const audit = await runClinicianAudit(
             callClaude,
@@ -1161,13 +1173,16 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             pastHoldersFallback
               ? {
                 contextNote:
-                  "These candidates are PAST-ROLE matches by design — the recruiter was told nobody currently in this role matched, and chose to see previous holders of it. Do not reject for a current occupation outside the asked vertical; judge depth of the past role and how recently they left it.",
+                  "These candidates are PAST-ROLE matches by design — the recruiter was told nobody currently in this role matched, and chose to see previous holders of it. Do not reject for a current occupation outside the asked vertical; judge depth of the past role and how recently they left it." + (rankingCriteria.length > 0 ? " " + TITLE_NOTE : ""),
+                ...titleOpts,
                 ranking: rankingCriteria.map((c) => ({ id: c.id, text: c.text })),
                 pendingFor: (i: number) => pendingByIndex[i] ?? new Set<string>(),
               }
               : {
+                ...(rankingCriteria.length > 0 ? { contextNote: TITLE_NOTE } : {}),
                 ranking: rankingCriteria.map((c) => ({ id: c.id, text: c.text })),
                 pendingFor: (i: number) => pendingByIndex[i] ?? new Set<string>(),
+                ...titleOpts,
               },
           );
           if (audit) {
@@ -1182,6 +1197,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             auditSummary = audit.summary as unknown as Record<string, unknown>;
             await setCrustDataCache(auditKey, audit.verdicts.size, [{
               summary: auditSummary,
+              titles: graderTitles,
               rows: allResults.map((r: Record<string, unknown>) => ({
                 audit_verdict: r.audit_verdict ?? null,
                 audit_reason: r.audit_reason ?? null,
@@ -1193,6 +1209,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             console.log(JSON.stringify({ event: "clinician_audit", provider: "anthropic", ...auditSummary }));
           }
         }
+        // Short titles from the grader (spec 6.3); text-derived fallback stays.
+        for (const rc of rankingCriteria) if (graderTitles[rc.id]) rc.title = cleanTitle(graderTitles[rc.id], rc.text);
         if (auditSummary) {
           allResults = allResults
             .map((r: typeof allResults[number], i: number) => ({ r, i }))
@@ -1285,6 +1303,17 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // request re-read the cache, re-graded and came up empty (2026-10-13).
       const results = allResults;
 
+      // Snapshot for rank_criteria / explain_criteria (spec 6.2): kept and
+      // hidden rows, this caller only, same 4h life as the search cache.
+      const snapshotP = saveRunSnapshot(runId, {
+        user_id: user.id,
+        query: String(query ?? ""),
+        criteria: criteria ?? [],
+        rows: [...allResults, ...hiddenResults] as Array<Record<string, unknown>>,
+      }).catch((e) => console.warn("[clinician] run snapshot failed", e));
+      const suggestedCriteria = await suggestionsP;
+      await snapshotP;
+
       await logClinicianSearch(adminClient, {
         userId: user.id,
         query,
@@ -1357,6 +1386,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         required_criteria: rankingSplit.required,
         cant_check: rankingSplit.cant_check,
         ranking_version: RANKING_VERSION,
+        suggested_criteria: suggestedCriteria,
         // Every kept row is in `results`; the browser pages them.
         hasMore: false,
         scroll_token: null,
