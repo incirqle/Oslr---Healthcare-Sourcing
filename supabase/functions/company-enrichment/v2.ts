@@ -21,15 +21,11 @@ const API_VERSION = "2025-11-01";
 export const ENRICH_FIELDS: readonly string[] = [
   "basic_info",
   "headcount",
-  "funding",
-  "people",
-  "employee_reviews",
-  "software_reviews",
-  "web_traffic",
-  "competitors",
   "taxonomy",
   "locations",
 ];
+// 2026-10-18: funding, people (CXOs), employee_reviews, software_reviews,
+// web_traffic and competitors were dropped. The panel no longer shows them.
 
 const deniedFields = new Set<string>();
 
