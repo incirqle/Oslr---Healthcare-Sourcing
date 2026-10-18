@@ -344,7 +344,7 @@ export async function runClinicianAudit(
       buildAuditUserMessage(query, criteria, chunk, at, opts.contextNote, chunkRanking(at, chunk.length)),
       null,
       layer,
-      { model, timeoutMs: 60_000, maxTokens: 4000 },
+      { model, timeoutMs: 60_000, maxTokens: 4000 + 50 * chunkRanking(at, chunk.length).length * chunk.length },
     ).catch((err) => {
       console.warn(`[${layer}] chunk@${at} failed — its rows pass through unaudited`, err);
       return null;
