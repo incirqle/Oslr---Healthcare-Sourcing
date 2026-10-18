@@ -8,6 +8,7 @@
  */
 
 import type { SearchCriteria } from "./clinician-criteria.ts";
+import { EVIDENCE_MAX, type CriterionStatus, type GraderCriterionResult } from "./ranking-criteria.ts";
 
 export type AuditVerdict = "strong" | "weak" | "reject";
 
@@ -17,6 +18,14 @@ export interface AuditRow {
   evidence: string | null;
   /** Relevance 0-100 within the verdict, produced in the SAME pass. */
   score: number | null;
+  /** Per ranking criterion (spec 5.3). null when the grader sent no "criteria" key. */
+  criteria: GraderCriterionResult[] | null;
+}
+
+/** A ranking criterion as the grader sees it (spec 5.1). */
+export interface AuditRankingCriterion {
+  id: string;
+  text: string;
 }
 
 export interface AuditSummary {
@@ -92,7 +101,14 @@ Rules:
 - reason: one short sentence, plain words, useful to a recruiter.
 - Never reject for missing data you were not shown.
 - score: 0-100 on an ABSOLUTE scale, NOT relative to the others in this list — profiles are graded in separate batches and the scores are sorted together afterwards, so a 85 here must mean the same fit as a 85 in another batch. Anchor: 90-100 = the ideal candidate for this exact ask; 70-89 = a clear fit with a minor gap; 40-69 = partial fit (sibling specialty, adjacent year, secondary role); 0-39 = poor fit. Verdict outranks score: a weak 90 still sits below a strong 40.
-- Output ONLY valid JSON: {"verdicts": [{"i": <profile number>, "verdict": "strong"|"weak"|"reject", "score": <0-100>, "reason": str, "evidence": str|null}, ...]} covering EVERY profile number you were given, no markdown.`;
+- Output ONLY valid JSON: {"verdicts": [{"i": <profile number>, "verdict": "strong"|"weak"|"reject", "score": <0-100>, "reason": str, "evidence": str|null}, ...]} covering EVERY profile number you were given, no markdown.
+- For every RANKING CRITERIA id, add an entry to "criteria":
+  {"id": "<id>", "status": "yes"|"partly"|"not_shown"|"no", "evidence": str|null, "section": str|null}
+  yes = the profile shows it; partly = adjacent evidence (name it); not_shown = the profile does not say;
+  no = the profile contradicts it. evidence is verbatim, under 140 characters. section is the [id] of the
+  line the evidence came from. Never answer "no" for missing data; that is "not_shown".
+- Each profile line starts with its section [id] ([headline], [cur0], [exp0], [edu0], [summary], [desc0]); cite it in "section".
+- When RANKING CRITERIA are listed, each verdict object is {"i", "verdict", "score", "reason", "evidence", "criteria": [{"id", "status", "evidence", "section"}]}.`;
 
 function s(v: unknown): string {
   return typeof v === "string" ? v : "";
@@ -103,9 +119,9 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
   const lines = [
     `#${i}`,
     `name: ${s(r.full_name) || "?"}`,
-    `headline: ${s(r.headline)}`,
+    `[headline] headline: ${s(r.headline)}`,
     `location: ${[s(r.location_locality), s(r.location_region)].filter(Boolean).join(", ")}`,
-    `current: ${s(r.job_title)} @ ${s(r.job_company_name)}${s(r.job_start_date) ? ` (started ${s(r.job_start_date).slice(0, 7)})` : ""}`,
+    `[cur0] current: ${s(r.job_title)} @ ${s(r.job_company_name)}${s(r.job_start_date) ? ` (started ${s(r.job_start_date).slice(0, 7)})` : ""}`,
   ];
   if (r.employer_class) lines.push(`employer class: ${r.employer_class}`);
   if (r.military_affiliation) {
@@ -129,7 +145,7 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
       const dates = [s(e.start_date).slice(0, 7), s(e.end_date).slice(0, 7)].filter(Boolean).join("→");
       return [[s(e.title), s(e.company_name)].filter(Boolean).join(" @ "), dates ? `(${dates})` : ""].filter(Boolean).join(" ");
     });
-  if (past.length > 0) lines.push(`past roles: ${past.join("; ")}`);
+  past.forEach((p, k) => lines.push(`[exp${k}] past role: ${p}`));
   const edu = (r.education ?? [])
     .filter((e) => e && (s(e.school_name) || (e.degrees ?? []).length > 0))
     .slice(0, 4)
@@ -141,12 +157,12 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
         s(e.end_date) ? `ended ${s(e.end_date).slice(0, 7)}` : "",
       ].filter(Boolean).join(", ")
     );
-  if (edu.length > 0) lines.push(`education: ${edu.join("; ")}`);
-  if (s(r.summary)) lines.push(`about: ${s(r.summary).slice(0, 500)}`);
+  edu.forEach((e, k) => lines.push(`[edu${k}] education: ${e}`));
+  if (s(r.summary)) lines.push(`[summary] about: ${s(r.summary).slice(0, 500)}`);
   const roleDescriptions = (r.experience_history ?? [])
     .filter((e) => e && s(e.summary))
     .slice(0, 4)
-    .map((e) => `${[s(e.title), s(e.company_name)].filter(Boolean).join(" @ ")}: ${s(e.summary).slice(0, 600)}`);
+    .map((e, k) => `[desc${k}] ${[s(e.title), s(e.company_name)].filter(Boolean).join(" @ ")}: ${s(e.summary).slice(0, 600)}`);
   if (roleDescriptions.length > 0) {
     lines.push(`role descriptions:\n${roleDescriptions.join("\n")}`);
   }
@@ -160,6 +176,7 @@ export function buildAuditUserMessage(
   rows: AuditableResult[],
   offset: number,
   contextNote?: string,
+  ranking: AuditRankingCriterion[] = [],
 ): string {
   const filters = criteria
     .filter((c) => c.enforcement === "hard")
@@ -178,6 +195,9 @@ export function buildAuditUserMessage(
   return [
     `RECRUITER'S QUERY: ${query}`,
     `ENFORCED FILTERS: ${filters}`,
+    ...(ranking.length > 0
+      ? [`RANKING CRITERIA (judge each one per profile):\n${ranking.map((c) => `[${c.id}] ${c.text}`).join("\n")}`]
+      : []),
     ...subspecialtyLines,
     `TODAY: ${new Date().toISOString().slice(0, 10)}`,
     ...(contextNote ? [`CONTEXT: ${contextNote}`] : []),
@@ -188,7 +208,32 @@ export function buildAuditUserMessage(
 
 const VALID_VERDICTS = new Set<string>(["strong", "weak", "reject"]);
 
-export function parseAuditVerdicts(raw: unknown): Map<number, AuditRow> {
+const STATUS_MAP: Record<string, CriterionStatus> = { yes: "met", partly: "partial", not_shown: "unknown", no: "not_met" };
+
+/** Grader per-criterion entries (spec 5.3). Bad entries are dropped; a bad array never touches the verdict. */
+export function parseCriteriaEntries(raw: unknown, validIds?: ReadonlySet<string>): GraderCriterionResult[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) return [];
+  const out: GraderCriterionResult[] = [];
+  const seen = new Set<string>();
+  for (const e of raw) {
+    if (!e || typeof e !== "object") continue;
+    const x = e as Record<string, unknown>;
+    const id = typeof x.id === "string" ? x.id : null;
+    const status = typeof x.status === "string" ? STATUS_MAP[x.status.toLowerCase()] : undefined;
+    if (!id || !status || seen.has(id) || (validIds && !validIds.has(id))) continue;
+    seen.add(id);
+    out.push({
+      criterion_id: id,
+      status,
+      evidence: s(x.evidence) ? s(x.evidence).slice(0, EVIDENCE_MAX) : null,
+      section: s(x.section) ? s(x.section).replace(/^\[|\]$/g, "").slice(0, 24) : null,
+    });
+  }
+  return out;
+}
+
+export function parseAuditVerdicts(raw: unknown, validIds?: ReadonlySet<string>): Map<number, AuditRow> {
   const out = new Map<number, AuditRow>();
   const verdicts = (raw as { verdicts?: unknown } | null)?.verdicts;
   if (!Array.isArray(verdicts)) return out;
@@ -207,6 +252,7 @@ export function parseAuditVerdicts(raw: unknown): Map<number, AuditRow> {
       reason: s(row.reason).slice(0, 200),
       evidence: s(row.evidence) ? s(row.evidence).slice(0, 160) : null,
       score: Number.isFinite(scoreNum) ? Math.min(100, Math.max(0, Math.round(scoreNum))) : null,
+      criteria: parseCriteriaEntries(row.criteria, validIds),
     });
   }
   return out;
@@ -268,7 +314,13 @@ export async function runClinicianAudit(
   query: string,
   criteria: SearchCriteria[],
   rows: AuditableResult[],
-  opts: { contextNote?: string } = {},
+  opts: {
+    contextNote?: string;
+    /** Preferred criteria, in order (spec 5.1). */
+    ranking?: AuditRankingCriterion[];
+    /** Criterion ids a rule could not decide for the row at this index; only those are asked. */
+    pendingFor?: (index: number) => ReadonlySet<string>;
+  } = {},
 ): Promise<{ verdicts: Map<number, AuditRow>; summary: AuditSummary } | null> {
   if (rows.length === 0) return null;
   const t0 = Date.now();
@@ -278,10 +330,18 @@ export async function runClinicianAudit(
   for (let at = 0; at < rows.length; at += AUDIT_CHUNK_SIZE) {
     chunks.push({ chunk: rows.slice(at, at + AUDIT_CHUNK_SIZE), at });
   }
+  const ranking = opts.ranking ?? [];
+  const validIds = new Set(ranking.map((c) => c.id));
+  const chunkRanking = (at: number, n: number) => {
+    if (!opts.pendingFor) return ranking;
+    const need = new Set<string>();
+    for (let k = 0; k < n; k++) for (const id of opts.pendingFor(at + k)) need.add(id);
+    return ranking.filter((c) => need.has(c.id));
+  };
   const settled = await Promise.all(chunks.map(({ chunk, at }) =>
     transport<unknown>(
       AUDIT_SYSTEM_PROMPT,
-      buildAuditUserMessage(query, criteria, chunk, at, opts.contextNote),
+      buildAuditUserMessage(query, criteria, chunk, at, opts.contextNote, chunkRanking(at, chunk.length)),
       null,
       layer,
       { model, timeoutMs: 60_000, maxTokens: 4000 },
@@ -291,7 +351,7 @@ export async function runClinicianAudit(
     })
   ));
   for (const raw of settled) {
-    for (const [i, row] of parseAuditVerdicts(raw)) verdicts.set(i, row);
+    for (const [i, row] of parseAuditVerdicts(raw, validIds)) verdicts.set(i, row);
   }
   if (verdicts.size === 0) return null;
   return { verdicts, summary: summarizeAudit(model, rows.length, verdicts, Date.now() - t0) };
