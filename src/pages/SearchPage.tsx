@@ -9,6 +9,8 @@ import { SearchHero } from "@/components/search/SearchHero";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate } from "@/components/search/SearchResults";
+import { SetAsideTab } from "@/components/search/SetAsideTab";
+import { cn } from "@/lib/utils";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
 import { SearchNetworkLoader } from "@/components/search/SearchNetworkLoader";
 import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
@@ -90,14 +92,6 @@ export default function SearchPage() {
   const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
-  const revealHidden = () => {
-    setCandidates((prev) => [...prev, ...hiddenCandidates]);
-    setTotal((t) => t + hiddenCandidates.length);
-    setBrowsableTotal((b) => b + hiddenCandidates.length);
-    setRevealedCount((c) => c + hiddenCandidates.length + 1000);
-    setHiddenCandidates([]);
-    setFilteredBreakdown(null);
-  };
   const [resultsTab, setResultsTab] = useState<"results" | "set_aside">("results");
   const restoreCandidate = (c: Candidate) => {
     setHiddenCandidates((prev) => prev.filter((x) => x.id !== c.id));
