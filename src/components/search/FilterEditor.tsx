@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ interface FilterEditorProps {
   filters: ParsedFilters;
   onFiltersChange: (filters: ParsedFilters) => void;
   total: number;
+  /** Open and scroll to this section (a Required chip in the readback). */
+  focusField?: string | null;
 }
 
 function TagInput({
@@ -74,13 +76,16 @@ interface FilterSectionProps {
   count: number;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  field?: string;
+  focusField?: string | null;
 }
 
-function FilterSection({ icon: Icon, label, count, children, defaultOpen = false }: FilterSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+function FilterSection({ icon: Icon, label, count, children, defaultOpen = false, field, focusField }: FilterSectionProps) {
+  const focused = !!field && field === focusField;
+  const [open, setOpen] = useState(defaultOpen || focused);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="border border-border rounded-lg">
+    <Collapsible open={open} onOpenChange={setOpen} data-field={field} className={`border rounded-lg ${focused ? "border-primary" : "border-border"}`}>
       <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 hover:bg-secondary/30 transition-colors">
         <div className="flex items-center gap-2.5">
           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -100,7 +105,14 @@ function FilterSection({ icon: Icon, label, count, children, defaultOpen = false
   );
 }
 
-export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, total }: FilterEditorProps) {
+export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, total, focusField = null }: FilterEditorProps) {
+  useEffect(() => {
+    if (!open || !focusField) return;
+    const t = setTimeout(() => {
+      document.querySelector(`[data-field="${focusField}"]`)?.scrollIntoView({ block: "center" });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [open, focusField]);
   const update = <K extends keyof ParsedFilters>(key: K, value: ParsedFilters[K]) => {
     onFiltersChange({ ...filters, [key]: value });
   };
@@ -114,7 +126,7 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
         </SheetHeader>
 
         <div className="space-y-3 mt-6">
-          <FilterSection icon={Stethoscope} label="Role" count={filters.role_class ? 1 : 0} defaultOpen={!!filters.role_class}>
+          <FilterSection icon={Stethoscope} label="Role" field="role_class" focusField={focusField} count={filters.role_class ? 1 : 0} defaultOpen={!!filters.role_class}>
             <p className="text-xs text-muted-foreground mb-2">License class the search requires (titles and headlines are matched against it)</p>
             <select
               value={filters.role_class ?? ""}
@@ -128,7 +140,7 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
             </select>
           </FilterSection>
 
-          <FilterSection icon={Landmark} label="Employment" count={filters.employment_model ? 1 : 0} defaultOpen={!!filters.employment_model}>
+          <FilterSection icon={Landmark} label="Employment" field="employment_model" focusField={focusField} count={filters.employment_model ? 1 : 0} defaultOpen={!!filters.employment_model}>
             <p className="text-xs text-muted-foreground mb-2">Who signs the paycheck, judged on the person's primary current employer</p>
             <select
               value={filters.employment_model ?? ""}
@@ -141,22 +153,22 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
             </select>
           </FilterSection>
 
-          <FilterSection icon={MapPin} label="Locations" count={filters.locations.length} defaultOpen={filters.locations.length > 0}>
+          <FilterSection icon={MapPin} label="Locations" field="locations" focusField={focusField} count={filters.locations.length} defaultOpen={filters.locations.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Search by state, city, or radius from a city</p>
             <TagInput tags={filters.locations} onChange={(v) => update("locations", v)} placeholder="e.g., Dallas, Texas, California..." />
           </FilterSection>
 
-          <FilterSection icon={Briefcase} label="Job Titles" count={filters.job_titles.length} defaultOpen={filters.job_titles.length > 0}>
+          <FilterSection icon={Briefcase} label="Job Titles" field="job_titles" focusField={focusField} count={filters.job_titles.length} defaultOpen={filters.job_titles.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Current job titles to match</p>
             <TagInput tags={filters.job_titles} onChange={(v) => update("job_titles", v)} placeholder="Start typing a job title..." />
           </FilterSection>
 
-          <FilterSection icon={Building2} label="Company" count={filters.companies.length} defaultOpen={filters.companies.length > 0}>
+          <FilterSection icon={Building2} label="Company" field="companies" focusField={focusField} count={filters.companies.length} defaultOpen={filters.companies.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Current or past employers</p>
             <TagInput tags={filters.companies} onChange={(v) => update("companies", v)} placeholder="Start typing a company name..." />
           </FilterSection>
 
-          <FilterSection icon={Clock} label="Experience" count={filters.experience_years ? 1 : 0}>
+          <FilterSection icon={Clock} label="Experience" field="experience_years" focusField={focusField} count={filters.experience_years ? 1 : 0}>
             <p className="text-xs text-muted-foreground mb-2">Minimum years of experience</p>
             <Input
               type="number"
@@ -167,12 +179,12 @@ export function FilterEditor({ open, onOpenChange, filters, onFiltersChange, tot
             />
           </FilterSection>
 
-          <FilterSection icon={Tag} label="Specialties" count={filters.specialties.length} defaultOpen={filters.specialties.length > 0}>
+          <FilterSection icon={Tag} label="Specialties" field="specialties" focusField={focusField} count={filters.specialties.length} defaultOpen={filters.specialties.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Medical specialties or areas of focus</p>
             <TagInput tags={filters.specialties} onChange={(v) => update("specialties", v)} placeholder="Start typing a specialty..." />
           </FilterSection>
 
-          <FilterSection icon={Hash} label="Keywords" count={filters.keywords.length} defaultOpen={filters.keywords.length > 0}>
+          <FilterSection icon={Hash} label="Keywords" field="keywords" focusField={focusField} count={filters.keywords.length} defaultOpen={filters.keywords.length > 0}>
             <p className="text-xs text-muted-foreground mb-2">Extra required terms. Other spellings of a specialty are matched automatically and are not listed here.</p>
             <TagInput tags={filters.keywords} onChange={(v) => update("keywords", v)} placeholder="Start typing a keyword..." />
           </FilterSection>

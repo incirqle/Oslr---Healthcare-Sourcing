@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ArrowLeft } from "lucide-react";
@@ -10,6 +10,11 @@ import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate, type CandidateCriterionResult } from "@/components/search/SearchResults";
 import { SetAsideTab } from "@/components/search/SetAsideTab";
+import { QueryReadback, type FilterField } from "@/components/search/QueryReadback";
+import { CriteriaPanel } from "@/components/search/CriteriaPanel";
+import type { ResultsView } from "@/components/search/SearchResults";
+import type { TableSort } from "@/components/search/ResultsTable";
+import { mergeRanking, recomputeRanking, sortByCriterion, type RankingCriterion, type RequiredCriterion } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
 import { SearchNetworkLoader } from "@/components/search/SearchNetworkLoader";
@@ -30,6 +35,24 @@ const NO_PROJECT = "__none__";
 const NEW_PROJECT = "__new__";
 
 type SearchStep = "hero" | "results";
+
+const VIEW_KEY = "oslr.results.view";
+function readView(): ResultsView {
+  try { return window.localStorage.getItem(VIEW_KEY) === "list" ? "list" : "table"; } catch { return "table"; }
+}
+
+/** Healthcare suggestions for the Criteria panel, keyed off the parse. */
+function suggestionsFor(roleClass: string | null | undefined, specialties: string[]): string[] {
+  const rc = (roleClass ?? "").toLowerCase();
+  if (/nurse|rn|np|crna/.test(rc)) {
+    return ["BSN or higher", "Charge nurse experience", "Magnet hospital experience", "3+ years in the current specialty", "Travel or per diem experience"];
+  }
+  const base = ["Fellowship trained", "Board certified", "5+ years in practice", "Private practice", "Academic medical center experience", "Leadership role such as chief or director"];
+  if (specialties.some((x) => /ortho|joint|arthro/i.test(x))) {
+    return ["Revision arthroplasty", "Outpatient or ASC total joints", "Direct anterior hip approach", "Accepting call at a Level II trauma center", ...base];
+  }
+  return base;
+}
 
 /**
  * The engine build this UI was written against. Lovable rebuilds the UI on
@@ -93,7 +116,40 @@ export default function SearchPage() {
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
   const [resultsTab, setResultsTab] = useState<"results" | "set_aside">("results");
+  // Ranked criteria (docs/oslr-criteria-ranking-spec.md 3.3, 6.1, 9).
+  const [ranking, setRankingState] = useState<RankingCriterion[]>([]);
+  const rankingRef = useRef<RankingCriterion[]>([]);
+  const removedRef = useRef<Set<string>>(new Set());
+  const setRanking = (next: RankingCriterion[]) => {
+    const nextIds = new Set(next.map((c) => c.id));
+    for (const c of rankingRef.current) if (!nextIds.has(c.id)) removedRef.current.add(c.id);
+    rankingRef.current = next;
+    setRankingState(next);
+  };
+  const [requiredCriteria, setRequiredCriteria] = useState<RequiredCriterion[]>([]);
+  const [cantCheck, setCantCheck] = useState<{ id: string; label: string }[]>([]);
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
+  const [filterFocus, setFilterFocus] = useState<FilterField | null>(null);
+  const [view, setViewState] = useState<ResultsView>(readView);
+  const setView = (v: ResultsView) => {
+    setViewState(v);
+    try { window.localStorage.setItem(VIEW_KEY, v); } catch { /* storage blocked */ }
+  };
+  const [tableSort, setTableSort] = useState<TableSort>(null);
+  const ranked = useMemo(() => recomputeRanking(candidates, hiddenCandidates, ranking), [candidates, hiddenCandidates, ranking]);
+  const displayRows = useMemo(() => {
+    if (view !== "table" || !tableSort) return ranked.kept;
+    if (tableSort.key === "criterion") return sortByCriterion(ranked.kept, tableSort.id);
+    return tableSort.dir === "desc" ? ranked.kept : [...ranked.kept].reverse();
+  }, [ranked, view, tableSort]);
+  const keptCount = ranked.kept.length;
+  const setAsideRows = ranked.setAside;
   const restoreCandidate = (c: Candidate) => {
+    if (candidates.some((x) => x.id === c.id)) {
+      // Set aside here for a must-have: keep it in results for this session.
+      setCandidates((prev) => prev.map((x) => (x.id === c.id ? { ...x, restored: true } : x)));
+      return;
+    }
     setHiddenCandidates((prev) => prev.filter((x) => x.id !== c.id));
     setCandidates((prev) => [...prev, { ...c, restored: true }]);
     setTotal((t) => t + 1);
@@ -108,6 +164,7 @@ export default function SearchPage() {
     if (b.military_reserve) parts.push(`${b.military_reserve} Guard or Reserve with a civilian primary employer`);
     if (b.thin_profile) parts.push(`${b.thin_profile} thin ${b.thin_profile === 1 ? "profile" : "profiles"} with no location, history or summary`);
     if (b.duplicates) parts.push(`${b.duplicates} duplicate ${b.duplicates === 1 ? "profile" : "profiles"}`);
+    if (b.must_have) parts.push(`${b.must_have} with a No on a must-have`);
     if (b.grader) parts.push(`${b.grader} judged a poor fit on reading the profile`);
     return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside: ${parts.join(", ")}.`;
   };
@@ -180,6 +237,9 @@ export default function SearchPage() {
     setPage(1);
     setScrollToken(null);
     setGeoScope(null);
+    setTableSort(null);
+    removedRef.current = new Set();
+    setRanking([]);
 
     try {
       // ONE request. The engine parses the sentence and returns the parse
@@ -255,6 +315,8 @@ export default function SearchPage() {
         page: targetPage - 1,
         size: pageSize,
         scroll_token: targetPage > 1 ? token : null,
+        // The recruiter's ordered criteria, so a refine or page keeps them (6.1).
+        ...(rankingRef.current.length > 0 ? { ranking_criteria: rankingRef.current } : {}),
     });
 
     if (data?.error) throw new Error(data.error);
@@ -275,6 +337,18 @@ export default function SearchPage() {
     for (const c of (Array.isArray(data.ranking_criteria) ? data.ranking_criteria : []) as Array<Record<string, any>>) {
       if (c?.id) criterionMeta.set(String(c.id), { title: String(c.title || c.text || c.id), group: "preferred" });
     }
+    const serverRanking: RankingCriterion[] = ((Array.isArray(data.ranking_criteria) ? data.ranking_criteria : []) as Array<Record<string, any>>)
+      .filter((c) => c?.id)
+      .map((c, i) => ({
+        id: String(c.id), text: String(c.text ?? c.title ?? c.id), title: String(c.title || c.text || c.id),
+        position: i, must_have: c.must_have === true, origin: (c.origin ?? "parsed") as RankingCriterion["origin"],
+        kind: c.kind, source_criterion_id: c.source_criterion_id,
+      }));
+    setRanking(!f || !parsed ? serverRanking : mergeRanking(rankingRef.current, serverRanking, removedRef.current));
+    setRequiredCriteria(((Array.isArray(data.required_criteria) ? data.required_criteria : []) as Array<Record<string, any>>)
+      .filter((c) => c?.id).map((c) => ({ id: String(c.id), kind: String(c.kind ?? ""), label: String(c.label ?? c.id) })));
+    setCantCheck(((Array.isArray(data.cant_check) ? data.cant_check : []) as Array<Record<string, any>>)
+      .filter((c) => c?.id).map((c) => ({ id: String(c.id), label: String(c.label ?? c.id) })));
     const mapRow = (r: Record<string, any>): Candidate => ({
       id: r.id,
       full_name: r.full_name || "",
@@ -403,7 +477,7 @@ export default function SearchPage() {
 
   // Paging is local: every kept row is already here. No request, no drip.
   const handlePageChange = (newPage: number) => {
-    const lastPage = Math.max(1, Math.ceil(candidates.length / pageSize));
+    const lastPage = Math.max(1, Math.ceil(keptCount / pageSize));
     const next = Math.min(Math.max(1, newPage), lastPage);
     setPage(next);
     setRevealedCount(candidates.length);
@@ -448,13 +522,13 @@ export default function SearchPage() {
   };
 
   const toggleSelectAll = () => {
-    const visible = candidates.slice(0, revealedCount).filter((c) => !savedIds.has(c.id)).map((c) => c.id);
+    const visible = visibleCandidates.filter((c) => !savedIds.has(c.id)).map((c) => c.id);
     const allSelected = visible.length > 0 && visible.every((id) => selected.has(id));
     if (allSelected) setSelected(new Set());
     else setSelected(new Set(visible));
   };
 
-  const selectedCandidates = candidates.filter((c) => selected.has(c.id));
+  const selectedCandidates = ranked.kept.filter((c) => selected.has(c.id));
 
   // Derive UI bits from current state
   const reasoningLines = buildReasoningLines({
@@ -479,7 +553,7 @@ export default function SearchPage() {
   };
 
   // Visible candidates: the current page's slice; page 1 drips in on a new search.
-  const pageSlice = candidates.slice((page - 1) * pageSize, page * pageSize);
+  const pageSlice = displayRows.slice((page - 1) * pageSize, page * pageSize);
   const visibleCandidates = page === 1 ? pageSlice.slice(0, revealedCount) : pageSlice;
   const skeletonCount = searchPhase === "running" ? Math.max(0, 10 - revealedCount) : 0;
 
@@ -564,14 +638,29 @@ export default function SearchPage() {
               totalCount={total}
               totalIsEstimate={totalIsEstimate}
               filterSummary={buildFilterSummary(activeFilters)}
-              onRefine={() => setFilterEditorOpen(true)}
+              onRefine={() => { setFilterFocus(null); setFilterEditorOpen(true); }}
             />
+
+            {searchPhase === "done" && (
+              <QueryReadback
+                query={query}
+                filters={filters}
+                required={requiredCriteria}
+                ranking={ranking}
+                cantCheck={cantCheck}
+                keptCount={keptCount}
+                setAsideCount={setAsideRows.length}
+                onOpenFilter={(field) => { setFilterFocus(field ?? null); setFilterEditorOpen(true); }}
+                onOpenCriteria={() => setCriteriaOpen(true)}
+                onReset={handleReset}
+              />
+            )}
 
 
             {/* Animated dot-network loader while results stream in */}
             {skeletonCount > 0 && <SearchNetworkLoader />}
 
-            {searchPhase === "done" && hiddenCandidates.length > 0 && (
+            {searchPhase === "done" && setAsideRows.length > 0 && (
               <div className="flex items-center gap-1 border-b border-border/60" role="tablist" aria-label="Search views">
                 {(["results", "set_aside"] as const).map((t) => (
                   <button
@@ -586,21 +675,21 @@ export default function SearchPage() {
                     )}
                   >
                     {t === "results" ? "Results" : "Set aside"}{" "}
-                    <span className="tabular-nums text-muted-foreground">{t === "results" ? total : hiddenCandidates.length}</span>
+                    <span className="tabular-nums text-muted-foreground">{t === "results" ? keptCount : setAsideRows.length}</span>
                   </button>
                 ))}
               </div>
             )}
 
-            {resultsTab === "set_aside" && searchPhase === "done" && hiddenCandidates.length > 0 && (
-              <SetAsideTab candidates={hiddenCandidates} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
+            {resultsTab === "set_aside" && searchPhase === "done" && setAsideRows.length > 0 && (
+              <SetAsideTab candidates={setAsideRows} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
             )}
 
             {resultsTab === "results" && visibleCandidates.length > 0 && (
               <SearchResults
                 query={query}
                 candidates={visibleCandidates}
-                total={total}
+                total={keptCount}
                 totalIsEstimate={totalIsEstimate}
                 selected={selected}
                 savedIds={savedIds}
@@ -617,7 +706,14 @@ export default function SearchPage() {
                 onSubmitQuery={runFullSearch}
                 page={page}
                 pageSize={pageSize}
-                browsableTotal={browsableTotal}
+                browsableTotal={keptCount}
+                view={view}
+                onViewChange={setView}
+                ranking={ranking}
+                requiredCriteria={requiredCriteria}
+                onReorderRanking={setRanking}
+                tableSort={tableSort}
+                onTableSortChange={(st) => { setTableSort(st); setPage(1); }}
                 hasMore={hasMore}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
@@ -627,10 +723,15 @@ export default function SearchPage() {
               />
             )}
 
-            {resultsTab === "results" && searchPhase === "done" && hiddenCandidates.length > 0 && (
+            {resultsTab === "results" && searchPhase === "done" && setAsideRows.length > 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  {describeSetAside(filteredBreakdown, hiddenCandidates.length)}
+                  {describeSetAside(
+                    setAsideRows.some((c) => c.set_aside_reason === "must_have")
+                      ? { ...(filteredBreakdown ?? {}), must_have: setAsideRows.filter((c) => c.set_aside_reason === "must_have").length }
+                      : filteredBreakdown,
+                    setAsideRows.length,
+                  )}
                 </p>
                 <button onClick={() => setResultsTab("set_aside")} className="text-sm font-medium text-primary hover:underline">
                   See why
@@ -639,7 +740,7 @@ export default function SearchPage() {
             )}
 
             {/* Zero-result helper after stream completes */}
-            {searchPhase === "done" && total === 0 && hiddenCandidates.length === 0 && (
+            {searchPhase === "done" && keptCount === 0 && setAsideRows.length === 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   No matches. Open{" "}
@@ -673,7 +774,16 @@ export default function SearchPage() {
             toast.error(err instanceof Error ? err.message : "Search failed");
           });
         }}
-        total={total}
+        total={keptCount}
+        focusField={filterFocus}
+      />
+
+      <CriteriaPanel
+        open={criteriaOpen}
+        onOpenChange={setCriteriaOpen}
+        ranking={ranking}
+        onChange={setRanking}
+        suggestions={suggestionsFor(filters.role_class, filters.specialties)}
       />
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
