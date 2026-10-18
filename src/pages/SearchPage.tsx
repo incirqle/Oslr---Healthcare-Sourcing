@@ -589,7 +589,7 @@ export default function SearchPage() {
 
   // Paging is local: every kept row is already here. No request, no drip.
   const handlePageChange = (newPage: number) => {
-    const lastPage = Math.max(1, Math.ceil(keptCount / pageSize));
+    const lastPage = Math.max(1, Math.ceil(displayRows.length / pageSize));
     const next = Math.min(Math.max(1, newPage), lastPage);
     setPage(next);
     setRevealedCount(candidates.length);
