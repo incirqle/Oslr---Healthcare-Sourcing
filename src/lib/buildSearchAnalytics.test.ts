@@ -17,7 +17,7 @@ const kept = [
   row("b", { match_rate: 30, employment_model: "hospital_employed",
     criteria_results: [res("sp", "met", { group: "required", source: "rule", evidence: "Matched the search filter: Joint reconstruction" }), res("x", "partial"), res("y", "not_met")],
     raw: { location_locality: "Nashville", experience_history: [{ title: "Surgeon", start_date: "2024-01-01" }], education: [{ school_name: "Vanderbilt", degrees: ["Residency"] }] } }),
-  row("c", { match_rate: 60, criteria_results: [res("sp", "met", { group: "required" }), res("x", "unknown")], raw: { location_locality: "Franklin" } }),
+  row("c", { match_rate: 60, criteria_results: [res("sp", "met", { group: "required", source: "rule", evidence: null }), res("x", "unknown")], raw: { location_locality: "Franklin" } }),
 ];
 const hidden = [row("h1", { set_aside_reason: "grader" }), row("h2", { set_aside_reason: "must_have" }), row("h3", { set_aside_reason: "grader" })];
 const required = [{ id: "sp", kind: "specialty", label: "Joint reconstruction", subspecialty: true }];
