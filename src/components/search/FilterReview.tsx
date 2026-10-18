@@ -1,6 +1,12 @@
-import { Badge } from "@/components/ui/badge";
+/**
+ * FilterReview folded into QueryReadback (docs/oslr-criteria-ranking-spec.md
+ * 9.1). This file keeps the ParsedFilters type other modules import, and a
+ * FilterReview wrapper with the same props so nothing a user could do here
+ * (see the chips, edit, reset, run) goes away.
+ */
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Search, SlidersHorizontal, RotateCcw, Loader2 } from "lucide-react";
+import { QueryReadback } from "./QueryReadback";
 
 export interface ParsedFilters {
   job_titles: string[];
@@ -26,76 +32,23 @@ interface FilterReviewProps {
 }
 
 export function FilterReview({ query, filters, total, onEdit, onReset, onRunSearch, loading }: FilterReviewProps) {
-  const allTags: { label: string; type: string }[] = [
-    ...filters.job_titles.map((t) => ({ label: t, type: "title" })),
-    ...filters.companies.map((c) => ({ label: c, type: "company" })),
-    ...filters.specialties.map((s) => ({ label: s, type: "specialty" })),
-    ...filters.keywords.map((k) => ({ label: k, type: "keyword" })),
-  ];
-
-  const locationTags = filters.locations.map((l) => l);
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 max-w-2xl mx-auto">
-      {/* User query bubble */}
-      <div className="self-end mb-6">
-        <div className="rounded-2xl bg-secondary border border-border px-5 py-3 text-sm text-foreground">
-          {query}
-        </div>
-      </div>
-
-      {/* AI response */}
-      <div className="self-start flex gap-3 w-full">
-        <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mt-1">
-          <Search className="h-4 w-4 text-primary" />
-        </div>
-        <div className="flex-1 rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <p className="text-sm text-foreground mb-3">
-            I've set these <SlidersHorizontal className="inline h-3.5 w-3.5 mx-0.5" />
-            <span className="text-primary font-medium"> filters</span> based on what you're looking for{" "}
-            <span className="font-semibold">({total.toLocaleString()} matches)</span>
-          </p>
-
-          <div className="flex flex-wrap gap-1.5 mb-1">
-            {allTags.map((tag, idx) => (
-              <Badge key={`${tag.type}-${tag.label}-${idx}`} variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
-                {tag.label}
-              </Badge>
-            ))}
-            {locationTags.length > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground self-center mx-0.5">in</span>
-                {locationTags.map((loc, idx) => (
-                  <Badge key={`loc-${loc}-${idx}`} variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
-                    {loc}
-                  </Badge>
-                ))}
-              </>
-            )}
-            {filters.experience_years && (
-              <Badge variant="secondary" className="text-xs px-2.5 py-0.5 rounded-md font-normal">
-                {filters.experience_years}+ years
-              </Badge>
-            )}
-          </div>
-
-          <button onClick={onEdit} className="text-xs text-primary font-medium hover:underline mt-2 inline-block">
-            Edit
-          </button>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3 mt-8">
-        <button
-          onClick={onReset}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset Search
-        </button>
-        <Button onClick={() => onRunSearch()} disabled={loading} className="rounded-full px-8 h-11">
-          {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+    <div className="mx-auto max-w-2xl space-y-4 px-4">
+      <QueryReadback
+        query={query}
+        filters={filters}
+        required={[]}
+        ranking={[]}
+        cantCheck={[]}
+        keptCount={total}
+        setAsideCount={0}
+        onOpenFilter={onEdit}
+        onOpenCriteria={onEdit}
+        onReset={onReset}
+      />
+      <div className="flex justify-center">
+        <Button onClick={() => onRunSearch()} disabled={loading} className="h-11 rounded-full px-8">
+          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Run Search
         </Button>
       </div>
