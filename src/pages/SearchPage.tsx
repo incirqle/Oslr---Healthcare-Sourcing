@@ -12,6 +12,8 @@ import { SearchResults, type Candidate, type CandidateCriterionResult } from "@/
 import { SetAsideTab } from "@/components/search/SetAsideTab";
 import { QueryReadback, type FilterField } from "@/components/search/QueryReadback";
 import { CriteriaPanel } from "@/components/search/CriteriaPanel";
+import { ReviewMode } from "@/components/search/ReviewMode";
+import type { CriterionCheck } from "@/components/search/ResultsTable";
 import type { ResultsView } from "@/components/search/SearchResults";
 import type { TableSort } from "@/components/search/ResultsTable";
 import { mergeRanking, recomputeRanking, sortByCriterion, type RankingCriterion, type RequiredCriterion } from "@/lib/ranking";
@@ -136,7 +138,92 @@ export default function SearchPage() {
     try { window.localStorage.setItem(VIEW_KEY, v); } catch { /* storage blocked */ }
   };
   const [tableSort, setTableSort] = useState<TableSort>(null);
-  const ranked = useMemo(() => recomputeRanking(candidates, hiddenCandidates, ranking), [candidates, hiddenCandidates, ranking]);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [serverSuggestions, setServerSuggestions] = useState<string[]>([]);
+  const [checks, setChecks] = useState<Record<string, CriterionCheck>>({});
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const explainAsked = useRef<Set<string>>(new Set());
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewStartId, setReviewStartId] = useState<string | null>(null);
+  const withExplanations = (rows: Candidate[]) => Object.keys(explanations).length === 0 ? rows : rows.map((c) => ({
+    ...c,
+    criteria_results: c.criteria_results?.map((r) => {
+      const e = explanations[`${c.id}|${r.criterion_id}`];
+      return e && !r.explanation ? { ...r, explanation: e } : r;
+    }),
+  }));
+  const ranked = useMemo(
+    () => recomputeRanking(withExplanations(candidates), withExplanations(hiddenCandidates), ranking),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [candidates, hiddenCandidates, ranking, explanations],
+  );
+
+  /** Check added or edited criteria against this run's rows (spec 6.2). No credits. */
+  const applyCriteria = async (onlyId?: string) => {
+    const todo = rankingRef.current.filter((c) => c.pending && (!onlyId || c.id === onlyId));
+    if (todo.length === 0) return;
+    if (!runId) {
+      setChecks((prev) => ({ ...prev, ...Object.fromEntries(todo.map((c) => [c.id, { state: "error", message: "Run the search again to check this." } as CriterionCheck])) }));
+      return;
+    }
+    const count = candidates.length + hiddenCandidates.length;
+    setChecks((prev) => ({ ...prev, ...Object.fromEntries(todo.map((c) => [c.id, { state: "checking", count } as CriterionCheck])) }));
+    try {
+      const data = await invokeSearchPeople({
+        action: "rank_criteria",
+        run_id: runId,
+        criteria: todo.map(({ pending: _p, ...c }) => c),
+      });
+      const byRow = (data?.criteria_results_by_row ?? {}) as Record<string, CandidateCriterionResult[]>;
+      const titles = (data?.titles ?? {}) as Record<string, string>;
+      const failed = new Set<string>(Array.isArray(data?.failed) ? data.failed : []);
+      const done = new Set(todo.map((c) => c.id).filter((id) => !failed.has(id)));
+      const merge = (rows: Candidate[]) => rows.map((c) => {
+        const fresh = (byRow[c.id] ?? []).filter((r) => done.has(r.criterion_id)).map((r) => ({ ...r, group: "preferred" as const }));
+        if (fresh.length === 0 && done.size === 0) return c;
+        const keep = (c.criteria_results ?? []).filter((r) => !done.has(r.criterion_id));
+        const missing = [...done].filter((id) => !fresh.some((r) => r.criterion_id === id)).map((id): CandidateCriterionResult => ({
+          criterion_id: id, status: "unknown", source: "grader", evidence: null, section: null, explanation: null, group: "preferred",
+        }));
+        return { ...c, criteria_results: [...keep, ...fresh, ...missing] };
+      });
+      setCandidates((prev) => merge(prev));
+      setHiddenCandidates((prev) => merge(prev));
+      setRanking(rankingRef.current.map((c) => (done.has(c.id) ? { ...c, pending: false, title: titles[c.id] || c.title } : c)));
+      setChecks((prev) => {
+        const next = { ...prev };
+        for (const c of todo) {
+          if (failed.has(c.id)) next[c.id] = { state: "error", message: "Could not check this criterion." };
+          else delete next[c.id];
+        }
+        return next;
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not check this criterion.";
+      setChecks((prev) => ({ ...prev, ...Object.fromEntries(todo.map((c) => [c.id, { state: "error", message } as CriterionCheck])) }));
+    }
+  };
+
+  /** Lazy one-sentence explanations (spec 6.4), cached per run, row and criterion. */
+  const requestExplanations = (rows: Candidate[]) => {
+    if (!runId) return;
+    const scoredIds = new Set(rankingRef.current.filter((c) => !c.pending).map((c) => c.id));
+    const textOf = new Map(rankingRef.current.map((c) => [c.id, c.text]));
+    const items = rows.flatMap((c) => (c.criteria_results ?? [])
+      .filter((r) => scoredIds.has(r.criterion_id) && !r.explanation && !explainAsked.current.has(`${c.id}|${r.criterion_id}`))
+      .map((r) => ({ row_id: c.id, criterion_id: r.criterion_id, text: textOf.get(r.criterion_id) ?? r.criterion_id, status: r.status, evidence: r.evidence })));
+    if (items.length === 0) return;
+    items.forEach((it) => explainAsked.current.add(`${it.row_id}|${it.criterion_id}`));
+    invokeSearchPeople({ action: "explain_criteria", run_id: runId, items })
+      .then((data) => {
+        const got = (data?.explanations ?? {}) as Record<string, string>;
+        if (Object.keys(got).length) setExplanations((prev) => ({ ...prev, ...got }));
+      })
+      .catch(() => {
+        // Let a later page view ask again; the evidence quote still shows.
+        items.forEach((it) => explainAsked.current.delete(`${it.row_id}|${it.criterion_id}`));
+      });
+  };
   const displayRows = useMemo(() => {
     if (view !== "table" || !tableSort) return ranked.kept;
     if (tableSort.key === "criterion") return sortByCriterion(ranked.kept, tableSort.id);
@@ -240,6 +327,10 @@ export default function SearchPage() {
     setTableSort(null);
     removedRef.current = new Set();
     setRanking([]);
+    setChecks({});
+    setExplanations({});
+    explainAsked.current = new Set();
+    setRunId(null);
 
     try {
       // ONE request. The engine parses the sentence and returns the parse
@@ -345,6 +436,10 @@ export default function SearchPage() {
         kind: c.kind, source_criterion_id: c.source_criterion_id,
       }));
     setRanking(!f || !parsed ? serverRanking : mergeRanking(rankingRef.current, serverRanking, removedRef.current));
+    if (typeof data.run_id === "string") setRunId(data.run_id);
+    if (Array.isArray(data.suggested_criteria) && data.suggested_criteria.length > 0) {
+      setServerSuggestions(data.suggested_criteria.filter((x: unknown): x is string => typeof x === "string"));
+    } else if (!f || !parsed) setServerSuggestions([]);
     setRequiredCriteria(((Array.isArray(data.required_criteria) ? data.required_criteria : []) as Array<Record<string, any>>)
       .filter((c) => c?.id).map((c) => ({ id: String(c.id), kind: String(c.kind ?? ""), label: String(c.label ?? c.id) })));
     setCantCheck(((Array.isArray(data.cant_check) ? data.cant_check : []) as Array<Record<string, any>>)
@@ -555,6 +650,12 @@ export default function SearchPage() {
   // Visible candidates: the current page's slice; page 1 drips in on a new search.
   const pageSlice = displayRows.slice((page - 1) * pageSize, page * pageSize);
   const visibleCandidates = page === 1 ? pageSlice.slice(0, revealedCount) : pageSlice;
+  const visibleKey = visibleCandidates.map((c) => c.id).join(",");
+  const scoredKey = ranking.filter((c) => !c.pending).map((c) => c.id).join(",");
+  useEffect(() => {
+    if (searchPhase === "done" && scoredKey) requestExplanations(visibleCandidates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey, scoredKey, searchPhase, runId]);
   const skeletonCount = searchPhase === "running" ? Math.max(0, 10 - revealedCount) : 0;
 
   return (
@@ -714,6 +815,9 @@ export default function SearchPage() {
                 onReorderRanking={setRanking}
                 tableSort={tableSort}
                 onTableSortChange={(st) => { setTableSort(st); setPage(1); }}
+                criterionChecks={checks}
+                onRetryCriterion={(id) => applyCriteria(id)}
+                onReview={(c) => { setReviewStartId(c?.id ?? displayRows[0]?.id ?? null); setReviewOpen(true); }}
                 hasMore={hasMore}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
@@ -783,7 +887,20 @@ export default function SearchPage() {
         onOpenChange={setCriteriaOpen}
         ranking={ranking}
         onChange={setRanking}
-        suggestions={suggestionsFor(filters.role_class, filters.specialties)}
+        suggestions={serverSuggestions.length > 0 ? serverSuggestions : suggestionsFor(filters.role_class, filters.specialties)}
+        onApply={() => applyCriteria()}
+        checking={Object.values(checks).some((c) => c.state === "checking")}
+      />
+
+      <ReviewMode
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        candidates={displayRows}
+        startId={reviewStartId}
+        ranking={ranking}
+        savedIds={savedIds}
+        onShortlist={(c) => handleSaveCandidates([c])}
+        onNeedExplanations={requestExplanations}
       />
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
