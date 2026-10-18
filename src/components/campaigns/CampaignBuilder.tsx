@@ -264,7 +264,7 @@ export function CampaignBuilder({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => toast.info("Preview & test — stub")}>
+                <Button variant="outline" size="sm" onClick={() => toast.info("Preview & test, stub")}>
                   Preview and test
                 </Button>
                 <button
@@ -346,14 +346,14 @@ export function CampaignBuilder({
                 {/* Action chips */}
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => toast("AI Command — opens picker (stub)")}
+                    onClick={() => toast("AI Command, opens picker (stub)")}
                     className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2.5 py-1 text-[11px] hover:bg-secondary transition"
                   >
                     <Sparkles className="h-3 w-3 text-primary" />
                     AI Command
                   </button>
                   <button
-                    onClick={() => toast("Snippets — opens picker (stub)")}
+                    onClick={() => toast("Snippets, opens picker (stub)")}
                     className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2.5 py-1 text-[11px] hover:bg-secondary transition"
                   >
                     <FileText className="h-3 w-3" />
@@ -479,7 +479,7 @@ export function CampaignBuilder({
                     rows={6}
                     maxLength={300}
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
-                    placeholder="Keep it short — LinkedIn limits apply."
+                    placeholder="Keep it short, message limits apply."
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     {active.body.length}/300 characters

@@ -230,18 +230,18 @@ export default function CampaignsList() {
                               <Pencil className="h-3.5 w-3.5 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.success("Duplicated — stub")}>
+                            <DropdownMenuItem onClick={() => toast.success("Duplicated, stub")}>
                               <Copy className="h-3.5 w-3.5 mr-2" />
                               Duplicate
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.success("Archived — stub")}>
+                            <DropdownMenuItem onClick={() => toast.success("Archived, stub")}>
                               <Archive className="h-3.5 w-3.5 mr-2" />
                               Archive
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => toast.info("Delete — stub")}
+                              onClick={() => toast.info("Delete, stub")}
                             >
                               <Trash2 className="h-3.5 w-3.5 mr-2" />
                               Delete

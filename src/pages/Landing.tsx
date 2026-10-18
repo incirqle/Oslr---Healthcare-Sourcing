@@ -269,7 +269,7 @@ const PAIN_POINTS = [
   {
     icon: Clock,
     title: "Hard-to-find clinicians",
-    desc: "Finding the right clinician means reviewing specialty, location, experience, and training—not just matching a job title.",
+    desc: "Finding the right clinician means reviewing specialty, location, experience, and training, not just matching a job title.",
     color: "from-primary/15 to-primary/5",
     iconColor: "text-primary",
     iconBg: "bg-primary/15 border-primary/20",

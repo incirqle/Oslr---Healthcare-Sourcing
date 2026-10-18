@@ -83,7 +83,7 @@ export function useSearchHistory(scope?: string | null) {
       const next = [{ query, resultCount, timestamp: Date.now() }, ...filtered].slice(0, MAX_ENTRIES);
       try {
         localStorage.setItem(storageKey(scope), JSON.stringify(next));
-      } catch { /* storage unavailable — keep in-memory history */ }
+      } catch { /* storage unavailable, keep in-memory history */ }
       return next;
     });
 

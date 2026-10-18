@@ -23,7 +23,7 @@ const TEMPLATES = [
   { id: "blank", name: "Start from blank" },
   { id: "intro-3step", name: "3-step intro outreach" },
   { id: "reactivation", name: "Re-activation (5 steps)" },
-  { id: "linkedin-first", name: "LinkedIn first, then email" },
+  { id: "linkedin-first", name: "Profile message first, then email" },
 ];
 
 export function NewCampaignModal({

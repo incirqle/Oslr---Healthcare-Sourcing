@@ -30,18 +30,18 @@ export function NewsFeedPage() {
           "Fierce Healthcare",
           "Health Affairs",
           "MedPage Today",
-          "And more — new sources added regularly",
+          "And more, new sources added regularly",
         ]}
       />
 
       <DocHeading id="categories">Categories</DocHeading>
       <DocList
         items={[
-          "PE & M&A — Private equity deals, mergers, and acquisitions",
-          "Policy — Regulatory changes, CMS updates, legislation",
-          "Workforce — Staffing trends, burnout, retention",
-          "Technology — Health IT, digital health, EHR news",
-          "Leadership — Executive appointments and departures",
+          "PE & M&A, Private equity deals, mergers, and acquisitions",
+          "Policy, Regulatory changes, CMS updates, legislation",
+          "Workforce, Staffing trends, burnout, retention",
+          "Technology, Health IT, digital health, EHR news",
+          "Leadership, Executive appointments and departures",
         ]}
       />
 
@@ -112,9 +112,9 @@ export function TeamManagementPage() {
       <DocHeading id="roles">Roles & permissions</DocHeading>
       <DocList
         items={[
-          "Admin — Full access: manage team, settings, billing, and all features",
-          "Recruiter — Search, manage projects, send campaigns, view analytics",
-          "Viewer — Read-only access to projects, candidates, and analytics",
+          "Admin, Full access: manage team, settings, billing, and all features",
+          "Recruiter, Search, manage projects, send campaigns, view analytics",
+          "Viewer, Read-only access to projects, candidates, and analytics",
         ]}
       />
       <DocTip>
@@ -125,7 +125,7 @@ export function TeamManagementPage() {
       <DocHeading id="removing">Removing members</DocHeading>
       <DocParagraph>
         Admins can remove team members from the organization. Removing a member does not
-        delete the candidates or projects they created — that data remains in the organization.
+        delete the candidates or projects they created, that data remains in the organization.
       </DocParagraph>
     </DocPage>
   );
@@ -205,12 +205,12 @@ export function DataSourcesPage() {
       <DocList
         items={[
           "Professional profiles and work history",
-          "NPI Registry — National Provider Identifier data for healthcare providers",
-          "State licensing boards — Active medical licenses and certifications",
-          "Professional associations — Medical society memberships",
-          "Hospital and health system directories — Staff and physician rosters",
-          "Academic medical centers — Residency and fellowship program data",
-          "Business databases — Company information and employee data",
+          "NPI Registry, National Provider Identifier data for healthcare providers",
+          "State licensing boards, Active medical licenses and certifications",
+          "Professional associations, Medical society memberships",
+          "Hospital and health system directories, Staff and physician rosters",
+          "Academic medical centers, Residency and fellowship program data",
+          "Business databases, Company information and employee data",
         ]}
       />
 
@@ -277,7 +277,7 @@ export function HelpCenterPage() {
           "Search not returning results? Try broadening your filters or using different keywords",
           "Campaign emails failing? Verify your email sender identity and Resend API configuration",
           "Can't access a project? Check with your admin that you have the correct role",
-          "News feed not loading? The feed refreshes periodically — check your internet connection",
+          "News feed not loading? The feed refreshes periodically, check your internet connection",
         ]}
       />
     </DocPage>
@@ -299,9 +299,9 @@ export function ContactSupportPage() {
       <DocHeading id="channels">Support channels</DocHeading>
       <DocList
         items={[
-          "Email — Reach us at support@oslr.com for general inquiries",
-          "In-app — Use the help button in the bottom right corner of any page",
-          "Documentation — Browse these docs for self-service answers",
+          "Email, Reach us at support@oslr.com for general inquiries",
+          "In-app, Use the help button in the bottom right corner of any page",
+          "Documentation, Browse these docs for self-service answers",
         ]}
       />
 

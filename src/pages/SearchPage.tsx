@@ -13,6 +13,8 @@ import { SetAsideTab } from "@/components/search/SetAsideTab";
 import { QueryReadback, type FilterField } from "@/components/search/QueryReadback";
 import { CriteriaPanel } from "@/components/search/CriteriaPanel";
 import { ReviewMode } from "@/components/search/ReviewMode";
+import { SearchAnalytics, type AnalyticsFilter } from "@/components/search/SearchAnalytics";
+import { buildSearchAnalytics } from "@/lib/buildSearchAnalytics";
 import type { CriterionCheck } from "@/components/search/ResultsTable";
 import type { ResultsView } from "@/components/search/SearchResults";
 import type { TableSort } from "@/components/search/ResultsTable";
@@ -117,7 +119,7 @@ export default function SearchPage() {
   const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
-  const [resultsTab, setResultsTab] = useState<"results" | "set_aside">("results");
+  const [resultsTab, setResultsTab] = useState<"results" | "set_aside" | "analytics">("results");
   // Ranked criteria (docs/oslr-criteria-ranking-spec.md 3.3, 6.1, 9).
   const [ranking, setRankingState] = useState<RankingCriterion[]>([]);
   const rankingRef = useRef<RankingCriterion[]>([]);
@@ -128,7 +130,9 @@ export default function SearchPage() {
     rankingRef.current = next;
     setRankingState(next);
   };
-  const [requiredCriteria, setRequiredCriteria] = useState<RequiredCriterion[]>([]);
+  const [requiredCriteria, setRequiredCriteria] = useState<(RequiredCriterion & { subspecialty?: boolean })[]>([]);
+  const [providerTotal, setProviderTotal] = useState<number | null>(null);
+  const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
   const [cantCheck, setCantCheck] = useState<{ id: string; label: string }[]>([]);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [filterFocus, setFilterFocus] = useState<FilterField | null>(null);
@@ -225,10 +229,20 @@ export default function SearchPage() {
       });
   };
   const displayRows = useMemo(() => {
-    if (view !== "table" || !tableSort) return ranked.kept;
-    if (tableSort.key === "criterion") return sortByCriterion(ranked.kept, tableSort.id);
-    return tableSort.dir === "desc" ? ranked.kept : [...ranked.kept].reverse();
-  }, [ranked, view, tableSort]);
+    if (analyticsFilter?.kind === "set_aside") {
+      return ranked.setAside.filter((c) => (c.set_aside_reason || (c.audit_verdict === "reject" ? "grader" : "other")) === analyticsFilter.reason);
+    }
+    const base = analyticsFilter?.kind === "criterion"
+      ? ranked.kept.filter((c) => (c.criteria_results?.find((r) => r.criterion_id === analyticsFilter.id)?.status ?? "unknown") === analyticsFilter.status)
+      : ranked.kept;
+    if (view !== "table" || !tableSort) return base;
+    if (tableSort.key === "criterion") return sortByCriterion(base, tableSort.id);
+    return tableSort.dir === "desc" ? base : [...base].reverse();
+  }, [ranked, view, tableSort, analyticsFilter]);
+  const analytics = useMemo(
+    () => buildSearchAnalytics(ranked.kept, ranked.setAside, requiredCriteria, ranking, { providerTotal }),
+    [ranked, requiredCriteria, ranking, providerTotal],
+  );
   const keptCount = ranked.kept.length;
   const setAsideRows = ranked.setAside;
   const restoreCandidate = (c: Candidate) => {
@@ -328,6 +342,8 @@ export default function SearchPage() {
     removedRef.current = new Set();
     setRanking([]);
     setChecks({});
+    setAnalyticsFilter(null);
+    setProviderTotal(null);
     setExplanations({});
     explainAsked.current = new Set();
     setRunId(null);
@@ -437,11 +453,12 @@ export default function SearchPage() {
       }));
     setRanking(!f || !parsed ? serverRanking : mergeRanking(rankingRef.current, serverRanking, removedRef.current));
     if (typeof data.run_id === "string") setRunId(data.run_id);
+    setProviderTotal(typeof data.provider_total === "number" ? data.provider_total : null);
     if (Array.isArray(data.suggested_criteria) && data.suggested_criteria.length > 0) {
       setServerSuggestions(data.suggested_criteria.filter((x: unknown): x is string => typeof x === "string"));
     } else if (!f || !parsed) setServerSuggestions([]);
     setRequiredCriteria(((Array.isArray(data.required_criteria) ? data.required_criteria : []) as Array<Record<string, any>>)
-      .filter((c) => c?.id).map((c) => ({ id: String(c.id), kind: String(c.kind ?? ""), label: String(c.label ?? c.id) })));
+      .filter((c) => c?.id).map((c) => ({ id: String(c.id), kind: String(c.kind ?? ""), label: String(c.label ?? c.id), subspecialty: !!(c.value && typeof c.value === "object" && !Array.isArray(c.value) && c.value.subspecialty) })));
     setCantCheck(((Array.isArray(data.cant_check) ? data.cant_check : []) as Array<Record<string, any>>)
       .filter((c) => c?.id).map((c) => ({ id: String(c.id), label: String(c.label ?? c.id) })));
     const mapRow = (r: Record<string, any>): Candidate => ({
@@ -572,7 +589,7 @@ export default function SearchPage() {
 
   // Paging is local: every kept row is already here. No request, no drip.
   const handlePageChange = (newPage: number) => {
-    const lastPage = Math.max(1, Math.ceil(keptCount / pageSize));
+    const lastPage = Math.max(1, Math.ceil(displayRows.length / pageSize));
     const next = Math.min(Math.max(1, newPage), lastPage);
     setPage(next);
     setRevealedCount(candidates.length);
@@ -706,7 +723,7 @@ export default function SearchPage() {
         {usage && usage.used >= usage.limit - 10 && (
           <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
             {usage.used >= usage.limit
-              ? `You've used all ${usage.limit} new searches for today. Limits refresh at midnight UTC — you can still page through results.`
+              ? `You've used all ${usage.limit} new searches for today. Limits refresh at midnight UTC, you can still page through results.`
               : `You've used ${usage.used} of your ${usage.limit} daily searches. Daily limits refresh at midnight UTC.`}
           </div>
         )}
@@ -761,9 +778,9 @@ export default function SearchPage() {
             {/* Animated dot-network loader while results stream in */}
             {skeletonCount > 0 && <SearchNetworkLoader />}
 
-            {searchPhase === "done" && setAsideRows.length > 0 && (
-              <div className="flex items-center gap-1 border-b border-border/60" role="tablist" aria-label="Search views">
-                {(["results", "set_aside"] as const).map((t) => (
+            {searchPhase === "done" && keptCount + setAsideRows.length > 0 && (
+              <div className="flex items-center gap-1 overflow-x-auto border-b border-border/60" role="tablist" aria-label="Search views">
+                {(["results", "set_aside", "analytics"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -775,8 +792,10 @@ export default function SearchPage() {
                       resultsTab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {t === "results" ? "Results" : "Set aside"}{" "}
-                    <span className="tabular-nums text-muted-foreground">{t === "results" ? keptCount : setAsideRows.length}</span>
+                    {t === "results" ? "Results" : t === "set_aside" ? "Set aside" : "Analytics"}
+                    {t !== "analytics" && (
+                      <> <span className="tabular-nums text-muted-foreground">{t === "results" ? keptCount : setAsideRows.length}</span></>
+                    )}
                   </button>
                 ))}
               </div>
@@ -786,11 +805,28 @@ export default function SearchPage() {
               <SetAsideTab candidates={setAsideRows} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
             )}
 
+            {resultsTab === "analytics" && searchPhase === "done" && (
+              <SearchAnalytics
+                data={analytics}
+                onFilter={(fl) => { setAnalyticsFilter(fl); setPage(1); setRevealedCount(Number.MAX_SAFE_INTEGER); setResultsTab("results"); }}
+              />
+            )}
+
+            {resultsTab === "results" && analyticsFilter && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm" role="status">
+                <span className="min-w-0">
+                  Showing {displayRows.length} {displayRows.length === 1 ? "profile" : "profiles"}:{" "}
+                  <span className="font-medium">{analyticsFilter.kind === "set_aside" ? `Set aside, ${analyticsFilter.label}` : analyticsFilter.label}</span>
+                </span>
+                <button type="button" onClick={() => { setAnalyticsFilter(null); setPage(1); }} className="font-medium text-primary hover:underline">Clear filter</button>
+              </div>
+            )}
+
             {resultsTab === "results" && visibleCandidates.length > 0 && (
               <SearchResults
                 query={query}
                 candidates={visibleCandidates}
-                total={keptCount}
+                total={displayRows.length}
                 totalIsEstimate={totalIsEstimate}
                 selected={selected}
                 savedIds={savedIds}
@@ -807,7 +843,7 @@ export default function SearchPage() {
                 onSubmitQuery={runFullSearch}
                 page={page}
                 pageSize={pageSize}
-                browsableTotal={keptCount}
+                browsableTotal={displayRows.length}
                 view={view}
                 onViewChange={setView}
                 ranking={ranking}

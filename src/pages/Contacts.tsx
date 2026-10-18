@@ -146,7 +146,7 @@ function ProfileIcons({ c }: { c: ContactRow }) {
 
 function toCsv(rows: ContactRow[]): string {
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["Full Name", "Title", "Organization", "Location", "Email", "Phone", "LinkedIn", "Project", "Status", "Date Added"];
+  const header = ["Full Name", "Title", "Organization", "Location", "Email", "Phone", "Profile URL", "Project", "Status", "Date Added"];
   const lines = rows.map((c) =>
     [c.full_name, c.title, c.current_employer, c.location, c.email, c.phone, c.linkedin_url, c.projects?.name, c.status, c.created_at?.slice(0, 10)]
       .map(esc).join(",")
@@ -427,12 +427,12 @@ export default function Contacts() {
                                 {c.projects.name}
                               </Badge>
                             ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>
                             {(c.tags ?? []).length === 0 ? (
-                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">-</span>
                             ) : (
                               <div className="flex flex-wrap gap-1">
                                 {(c.tags ?? []).slice(0, 2).map((t) => (
@@ -449,13 +449,13 @@ export default function Contacts() {
                             )}
                           </TableCell>
                           <TableCell className="text-sm text-foreground/80 max-w-[180px] truncate">
-                            {c.title ?? "—"}
+                            {c.title ?? "-"}
                           </TableCell>
                           <TableCell className="text-sm text-foreground/80 max-w-[180px] truncate">
-                            {c.current_employer ?? "—"}
+                            {c.current_employer ?? "-"}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                            {c.location ?? "—"}
+                            {c.location ?? "-"}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatDate(c.created_at)}

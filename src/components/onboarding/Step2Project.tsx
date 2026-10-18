@@ -59,7 +59,7 @@ export function Step2Project({ onComplete }: { onComplete: () => void }) {
           id="proj-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Cardiology Hospitalist — Boston"
+          placeholder="e.g. Cardiology Hospitalist, Boston"
         />
       </div>
       <div className="grid sm:grid-cols-2 gap-4">

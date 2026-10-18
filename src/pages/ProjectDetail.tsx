@@ -245,7 +245,7 @@ export default function ProjectDetail() {
   };
 
   const formatTenure = (months: number | null) => {
-    if (!months) return "—";
+    if (!months) return "-";
     if (months < 12) return `${months}mo`;
     const years = Math.floor(months / 12);
     const remaining = months % 12;
@@ -518,7 +518,7 @@ export default function ProjectDetail() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{c.title || "—"}</span>
+                          <span className="text-sm">{c.title || "-"}</span>
                         </TableCell>
                         <TableCell>
                           {c.current_employer ? (
@@ -527,7 +527,7 @@ export default function ProjectDetail() {
                               <span className="text-sm truncate max-w-[150px]">{c.current_employer}</span>
                             </div>
                           ) : (
-                            <span className="text-sm text-muted-foreground">—</span>
+                            <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -537,7 +537,7 @@ export default function ProjectDetail() {
                               <span className="text-sm">{c.location}</span>
                             </div>
                           ) : (
-                            <span className="text-sm text-muted-foreground">—</span>
+                            <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell>

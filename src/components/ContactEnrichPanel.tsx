@@ -68,7 +68,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[12px] font-medium tabular-nums text-primary">
           <Zap className="h-3 w-3" />
-          {state.balance ?? "—"} credits
+          {state.balance ?? "-"} credits
         </span>
       </header>
 

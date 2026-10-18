@@ -45,11 +45,11 @@ export const ANALYTICS_INBOXES = [
 ];
 
 export const ANALYTICS_PROJECTS = [
-  { id: "p-cardio", name: "Cardiothoracic Surgeons — West Coast" },
-  { id: "p-icu", name: "ICU Nurse Manager — Q2" },
-  { id: "p-device", name: "Medical Device Sales — National" },
-  { id: "p-allied", name: "Allied Health — Boston" },
-  { id: "p-primary", name: "Primary Care — Texas Metros" },
+  { id: "p-cardio", name: "Cardiothoracic Surgeons, West Coast" },
+  { id: "p-icu", name: "ICU Nurse Manager, Q2" },
+  { id: "p-device", name: "Medical Device Sales, National" },
+  { id: "p-allied", name: "Allied Health, Boston" },
+  { id: "p-primary", name: "Primary Care, Texas Metros" },
 ];
 
 export type GroupBy = "Days" | "Weeks" | "Months";
@@ -269,7 +269,7 @@ export function getLeaderboard(): LeaderboardRow[] {
   const extra: LeaderboardRow[] = [
     {
       id: "camp-or-tech",
-      name: "OR Surgical Techs — Midwest",
+      name: "OR Surgical Techs, Midwest",
       status: "closed",
       owner: "Marcus Reyes",
       inboxDisplay: "Hello @ Oslr",
@@ -285,7 +285,7 @@ export function getLeaderboard(): LeaderboardRow[] {
     },
     {
       id: "camp-crna",
-      name: "CRNA Outreach — National",
+      name: "CRNA Outreach, National",
       status: "closed",
       owner: "Aisha Okafor",
       inboxDisplay: "Steven @ Incirqle",
@@ -301,7 +301,7 @@ export function getLeaderboard(): LeaderboardRow[] {
     },
     {
       id: "camp-pharm",
-      name: "Clinical Pharmacists — Pacific NW",
+      name: "Clinical Pharmacists, Pacific NW",
       status: "active",
       owner: "Priya Patel",
       inboxDisplay: "Hello @ Oslr",
