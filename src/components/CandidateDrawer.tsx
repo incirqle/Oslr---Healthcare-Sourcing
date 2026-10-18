@@ -39,6 +39,7 @@ import {
 } from "@/hooks/useCandidateNotes";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 import { buildMatchChips } from "@/components/search/match-chips";
+import type { CandidateCriterionResult } from "@/components/search/SearchResults";
 import { collectHighlightTerms, highlightText } from "@/components/search/highlight";
 import {
   cleanDisplayName,
@@ -457,7 +458,19 @@ export function CandidateDrawer({
 
   // Match chips for the in-drawer "Why they matched" panel
   const matchChips = useMemo(() => {
-    if (!candidate || !filters) return [];
+    if (!candidate) return [];
+    // Chips from the engine's per-criterion results when present (spec 10).
+    const results = ((candidate as { criteria_results?: CandidateCriterionResult[] }).criteria_results ?? [])
+      .filter((r) => r.status === "met" || r.status === "partial");
+    if (results.length > 0) {
+      return results.map((r) => ({
+        id: `crit-${r.criterion_id}`,
+        label: r.status === "partial" ? `Partly: ${r.title ?? r.criterion_id}` : (r.title ?? r.criterion_id),
+        reason: r.evidence ? `"${r.evidence}"` : r.status === "partial" ? "Partly fits on the profile." : "Shown on the profile.",
+        group: "keyword" as const,
+      }));
+    }
+    if (!filters) return [];
     return buildMatchChips(candidate as never, filters);
   }, [candidate, filters]);
 

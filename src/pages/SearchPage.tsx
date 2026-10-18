@@ -8,7 +8,9 @@ import { CandidateDrawer } from "@/components/CandidateDrawer";
 import { SearchHero } from "@/components/search/SearchHero";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
-import { SearchResults, type Candidate } from "@/components/search/SearchResults";
+import { SearchResults, type Candidate, type CandidateCriterionResult } from "@/components/search/SearchResults";
+import { SetAsideTab } from "@/components/search/SetAsideTab";
+import { cn } from "@/lib/utils";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
 import { SearchNetworkLoader } from "@/components/search/SearchNetworkLoader";
 import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
@@ -90,13 +92,13 @@ export default function SearchPage() {
   const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
-  const revealHidden = () => {
-    setCandidates((prev) => [...prev, ...hiddenCandidates]);
-    setTotal((t) => t + hiddenCandidates.length);
-    setBrowsableTotal((b) => b + hiddenCandidates.length);
-    setRevealedCount((c) => c + hiddenCandidates.length + 1000);
-    setHiddenCandidates([]);
-    setFilteredBreakdown(null);
+  const [resultsTab, setResultsTab] = useState<"results" | "set_aside">("results");
+  const restoreCandidate = (c: Candidate) => {
+    setHiddenCandidates((prev) => prev.filter((x) => x.id !== c.id));
+    setCandidates((prev) => [...prev, { ...c, restored: true }]);
+    setTotal((t) => t + 1);
+    setBrowsableTotal((b) => b + 1);
+    setRevealedCount((n) => n + 1);
   };
   const describeSetAside = (b: Record<string, number> | null, n: number): string => {
     if (!b) return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside.`;
@@ -265,6 +267,14 @@ export default function SearchPage() {
       setFilters(f ?? filtersFromParsed(engineParsed));
     }
 
+    // Criterion titles for the per-candidate results (spec 3.3).
+    const criterionMeta = new Map<string, { title: string; group: "required" | "preferred" }>();
+    for (const c of (Array.isArray(data.required_criteria) ? data.required_criteria : []) as Array<Record<string, any>>) {
+      if (c?.id) criterionMeta.set(String(c.id), { title: String(c.label ?? c.id), group: "required" });
+    }
+    for (const c of (Array.isArray(data.ranking_criteria) ? data.ranking_criteria : []) as Array<Record<string, any>>) {
+      if (c?.id) criterionMeta.set(String(c.id), { title: String(c.title || c.text || c.id), group: "preferred" });
+    }
     const mapRow = (r: Record<string, any>): Candidate => ({
       id: r.id,
       full_name: r.full_name || "",
@@ -294,6 +304,25 @@ export default function SearchPage() {
       clinical_skills: r.clinical_skills || [],
       has_contact_info: r.has_contact_info || false,
       summary: r.summary || r.headline || null,
+      audit_verdict: r.audit_verdict ?? null,
+      audit_reason: r.audit_reason ?? null,
+      audit_evidence: r.audit_evidence ?? null,
+      audit_score: r.audit_score ?? null,
+      match_scope: r.match_scope ?? null,
+      stage_fit: r.stage_fit ?? null,
+      employment_model: r.employment_model ?? null,
+      employment_model_evidence: r.employment_model_evidence ?? null,
+      military_evidence: r.military_evidence ?? null,
+      evidence_snippet: r.evidence_snippet ?? null,
+      soft_matches: r.soft_matches ?? [],
+      criteria_results: (Array.isArray(r.criteria_results) ? r.criteria_results : []).map((x: Record<string, any>): CandidateCriterionResult => ({
+        ...(x as CandidateCriterionResult),
+        title: criterionMeta.get(String(x.criterion_id))?.title ?? String(x.criterion_id),
+        group: criterionMeta.get(String(x.criterion_id))?.group ?? "preferred",
+      })),
+      match_rate: r.match_rate ?? null,
+      set_aside_reason: r.set_aside_reason ?? null,
+      set_aside_note: r.set_aside_note ?? null,
       raw: r,
     });
     // The engine returns EVERY kept row; this page paginates in the browser.
@@ -304,6 +333,7 @@ export default function SearchPage() {
 
     setCandidates(mapped);
     setHiddenCandidates(hidden);
+    if (targetPage === 1) setResultsTab("results");
     setTotal(mapped.length);
     setTotalIsEstimate(false);
     setEngineVersion(typeof data.engine_version === "string" ? data.engine_version : null);
@@ -541,7 +571,32 @@ export default function SearchPage() {
             {/* Animated dot-network loader while results stream in */}
             {skeletonCount > 0 && <SearchNetworkLoader />}
 
-            {visibleCandidates.length > 0 && (
+            {searchPhase === "done" && hiddenCandidates.length > 0 && (
+              <div className="flex items-center gap-1 border-b border-border/60" role="tablist" aria-label="Search views">
+                {(["results", "set_aside"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={resultsTab === t}
+                    onClick={() => setResultsTab(t)}
+                    className={cn(
+                      "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                      resultsTab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t === "results" ? "Results" : "Set aside"}{" "}
+                    <span className="tabular-nums text-muted-foreground">{t === "results" ? total : hiddenCandidates.length}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {resultsTab === "set_aside" && searchPhase === "done" && hiddenCandidates.length > 0 && (
+              <SetAsideTab candidates={hiddenCandidates} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
+            )}
+
+            {resultsTab === "results" && visibleCandidates.length > 0 && (
               <SearchResults
                 query={query}
                 candidates={visibleCandidates}
@@ -572,13 +627,13 @@ export default function SearchPage() {
               />
             )}
 
-            {searchPhase === "done" && hiddenCandidates.length > 0 && (
+            {resultsTab === "results" && searchPhase === "done" && hiddenCandidates.length > 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                   {describeSetAside(filteredBreakdown, hiddenCandidates.length)}
                 </p>
-                <button onClick={revealHidden} className="text-sm font-medium text-primary hover:underline">
-                  Show them
+                <button onClick={() => setResultsTab("set_aside")} className="text-sm font-medium text-primary hover:underline">
+                  See why
                 </button>
               </div>
             )}

@@ -25,6 +25,18 @@ import {
 } from "./cache.ts";
 import { auditTier, runClinicianAudit, type AuditableResult, type AuditVerdict } from "./audit.ts";
 import {
+  buildCriteriaResults,
+  type CriterionResult,
+  type GraderCriterionResult,
+  RANKING_VERSION,
+  resolveRanking,
+  scoreRow,
+  setAsideNote,
+  type SetAsideReason,
+  sortByMatchRate,
+  splitCriteria,
+} from "./ranking-criteria.ts";
+import {
   buildSearchCacheKey,
   checkCeiling,
   CREDIT_CEILING,
@@ -1109,11 +1121,30 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         console.log(JSON.stringify({ event: "suspected_duplicates", set_aside: duplicateRows.length }));
       }
 
+      // ── Ranking criteria (docs/oslr-criteria-ranking-spec.md) ───────
+      // Required = hard, Preferred = soft in parse order, Can't check =
+      // dropped. Rules run first; the grader is asked only what they leave.
+      const rankingSplit = splitCriteria(criteria);
+      const rankingCriteria = rankingSplit.ranking;
+      const criteriaById = new Map(criteria.map((c) => [c.id, c]));
+      const ruleCache = new WeakMap<object, Map<string, CriterionResult | null>>();
+      const rulesFor = (r: Record<string, unknown>) => {
+        let m = ruleCache.get(r);
+        if (!m) {
+          m = new Map(rankingCriteria.map((rc) => [rc.id, resolveRanking(rc, criteriaById, r)]));
+          ruleCache.set(r, m);
+        }
+        return m;
+      };
+      const pendingByIndex = (allResults as Array<Record<string, unknown>>).map((r) =>
+        new Set([...rulesFor(r)].filter(([, v]) => v === null).map(([k]) => k))
+      );
+
       // ── One-pass AI audit: grader + reranker in the SAME read ───────
       let auditSummary: Record<string, unknown> | null = null;
       if (body.audit !== false && (Deno.env.get("ANTHROPIC_API_KEY") ?? "") !== "") {
         const auditModel = Deno.env.get("CLINICIAN_AUDIT_MODEL") || CLAUDE_OPUS;
-        const auditKey = cacheKey + (pastHoldersFallback ? ":pastrole" : "") + ":audit";
+        const auditKey = cacheKey + (pastHoldersFallback ? ":pastrole" : "") + ":audit:r" + RANKING_VERSION;
         type CachedAudit = { summary: Record<string, unknown>; rows: Array<Record<string, unknown> | null> };
         const cachedAuditRow = bypassCache ? null : await getCrustDataCache(auditKey, SEARCH_TTL_MS);
         const cachedAudit = (cachedAuditRow?.profiles?.[0] ?? null) as CachedAudit | null;
@@ -1131,8 +1162,13 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
               ? {
                 contextNote:
                   "These candidates are PAST-ROLE matches by design — the recruiter was told nobody currently in this role matched, and chose to see previous holders of it. Do not reject for a current occupation outside the asked vertical; judge depth of the past role and how recently they left it.",
+                ranking: rankingCriteria.map((c) => ({ id: c.id, text: c.text })),
+                pendingFor: (i: number) => pendingByIndex[i] ?? new Set<string>(),
               }
-              : {},
+              : {
+                ranking: rankingCriteria.map((c) => ({ id: c.id, text: c.text })),
+                pendingFor: (i: number) => pendingByIndex[i] ?? new Set<string>(),
+              },
           );
           if (audit) {
             allResults.forEach((r: Record<string, unknown>, i: number) => {
@@ -1141,6 +1177,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
               r.audit_reason = v?.reason ?? null;
               r.audit_evidence = v?.evidence ?? null;
               r.audit_score = v?.score ?? null;
+              r.audit_criteria = v?.criteria ?? null;
             });
             auditSummary = audit.summary as unknown as Record<string, unknown>;
             await setCrustDataCache(auditKey, audit.verdicts.size, [{
@@ -1150,6 +1187,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
                 audit_reason: r.audit_reason ?? null,
                 audit_evidence: r.audit_evidence ?? null,
                 audit_score: r.audit_score ?? null,
+                audit_criteria: r.audit_criteria ?? null,
               })),
             }], null);
             console.log(JSON.stringify({ event: "clinician_audit", provider: "anthropic", ...auditSummary }));
@@ -1180,7 +1218,50 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // Set-aside rows, by reason, in the order the recruiter would want to
       // see them if revealed: grader rejects (closest), hospital-employed,
       // duplicates, then non-clinicians.
-      const hiddenResults = [...graderRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows];
+      // Per-criterion results and the match rate on every row (spec 3.2, 7).
+      const attachRanking = (r: Record<string, unknown>, kept: boolean) => {
+        const results = buildCriteriaResults(
+          r,
+          rankingSplit.required,
+          rankingCriteria,
+          criteriaById,
+          rulesFor(r),
+          r.audit_criteria as GraderCriterionResult[] | null,
+          { kept },
+        );
+        const score = scoreRow(results, rankingCriteria);
+        r.criteria_results = results;
+        r.match_rate = score.match_rate;
+        r.match_breakdown = score.breakdown;
+        delete r.audit_criteria;
+        return score.must_have_failed;
+      };
+      const mustHaveRows: typeof allResults = [];
+      allResults = allResults.filter((r: Record<string, unknown>) => {
+        const failed = attachRanking(r, true);
+        if (failed.length === 0) return true;
+        r.set_aside_reason = "must_have";
+        r.set_aside_note = setAsideNote("must_have", r, rankingCriteria, failed[0]);
+        mustHaveRows.push(r as typeof allResults[number]);
+        return false;
+      });
+      if (rankingCriteria.length > 0) allResults = sortByMatchRate(allResults as Array<Record<string, unknown>>) as typeof allResults;
+      const tagSetAside = (rows: Array<Record<string, unknown>>, reason: SetAsideReason) => {
+        for (const r of rows) {
+          attachRanking(r, false);
+          r.set_aside_reason = reason;
+          r.set_aside_note = setAsideNote(reason, r);
+        }
+      };
+      tagSetAside(graderRows, "grader");
+      tagSetAside(employmentRows as Array<Record<string, unknown>>, "employment_model");
+      tagSetAside(militaryRows as Array<Record<string, unknown>>, "military_reserve");
+      tagSetAside(thinRows as Array<Record<string, unknown>>, "thin_profile");
+      tagSetAside(duplicateRows as Array<Record<string, unknown>>, "duplicates");
+      tagSetAside(noiseRows as Array<Record<string, unknown>>, "role_class_noise");
+      const criteriaTokensEst = 40 * rankingCriteria.length * (allResults.length + graderRows.length + mustHaveRows.length);
+
+      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows];
       const rejectedFiltered = hiddenResults.length;
       const filteredBreakdown = {
         grader: graderRows.length,
@@ -1189,6 +1270,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         thin_profile: thinRows.length,
         duplicates: duplicateRows.length,
         role_class_noise: noiseRows.length,
+        must_have: mustHaveRows.length,
       };
 
       // ── The number is the kept count. Nothing else. ─────────────────
@@ -1229,6 +1311,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           noise_filtered: noiseRows.length,
           filtered: filteredBreakdown,
           total_is_estimate: totalIsEstimate,
+          criteria_tokens_est: criteriaTokensEst,
         },
         result_count: results.length,
         total_count: displayTotal,
@@ -1270,6 +1353,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           : null,
         rejected_filtered: rejectedFiltered,
         hidden_results: hiddenResults,
+        ranking_criteria: rankingCriteria,
+        required_criteria: rankingSplit.required,
+        cant_check: rankingSplit.cant_check,
+        ranking_version: RANKING_VERSION,
         // Every kept row is in `results`; the browser pages them.
         hasMore: false,
         scroll_token: null,

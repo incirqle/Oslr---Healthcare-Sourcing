@@ -35,6 +35,7 @@ import {
 } from "@/components/search/candidate-ui";
 import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { FitPill } from "@/components/search/FitPill";
+import { EngineDetails } from "@/components/search/EngineDetails";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
 
 import { buildMatchChips, queryIsCompanySpecific, type MatchChip } from "@/components/search/match-chips";
@@ -77,7 +78,41 @@ export interface Candidate {
   clinical_skills?: string[];
   has_contact_info?: boolean;
   summary?: string | null;
+  /** Engine fields (docs/oslr-criteria-ranking-spec.md section 10). */
+  audit_verdict?: "strong" | "weak" | "reject" | null;
+  audit_reason?: string | null;
+  audit_evidence?: string | null;
+  audit_score?: number | null;
+  match_scope?: "primary" | "secondary" | null;
+  stage_fit?: "in_window" | "out_of_window" | "unknown" | null;
+  employment_model?: string | null;
+  employment_model_evidence?: string | null;
+  military_evidence?: string | null;
+  evidence_snippet?: string | null;
+  soft_matches?: string[];
+  criteria_results?: CandidateCriterionResult[];
+  match_rate?: number | null;
+  /** Set-aside rows only (spec 8). */
+  set_aside_reason?: string | null;
+  set_aside_note?: string | null;
+  /** True when the recruiter moved this row back from Set aside (session only). */
+  restored?: boolean;
   raw?: Record<string, unknown>;
+}
+
+export type CriterionVerdict = "met" | "partial" | "unknown" | "not_met";
+
+export interface CandidateCriterionResult {
+  criterion_id: string;
+  status: CriterionVerdict;
+  source: "rule" | "grader";
+  evidence: string | null;
+  section: string | null;
+  explanation: string | null;
+  /** Short title of the criterion, joined in on the client. */
+  title?: string;
+  /** "required" or "preferred", joined in on the client. */
+  group?: "required" | "preferred";
 }
 
 interface GeoScope {
@@ -438,6 +473,11 @@ function CandidateRow({
                 Saved
               </span>
             )}
+          </div>
+
+          {/* Engine reasons, evidence and tags (spec 9.3) */}
+          <div className="min-w-0 lg:col-span-9 lg:col-start-4">
+            <EngineDetails candidate={candidate} />
           </div>
         </div>
       </div>
