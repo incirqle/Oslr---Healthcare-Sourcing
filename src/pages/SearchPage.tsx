@@ -8,7 +8,7 @@ import { CandidateDrawer } from "@/components/CandidateDrawer";
 import { SearchHero } from "@/components/search/SearchHero";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
-import { SearchResults, type Candidate } from "@/components/search/SearchResults";
+import { SearchResults, type Candidate, type CandidateCriterionResult } from "@/components/search/SearchResults";
 import { SetAsideTab } from "@/components/search/SetAsideTab";
 import { cn } from "@/lib/utils";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
@@ -315,7 +315,8 @@ export default function SearchPage() {
       military_evidence: r.military_evidence ?? null,
       evidence_snippet: r.evidence_snippet ?? null,
       soft_matches: r.soft_matches ?? [],
-      criteria_results: (Array.isArray(r.criteria_results) ? r.criteria_results : []).map((x: Record<string, any>) => ({
+      criteria_results: (Array.isArray(r.criteria_results) ? r.criteria_results : []).map((x: Record<string, any>): CandidateCriterionResult => ({
+        ...(x as CandidateCriterionResult),
         ...x,
         title: criterionMeta.get(String(x.criterion_id))?.title ?? String(x.criterion_id),
         group: criterionMeta.get(String(x.criterion_id))?.group ?? "preferred",
