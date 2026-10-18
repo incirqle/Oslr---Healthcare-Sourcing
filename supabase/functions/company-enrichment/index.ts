@@ -1,39 +1,60 @@
 /**
- * company-enrichment edge function — full company intelligence endpoint.
+ * company-enrichment edge function: the data behind the company panel.
  *
- * Returns the rich payload required for the "Company insights" / "Hiring
- * activity" / "Talent flow" tabs in the Company Intel modal.
+ * Four actions, so nothing is paid for until a user asks for it:
  *
- * Data sources (all Crustdata v2, x-api-version 2025-11-01):
- *   1. POST /company/identify   — FREE, resolves name/domain → candidate entities
- *   2. POST /company/enrich     — full enrichment; field groups named explicitly
- *   3. POST /job/search         — open jobs
- *   4. POST /person/search      — talent flow (recent hires / departures)
+ *   action "base"      (default) Opening a company. Identify (free) and the
+ *                      company enrich call: name, pages, HQ, founded, industry,
+ *                      description, headcount and its history, where staff
+ *                      work, ownership. Cached 7 days.
+ *   action "preview"   One count per people group plus joined/left counts.
+ *                      1-row queries, 0.03 credits each, about 0.27 for all
+ *                      nine. Cached 30 days. With `group` (+ `specialty`)
+ *                      it counts that one group only.
+ *   action "pull"      One group's people, 50 a page, 0.03 credits a profile
+ *                      returned. `cursor` gets the next page. Cached 30 days.
+ *   action "movement"  Who joined and who left in the last 24 months, up to
+ *                      100 each way. Cached 7 days.
  *
- * v2 shapes are translated in ./v2.ts onto the key names the panel already
- * reads (src/hooks/useCompanyEnrichment.ts), so the UI contract is unchanged.
- * Cached 7 days in company_enrichment_cache (schema_version 12).
+ * Every cache entry is shared by all users: a company pulled once is free
+ * for everyone until it expires.
+ *
+ * Data rules (live-probed 2026-10-18; tests beside each module):
+ *  - A practice is matched on its company ids AND its written name, because
+ *    most staff at a private practice name it without linking its page
+ *    (Dallas Plastic Surgery Institute: 6 linked, 49 named). matching.ts
+ *  - A practice split across a management entity and doctor-named pages is
+ *    one company; look-alike practices are not. matching.ts
+ *  - People are cleaned before they are shown: students and observers, old
+ *    training entries, people in another state, side jobs. roster.ts
+ *  - Movement drops promotions, side roles, students and duplicates and
+ *    finds the real previous employer and destination. talent-flow.ts
  */
 
-import { pickBestCandidate, selectRelatedEntityIds } from "./matching.ts";
-import {
-  cdPostV2,
-  ENRICH_FIELDS,
-  firstResult,
-  identifyCandidates,
-  mapEnrichment,
-  mapTalentFlowPerson,
-  matchesOf,
-  type MappedEnrichment,
-} from "./v2.ts";
+import { buildMatcher, type EntityMatcher, pickBestCandidate, selectRelatedEntityIds } from "./matching.ts";
+import { cdPostV2, ENRICH_FIELDS, firstResult, identifyCandidates, type IdentifyCandidate, mapEnrichment, matchesOf } from "./v2.ts";
+import { classifyAll, type ExclusionCounts, type TalentFlowPerson } from "./talent-flow.ts";
+import { buildRoster, type RosterExclusion, type RosterPerson, sitesFromRegions } from "./roster.ts";
+import { GROUP_DEFS, groupFilter, isPullGroup, movementFilters, PULL_GROUPS, PULL_PAGE_SIZE, type PullGroup } from "./groups.ts";
+import { classifyEmploymentModel } from "../_shared/clinician-engine/employment-model.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const SCHEMA_VERSION = 15;
+/** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
+const CREDITS_PER_PROFILE = 0.03;
+const DAY = 24 * 60 * 60 * 1000;
+const TTL = { base: 7 * DAY, preview: 30 * DAY, pull: 30 * DAY, movement: 7 * DAY } as const;
+const MOVEMENT_MONTHS = 24;
+const MOVEMENT_LIMIT = 100;
+
+// deno-lint-ignore no-explicit-any
+type Any = any;
 
 /* ------------------------------------------------------------------ */
 /* Pre-mapped health systems (parity with the legacy company resolver)  */
@@ -51,10 +72,7 @@ const COMPANY_ALIASES: Record<string, string> = {
 };
 
 const PREMAPPED_ENTITY_IDS: Record<string, number[]> = {
-  uchealth: [
-    1304813, 6259524, 6524064, 9255529, 12929305, 10791937, 9819138, 6644127,
-    670107, 6041104, 2056710,
-  ],
+  uchealth: [1304813, 6259524, 6524064, 9255529, 12929305, 10791937, 9819138, 6644127, 670107, 6041104, 2056710],
 };
 
 function resolveCanonical(name: string | null): string | null {
@@ -63,188 +81,173 @@ function resolveCanonical(name: string | null): string | null {
   return COMPANY_ALIASES[lower] ?? lower;
 }
 
-/* ------------------------------------------------------------------ */
-/* CrustData helpers                                                    */
-/* ------------------------------------------------------------------ */
+const cleanDomain = (d: string | null | undefined) =>
+  d ? d.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] : null;
 
 /* ------------------------------------------------------------------ */
-/* Step 1 — identify (collects ALL entity IDs for a health system)      */
+/* Identify (free)                                                      */
 /* ------------------------------------------------------------------ */
+
+interface EntityPage {
+  company_id: number;
+  name: string;
+  linkedin_url: string | null;
+}
 
 interface Identified {
   company_id: number;
   company_name: string;
   linkedin_profile_url: string | null;
   company_website_domain: string | null;
-  headcount: number | null;
-  hq_city: string | null;
-  hq_country: string | null;
+  employee_count_range: string | null;
   all_ids: number[];
+  pages: EntityPage[];
 }
 
-async function identifyByName(
-  name: string,
-  domain?: string | null,
-): Promise<Identified | null> {
-  const canonical = resolveCanonical(name);
-
-  // 1. Pre-mapped systems return a curated, complete entity list.
-  const premapped = canonical ? PREMAPPED_ENTITY_IDS[canonical] : null;
-
-  // v2 identify: one identifier type per call. A domain is the sharper key;
-  // fall back to the name when the domain yields nothing.
-  const wantDomain = domain ? domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] : null;
-  let list = wantDomain
-    ? identifyCandidates(firstResult(await cdPostV2("/company/identify", { domains: [wantDomain] })), wantDomain)
-    : [];
-  if (list.length === 0 && name) {
-    list = identifyCandidates(firstResult(await cdPostV2("/company/identify", { names: [name] })), wantDomain);
-  }
-  if (list.length === 0 && !premapped) {
-    console.warn("[company-enrichment] identify miss", { name, domain });
-    return null;
-  }
-  const best = pickBestCandidate(list, name, domain ?? null) ?? null;
-  const primaryId = best?.company_id ?? premapped?.[0] ?? null;
-  if (!primaryId) {
-    console.warn("[company-enrichment] identify no usable id", { name, domain });
-    return null;
-  }
-
-  // 2. Combine all returned IDs whose name closely overlaps the canonical
-  //    name with the curated pre-map. This is the entity set used for
-  //    talent flow / jobs queries.
-  const liveIds = selectRelatedEntityIds(list, primaryId, canonical ?? name);
-
-  const allIds = Array.from(
-    new Set<number>([primaryId, ...(premapped ?? []), ...liveIds]),
-  );
-
-  console.info("[company-enrichment] identified", {
-    name,
-    canonical,
-    primary_id: primaryId,
-    chosen_name: best?.company_name ?? null,
-    candidates: list.length,
-    all_ids: allIds.length,
-  });
+function siblingsOf(list: IdentifyCandidate[], primary: IdentifyCandidate | null, primaryId: number, canonical: string, premapped: number[] | null): Identified {
+  const liveIds = selectRelatedEntityIds(list, primaryId, canonical);
+  const allIds = Array.from(new Set<number>([primaryId, ...(premapped ?? []), ...liveIds]));
+  const pages = allIds
+    .map((id) => list.find((c) => c.company_id === id))
+    .filter((c): c is IdentifyCandidate => !!c)
+    .map((c) => ({ company_id: c.company_id, name: c.company_name, linkedin_url: c.linkedin_profile_url }));
   return {
     company_id: primaryId,
-    company_name: best?.company_name || name,
-    linkedin_profile_url: best?.linkedin_profile_url ?? null,
-    company_website_domain: best?.company_website_domain ?? null,
-    headcount: typeof best?.linkedin_headcount === "number" ? best.linkedin_headcount : null,
-    hq_city: best?.hq_city ?? null,
-    hq_country: best?.hq_country ?? null,
+    company_name: primary?.company_name || canonical,
+    linkedin_profile_url: primary?.linkedin_profile_url ?? null,
+    company_website_domain: primary?.company_website_domain ?? null,
+    employee_count_range: primary?.employee_count_range ?? null,
     all_ids: allIds,
+    pages,
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* Step 2 — enrichment                                                  */
-/* ------------------------------------------------------------------ */
+async function identifyByName(name: string, domain?: string | null): Promise<Identified | null> {
+  const canonical = resolveCanonical(name);
+  const premapped = canonical ? PREMAPPED_ENTITY_IDS[canonical] ?? null : null;
+  const wantDomain = cleanDomain(domain);
+  let list = wantDomain ? identifyCandidates(firstResult(await cdPostV2("/company/identify", { domains: [wantDomain] })), wantDomain) : [];
+  if (list.length === 0 && name) list = identifyCandidates(firstResult(await cdPostV2("/company/identify", { names: [name] })), wantDomain);
+  if (list.length === 0 && !premapped) return null;
+  const best = pickBestCandidate(list, name, domain ?? null) ?? null;
+  const primaryId = best?.company_id ?? premapped?.[0] ?? null;
+  if (!primaryId) return null;
+  return siblingsOf(list, best, primaryId, best?.company_name || canonical || name, premapped);
+}
 
-async function enrich(
-  companyId: number,
-  preferDomain: string | null,
-): Promise<MappedEnrichment | null> {
-  const raw = await cdPostV2("/company/enrich", {
-    crustdata_company_ids: [companyId],
-    fields: [...ENRICH_FIELDS],
-  });
-  const match = matchesOf(firstResult(raw))[0];
-  if (!match) {
-    console.warn("[company-enrichment] enrich returned no match", { companyId });
-    return null;
+/** The client already knows the id (job_company_id). Resolve its name, then its siblings by that name and its domain. All free. */
+async function identifyById(id: number): Promise<Identified | null> {
+  const self = identifyCandidates(firstResult(await cdPostV2("/company/identify", { crustdata_company_ids: [id] })));
+  const primary = self.find((c) => c.company_id === id) ?? self[0] ?? null;
+  if (!primary) return null;
+  const list = [primary];
+  const add = (more: IdentifyCandidate[]) => { for (const c of more) if (!list.some((x) => x.company_id === c.company_id)) list.push(c); };
+  add(identifyCandidates(firstResult(await cdPostV2("/company/identify", { names: [primary.company_name] }))));
+  if (primary.company_website_domain) {
+    add(identifyCandidates(firstResult(await cdPostV2("/company/identify", { domains: [primary.company_website_domain] }))));
   }
-  console.log("[company-enrichment] enrichment groups:", Object.keys(match.company_data ?? {}));
-  return mapEnrichment(match.company_data, preferDomain);
+  return siblingsOf(list, primary, id, primary.company_name, null);
 }
 
-
 /* ------------------------------------------------------------------ */
-/* Step 3 — job listings                                                */
+/* Base                                                                 */
 /* ------------------------------------------------------------------ */
 
-interface JobListing {
-  title: string;
-  location_text: string | null;
-  workplace_type: string | null;
-  date_added: string | null;
-  url: string | null;
-  category: string | null;
+const SMALL_WORDS = new Set(["and", "of", "the", "for", "at", "in", "on"]);
+const KEEP_UPPER = new Set(["md", "pa", "pc", "ent", "ob", "gyn", "usa", "va", "hca", "uc", "ii", "iii"]);
+const LEGAL_TAIL = /[,\s]+(management,?\s*)?(p\.?\s?a\.?|pllc|llc|inc\.?|p\.?\s?c\.?|ltd\.?)$/i;
+
+/** "DALLAS PLASTIC SURGERY INSTITUTE MANAGEMENT, PA" → "Dallas Plastic Surgery Institute". Mixed-case names keep their casing. */
+export function displayName(name: string): string {
+  const trimmed = name.trim();
+  const noTail = trimmed.replace(LEGAL_TAIL, "").trim() || trimmed;
+  const shouting = noTail === noTail.toUpperCase() && /[A-Z]{3}/.test(noTail);
+  if (!shouting) return noTail;
+  return noTail.toLowerCase().split(/\s+/).map((w, i) =>
+    KEEP_UPPER.has(w.replace(/[^a-z]/g, "")) ? w.toUpperCase() : i > 0 && SMALL_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+  ).join(" ");
 }
 
-async function fetchJobs(companyIds: number[]): Promise<{ jobs: JobListing[]; total: number }> {
-  if (!companyIds.length) return { jobs: [], total: 0 };
-  const d = await cdPostV2(
-    "/job/search",
-    {
-      filters: {
-        op: "and",
-        conditions: [{ field: "company_id", op: "in", value: companyIds }],
-      },
-      sorts: [{ field: "date_added", order: "desc" }],
-      limit: 50,
+function headcountFromRange(r: string | null | undefined): number | null {
+  if (!r) return null;
+  const m = r.match(/(\d[\d,]*)/g);
+  return m ? parseInt(m[m.length - 1].replace(/,/g, ""), 10) : null;
+}
+
+async function buildBase(identified: Identified, preferDomain: string | null) {
+  const raw = await cdPostV2("/company/enrich", { crustdata_company_ids: [identified.company_id], fields: [...ENRICH_FIELDS] });
+  const match = matchesOf(firstResult(raw))[0];
+  const e = match ? mapEnrichment(match.company_data, preferDomain) : null;
+  const hc = (e?.headcount ?? null) as Any;
+  const legal = e?.company_name || identified.company_name;
+  const total: number | null = hc?.linkedin_headcount ?? headcountFromRange(e?.employee_count_range ?? identified.employee_count_range);
+  const ownership = classifyEmploymentModel(legal, { headcount: total });
+  const matcher = buildMatcher(identified.all_ids, legal, e?.hq_state ?? null);
+  return {
+    schema_version: SCHEMA_VERSION,
+    company_id: identified.company_id,
+    crustdata_entity_ids: identified.all_ids,
+    legal_name: legal,
+    display_name: displayName(legal),
+    pages: identified.pages.length ? identified.pages : [{ company_id: identified.company_id, name: legal, linkedin_url: identified.linkedin_profile_url }],
+    matched_name: matcher.phrase,
+    company_website_domain: e?.company_website_domain || identified.company_website_domain || preferDomain || null,
+    linkedin_profile_url: e?.linkedin_profile_url || identified.linkedin_profile_url || null,
+    logo_url: e?.linkedin_logo_url ?? null,
+    hq_city: e?.hq_city ?? null,
+    hq_state: e?.hq_state ?? null,
+    hq_country: e?.hq_country ?? null,
+    industry: e?.industry ?? null,
+    description: e?.description ?? null,
+    year_founded: e?.year_founded ?? null,
+    employee_count_range: e?.employee_count_range ?? identified.employee_count_range ?? null,
+    ownership: { model: ownership.model, evidence: ownership.evidence },
+    headcount: {
+      total,
+      yoy_percent: hc?.linkedin_headcount_total_growth_percent?.yoy ?? null,
+      yoy_absolute: hc?.linkedin_headcount_total_growth_absolute?.yoy ?? null,
+      timeseries: Array.isArray(hc?.linkedin_headcount_timeseries) ? hc.linkedin_headcount_timeseries : [],
     },
-  );
-  if (!d) return { jobs: [], total: 0 };
+    sites: sitesFromRegions(hc?.linkedin_headcount_by_region_absolute),
+    enriched_at: new Date().toISOString(),
+  };
+}
 
-  const fields: { api_name: string }[] = d.fields ?? [];
-  const rows: unknown[][] = d.rows ?? [];
-  const idx: Record<string, number> = {};
-  fields.forEach((f, i) => (idx[f.api_name] = i));
+type Base = Awaited<ReturnType<typeof buildBase>>;
 
-  const jobs: JobListing[] = rows.map((row) => ({
-    title: (row[idx["title"]] as string) ?? "",
-    location_text: (row[idx["location_text"]] as string) ?? null,
-    workplace_type: (row[idx["workplace_type"]] as string) ?? null,
-    date_added: (row[idx["date_added"]] as string) ?? null,
-    url: (row[idx["url"]] as string) ?? null,
-    category: (row[idx["category"]] as string) ?? null,
-  }));
-
-  const total =
-    typeof d.total_rows === "number"
-      ? d.total_rows
-      : rows.length > 0
-        ? ((rows[0][rows[0].length - 1] as number) ?? rows.length)
-        : 0;
-
-  console.log(`[jobs] entity_ids=${companyIds.length} got=${jobs.length} total=${total}`);
-  return { jobs, total };
+function matcherOf(base: Base): EntityMatcher {
+  return buildMatcher(base.crustdata_entity_ids, base.legal_name, base.hq_state);
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 3b — talent flow (recent hires / departures)                    */
+/* People search                                                        */
 /* ------------------------------------------------------------------ */
 
-interface TalentFlowPerson {
-  name: string;
-  first_name: string | null;
-  last_name: string | null;
-  linkedin_profile_url: string | null;
-  profile_picture_url: string | null;
-  headline: string | null;
-  current_title: string | null;
-  current_company: string | null;
-  current_company_linkedin_url: string | null;
-  current_company_start_date: string | null;
-  previous_company: string | null;
-  previous_company_linkedin_url: string | null;
-  previous_title: string | null;
-  previous_end_date: string | null;
-  function_category: string | null;
-  seniority_level: string | null;
+const PERSON_FIELDS = [
+  "basic_profile.name",
+  "basic_profile.first_name",
+  "basic_profile.last_name",
+  "basic_profile.headline",
+  "basic_profile.profile_picture_permalink",
+  "basic_profile.location",
+  "experience.employment_details.current",
+  "experience.employment_details.past",
+  "social_handles.professional_network_identifier.profile_url",
+  "crustdata_person_id",
+];
+
+async function personSearch(body: Record<string, unknown>): Promise<{ rows: Any[]; total: number | null; next_cursor: string | null }> {
+  const raw = await cdPostV2("/person/search", body);
+  return {
+    rows: raw?.profiles ?? raw?.data ?? raw?.results ?? [],
+    total: typeof raw?.total_count === "number" ? raw.total_count : null,
+    next_cursor: typeof raw?.next_cursor === "string" && raw.next_cursor ? raw.next_cursor : null,
+  };
 }
 
-interface TalentFlowAggregate {
-  hires: TalentFlowPerson[];
-  departures: TalentFlowPerson[];
-  hire_count: number;
-  departure_count: number;
-  top_hire_sources: { company: string; count: number; linkedin_url: string | null }[];
-  top_departure_destinations: { company: string; count: number; linkedin_url: string | null }[];
+async function countOf(filters: Any): Promise<number | null> {
+  const r = await personSearch({ filters, limit: 1, fields: ["crustdata_person_id"] });
+  return r.total;
 }
 
 function isoMonthsAgo(months: number): string {
@@ -253,326 +256,172 @@ function isoMonthsAgo(months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function idSet(ids: number[]): Set<number> {
-  return new Set(ids);
-}
-
-async function fetchTalentFlow(
-  companyIds: number[],
-  direction: "hires" | "departures",
-  monthsBack: number,
-): Promise<TalentFlowPerson[]> {
-  if (!companyIds.length) return [];
-
-  const sinceDate = isoMonthsAgo(monthsBack);
-  const side = direction === "hires" ? "current" : "past";
-  const dateField = direction === "hires" ? "start_date" : "end_date";
-
-  const raw = await cdPostV2("/person/search", {
-    filters: {
-      op: "and",
-      conditions: [
-        { field: `experience.employment_details.${side}.company_id`, type: "in", value: companyIds },
-        { field: `experience.employment_details.${side}.${dateField}`, type: "=>", value: sinceDate },
-      ],
-    },
-    limit: 50,
-    fields: [
-      "basic_profile.name",
-      "basic_profile.first_name",
-      "basic_profile.last_name",
-      "basic_profile.headline",
-      "basic_profile.profile_picture_permalink",
-      "experience.employment_details.current",
-      "experience.employment_details.past",
-      "social_handles.professional_network_identifier.profile_url",
-      "crustdata_person_id",
-    ],
-  });
-  const results: any[] = raw?.profiles ?? raw?.data ?? raw?.results ?? [];
-  console.log(
-    `[talent-flow ${direction}] entity_ids=${companyIds.length} since=${sinceDate} got=${results.length}`,
-  );
-  const targetIds = idSet(companyIds);
-  return results.map((person) => mapTalentFlowPerson(person, targetIds, direction));
-}
-
-function aggregateTalentFlow(
-  hires: TalentFlowPerson[],
-  departures: TalentFlowPerson[],
-): TalentFlowAggregate {
-  const hireSources = new Map<string, { count: number; linkedin_url: string | null }>();
-  for (const h of hires) {
-    if (h.previous_company) {
-      const ex = hireSources.get(h.previous_company) || {
-        count: 0,
-        linkedin_url: h.previous_company_linkedin_url,
-      };
-      ex.count++;
-      hireSources.set(h.previous_company, ex);
-    }
-  }
-  const depDests = new Map<string, { count: number; linkedin_url: string | null }>();
-  for (const d of departures) {
-    if (d.current_company) {
-      const ex = depDests.get(d.current_company) || {
-        count: 0,
-        linkedin_url: d.current_company_linkedin_url,
-      };
-      ex.count++;
-      depDests.set(d.current_company, ex);
-    }
-  }
-  const top = (m: Map<string, { count: number; linkedin_url: string | null }>) =>
-    Array.from(m.entries())
-      .map(([company, { count, linkedin_url }]) => ({ company, count, linkedin_url }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
+async function buildPreview(base: Base) {
+  const m = matcherOf(base);
+  const since = isoMonthsAgo(MOVEMENT_MONTHS);
+  const mv = movementFilters(m, since);
+  const [counts, hires, departures] = await Promise.all([
+    Promise.all(PULL_GROUPS.map(async (g) => ({ group: g, label: GROUP_DEFS[g].label, hint: GROUP_DEFS[g].hint, count: await countOf(groupFilter(m, g)) }))),
+    countOf(mv.hires),
+    countOf(mv.departures),
+  ]);
   return {
-    hires,
-    departures,
-    hire_count: hires.length,
-    departure_count: departures.length,
-    top_hire_sources: top(hireSources),
-    top_departure_destinations: top(depDests),
+    groups: counts,
+    movement: { hires, departures, window_months: MOVEMENT_MONTHS },
+    credits_per_profile: CREDITS_PER_PROFILE,
+    counted_at: new Date().toISOString(),
+  };
+}
+
+async function buildPull(base: Base, group: PullGroup, specialty: string | null, cursor: string | null) {
+  const m = matcherOf(base);
+  const r = await personSearch({
+    filters: groupFilter(m, group, specialty),
+    limit: PULL_PAGE_SIZE,
+    fields: PERSON_FIELDS,
+    ...(cursor ? { cursor } : {}),
+  });
+  const roster = buildRoster(r.rows, m, new Date().toISOString(), group);
+  return {
+    group,
+    specialty,
+    people: roster.people as RosterPerson[],
+    excluded: roster.excluded as Record<RosterExclusion, number>,
+    matched_by_name: roster.matched_by_name,
+    returned: r.rows.length,
+    total: r.total,
+    next_cursor: r.next_cursor,
+    pulled_at: new Date().toISOString(),
+  };
+}
+
+async function buildMovement(base: Base) {
+  const m = matcherOf(base);
+  const since = isoMonthsAgo(MOVEMENT_MONTHS);
+  const mv = movementFilters(m, since);
+  const [h, d] = await Promise.all([
+    personSearch({ filters: mv.hires, sorts: [{ field: "experience.employment_details.start_date", order: "desc" }], limit: MOVEMENT_LIMIT, fields: PERSON_FIELDS }),
+    personSearch({ filters: mv.departures, limit: MOVEMENT_LIMIT, fields: PERSON_FIELDS }),
+  ]);
+  const hires = classifyAll(h.rows, m, since, "hires");
+  const deps = classifyAll(d.rows, m, since, "departures");
+  return {
+    window_months: MOVEMENT_MONTHS,
+    hires: hires.people as TalentFlowPerson[],
+    departures: deps.people as TalentFlowPerson[],
+    hires_returned: h.rows.length,
+    departures_returned: d.rows.length,
+    hire_total_matched: h.total,
+    departure_total_matched: d.total,
+    excluded: { hires: hires.excluded as ExclusionCounts, departures: deps.excluded as ExclusionCounts },
+    pulled_at: new Date().toISOString(),
   };
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 4 — competitor resolution                                       */
+/* Cache (shared by all users)                                          */
 /* ------------------------------------------------------------------ */
 
-interface Competitor {
-  company_id: number;
-  company_name: string;
-  linkedin_profile_url: string | null;
-  linkedin_logo_url: string | null;
-  company_website_domain: string | null;
-  headcount: number | null;
+// deno-lint-ignore no-explicit-any
+async function cached<T>(supabase: any, key: string, ttl: number, companyId: number, build: () => Promise<T>): Promise<T & { cached: boolean }> {
+  try {
+    const { data } = await supabase.from("company_enrichment_cache").select("data, created_at").eq("cache_key", key).maybeSingle();
+    if (data?.data && Date.now() - new Date(data.created_at as string).getTime() < ttl) {
+      return { ...(data.data as T), cached: true };
+    }
+  } catch { /* miss */ }
+  const fresh = await build();
+  try {
+    await supabase.from("company_enrichment_cache").upsert({ cache_key: key, company_id: companyId, data: fresh, created_at: new Date().toISOString() });
+  } catch { /* non-fatal */ }
+  return { ...fresh, cached: false };
 }
 
-/**
- * Resolve competitor display data with ONE /company/enrich call: the v2
- * endpoint accepts several domains per request and returns basic_info +
- * headcount for each, so no per-domain identify round-trips.
- */
-async function resolveCompetitorsByDomain(domains: string[]): Promise<Competitor[]> {
-  if (!domains?.length) return [];
-  const cleaned = [...new Set(
-    domains.map((d) => String(d || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]).filter((d) => d.includes(".")),
-  )].slice(0, 6);
-  if (!cleaned.length) return [];
-
-  const raw = await cdPostV2("/company/enrich", { domains: cleaned, fields: ["basic_info", "headcount"] });
-  const results: any[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  const out: Competitor[] = [];
-  for (const r of results) {
-    const m = matchesOf(r)[0];
-    const b = m?.company_data?.basic_info ?? null;
-    const id = b?.crustdata_company_id ?? m?.company_data?.crustdata_company_id;
-    if (typeof id !== "number") continue;
-    const total = m?.company_data?.headcount?.total;
-    out.push({
-      company_id: id,
-      company_name: (b?.name as string) || String(r?.matched_on ?? ""),
-      linkedin_profile_url: (b?.professional_network_url as string) ?? null,
-      linkedin_logo_url: (b?.logo_permalink as string) ?? null,
-      company_website_domain: (b?.primary_domain as string) ?? (r?.matched_on as string) ?? null,
-      headcount: typeof total === "number" ? total : null,
-    });
-  }
-  return out;
-}
+const idsKey = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
 
 /* ------------------------------------------------------------------ */
-/* Main handler                                                         */
+/* Handler                                                              */
 /* ------------------------------------------------------------------ */
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
   try {
     const body = await req.json().catch(() => ({}));
-    const company_name: string | null =
-      typeof body?.company_name === "string" ? body.company_name : null;
-    const company_domain: string | null =
-      typeof body?.company_domain === "string" ? body.company_domain : null;
-    const provided_id: number | null =
-      typeof body?.company_id === "number" ? body.company_id : null;
-    const provided_ids: number[] = Array.isArray(body?.crustdata_entity_ids)
-      ? (body.crustdata_entity_ids as unknown[]).filter(
-          (n): n is number => typeof n === "number" && Number.isFinite(n),
-        )
+    const action: string = typeof body?.action === "string" ? body.action : "base";
+    const company_name: string | null = typeof body?.company_name === "string" ? body.company_name : null;
+    const company_domain: string | null = typeof body?.company_domain === "string" ? body.company_domain : null;
+    const company_id: number | null = typeof body?.company_id === "number" && body.company_id > 0 ? body.company_id : null;
+    const entity_ids: number[] = Array.isArray(body?.entity_ids)
+      ? (body.entity_ids as unknown[]).filter((n): n is number => typeof n === "number" && n > 0)
       : [];
-    const canonical_company_name: string | null =
-      typeof body?.canonical_company_name === "string"
-        ? body.canonical_company_name
-        : null;
 
-    if (!company_name && !provided_id && provided_ids.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "company_name, company_id or crustdata_entity_ids required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Base first: every other action reads the company's ids, name and state from it.
+    let base: (Base & { cached: boolean }) | null = null;
+    if (entity_ids.length) {
+      try {
+        const { data } = await supabase.from("company_enrichment_cache").select("data").eq("cache_key", `v${SCHEMA_VERSION}:base:${idsKey(entity_ids)}`).maybeSingle();
+        if (data?.data) base = { ...(data.data as Base), cached: true };
+      } catch { /* rebuild below */ }
     }
+    if (!base) {
+      const identified = company_id
+        ? (await identifyById(company_id)) ?? (company_name ? await identifyByName(company_name, company_domain) : null)
+        : company_name ? await identifyByName(company_name, company_domain) : null;
+      if (!identified) return json({ company: null, error: "Company not found" });
+      base = await cached(supabase, `v${SCHEMA_VERSION}:base:${idsKey(identified.all_ids)}`, TTL.base, identified.company_id, () => buildBase(identified, cleanDomain(company_domain)));
+    }
+    const key = idsKey(base.crustdata_entity_ids);
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    if (action === "base") return json({ company: base });
 
-    // Resolve entity set first so the cache key is canonical across all
-    // entry points (name-only lookups and IDs-provided lookups converge).
-    let identified: Identified | null = null;
-    let allIds: number[] = [];
-    let primaryId: number | null = provided_id;
-
-    if (provided_ids.length > 0) {
-      allIds = Array.from(new Set(provided_ids));
-      primaryId = primaryId ?? allIds[0];
-    } else if (provided_id) {
-      allIds = [provided_id];
-    } else if (company_name) {
-      identified = await identifyByName(company_name, company_domain);
-      if (!identified) {
-        return new Response(
-          JSON.stringify({ company: null, error: "Company not found" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+    if (action === "preview") {
+      if (isPullGroup(body?.group)) {
+        const specialty = typeof body?.specialty === "string" && body.specialty.trim() ? body.specialty.trim().toLowerCase() : null;
+        const one = await cached(supabase, `v${SCHEMA_VERSION}:count:${key}:${body.group}:${specialty ?? ""}`, TTL.preview, base!.company_id, async () => ({
+          group: body.group as PullGroup,
+          specialty,
+          count: await countOf(groupFilter(matcherOf(base!), body.group, specialty)),
+        }));
+        return json({ count: one });
       }
-      primaryId = identified.company_id;
-      allIds = identified.all_ids;
-    }
-
-    if (!primaryId) {
-      return new Response(JSON.stringify({ company: null }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (allIds.length === 0) allIds = [primaryId];
-
-    const canonical =
-      canonical_company_name ?? resolveCanonical(company_name) ?? String(primaryId);
-    const sortedIds = [...allIds].sort((a, b) => a - b);
-    const cacheKey = `${canonical.toLowerCase().trim()}:${sortedIds.join(",")}`;
-
-    // Cache check (7 days, schema_version 12)
-    try {
-      const { data: cached } = await supabase
-        .from("company_enrichment_cache")
-        .select("data, created_at")
-        .eq("cache_key", cacheKey)
-        .maybeSingle();
-
-      if (cached?.data && (cached.data as any)?.schema_version === 12) {
-        const age = Date.now() - new Date(cached.created_at as string).getTime();
-        if (age < 7 * 24 * 60 * 60 * 1000) {
-          return new Response(
-            JSON.stringify({ company: { ...(cached.data as object), cached: true } }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
+      const preview = await cached(supabase, `v${SCHEMA_VERSION}:preview:${key}`, TTL.preview, base!.company_id, () => buildPreview(base!));
+      // Which groups someone already pulled (first page, no specialty): the
+      // panel loads those for free and marks them "Already pulled".
+      const keys = [...PULL_GROUPS.map((g) => `v${SCHEMA_VERSION}:pull:${key}:${g}::1`), `v${SCHEMA_VERSION}:movement:${key}`];
+      const available: Record<string, boolean> = {};
+      try {
+        const { data } = await supabase.from("company_enrichment_cache").select("cache_key, created_at").in("cache_key", keys);
+        for (const row of (data ?? []) as Array<{ cache_key: string; created_at: string }>) {
+          const isMovement = row.cache_key.includes(":movement:");
+          const fresh = Date.now() - new Date(row.created_at).getTime() < (isMovement ? TTL.movement : TTL.pull);
+          if (fresh) available[isMovement ? "movement" : row.cache_key.split(":")[3]] = true;
         }
-      }
-    } catch {
-      /* miss */
+      } catch { /* none known */ }
+      return json({ preview: { ...preview, available } });
     }
 
-    // Steps 2–3 in parallel (talent flow widens to 24mo on its own if 12mo is too sparse)
-    const [enrichment, jobsResult, hiresList12, departuresList12] = await Promise.all([
-      enrich(primaryId, company_domain ?? identified?.company_website_domain ?? null),
-      fetchJobs(allIds),
-      fetchTalentFlow(allIds, "hires", 12),
-      fetchTalentFlow(allIds, "departures", 12),
-    ]);
-
-    let hiresList = hiresList12;
-    let departuresList = departuresList12;
-    if (hiresList.length + departuresList.length < 5) {
-      console.log(
-        `[talent-flow] sparse @12mo (h=${hiresList.length} d=${departuresList.length}), widening to 24mo`,
-      );
-      const [h24, d24] = await Promise.all([
-        fetchTalentFlow(allIds, "hires", 24),
-        fetchTalentFlow(allIds, "departures", 24),
-      ]);
-      hiresList = h24;
-      departuresList = d24;
-    }
-    const talent_flow = aggregateTalentFlow(hiresList, departuresList);
-
-    // Step 4 — competitors (v2 returns domain lists under competitors.*)
-    const competitors = await resolveCompetitorsByDomain(enrichment?.competitor_domains ?? []);
-
-    const company = {
-      schema_version: 12 as const,
-      company_id: primaryId,
-      crustdata_entity_ids: allIds,
-      company_name:
-        enrichment?.company_name ||
-        identified?.company_name ||
-        company_name ||
-        canonical,
-      company_website_domain:
-        enrichment?.company_website_domain ||
-        identified?.company_website_domain ||
-        company_domain ||
-        null,
-      linkedin_profile_url:
-        enrichment?.linkedin_profile_url ||
-        identified?.linkedin_profile_url ||
-        null,
-      linkedin_logo_url: enrichment?.linkedin_logo_url ?? null,
-      hq_city: enrichment?.hq_city ?? identified?.hq_city ?? null,
-      hq_state: enrichment?.hq_state ?? null,
-      hq_country: enrichment?.hq_country ?? identified?.hq_country ?? null,
-      headquarters: enrichment?.headquarters ?? null,
-      industry: enrichment?.industry ?? null,
-      description: enrichment?.description ?? null,
-      year_founded: enrichment?.year_founded ?? null,
-      employee_count_range: enrichment?.employee_count_range ?? null,
-      company_type: enrichment?.company_type ?? null,
-
-      headcount: enrichment?.headcount ?? null,
-      glassdoor: enrichment?.glassdoor ?? null,
-      g2: enrichment?.g2 ?? null,
-      web_traffic: enrichment?.web_traffic ?? null,
-      funding: enrichment?.funding ?? null,
-      cxos: enrichment?.cxos ?? [],
-      decision_makers: enrichment?.decision_makers ?? [],
-      founders: enrichment?.founders ?? [],
-
-      jobs: jobsResult.jobs,
-      jobs_total: jobsResult.total,
-
-      competitors,
-
-      talent_flow,
-
-      cached: false,
-      enriched_at: new Date().toISOString(),
-    };
-
-    try {
-      await supabase.from("company_enrichment_cache").upsert({
-        cache_key: cacheKey,
-        company_id: primaryId,
-        data: company,
-        created_at: new Date().toISOString(),
-      });
-    } catch {
-      /* non-fatal */
+    if (action === "pull") {
+      if (!isPullGroup(body?.group)) return json({ error: `group must be one of ${PULL_GROUPS.join(", ")}` }, 400);
+      const specialty = typeof body?.specialty === "string" && body.specialty.trim() ? body.specialty.trim().toLowerCase() : null;
+      const cursor = typeof body?.cursor === "string" && body.cursor ? body.cursor : null;
+      const page = typeof body?.page === "number" && body.page > 0 ? Math.floor(body.page) : 1;
+      const pull = await cached(supabase, `v${SCHEMA_VERSION}:pull:${key}:${body.group}:${specialty ?? ""}:${page}`, TTL.pull, base!.company_id, () => buildPull(base!, body.group, specialty, cursor));
+      return json({ pull: { ...pull, page } });
     }
 
-    return new Response(JSON.stringify({ company }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    if (action === "movement") {
+      const movement = await cached(supabase, `v${SCHEMA_VERSION}:movement:${key}`, TTL.movement, base!.company_id, () => buildMovement(base!));
+      return json({ movement });
+    }
+
+    return json({ error: `unknown action "${action}"` }, 400);
   } catch (err) {
     console.error("[company-enrichment] Error:", err);
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
