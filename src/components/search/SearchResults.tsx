@@ -37,7 +37,7 @@ import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { FitPill } from "@/components/search/FitPill";
 import { EngineDetails } from "@/components/search/EngineDetails";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
-import { ResultsTable, type TableSort } from "@/components/search/ResultsTable";
+import { ResultsTable, type CriterionCheck, type TableSort } from "@/components/search/ResultsTable";
 import type { RankingCriterion, RequiredCriterion } from "@/lib/ranking";
 
 import { buildMatchChips, queryIsCompanySpecific, type MatchChip } from "@/components/search/match-chips";
@@ -185,6 +185,9 @@ interface SearchResultsProps {
   onReorderRanking?: (next: RankingCriterion[]) => void;
   tableSort?: TableSort;
   onTableSortChange?: (s: TableSort) => void;
+  criterionChecks?: Record<string, CriterionCheck>;
+  onRetryCriterion?: (id: string) => void;
+  onReview?: (c?: Candidate) => void;
 }
 
 export type ResultsView = "table" | "list";
@@ -549,6 +552,9 @@ export function SearchResults({
   onReorderRanking,
   tableSort = null,
   onTableSortChange,
+  criterionChecks,
+  onRetryCriterion,
+  onReview,
 }: SearchResultsProps) {
   const [queryDraft, setQueryDraft] = useState(query);
   // Pages must follow the profiles we can actually show, not the provider's
@@ -717,6 +723,9 @@ export function SearchResults({
 
 
         <div className="flex flex-wrap items-center gap-2">
+          {onReview && (
+            <Button size="sm" onClick={() => onReview()} className="h-9">Review</Button>
+          )}
           {onViewChange && (
             <div className="inline-flex h-9 rounded-md border border-border p-0.5" role="group" aria-label="Results view">
               {(["table", "list"] as const).map((v) => (
@@ -783,6 +792,9 @@ export function SearchResults({
           onFitChange={handleFitChange}
           onReorder={(next) => onReorderRanking?.(next)}
           ContactIcons={ContactIcons}
+          checks={criterionChecks}
+          onRetry={onRetryCriterion}
+          onReview={onReview ? (c) => onReview(c) : undefined}
         />
       ) : (
       <div className="overflow-hidden rounded-xl border border-border/50 bg-card">

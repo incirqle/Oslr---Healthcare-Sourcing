@@ -320,6 +320,8 @@ export async function runClinicianAudit(
     ranking?: AuditRankingCriterion[];
     /** Criterion ids a rule could not decide for the row at this index; only those are asked. */
     pendingFor?: (index: number) => ReadonlySet<string>;
+    /** Sees each chunk's raw JSON (short titles ride the same call, spec 6.3). */
+    onRaw?: (raw: unknown) => void;
   } = {},
 ): Promise<{ verdicts: Map<number, AuditRow>; summary: AuditSummary } | null> {
   if (rows.length === 0) return null;
@@ -351,6 +353,7 @@ export async function runClinicianAudit(
     })
   ));
   for (const raw of settled) {
+    if (raw && opts.onRaw) opts.onRaw(raw);
     for (const [i, row] of parseAuditVerdicts(raw, validIds)) verdicts.set(i, row);
   }
   if (verdicts.size === 0) return null;

@@ -343,8 +343,8 @@ Deno.serve(async (req: Request) => {
     }
 
     /* ── Search metering: usage readout + engagement pings ─────────── */
-    if (action === "search_usage" || action === "meter_engagement") {
-      const { status, data } = await runEngine(req, { action });
+    if (action === "search_usage" || action === "meter_engagement" || action === "rank_criteria" || action === "explain_criteria") {
+      const { status, data } = await runEngine(req, action === "rank_criteria" || action === "explain_criteria" ? body : { action });
       return json(data, status);
     }
 
@@ -446,6 +446,7 @@ Deno.serve(async (req: Request) => {
       required_criteria: Array.isArray(data.required_criteria) ? data.required_criteria : [],
       cant_check: Array.isArray(data.cant_check) ? data.cant_check : [],
       ranking_version: data.ranking_version ?? null,
+      suggested_criteria: Array.isArray(data.suggested_criteria) ? data.suggested_criteria : [],
       cascade_used: relaxed.length > 0,
       cascade_plan: relaxed,
       geo_scope: deriveGeoScope(parsed, relaxed),
