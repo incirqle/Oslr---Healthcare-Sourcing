@@ -243,11 +243,6 @@ export default function SearchPage() {
     () => buildSearchAnalytics(ranked.kept, ranked.setAside, requiredCriteria, ranking, { providerTotal }),
     [ranked, requiredCriteria, ranking, providerTotal],
   );
-  const _unusedDisplay = useMemo(() => {
-    if (view !== "table" || !tableSort) return ranked.kept;
-    if (tableSort.key === "criterion") return sortByCriterion(ranked.kept, tableSort.id);
-    return tableSort.dir === "desc" ? ranked.kept : [...ranked.kept].reverse();
-  }, [ranked, view, tableSort]);
   const keptCount = ranked.kept.length;
   const setAsideRows = ranked.setAside;
   const restoreCandidate = (c: Candidate) => {
@@ -783,9 +778,9 @@ export default function SearchPage() {
             {/* Animated dot-network loader while results stream in */}
             {skeletonCount > 0 && <SearchNetworkLoader />}
 
-            {searchPhase === "done" && setAsideRows.length > 0 && (
-              <div className="flex items-center gap-1 border-b border-border/60" role="tablist" aria-label="Search views">
-                {(["results", "set_aside"] as const).map((t) => (
+            {searchPhase === "done" && keptCount + setAsideRows.length > 0 && (
+              <div className="flex items-center gap-1 overflow-x-auto border-b border-border/60" role="tablist" aria-label="Search views">
+                {(["results", "set_aside", "analytics"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -797,8 +792,10 @@ export default function SearchPage() {
                       resultsTab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {t === "results" ? "Results" : "Set aside"}{" "}
-                    <span className="tabular-nums text-muted-foreground">{t === "results" ? keptCount : setAsideRows.length}</span>
+                    {t === "results" ? "Results" : t === "set_aside" ? "Set aside" : "Analytics"}
+                    {t !== "analytics" && (
+                      <> <span className="tabular-nums text-muted-foreground">{t === "results" ? keptCount : setAsideRows.length}</span></>
+                    )}
                   </button>
                 ))}
               </div>
@@ -808,11 +805,28 @@ export default function SearchPage() {
               <SetAsideTab candidates={setAsideRows} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
             )}
 
+            {resultsTab === "analytics" && searchPhase === "done" && (
+              <SearchAnalytics
+                data={analytics}
+                onFilter={(fl) => { setAnalyticsFilter(fl); setPage(1); setRevealedCount(Number.MAX_SAFE_INTEGER); setResultsTab("results"); }}
+              />
+            )}
+
+            {resultsTab === "results" && analyticsFilter && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm" role="status">
+                <span className="min-w-0">
+                  Showing {displayRows.length} {displayRows.length === 1 ? "profile" : "profiles"}:{" "}
+                  <span className="font-medium">{analyticsFilter.kind === "set_aside" ? `Set aside, ${analyticsFilter.label}` : analyticsFilter.label}</span>
+                </span>
+                <button type="button" onClick={() => { setAnalyticsFilter(null); setPage(1); }} className="font-medium text-primary hover:underline">Clear filter</button>
+              </div>
+            )}
+
             {resultsTab === "results" && visibleCandidates.length > 0 && (
               <SearchResults
                 query={query}
                 candidates={visibleCandidates}
-                total={keptCount}
+                total={displayRows.length}
                 totalIsEstimate={totalIsEstimate}
                 selected={selected}
                 savedIds={savedIds}
@@ -829,7 +843,7 @@ export default function SearchPage() {
                 onSubmitQuery={runFullSearch}
                 page={page}
                 pageSize={pageSize}
-                browsableTotal={keptCount}
+                browsableTotal={displayRows.length}
                 view={view}
                 onViewChange={setView}
                 ranking={ranking}
