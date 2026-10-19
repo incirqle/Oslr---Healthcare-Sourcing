@@ -9,16 +9,15 @@ import { SearchHero } from "@/components/search/SearchHero";
 import type { ParsedFilters } from "@/components/search/FilterReview";
 import { FilterEditor } from "@/components/search/FilterEditor";
 import { SearchResults, type Candidate, type CandidateCriterionResult } from "@/components/search/SearchResults";
-import { SetAsideTab } from "@/components/search/SetAsideTab";
 import { QueryReadback, type FilterField } from "@/components/search/QueryReadback";
-import { CriteriaPanel } from "@/components/search/CriteriaPanel";
+import { CriteriaPanel, newCriterionId } from "@/components/search/CriteriaPanel";
 import { ReviewMode } from "@/components/search/ReviewMode";
 import { SearchAnalytics, type AnalyticsFilter } from "@/components/search/SearchAnalytics";
 import { buildSearchAnalytics } from "@/lib/buildSearchAnalytics";
 import type { CriterionCheck } from "@/components/search/ResultsTable";
 import type { ResultsView } from "@/components/search/SearchResults";
 import type { TableSort } from "@/components/search/ResultsTable";
-import { mergeRanking, recomputeRanking, sortByCriterion, type RankingCriterion, type RequiredCriterion } from "@/lib/ranking";
+import { mergeRanking, recomputeRanking, shortTitle, sortByCriterion, type RankingCriterion, type RequiredCriterion } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 import { AgentReasoningPanel } from "@/components/search/AgentReasoningPanel";
 import { SearchNetworkLoader } from "@/components/search/SearchNetworkLoader";
@@ -119,7 +118,7 @@ export default function SearchPage() {
   const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
-  const [resultsTab, setResultsTab] = useState<"results" | "set_aside" | "analytics">("results");
+  const [resultsTab, setResultsTab] = useState<"results" | "analytics">("results");
   // Ranked criteria (docs/oslr-criteria-ranking-spec.md 3.3, 6.1, 9).
   const [ranking, setRankingState] = useState<RankingCriterion[]>([]);
   const rankingRef = useRef<RankingCriterion[]>([]);
@@ -229,9 +228,6 @@ export default function SearchPage() {
       });
   };
   const displayRows = useMemo(() => {
-    if (analyticsFilter?.kind === "set_aside") {
-      return ranked.setAside.filter((c) => (c.set_aside_reason || (c.audit_verdict === "reject" ? "grader" : "other")) === analyticsFilter.reason);
-    }
     const base = analyticsFilter?.kind === "criterion"
       ? ranked.kept.filter((c) => (c.criteria_results?.find((r) => r.criterion_id === analyticsFilter.id)?.status ?? "unknown") === analyticsFilter.status)
       : ranked.kept;
@@ -244,6 +240,7 @@ export default function SearchPage() {
     [ranked, requiredCriteria, ranking, providerTotal],
   );
   const keptCount = ranked.kept.length;
+  const rankingSuggestions = serverSuggestions.length > 0 ? serverSuggestions : suggestionsFor(filters.role_class, filters.specialties);
   const setAsideRows = ranked.setAside;
   const restoreCandidate = (c: Candidate) => {
     if (candidates.some((x) => x.id === c.id)) {
@@ -256,18 +253,6 @@ export default function SearchPage() {
     setTotal((t) => t + 1);
     setBrowsableTotal((b) => b + 1);
     setRevealedCount((n) => n + 1);
-  };
-  const describeSetAside = (b: Record<string, number> | null, n: number): string => {
-    if (!b) return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside.`;
-    const parts: string[] = [];
-    if (b.role_class_noise) parts.push(`${b.role_class_noise} not in the asked role (therapists, PAs, recruiters, vendors)`);
-    if (b.employment_model) parts.push(`${b.employment_model} with the wrong employer type`);
-    if (b.military_reserve) parts.push(`${b.military_reserve} Guard or Reserve with a civilian primary employer`);
-    if (b.thin_profile) parts.push(`${b.thin_profile} thin ${b.thin_profile === 1 ? "profile" : "profiles"} with no location, history or summary`);
-    if (b.duplicates) parts.push(`${b.duplicates} duplicate ${b.duplicates === 1 ? "profile" : "profiles"}`);
-    if (b.must_have) parts.push(`${b.must_have} with a No on a must-have`);
-    if (b.grader) parts.push(`${b.grader} judged a poor fit on reading the profile`);
-    return `${n} ${n === 1 ? "profile" : "profiles"} the search pulled ${n === 1 ? "was" : "were"} set aside: ${parts.join(", ")}.`;
   };
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
