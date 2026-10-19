@@ -18,6 +18,7 @@ import {
   ChevronRight,
   MapPin,
   Mail,
+  Plus,
   Phone,
   RotateCcw,
   Search,
@@ -33,9 +34,8 @@ import {
   normalizeLinkedInUrl,
   toTitleCase,
 } from "@/components/search/candidate-ui";
-import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { FitPill } from "@/components/search/FitPill";
-import { EngineDetails } from "@/components/search/EngineDetails";
+import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
 import { ResultsTable, type CriterionCheck, type TableSort } from "@/components/search/ResultsTable";
 import type { RankingCriterion, RequiredCriterion } from "@/lib/ranking";
@@ -188,6 +188,8 @@ interface SearchResultsProps {
   criterionChecks?: Record<string, CriterionCheck>;
   onRetryCriterion?: (id: string) => void;
   onReview?: (c?: Candidate) => void;
+  /** Opens the ranking pop-up. */
+  onAddCriteria?: () => void;
 }
 
 export type ResultsView = "table" | "list";
@@ -217,24 +219,22 @@ function MiddleColumn({
   return (
     <div className="min-w-0 space-y-0.5">
       {titleDisplay && (
-        <p className="truncate text-sm font-medium text-foreground/85">{titleDisplay}</p>
+        <p className="truncate text-[15px] font-medium text-foreground">{titleDisplay}</p>
       )}
-      <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
         {orgDisplay && (
           <span className="inline-flex min-w-0 items-center gap-1.5">
-            {(candidate.company_logo_url || candidate.company_domain) && (
-              <OrgLogo
-                name={orgDisplay}
-                src={candidate.company_logo_url}
-                fallbackSrc={faviconUrl(candidate.company_domain)}
-                className="h-4 w-4 rounded-sm"
-                textClassName="text-[8px]"
-              />
-            )}
+            <OrgLogo
+              name={orgDisplay}
+              src={candidate.company_logo_url}
+              fallbackSrc={faviconUrl(candidate.company_domain)}
+              className="h-5 w-5 rounded"
+              textClassName="text-[8px]"
+            />
             <span
               className={cn(
                 "truncate",
-                suppressCompany ? "text-muted-foreground/70" : "text-muted-foreground",
+                suppressCompany ? "text-foreground/60" : "text-foreground/80",
               )}
             >
               {orgDisplay}
@@ -245,14 +245,14 @@ function MiddleColumn({
           <span className="text-muted-foreground/50">·</span>
         )}
         {locDisplay && (
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <MapPin className="h-3 w-3" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1 text-foreground/80">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             {locDisplay}
           </span>
         )}
         {candidate.military_affiliation && (
           <span
-            className="rounded-full border border-ui-border-light px-1.5 py-px text-[10px] font-medium text-muted-foreground"
+            className="rounded-full border border-border px-2 py-0.5 text-[12px] font-medium text-foreground/80"
             title={candidate.military_affiliation === "active"
               ? "Only military employers listed"
               : candidate.military_affiliation === "veteran"
@@ -268,7 +268,7 @@ function MiddleColumn({
         )}
       </div>
       {candidate.location_note && (
-        <p className="text-[11px] text-amber-700 dark:text-amber-400">{candidate.location_note}</p>
+        <p className="text-[13px] text-amber-700 dark:text-amber-400">{candidate.location_note}</p>
       )}
     </div>
   );
@@ -405,7 +405,7 @@ function CandidateRow({
     <div
       ref={rowRef}
       className={cn(
-        "group cursor-pointer border-b border-border/40 bg-card px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/40",
+        "group cursor-pointer border-b border-border/60 bg-card px-5 py-4 transition-colors last:border-b-0 hover:bg-muted/40",
         isSelected && "bg-primary/5",
       )}
       onClick={onOpenCandidate}
@@ -419,14 +419,8 @@ function CandidateRow({
       }}
     >
       <div className="flex items-start gap-3">
-        {/* Checkbox — visible on hover or when something is selected */}
-        <div
-          className={cn(
-            "pt-1 transition-opacity",
-            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-          )}
-          onClick={(event) => event.stopPropagation()}
-        >
+        {/* Checkbox, always visible */}
+        <div className="pt-3" onClick={(event) => event.stopPropagation()}>
           <Checkbox
             checked={isSelected}
             onCheckedChange={onToggleSelect}
@@ -440,10 +434,10 @@ function CandidateRow({
           {/* Identity (headshot + name + linkedin) — col 1-3 */}
           <div className="lg:col-span-3 min-w-0">
             <div className="flex items-center gap-2.5">
-              <PersonAvatar name={displayName} src={candidate.profile_pic_url} className="h-9 w-9" />
+              <PersonAvatar name={displayName} src={candidate.profile_pic_url} className="h-11 w-11" />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="truncate text-[15px] font-semibold text-foreground">{displayName}</h3>
+                  <h3 className="truncate text-[16px] font-semibold text-foreground">{displayName}</h3>
                   {candidate.linkedin_url && (
                     <a
                       href={normalizeLinkedInUrl(candidate.linkedin_url) ?? "#"}
@@ -451,14 +445,14 @@ function CandidateRow({
                       rel="noopener noreferrer"
                       className="shrink-0 text-linkedin-foreground hover:opacity-80"
                       onClick={(event) => event.stopPropagation()}
-                      aria-label={`Open ${displayName} on LinkedIn`}
+                      aria-label={`Open ${displayName} profile`}
                     >
-                      <LinkedInMark className="h-3.5 w-3.5" />
+                      <LinkedInMark className="h-4 w-4" />
                     </a>
                   )}
                 </div>
                 {candidate.years_experience ? (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-[14px] text-foreground/70">
                     {candidate.years_experience}y experience
                   </p>
                 ) : null}
@@ -489,22 +483,17 @@ function CandidateRow({
               </span>
             )}
           </div>
-
-          {/* Engine reasons, evidence and tags (spec 9.3) */}
-          <div className="min-w-0 lg:col-span-9 lg:col-start-4">
-            <EngineDetails candidate={candidate} />
-          </div>
         </div>
       </div>
 
       {/* AI snapshot — one-sentence recruiter take, lazily generated when row enters viewport */}
       {(snapshot || snapshotLoading) && (
-        <div className="mt-2 ml-[3.25rem] flex items-start gap-1.5 pr-2">
-          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
+        <div className="mt-2.5 ml-[4.25rem] flex items-start gap-2 pr-2">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
           {snapshotLoading && !snapshot ? (
-            <span className="inline-block h-3 w-2/3 max-w-[28rem] animate-pulse rounded bg-muted/40" />
+            <span className="inline-block h-3.5 w-2/3 max-w-[28rem] animate-pulse rounded bg-muted/50" />
           ) : (
-            <p className="text-[12.5px] leading-snug text-muted-foreground/90 italic line-clamp-2">
+            <p className="text-[14px] leading-snug text-foreground/75 italic line-clamp-2">
               {snapshot}
             </p>
           )}
@@ -555,6 +544,7 @@ export function SearchResults({
   criterionChecks,
   onRetryCriterion,
   onReview,
+  onAddCriteria,
 }: SearchResultsProps) {
   const [queryDraft, setQueryDraft] = useState(query);
   // Pages must follow the profiles we can actually show, not the provider's
@@ -723,6 +713,11 @@ export function SearchResults({
 
 
         <div className="flex flex-wrap items-center gap-2">
+          {onAddCriteria && (
+            <Button size="sm" variant="outline" onClick={onAddCriteria} className="h-9 gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Criteria
+            </Button>
+          )}
           {onReview && (
             <Button size="sm" onClick={() => onReview()} className="h-9">Review</Button>
           )}
@@ -795,9 +790,10 @@ export function SearchResults({
           checks={criterionChecks}
           onRetry={onRetryCriterion}
           onReview={onReview ? (c) => onReview(c) : undefined}
+          onAddCriteria={onAddCriteria}
         />
       ) : (
-      <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         {candidates.map((candidate) => (
           <CandidateRow
             key={candidate.id}
