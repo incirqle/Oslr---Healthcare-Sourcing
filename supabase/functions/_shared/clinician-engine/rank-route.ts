@@ -16,7 +16,7 @@ export async function sha1Hex(s: string): Promise<string> {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const cacheGet = async (key: string) => (await getCrustDataCache(key, SEARCH_TTL_MS))?.profiles?.[0] ?? null;
+const cacheGet = async (key: string) => (await getCrustDataCache(key))?.profiles?.[0] ?? null;
 const cacheSet = (key: string, value: unknown) => setCrustDataCache(key, 1, [value], null);
 const log = (e: Record<string, unknown>) => console.log(JSON.stringify(e));
 
@@ -30,7 +30,7 @@ export async function saveRunSnapshot(runId: string, snap: RunSnapshot): Promise
 }
 
 async function loadRunSnapshot(runId: string, userId: string): Promise<RunSnapshot | null> {
-  const hit = await getCrustDataCache(runCacheKey(runId), SEARCH_TTL_MS);
+  const hit = await getCrustDataCache(runCacheKey(runId));
   const head = hit?.profiles?.[0]?.meta;
   if (!head || head.user_id !== userId) return null;
   return { user_id: head.user_id, query: head.query, criteria: head.criteria ?? [], rows: hit!.profiles.slice(1) };

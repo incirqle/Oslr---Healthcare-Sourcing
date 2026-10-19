@@ -15,6 +15,8 @@ import "./lib/crustdata-killswitch.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 export const SEARCH_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+/** How long finished search results (and run snapshots) are reused: 30 days. */
+export const RESULTS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const ENRICHMENT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function getServiceClient() {
@@ -117,7 +119,7 @@ export const CACHE_CHUNK_ROWS = 50;
 
 export async function getCrustDataCache(
   cacheKey: string,
-  ttlMs: number = SEARCH_TTL_MS,
+  ttlMs: number = RESULTS_TTL_MS,
 ): Promise<CrustDataSearchResult | null> {
   const sb = getServiceClient();
   const { data, error } = await sb

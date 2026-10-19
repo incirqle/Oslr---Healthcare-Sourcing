@@ -12,7 +12,7 @@ export const METER = {
   refillMs: 20_000,
   hourly: 60,
   daily: 150,
-  repeatWindowMs: 4 * 60 * 60 * 1000,
+  repeatWindowMs: 30 * 24 * 60 * 60 * 1000,
   sweepSize: 20,
   sweepPauseMs: 10 * 60 * 1000,
 };
