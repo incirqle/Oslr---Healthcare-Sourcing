@@ -23,6 +23,8 @@ export interface SearchAnalytics {
   };
   coverage: { id: string; title: string; must_have: boolean; counts: Record<CriterionVerdict, number> }[];
   match: { bucket: string; count: number }[] | null;
+  /** "criteria" when the buckets use the match against the user's ranking, "fit" when they use the overall fit score. */
+  match_basis: "criteria" | "fit" | null;
   employer: { private_practice: number; hospital_employed: number; unknown: number };
   subspecialty: { label: string; rule: number; grader: number; none: number } | null;
   years: { bucket: string; count: number }[];
@@ -34,6 +36,17 @@ export interface SearchAnalytics {
 
 const TRAINING_TITLE = /\b(resident|residency|fellow|fellowship|intern|internship|student|trainee|pgy)\b/i;
 const TRAINING_DEGREE = /fellow|residen/i;
+/** A training role, not an honorary title such as "Fellow, AAOS". */
+const TRAINING_ROLE = /\b(resident|residency|fellow|fellowship)\b/i;
+/** Professional bodies list members as "Fellow"; they are not training programs. */
+const NOT_A_PROGRAM = /\b(academy|association|society|board of|college of surgeons|college of physicians)\b/i;
+const US_STATES = new Set([
+  "alabama","alaska","arizona","arkansas","california","colorado","connecticut","delaware","florida","georgia","hawaii","idaho",
+  "illinois","indiana","iowa","kansas","kentucky","louisiana","maine","maryland","massachusetts","michigan","minnesota","mississippi",
+  "missouri","montana","nebraska","nevada","new hampshire","new jersey","new mexico","new york","north carolina","north dakota","ohio",
+  "oklahoma","oregon","pennsylvania","rhode island","south carolina","south dakota","tennessee","texas","utah","vermont","virginia",
+  "washington","west virginia","wisconsin","wyoming","district of columbia","united states",
+]);
 
 const raw = (c: Candidate): Row => (c.raw ?? {}) as Row;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -49,7 +62,10 @@ export function yearsInPractice(c: Candidate, now = Date.now()): number | null {
     .filter((e) => e && !TRAINING_TITLE.test(str(e.title)))
     .map((e) => Date.parse(str(e.start_date)))
     .filter((t) => Number.isFinite(t));
-  if (starts.length === 0) return null;
+  if (starts.length === 0) {
+    // No dated roles: use the years of experience the profile carries.
+    return typeof c.years_experience === "number" && c.years_experience > 0 ? c.years_experience : null;
+  }
   return (now - Math.min(...starts)) / (365.25 * 86_400_000);
 }
 
@@ -89,18 +105,26 @@ export function buildSearchAnalytics(
     return { id: rc.id, title: rc.title, must_have: rc.must_have, counts };
   });
 
-  // Match distribution
-  const match = scored.length === 0 ? null : [
-    { bucket: "0-24", count: 0 }, { bucket: "25-49", count: 0 }, { bucket: "50-74", count: 0 }, { bucket: "75-100", count: 0 },
+  // Match distribution: the ranking match when there is a ranking, otherwise
+  // the 0-100 fit score every reviewed profile already carries.
+  const scoreOf = (c: Candidate): number | null =>
+    scored.length > 0 ? (c.match_rate ?? 0) : typeof c.audit_score === "number" ? c.audit_score : null;
+  const buckets = [
+    { bucket: "0-24%", count: 0 }, { bucket: "25-49%", count: 0 }, { bucket: "50-74%", count: 0 }, { bucket: "75-100%", count: 0 },
   ];
-  if (match) for (const c of results) {
-    const m = c.match_rate ?? 0;
-    match[m >= 75 ? 3 : m >= 50 ? 2 : m >= 25 ? 1 : 0].count++;
+  let scoredRows = 0;
+  for (const c of results) {
+    const m = scoreOf(c);
+    if (m === null) continue;
+    scoredRows++;
+    buckets[m >= 75 ? 3 : m >= 50 ? 2 : m >= 25 ? 1 : 0].count++;
   }
+  const match = scoredRows > 0 ? buckets : null;
+  const match_basis: SearchAnalytics["match_basis"] = scoredRows === 0 ? null : scored.length > 0 ? "criteria" : "fit";
 
-  // Employer type, kept + hidden
+  // Employer type, candidates in results
   const employer = { private_practice: 0, hospital_employed: 0, unknown: 0 };
-  for (const c of all) {
+  for (const c of results) {
     if (c.employment_model === "private_practice") employer.private_practice++;
     else if (c.employment_model === "hospital_employed") employer.hospital_employed++;
     else employer.unknown++;
@@ -129,11 +153,13 @@ export function buildSearchAnalytics(
     years[y >= 20 ? 3 : y >= 10 ? 2 : y >= 5 ? 1 : 0].count++;
   }
 
-  // Where they are
+  // Where they are: cities only. A profile that lists just a state is skipped.
   const cityCounts = new Map<string, number>();
   for (const c of results) {
     const city = str(raw(c).location_locality) || str(c.location?.split(",")[0]);
-    if (city) cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
+    const region = str(raw(c).location_region);
+    if (!city || US_STATES.has(city.toLowerCase()) || (region && city.toLowerCase() === region.toLowerCase())) continue;
+    cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
   }
 
   // Training programs: education with fellow/residen in degree or major, or a fellow/resident role
@@ -142,10 +168,11 @@ export function buildSearchAnalytics(
     const names = new Set<string>();
     for (const e of (Array.isArray(raw(c).education) ? raw(c).education : []) as Row[]) {
       const text = [...(e?.degrees ?? []), ...(e?.majors ?? [])].join(" ");
-      if (TRAINING_DEGREE.test(text) && str(e.school_name)) names.add(str(e.school_name));
+      if (TRAINING_DEGREE.test(text) && str(e.school_name) && !NOT_A_PROGRAM.test(str(e.school_name))) names.add(str(e.school_name));
     }
     for (const e of (Array.isArray(raw(c).experience_history) ? raw(c).experience_history : []) as Row[]) {
-      if (TRAINING_DEGREE.test(str(e?.title)) && str(e.company_name)) names.add(str(e.company_name));
+      const org = str(e?.name) || str(e?.company_name);
+      if (TRAINING_ROLE.test(str(e?.title)) && org && !NOT_A_PROGRAM.test(org)) names.add(org);
     }
     for (const n of names) trainCounts.set(n, (trainCounts.get(n) ?? 0) + 1);
   }
@@ -158,6 +185,7 @@ export function buildSearchAnalytics(
     funnel,
     coverage,
     match,
+    match_basis,
     employer,
     subspecialty,
     years,

@@ -1,4 +1,5 @@
-import { Lock, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { ListOrdered, Lock, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ParsedFilters } from "./FilterReview";
@@ -37,7 +38,7 @@ function chipsFromFilters(f: ParsedFilters): { label: string; field: FilterField
   ];
 }
 
-const chip = "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs transition-colors";
+const chip = "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-left text-[13.5px] transition-colors";
 
 export function QueryReadback({
   query,
@@ -46,7 +47,8 @@ export function QueryReadback({
   ranking,
   cantCheck,
   keptCount,
-  setAsideCount,
+  suggestions = [],
+  onAddSuggestion,
   onOpenFilter,
   onOpenCriteria,
   onReset,
@@ -57,7 +59,8 @@ export function QueryReadback({
   ranking: RankingCriterion[];
   cantCheck: { id: string; label: string }[];
   keptCount: number;
-  setAsideCount: number;
+  suggestions?: string[];
+  onAddSuggestion?: (text: string) => void;
   onOpenFilter: (field?: FilterField) => void;
   onOpenCriteria: () => void;
   onReset?: () => void;
@@ -68,85 +71,83 @@ export function QueryReadback({
   const scored = scoredCriteria(ranking);
   const n = scored.length;
   const pos = new Map(scored.map((c, i) => [c.id, i]));
+  const taken = new Set(ranking.map((c) => c.text.toLowerCase().trim()));
+  const quickAdd = suggestions.filter((x) => !taken.has(x.toLowerCase().trim())).slice(0, 3);
 
   return (
-    <section className="space-y-2.5 rounded-xl border border-border/60 bg-card px-4 py-3.5" aria-label="What this search checked">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="min-w-0 text-sm text-foreground">{query}</p>
-        <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {keptCount.toLocaleString()} {keptCount === 1 ? "match" : "matches"} · {setAsideCount.toLocaleString()} set aside
-        </p>
-      </div>
+    <section className="overflow-hidden rounded-xl border border-border bg-card" aria-label="Your search">
+      <div className="space-y-3 px-5 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="min-w-0 text-[15px] font-medium text-foreground">{query}</p>
+          <p className="shrink-0 text-[14px] tabular-nums text-muted-foreground">
+            {keptCount.toLocaleString()} {keptCount === 1 ? "candidate" : "candidates"}
+          </p>
+        </div>
 
-      <TooltipProvider delayDuration={150}>
-        <div className="space-y-1.5">
-          <Row label="Required">
-            {requiredChips.length === 0 && <span className="text-xs text-muted-foreground">None</span>}
+        <TooltipProvider delayDuration={150}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13.5px] font-semibold text-foreground/70">Searching for</span>
             {requiredChips.map((c, i) => (
               <button key={`${c.field}-${c.label}-${i}`} type="button" onClick={() => onOpenFilter(c.field)}
                 className={cn(chip, "border-border bg-secondary text-foreground hover:bg-muted")}
-                aria-label={`Required: ${c.label}. Edit this filter`}>
+                aria-label={`${c.label}. Edit this filter`}>
                 {c.label}
               </button>
             ))}
-          </Row>
-
-          <Row label="Preferred">
-            {ranking.length === 0 && (
-              <button type="button" onClick={onOpenCriteria} className={cn(chip, "border-dashed border-border text-muted-foreground hover:text-foreground")}>
-                Add a criterion to rank by
+            {cantCheck.map((c) => (
+              <Tooltip key={c.id}>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className={cn(chip, "border-border/60 text-muted-foreground line-through")}>{c.label}</span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs">{CANT_CHECK_TIP}</TooltipContent>
+              </Tooltip>
+            ))}
+            <button type="button" onClick={() => onOpenFilter()} className={cn(chip, "border-border text-foreground/80 hover:bg-muted")}>
+              <SlidersHorizontal className="h-3.5 w-3.5" /> Edit filters
+            </button>
+            {onReset && (
+              <button type="button" onClick={onReset} className="ml-auto inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground hover:text-foreground">
+                <RotateCcw className="h-3.5 w-3.5" /> Reset search
               </button>
             )}
-            {ranking.map((c) => (
-              <button key={c.id} type="button" onClick={onOpenCriteria}
-                className={cn(chip, "border-primary/30 bg-primary/10 text-foreground hover:bg-primary/15")}
-                aria-label={`Preferred: ${c.title}. Open ranking criteria`}>
-                {c.must_have && <Lock className="h-3 w-3" aria-label="Must-have" />}
-                {c.title}
-                <span className="tabular-nums text-muted-foreground">
-                  {c.pending ? "(not checked yet)" : `(${weightPercent(pos.get(c.id)!, n)}%)`}
-                </span>
-              </button>
-            ))}
-          </Row>
+          </div>
+        </TooltipProvider>
+      </div>
 
-          {cantCheck.length > 0 && (
-            <Row label="Can't check">
-              {cantCheck.map((c) => (
-                <Tooltip key={c.id}>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0} className={cn(chip, "border-border/60 text-muted-foreground line-through")}>{c.label}</span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-xs">{CANT_CHECK_TIP}</TooltipContent>
-                </Tooltip>
-              ))}
-            </Row>
-          )}
-        </div>
-      </TooltipProvider>
+      <div className="flex flex-wrap items-center gap-2 border-t border-border bg-primary/[0.06] px-5 py-3.5">
+        <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-foreground">
+          <ListOrdered className="h-4 w-4 text-primary" aria-hidden="true" /> Ranked by
+        </span>
 
-      <div className="flex items-center gap-3 pt-0.5">
-        <button type="button" onClick={() => onOpenFilter()} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-          <SlidersHorizontal className="h-3 w-3" /> Edit filters
-        </button>
-        <button type="button" onClick={onOpenCriteria} className="text-xs font-medium text-primary hover:underline">
-          Ranking criteria
-        </button>
-        {onReset && (
-          <button type="button" onClick={onReset} className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <RotateCcw className="h-3 w-3" /> Reset search
-          </button>
+        {ranking.length === 0 && (
+          <Button size="sm" onClick={onOpenCriteria} className="h-9 gap-1.5"><Plus className="h-4 w-4" /> Add ranking criteria</Button>
         )}
+        {ranking.length === 0 && quickAdd.length > 0 && (
+          <span className="text-[14px] text-foreground/70">or start with:</span>
+        )}
+        {ranking.map((c, i) => (
+          <button key={c.id} type="button" onClick={onOpenCriteria}
+            className={cn(chip, "border-primary/40 bg-card text-foreground hover:bg-primary/10")}
+            aria-label={`${i + 1}. ${c.title}. Open ranking`}>
+            <span className="tabular-nums font-semibold text-foreground/60">{i + 1}</span>
+            {c.must_have && <Lock className="h-3.5 w-3.5" aria-label="Must-have" />}
+            {c.title}
+            <span className="tabular-nums text-muted-foreground">
+              {c.pending ? "checking" : `${weightPercent(pos.get(c.id)!, n)}%`}
+            </span>
+          </button>
+        ))}
+        {ranking.length === 0 && quickAdd.map((x) => (
+          <button key={x} type="button" onClick={() => onAddSuggestion?.(x)}
+            className={cn(chip, "border-dashed border-primary/50 bg-card text-foreground hover:bg-primary/10")}>
+            <Plus className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> {x}
+          </button>
+        ))}
+        {ranking.length > 0 && (
+          <Button size="sm" variant="outline" onClick={onOpenCriteria} className="h-9 bg-card">Edit ranking</Button>
+        )}
+
       </div>
     </section>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="w-[5.5rem] shrink-0 text-xs font-semibold text-muted-foreground">{label}:</span>
-      {children}
-    </div>
   );
 }

@@ -3,7 +3,7 @@ import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSe
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Lock, LockOpen, Plus, X } from "lucide-react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -76,78 +76,88 @@ export function CriteriaPanel({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[420px]">
-        <SheetHeader className="border-b border-border px-5 py-4 text-left">
-          <SheetTitle className="font-display text-lg">Ranking criteria</SheetTitle>
-          <SheetDescription>Drag to set importance. Weights update as you drag.</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[88vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
+        <DialogHeader className="border-b border-border px-6 py-5 text-left">
+          <DialogTitle className="font-display text-xl">Rank your results</DialogTitle>
+          <DialogDescription className="text-[14px]">
+            Tell Oslr what matters most. Drag to put the most important first; candidates who match the top items rise to the top.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">
-          {ranking.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-              No ranking criteria yet. Results keep the order the search found them in.
-            </p>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-              <SortableContext items={ranking.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                <ol className="space-y-2">
-                  {ranking.map((c, i) => (
-                    <CriterionRow
-                      key={c.id}
-                      c={c}
-                      index={i}
-                      weight={c.pending ? null : weightPercent(pos.get(c.id)!, scored.length)}
-                      onMove={(d) => move(i, i + d)}
-                      onEdit={(text) => onChange(ranking.map((x) => (x.id === c.id ? { ...x, text, title: shortTitle(text), pending: true } : x)))}
-                      onToggleMust={() => onChange(ranking.map((x) => (x.id === c.id ? { ...x, must_have: !x.must_have } : x)))}
-                      onRemove={() => onChange(reindex(ranking.filter((x) => x.id !== c.id)))}
-                    />
-                  ))}
-                </ol>
-              </SortableContext>
-            </DndContext>
-          )}
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:overflow-hidden">
+          <section className="space-y-3 px-6 py-5 md:overflow-y-auto md:border-r md:border-border" aria-label="Your ranking">
+            <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Your ranking</p>
+            {ranking.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border p-5 text-[14px] text-muted-foreground">
+                Nothing added yet. Pick a suggestion or type your own on the right.
+              </p>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                <SortableContext items={ranking.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                  <ol className="space-y-2">
+                    {ranking.map((c, i) => (
+                      <CriterionRow
+                        key={c.id}
+                        c={c}
+                        index={i}
+                        weight={c.pending ? null : weightPercent(pos.get(c.id)!, scored.length)}
+                        onMove={(d) => move(i, i + d)}
+                        onEdit={(text) => onChange(ranking.map((x) => (x.id === c.id ? { ...x, text, title: shortTitle(text), pending: true } : x)))}
+                        onToggleMust={() => onChange(ranking.map((x) => (x.id === c.id ? { ...x, must_have: !x.must_have } : x)))}
+                        onRemove={() => onChange(reindex(ranking.filter((x) => x.id !== c.id)))}
+                      />
+                    ))}
+                  </ol>
+                </SortableContext>
+              </DndContext>
+            )}
+          </section>
 
-          <div className="space-y-2">
-            <label htmlFor="add-criterion" className="text-sm font-semibold text-foreground">Add criterion</label>
-            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); add(draft, "user"); setDraft(""); }}>
-              <Input id="add-criterion" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={PLACEHOLDERS[ph]} className="h-9 text-sm" />
-              <Button type="submit" size="sm" variant="outline" className="h-9" disabled={!draft.trim()}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Add
-              </Button>
-            </form>
-          </div>
-
-          {openSuggestions.length > 0 && (
+          <section className="space-y-5 bg-muted/30 px-6 py-5 md:overflow-y-auto" aria-label="Add to your ranking">
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">Suggested for this search</p>
-              <ul className="flex flex-wrap gap-1.5">
-                {openSuggestions.map((s) => (
-                  <li key={s}>
-                    <button type="button" onClick={() => add(s, "suggested")}
-                      className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs text-foreground hover:bg-muted">
-                      <Plus className="h-3 w-3" aria-hidden="true" /> {s}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <label htmlFor="add-criterion" className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Add your own</label>
+              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); add(draft, "user"); setDraft(""); }}>
+                <Input id="add-criterion" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={PLACEHOLDERS[ph]} className="h-10 bg-card text-[14px]" />
+                <Button type="submit" variant="outline" className="h-10 bg-card" disabled={!draft.trim()}>
+                  <Plus className="mr-1 h-4 w-4" /> Add
+                </Button>
+              </form>
             </div>
-          )}
+
+            {openSuggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Suggested for this search</p>
+                <ul className="space-y-1.5">
+                  {openSuggestions.map((s) => (
+                    <li key={s}>
+                      <button type="button" onClick={() => add(s, "suggested")}
+                        className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left text-[14px] text-foreground transition-colors hover:border-primary/50 hover:bg-primary/5">
+                        <Plus className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" /> {s}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
         </div>
 
-        <div className="space-y-2 border-t border-border px-5 py-3">
-          {pendingCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {pendingCount} new or edited {pendingCount === 1 ? "criterion is" : "criteria are"} not checked yet and {pendingCount === 1 ? "does" : "do"} not count toward Match. Apply checks {pendingCount === 1 ? "it" : "them"} against these results at no credit cost.
-            </p>
-          )}
-          <Button className="w-full" disabled={checking} onClick={() => { if (pendingCount > 0) onApply?.(); onOpenChange(false); }}>
-            {checking ? "Checking..." : "Apply"}
-          </Button>
+        <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] text-muted-foreground">
+            {pendingCount > 0
+              ? `${pendingCount} new ${pendingCount === 1 ? "item" : "items"} will be checked against these candidates.`
+              : "Changes to the order apply right away."}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            <Button disabled={checking} onClick={() => { if (pendingCount > 0) onApply?.(); onOpenChange(false); }}>
+              {checking ? "Checking..." : "Rank results"}
+            </Button>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -182,7 +192,7 @@ function CriterionRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("flex items-start gap-2 rounded-lg border border-border bg-card px-2 py-2", isDragging && "relative z-10 opacity-90")}
+      className={cn("flex items-start gap-2 rounded-lg border border-border bg-card px-2.5 py-2.5", isDragging && "relative z-10 shadow-md")}
     >
       <button
         ref={handleRef}
@@ -198,7 +208,7 @@ function CriterionRow({
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <span className="mt-1 w-4 shrink-0 text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+      <span className="mt-1 w-5 shrink-0 text-[14px] font-semibold tabular-nums text-foreground/70">{index + 1}</span>
       <div className="min-w-0 flex-1">
         {editing ? (
           <Input
@@ -214,12 +224,12 @@ function CriterionRow({
             aria-label="Criterion text"
           />
         ) : (
-          <button type="button" onClick={() => setEditing(true)} className="w-full rounded text-left text-sm text-foreground hover:bg-muted/60" aria-label={`Edit ${c.text}`}>
+          <button type="button" onClick={() => setEditing(true)} className="w-full rounded text-left text-[14px] font-medium text-foreground hover:bg-muted/60" aria-label={`Edit ${c.text}`}>
             {c.text}
           </button>
         )}
-        <div className="mt-1 flex items-center gap-2 text-xs">
-          <span className="tabular-nums text-muted-foreground">{weight === null ? "Not checked yet" : `${weight}%`}</span>
+        <div className="mt-1.5 flex items-center gap-2 text-[13px]">
+          <span className="tabular-nums text-muted-foreground">{weight === null ? "Not checked yet" : `${weight}% of the score`}</span>
           <button
             type="button"
             onClick={onToggleMust}

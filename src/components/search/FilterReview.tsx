@@ -41,7 +41,6 @@ export function FilterReview({ query, filters, total, onEdit, onReset, onRunSear
         ranking={[]}
         cantCheck={[]}
         keptCount={total}
-        setAsideCount={0}
         onOpenFilter={onEdit}
         onOpenCriteria={onEdit}
         onReset={onReset}
