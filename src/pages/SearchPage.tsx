@@ -752,7 +752,11 @@ export default function SearchPage() {
                 ranking={ranking}
                 cantCheck={cantCheck}
                 keptCount={keptCount}
-                setAsideCount={setAsideRows.length}
+                suggestions={rankingSuggestions}
+                onAddSuggestion={(text) => {
+                  setRanking([...ranking, { id: newCriterionId(), text, title: shortTitle(text), position: ranking.length, must_have: false, origin: "suggested", pending: true }]);
+                  setCriteriaOpen(true);
+                }}
                 onOpenFilter={(field) => { setFilterFocus(field ?? null); setFilterEditorOpen(true); }}
                 onOpenCriteria={() => setCriteriaOpen(true)}
                 onReset={handleReset}
@@ -763,9 +767,9 @@ export default function SearchPage() {
             {/* Animated dot-network loader while results stream in */}
             {skeletonCount > 0 && <SearchNetworkLoader />}
 
-            {searchPhase === "done" && keptCount + setAsideRows.length > 0 && (
+            {searchPhase === "done" && keptCount > 0 && (
               <div className="flex items-center gap-1 overflow-x-auto border-b border-border/60" role="tablist" aria-label="Search views">
-                {(["results", "set_aside", "analytics"] as const).map((t) => (
+                {(["results", "analytics"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -777,22 +781,20 @@ export default function SearchPage() {
                       resultsTab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {t === "results" ? "Results" : t === "set_aside" ? "Set aside" : "Analytics"}
-                    {t !== "analytics" && (
-                      <> <span className="tabular-nums text-muted-foreground">{t === "results" ? keptCount : setAsideRows.length}</span></>
+                    {t === "results" ? "Results" : "Analytics"}
+                    {t === "results" && (
+                      <> <span className="tabular-nums text-muted-foreground">{keptCount}</span></>
                     )}
                   </button>
                 ))}
               </div>
             )}
 
-            {resultsTab === "set_aside" && searchPhase === "done" && setAsideRows.length > 0 && (
-              <SetAsideTab candidates={setAsideRows} onRestore={restoreCandidate} onOpenCandidate={setDrawerCandidate} />
-            )}
 
             {resultsTab === "analytics" && searchPhase === "done" && (
               <SearchAnalytics
                 data={analytics}
+                onAddCriteria={() => setCriteriaOpen(true)}
                 onFilter={(fl) => { setAnalyticsFilter(fl); setPage(1); setRevealedCount(Number.MAX_SAFE_INTEGER); setResultsTab("results"); }}
               />
             )}
@@ -801,7 +803,7 @@ export default function SearchPage() {
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm" role="status">
                 <span className="min-w-0">
                   Showing {displayRows.length} {displayRows.length === 1 ? "profile" : "profiles"}:{" "}
-                  <span className="font-medium">{analyticsFilter.kind === "set_aside" ? `Set aside, ${analyticsFilter.label}` : analyticsFilter.label}</span>
+                  <span className="font-medium">{analyticsFilter.label}</span>
                 </span>
                 <button type="button" onClick={() => { setAnalyticsFilter(null); setPage(1); }} className="font-medium text-primary hover:underline">Clear filter</button>
               </div>
@@ -839,6 +841,7 @@ export default function SearchPage() {
                 criterionChecks={checks}
                 onRetryCriterion={(id) => applyCriteria(id)}
                 onReview={(c) => { setReviewStartId(c?.id ?? displayRows[0]?.id ?? null); setReviewOpen(true); }}
+                onAddCriteria={() => setCriteriaOpen(true)}
                 hasMore={hasMore}
                 onPageChange={handlePageChange}
                 isSaving={addCandidates.isPending}
@@ -848,24 +851,9 @@ export default function SearchPage() {
               />
             )}
 
-            {resultsTab === "results" && searchPhase === "done" && setAsideRows.length > 0 && (
-              <div className="rounded-xl border border-border/50 bg-card/40 p-4 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {describeSetAside(
-                    setAsideRows.some((c) => c.set_aside_reason === "must_have")
-                      ? { ...(filteredBreakdown ?? {}), must_have: setAsideRows.filter((c) => c.set_aside_reason === "must_have").length }
-                      : filteredBreakdown,
-                    setAsideRows.length,
-                  )}
-                </p>
-                <button onClick={() => setResultsTab("set_aside")} className="text-sm font-medium text-primary hover:underline">
-                  See why
-                </button>
-              </div>
-            )}
 
             {/* Zero-result helper after stream completes */}
-            {searchPhase === "done" && keptCount === 0 && setAsideRows.length === 0 && (
+            {searchPhase === "done" && keptCount === 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   No matches. Open{" "}
@@ -908,7 +896,7 @@ export default function SearchPage() {
         onOpenChange={setCriteriaOpen}
         ranking={ranking}
         onChange={setRanking}
-        suggestions={serverSuggestions.length > 0 ? serverSuggestions : suggestionsFor(filters.role_class, filters.specialties)}
+        suggestions={rankingSuggestions}
         onApply={() => applyCriteria()}
         checking={Object.values(checks).some((c) => c.state === "checking")}
       />
