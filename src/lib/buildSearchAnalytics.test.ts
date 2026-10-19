@@ -13,7 +13,7 @@ const rc = (id: string, must_have = false): RankingCriterion => ({ id, text: id,
 const kept = [
   row("a", { match_rate: 90, employment_model: "private_practice", military_affiliation: "veteran",
     criteria_results: [res("sp", "met", { group: "required", source: "rule", evidence: "Joint reconstruction fellowship" }), res("x", "met"), res("y", "met")],
-    raw: { location_locality: "Nashville", experience_history: [{ title: "Orthopedic Surgeon", start_date: "2014-07-01" }, { title: "Fellow", company_name: "Rush", start_date: "2013-07-01" }], education: [] } }),
+    raw: { location_locality: "Nashville", experience_history: [{ title: "Orthopedic Surgeon", start_date: "2014-07-01" }, { title: "Fellow", name: "Rush", start_date: "2013-07-01" }], education: [] } }),
   row("b", { match_rate: 30, employment_model: "hospital_employed",
     criteria_results: [res("sp", "met", { group: "required", source: "rule", evidence: "Matched the search filter: Joint reconstruction" }), res("x", "partial"), res("y", "not_met")],
     raw: { location_locality: "Nashville", experience_history: [{ title: "Surgeon", start_date: "2024-01-01" }], education: [{ school_name: "Vanderbilt", degrees: ["Residency"] }] } }),
@@ -43,8 +43,24 @@ describe("buildSearchAnalytics (spec 9.7, 12)", () => {
     expect(buildSearchAnalytics(kept, hidden, required, []).match).toBeNull();
   });
 
-  it("employer type counts kept and hidden", () => {
-    expect(A.employer).toEqual({ private_practice: 1, hospital_employed: 1, unknown: 4 });
+  it("practice type counts candidates in results", () => {
+    expect(A.employer).toEqual({ private_practice: 1, hospital_employed: 1, unknown: 1 });
+  });
+
+  it("with no ranking, match buckets use the fit score", () => {
+    const fit = buildSearchAnalytics([row("f1", { audit_score: 92 }), row("f2", { audit_score: 40 }), row("f3")], [], required, []);
+    expect(fit.match_basis).toBe("fit");
+    expect(fit.match!.map((b) => b.count)).toEqual([0, 1, 0, 1]);
+  });
+
+  it("cities skip a state listed as the city", () => {
+    const C = buildSearchAnalytics([row("s1", { raw: { location_locality: "Texas" } }), row("s2", { raw: { location_locality: "Dallas", location_region: "Texas" } })], [], required, []);
+    expect(C.cities).toEqual([{ name: "Dallas", count: 1 }]);
+  });
+
+  it("training programs leave out professional bodies", () => {
+    const T = buildSearchAnalytics([row("t1", { raw: { education: [{ school_name: "American Academy of Orthopaedic Surgeons (AAOS)", degrees: ["Fellow"] }, { school_name: "Rush University Medical Center", degrees: ["Fellowship"] }] } })], [], required, []);
+    expect(T.training).toEqual([{ name: "Rush University Medical Center", count: 1 }]);
   });
 
   it("subspecialty evidence splits rule, grader and none; absent without a subspecialty ask", () => {
