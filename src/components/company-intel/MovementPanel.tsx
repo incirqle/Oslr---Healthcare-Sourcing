@@ -24,7 +24,7 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
     const deps = mv?.departures ?? null;
     const rows = Math.min(hires ?? 0, MOVEMENT_LIMIT) + Math.min(deps ?? 0, MOVEMENT_LIMIT);
     return (
-      <section className="rounded-lg border border-ui-border-medium bg-white dark:bg-background">
+      <section className="rounded-2xl border border-border/70 bg-card shadow-sm">
         <header className="border-b border-ui-border-light px-5 py-3.5">
           <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Who joined and who left</h3>
           <p className="text-[12.5px] text-ui-text-secondary">Last {mv?.window_months ?? 24} months. Promotions, side jobs and students are removed after the pull.</p>
@@ -113,7 +113,7 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
           )}
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-ui-border-medium bg-white dark:bg-background">
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
           <div className="flex border-b border-ui-border-light p-1.5">
             {(["joined", "left"] as const).map((d) => (
               <button
