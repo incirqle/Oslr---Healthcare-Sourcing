@@ -20,10 +20,10 @@ export function MatchChipsRow({ chips }: Props) {
           <Tooltip key={chip.id}>
             <TooltipTrigger asChild>
               <span
-                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
+                className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[13px] font-medium text-foreground/85"
                 aria-label={chip.reason}
               >
-                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                 {chip.label}
               </span>
             </TooltipTrigger>
