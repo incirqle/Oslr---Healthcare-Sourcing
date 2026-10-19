@@ -262,10 +262,14 @@ export default function SearchPage() {
   const [filterEditorOpen, setFilterEditorOpen] = useState(false);
   const [parsedPayload, setParsedPayload] = useState<Record<string, unknown> | null>(null);
   const [scrollToken, setScrollToken] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [geoScope, setGeoScope] = useState<Record<string, unknown> | null>(null);
   const [companyScope, setCompanyScope] = useState<Record<string, unknown> | null>(null);
   const [specialtyFunnel, setSpecialtyFunnel] = useState<Record<string, unknown> | null>(null);
   const [searchPhase, setSearchPhase] = useState<"idle" | "running" | "done" | "error">("idle");
+  useEffect(() => {
+    if (searchPhase === "done") { setDetailsOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  }, [searchPhase]);
   const [usage, setUsage] = useState<SearchUsage | null>(null);
   const burstRetryRef = useRef(0);
 
@@ -731,6 +735,20 @@ export default function SearchPage() {
                 paging may be wrong until the search functions are redeployed.
               </div>
             )}
+            {searchPhase === "done" && keptCount > 0 && (
+              <div className="sticky top-14 z-30 flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm backdrop-blur-xl">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold tracking-tight text-foreground">{keptCount} candidates</p>
+                  <p className="truncate text-[13px] text-muted-foreground">{query}</p>
+                </div>
+                <Button size="sm" variant="outline" className="h-8" onClick={handleEditQuery}>Edit search</Button>
+                <Button size="sm" variant="outline" className="h-8" onClick={() => setCriteriaOpen(true)}>Edit ranking</Button>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => setDetailsOpen((v) => !v)}>
+                  {detailsOpen ? "Hide details" : "Search details"}
+                </Button>
+              </div>
+            )}
+            {(searchPhase !== "done" || keptCount === 0 || detailsOpen) && (<>
             <AgentReasoningPanel
               query={query}
               lines={reasoningLines}
@@ -762,6 +780,7 @@ export default function SearchPage() {
                 onReset={handleReset}
               />
             )}
+            </>)}
 
 
             {/* Animated dot-network loader while results stream in */}

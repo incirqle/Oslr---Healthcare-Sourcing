@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 export const PAGE_SIZE = 50;
 const SPECIALTY_GROUPS: PullGroup[] = ["doctors", "trainees"];
 
-export function PeoplePanel({ s }: { s: CompanyBriefState }) {
-  const [picked, setPicked] = useState<PullGroup[]>([]);
+export function PeoplePanel({ s, initialPicked }: { s: CompanyBriefState; initialPicked?: PullGroup[] }) {
+  const [picked, setPicked] = useState<PullGroup[]>(initialPicked ?? []);
   const [spec, setSpec] = useState<Partial<Record<PullGroup, string>>>({});
 
   const rows = GROUP_ORDER.map((g) => {
@@ -40,7 +40,7 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-ui-border-medium bg-white dark:bg-background">
+      <section className="rounded-2xl border border-border/70 bg-card shadow-sm">
         <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ui-border-light px-5 py-3.5">
           <div>
             <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Who do you want to see?</h3>
@@ -50,7 +50,7 @@ export function PeoplePanel({ s }: { s: CompanyBriefState }) {
 
         <ul className="divide-y divide-ui-border-light">
           {rows.map((r) => (
-            <li key={r.g} className={cn("grid grid-cols-[24px_minmax(0,1fr)_64px_84px] items-center gap-x-3 px-5 py-3", r.pulled && "bg-ui-surface-subtle")}>
+            <li key={r.g} className={cn("grid grid-cols-[24px_minmax(0,1fr)_64px_84px] items-center gap-x-3 px-5 py-3.5", r.pulled && "bg-ui-surface-subtle")}>
               <span className="flex h-6 items-center">
                 {r.pulled ? (
                   <Check className="h-4 w-4 text-[#2F8F75]" aria-label="Pulled" />
@@ -207,7 +207,7 @@ function Results({ s }: { s: CompanyBriefState }) {
                 </h4>
                 {pg.pages.some((p) => p.cached) && <span className="text-[11.5px] text-ui-text-muted">Loaded from the shared cache</span>}
               </div>
-              <div className="overflow-hidden rounded-lg border border-ui-border-medium bg-white dark:bg-background">
+              <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
                 <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_104px_minmax(0,0.9fr)] gap-4 border-b border-ui-border-medium bg-ui-surface-subtle px-4 py-2 text-[11px] font-medium uppercase tracking-[0.04em] text-ui-text-muted md:grid">
                   <span>Person</span><span>Specialty and training</span><span>Here since</span><span>Works in</span>
                 </div>

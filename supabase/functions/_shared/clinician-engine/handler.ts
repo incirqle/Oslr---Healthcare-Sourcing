@@ -812,7 +812,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         criteria.some((c) => c.kind === "specialty" && c.enforcement === "hard")
       ) {
         const pastKey = cacheKey + ":pastrole";
-        const pastCached = bypassCache ? null : await getCrustDataCache(pastKey, SEARCH_TTL_MS);
+        const pastCached = bypassCache ? null : await getCrustDataCache(pastKey);
         if (pastCached && pastCached.profiles.length > 0) {
           normalized = pastCached.profiles;
           totalCount = normalized.length;
@@ -1157,7 +1157,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         type CachedAudit = { summary: Record<string, unknown>; rows: Array<Record<string, unknown> | null>; titles?: Record<string, string> };
         const graderTitles: Record<string, string> = {};
         const titleOpts = rankingCriteria.length > 0 ? { onRaw: (raw: unknown) => Object.assign(graderTitles, titlesFromRaw(raw)) } : {};
-        const cachedAuditRow = bypassCache ? null : await getCrustDataCache(auditKey, SEARCH_TTL_MS);
+        const cachedAuditRow = bypassCache ? null : await getCrustDataCache(auditKey);
         const cachedAudit = (cachedAuditRow?.profiles?.[0] ?? null) as CachedAudit | null;
         if (cachedAudit && Array.isArray(cachedAudit.rows) && cachedAudit.rows.length === allResults.length) {
           allResults.forEach((r: Record<string, unknown>, i: number) => Object.assign(r, cachedAudit.rows[i] ?? {}));
