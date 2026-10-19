@@ -267,6 +267,9 @@ export default function SearchPage() {
   const [companyScope, setCompanyScope] = useState<Record<string, unknown> | null>(null);
   const [specialtyFunnel, setSpecialtyFunnel] = useState<Record<string, unknown> | null>(null);
   const [searchPhase, setSearchPhase] = useState<"idle" | "running" | "done" | "error">("idle");
+  useEffect(() => {
+    if (searchPhase === "done") { setDetailsOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  }, [searchPhase]);
   const [usage, setUsage] = useState<SearchUsage | null>(null);
   const burstRetryRef = useRef(0);
 

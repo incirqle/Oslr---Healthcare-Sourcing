@@ -85,7 +85,7 @@ export function ResultsTable({
     move(ranking.findIndex((c) => c.id === e.active.id), ranking.findIndex((c) => c.id === e.over!.id));
   };
 
-  const th = "whitespace-nowrap border-b border-border bg-card px-4 py-3 text-left text-[13px] font-medium text-muted-foreground";
+  const th = "sticky top-0 z-10 whitespace-nowrap border-b border-border bg-card px-4 py-3 text-left text-[13px] font-medium text-muted-foreground";
   const td = "border-b border-border/60 px-4 py-3 align-middle text-[14px] text-foreground";
   const cellText = "block truncate";
 
@@ -94,14 +94,14 @@ export function ResultsTable({
       {/* DndContext wraps the whole table: rendered inside a <tr> its hidden
           announcer became an extra header cell and pushed Shortlist out of line. */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="max-h-[calc(100vh-14rem)] overflow-auto overscroll-contain rounded-xl border border-border bg-card [scrollbar-gutter:stable]">
           <table className="w-full min-w-max border-separate border-spacing-0">
             <thead>
               <tr>
-                <th className={cn(th, "sticky left-0 z-20 w-12 pr-0")}>
+                <th className={cn(th, "left-0 z-30 w-12 pr-0")}>
                   <Checkbox checked={allSelected} onCheckedChange={onToggleSelectAll} aria-label="Select all on this page" />
                 </th>
-                <th className={cn(th, "sticky left-12 z-20 min-w-[230px] border-r border-border")}>Name</th>
+                <th className={cn(th, "left-12 z-30 min-w-[230px] border-r border-border")}>Name</th>
                 {showMatch && (
                   <th className={th} aria-sort={sort?.key === "match" ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}>
                     <button
