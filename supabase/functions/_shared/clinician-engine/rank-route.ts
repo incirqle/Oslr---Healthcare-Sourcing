@@ -3,7 +3,7 @@
  * only crustdata_cache rows written by this engine (the run snapshot and
  * per-criterion answers); it never calls the people-data provider.
  */
-import { getCrustDataCache, setCrustDataCache, SEARCH_TTL_MS } from "./cache.ts";
+import { getCrustDataCache, setCrustDataCache } from "./cache.ts";
 import { callClaude, CLAUDE_OPUS, CLAUDE_SONNET } from "./ai-router.ts";
 import { explainCriteria, rankCriteria, rowIdOf, runCacheKey, suggestCriteria, type ExplainItem, type RunSnapshot } from "./rank-actions.ts";
 import type { RankingCriterion } from "./ranking-criteria.ts";
