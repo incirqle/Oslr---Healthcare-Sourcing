@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 export const PAGE_SIZE = 50;
 const SPECIALTY_GROUPS: PullGroup[] = ["doctors", "trainees"];
 
-export function PeoplePanel({ s }: { s: CompanyBriefState }) {
-  const [picked, setPicked] = useState<PullGroup[]>([]);
+export function PeoplePanel({ s, initialPicked }: { s: CompanyBriefState; initialPicked?: PullGroup[] }) {
+  const [picked, setPicked] = useState<PullGroup[]>(initialPicked ?? []);
   const [spec, setSpec] = useState<Partial<Record<PullGroup, string>>>({});
 
   const rows = GROUP_ORDER.map((g) => {
