@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
+import { canLookupContact, contactCharge } from "./contact-policy.ts";
 
 export const PRICES = { work_email: 2, personal_email: 3, phone: 5 } as const;
 export type ContactKind = keyof typeof PRICES;
@@ -44,6 +45,10 @@ export async function handleEnrichContact(
   const companyId = prof?.company_id as string | undefined;
   if (!companyId) return { status: 400, payload: { error: "No workspace found for this account." } };
 
+  const { data: pass } = await db.from("billing_exemptions").select("unlimited_access")
+    .eq("company_id", companyId).maybeSingle();
+  const unlimited = pass?.unlimited_access === true;
+
   const url = typeof body.linkedin_url === "string" ? body.linkedin_url.trim().toLowerCase().replace(/\/+$/, "") : "";
   if (!url || url.length > 500) return { status: 400, payload: { error: "A LinkedIn URL is required." } };
   const requested = (Array.isArray(body.kinds) ? body.kinds : []).filter((k): k is ContactKind =>
@@ -67,13 +72,14 @@ export async function handleEnrichContact(
     contact: stored,
     checked,
     balance,
+    unlimited,
     prices: PRICES,
   });
 
   if (!toFetch.length) return { status: 200, payload: { ...summary(), charged: 0 } };
 
   const maxCost = toFetch.reduce((s, k) => s + PRICES[k], 0);
-  if (balance < maxCost) {
+  if (!canLookupContact(unlimited, balance, maxCost)) {
     return { status: 402, payload: { ...summary(), error: "insufficient_credits", needed: maxCost } };
   }
 
@@ -99,7 +105,7 @@ export async function handleEnrichContact(
     }
   }
 
-  const charge = found.reduce((s, k) => s + PRICES[k], 0);
+  const charge = contactCharge(unlimited, found.map((k) => PRICES[k]));
   if (charge > 0) {
     const { data: newBal, error } = await db.rpc("spend_credits", { _company_id: companyId, _amount: charge });
     if (error) return { status: 402, payload: { ...summary(), error: "insufficient_credits", needed: charge } };

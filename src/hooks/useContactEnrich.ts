@@ -9,6 +9,7 @@ export interface ContactState {
   contact: { work_email?: string | null; personal_emails?: string[]; phone_numbers?: string[] };
   checked: Partial<Record<ContactKind, string>>;
   balance: number | null;
+  unlimited?: boolean;
 }
 
 const EMPTY: ContactState = { contact: {}, checked: {}, balance: null };
@@ -37,7 +38,7 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     if (!linkedinUrl) return;
     let cancelled = false;
     enrichContact(linkedinUrl, [])
-      .then((r) => { if (!cancelled && r && !r.error) setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null }); })
+      .then((r) => { if (!cancelled && r && !r.error) setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null, unlimited: r.unlimited === true }); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [linkedinUrl]);
@@ -47,13 +48,13 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     setBusy(true);
     try {
       const r = await enrichContact(linkedinUrl, kinds, candidateName);
-      setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null });
+      setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null, unlimited: r.unlimited === true });
       if (r.error === "insufficient_credits") {
         toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);
       } else if (r.error) {
         toast.error(r.error);
       } else if (r.found?.length) {
-        toast.success(`Contact info found · ${r.charged} credits used`);
+        toast.success(r.unlimited ? "Contact info found" : `Contact info found · ${r.charged} credits used`);
         if (savedContactId) {
           const email = r.contact.work_email || r.contact.personal_emails?.[0] || null;
           const phone = r.contact.phone_numbers?.[0] || null;
