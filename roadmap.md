@@ -1,3 +1,3 @@
-- [ ] Activate Jeff's permanent unlimited workspace pass.
-- [ ] Implement and verify unlimited contact access without changing ordinary workspaces.
+- [x] Activate Jeff's permanent unlimited workspace pass.
+- [x] Implement and verify unlimited contact access without changing ordinary workspaces (three tests passed; Jeff's authenticated Settings and deployed contact access verified).
 - [ ] Stop any existing Stripe subscription (blocked: Stripe lookup declined).
