@@ -64,11 +64,11 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
       <header className="flex items-end justify-between px-1">
         <div>
           <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ui-text-primary">Contact</h3>
-          <p className="text-[13px] text-ui-text-muted">Charged only when we find it. Saved forever.</p>
+          <p className="text-[13px] text-ui-text-muted">{state.unlimited ? "Included in your unlimited pass. Saved forever." : "Charged only when we find it. Saved forever."}</p>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[12px] font-medium tabular-nums text-primary">
           <Zap className="h-3 w-3" />
-          {state.balance ?? "-"} credits
+          {state.unlimited ? "Unlimited" : `${state.balance ?? "-"} credits`}
         </span>
       </header>
 
@@ -105,7 +105,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
                     {r.kind === "phone" ? "No phone number was found" : "No email was found"} · you will not be charged
                   </p>
                 ) : (
-                  <p className="text-[14px] text-ui-text-tertiary">{CONTACT_PRICES[r.kind as ContactKind]} credits if found</p>
+                  <p className="text-[14px] text-ui-text-tertiary">{state.unlimited ? "Included" : `${CONTACT_PRICES[r.kind as ContactKind]} credits if found`}</p>
                 )}
               </div>
 
@@ -156,7 +156,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
           ) : maxCost === 0 ? (
             "Choose what to find"
           ) : (
-            `Find ${chosen.length === 1 ? OPTIONS.find((o) => o.kind === chosen[0])!.label.toLowerCase() : `${chosen.length} items`} · up to ${maxCost} credits`
+            `Find ${chosen.length === 1 ? OPTIONS.find((o) => o.kind === chosen[0])?.label.toLowerCase() : `${chosen.length} items`}${state.unlimited ? "" : ` · up to ${maxCost} credits`}`
           )}
         </button>
       )}

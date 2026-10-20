@@ -1,0 +1,2 @@
+ALTER TABLE public.billing_exemptions ADD COLUMN unlimited_access boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.billing_exemptions.unlimited_access IS 'Owner-approved permanent unlimited contact access; existing exemptions remain credit-metered.';

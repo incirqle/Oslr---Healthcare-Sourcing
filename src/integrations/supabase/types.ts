@@ -263,16 +263,19 @@ export type Database = {
           company_id: string
           created_at: string
           note: string | null
+          unlimited_access: boolean
         }
         Insert: {
           company_id: string
           created_at?: string
           note?: string | null
+          unlimited_access?: boolean
         }
         Update: {
           company_id?: string
           created_at?: string
           note?: string | null
+          unlimited_access?: boolean
         }
         Relationships: [
           {

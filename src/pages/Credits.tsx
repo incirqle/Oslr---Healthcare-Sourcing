@@ -25,10 +25,11 @@ export function CreditsPanel() {
   const [plan, setPlan] = useState<{ subscribed: boolean; renews_at: string | null; cancel_at_period_end: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [exempt, setExempt] = useState(false);
+  const [unlimited, setUnlimited] = useState(false);
   useEffect(() => {
     if (!companyId) return;
-    supabase.from("billing_exemptions" as never).select("company_id").eq("company_id", companyId).maybeSingle()
-      .then(({ data }) => setExempt(!!data));
+    supabase.from("billing_exemptions").select("company_id, unlimited_access").eq("company_id", companyId).maybeSingle()
+      .then(({ data }) => { setExempt(!!data); setUnlimited(data?.unlimited_access === true); });
   }, [companyId]);
 
   useEffect(() => {
@@ -66,22 +67,24 @@ export function CreditsPanel() {
             <div>
               <p className="text-sm text-muted-foreground">Available credits</p>
               <p className="mt-1 flex items-center gap-2 text-3xl font-semibold">
-                <Zap className="h-6 w-6 text-primary" />{balance ?? "-"}
+                 <Zap className="h-6 w-6 text-primary" />{unlimited ? "Unlimited" : balance ?? "-"}
               </p>
             </div>
             <div className="text-right text-sm text-muted-foreground">
-              <p>Starter plan · 150 credits a month</p>
-              <p>Work email 2 · Personal email 3 · Phone 5</p>
-              <p>Only charged when something is found</p>
+               {unlimited ? <p>Contact lookups included · no expiry</p> : <>
+                 <p>Starter plan · 150 credits a month</p>
+                 <p>Work email 2 · Personal email 3 · Phone 5</p>
+                 <p>Only charged when something is found</p>
+               </>}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div>
-              <p className="text-base font-semibold">Starter plan · $115 a month</p>
+               <p className="text-base font-semibold">{unlimited ? "Unlimited pass · free" : "Starter plan · $115 a month"}</p>
               <p className="text-sm text-muted-foreground">
-                {plan === null ? "Checking your plan…"
+                 {unlimited ? "Permanent approved access, no payment needed" : plan === null ? "Checking your plan…"
                   : plan.subscribed
                     ? plan.cancel_at_period_end
                       ? `Ends ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : "soon"}`

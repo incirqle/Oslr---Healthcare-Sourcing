@@ -1,0 +1,3 @@
+- [ ] Activate Jeff's permanent unlimited workspace pass.
+- [ ] Implement and verify unlimited contact access without changing ordinary workspaces.
+- [ ] Stop any existing Stripe subscription (blocked: Stripe lookup declined).
