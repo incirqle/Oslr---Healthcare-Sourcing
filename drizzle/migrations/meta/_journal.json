@@ -15,6 +15,13 @@
       "when": 1791908074379,
       "tag": "0001_beta_pass",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792534656337,
+      "tag": "0002_unlimited_workspace_pass",
+      "breakpoints": true
     }
   ]
 }
