@@ -118,8 +118,8 @@ Deno.serve(async (req) => {
     if (action === "decide") {
       const decision = body.decision === "approved" ? "approved" : body.decision === "passed" ? "passed" : null;
       if (!decision) return json({ error: "Pick approve or pass." }, 400);
-      const allowed = new Set([...APPROVE_TAGS, ...PASS_TAGS].map((t) => t.id));
-      const tags = (Array.isArray(body.tags) ? body.tags : []).filter((t: unknown) => typeof t === "string" && allowed.has(t)).slice(0, 8);
+      const allowed = new Set<string>([...APPROVE_TAGS, ...PASS_TAGS].map((t) => t.id as string));
+      const tags: string[] = (Array.isArray(body.tags) ? body.tags : []).filter((t: unknown): t is string => typeof t === "string" && allowed.has(t)).slice(0, 8);
       const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) || null : null;
       const skipCity = typeof body.skip_city === "string" ? body.skip_city.trim().slice(0, 80) || null : null;
       const { data: row } = await admin.from("clin_agent_pool").select("*").eq("id", body.pool_id).eq("agent_id", agent.id).maybeSingle();
