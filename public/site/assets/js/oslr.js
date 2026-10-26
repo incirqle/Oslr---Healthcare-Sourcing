@@ -332,7 +332,7 @@
     var sw = $("#tl-focus");
     var setFocus = function (on) { tl.classList.toggle("focus", on); if (sw) sw.checked = on; var c = $(".tl__count"); if (c) c.textContent = on ? c.getAttribute("data-on") : c.getAttribute("data-off"); };
     if (sw) sw.addEventListener("change", function () { setFocus(sw.checked); });
-    if (belowFold(tl) && !reduce()) {
+    if (belowFold(tl) && !reduce() && !matchMedia("(max-width: 760px)").matches) {
       tl.classList.add("pre");
       setFocus(false);
       onView(tl, function () {
