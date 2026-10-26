@@ -1876,7 +1876,7 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
   .board .col { scroll-snap-align: start; }
   .col__h { gap: 6px; }
   .export .ub { white-space: nowrap; flex: none; }
-  .ig-hub { aspect-ratio: 1 / 1; }
+  .ig-hub, .ig-hub--home { aspect-ratio: 1 / 1 !important; }
   .ag-card { grid-template-columns: auto minmax(0, 1fr); }
   .ag-card > .ag-act { grid-column: 2; }
 }
