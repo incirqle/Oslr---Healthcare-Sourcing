@@ -22,8 +22,11 @@ export function CreditsPanel() {
   const { companyId } = useCompany();
   const balance = useCreditBalance(companyId);
   const [rows, setRows] = useState<Tx[]>([]);
-  const [plan, setPlan] = useState<{ subscribed: boolean; renews_at: string | null; cancel_at_period_end: boolean } | null>(null);
+  const [plan, setPlan] = useState<{ subscribed: boolean; plan?: "starter" | "pro" | null; interval?: "month" | "year" | null; renews_at: string | null; cancel_at_period_end: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pick, setPick] = useState<"starter" | "pro">("starter");
+  const [yearly, setYearly] = useState(false);
+  const planName = plan?.plan === "pro" ? "Pro" : "Starter";
   const [exempt, setExempt] = useState(false);
   const [unlimited, setUnlimited] = useState(false);
   useEffect(() => {
@@ -46,7 +49,7 @@ export function CreditsPanel() {
 
   const go = async (action: "checkout" | "portal") => {
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke("billing", { body: { action, origin: window.location.origin } });
+    const { data, error } = await supabase.functions.invoke("billing", { body: { action, origin: window.location.origin, plan: pick, interval: yearly ? "year" : "month" } });
     setBusy(false);
     if (error || !data?.url) return toast.error(data?.error || "Billing is unavailable right now.");
     window.location.href = data.url;
@@ -72,8 +75,8 @@ export function CreditsPanel() {
             </div>
             <div className="text-right text-sm text-muted-foreground">
                {unlimited ? <p>Contact lookups included · no expiry</p> : <>
-                 <p>Starter plan · 150 credits a month</p>
-                 <p>Work email 2 · Personal email 3 · Phone 5</p>
+                 <p>{planName} plan · {plan?.plan === "pro" ? 500 : 150} credits a month</p>
+                 <p>{plan?.plan === "pro" ? "Work email 1 · Personal email 2 · Phone 3" : "Work email 2 · Personal email 3 · Phone 3"}</p>
                  <p>Only charged when something is found</p>
                </>}
             </div>
@@ -82,7 +85,9 @@ export function CreditsPanel() {
         <Card>
           <CardContent className="flex items-center justify-between p-6">
             <div>
-               <p className="text-base font-semibold">{unlimited ? "Unlimited pass · free" : "Starter plan · $115 a month"}</p>
+               <p className="text-base font-semibold">{unlimited ? "Unlimited pass · free" : plan?.subscribed
+                 ? `${planName} plan · ${plan.interval === "year" ? (plan.plan === "pro" ? "$2,336 a year" : "$1,316 a year") : (plan.plan === "pro" ? "$229 a month" : "$129 a month")}`
+                 : "Choose a plan"}</p>
               <p className="text-sm text-muted-foreground">
                  {unlimited ? "Permanent approved access, no payment needed" : plan === null ? "Checking your plan…"
                   : plan.subscribed
@@ -90,7 +95,7 @@ export function CreditsPanel() {
                       ? `Ends ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : "soon"}`
                       : `Active · renews ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : ""}`
                     : exempt ? "Approved access, no payment needed"
-                    : "150 contact credits every month"}
+                    : "Starter: 150 credits a month. Pro: 500 credits a month, Agents and up to 5 seats."}
               </p>
             </div>
             {plan?.subscribed ? (
@@ -98,9 +103,24 @@ export function CreditsPanel() {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Manage billing"}
               </Button>
             ) : exempt ? null : (
-              <Button disabled={busy || plan === null} onClick={() => go("checkout")}>
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Subscribe"}
-              </Button>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex gap-1 rounded-md border border-border p-1 text-sm">
+                  {(["starter", "pro"] as const).map((p) => (
+                    <button key={p} type="button" onClick={() => setPick(p)}
+                      className={`rounded px-3 py-1 ${pick === p ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                      {p === "pro" ? "Pro" : "Starter"}
+                    </button>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" checked={yearly} onChange={(e) => setYearly(e.target.checked)} />
+                  Pay yearly, save 15%
+                </label>
+                <Button disabled={busy || plan === null} onClick={() => go("checkout")}>
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe · ${
+                    pick === "pro" ? (yearly ? "$2,336 a year" : "$229 a month") : (yearly ? "$1,316 a year" : "$129 a month")}`}
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
