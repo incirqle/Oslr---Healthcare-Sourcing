@@ -1,3 +1,6 @@
 - [x] Activate Jeff's permanent unlimited workspace pass.
-- [x] Implement and verify unlimited contact access without changing ordinary workspaces (three tests passed; Jeff's authenticated Settings and deployed contact access verified).
+- [x] Implement and verify unlimited contact access without changing ordinary workspaces.
 - [ ] Stop any existing Stripe subscription (blocked: Stripe lookup declined).
+- [x] Oslr Agents: create, first matches, approve/pass with reasons, skip towns, learning summary, steer chat, Dashboard and Project cards, nightly runs, premium switch.
+- [ ] Agents morning email (blocked: needs an Oslr sending email domain set up).
+- [ ] Agents pricing as Pro plan or add-on (waiting on Steven's pricing decision).
