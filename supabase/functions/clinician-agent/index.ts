@@ -221,6 +221,18 @@ Deno.serve(async (req) => {
         patch.preferences = prefs;
       }
       if (Object.keys(patch).length === 0) return json({ error: "Nothing to change." }, 400);
+      // Resuming an agent that never got its first matches retries calibration.
+      if (patch.status === "sourcing") {
+        const { count } = await admin.from("clin_agent_pool").select("id", { count: "exact", head: true }).eq("agent_id", agent.id);
+        if (!count) {
+          const r = await sourceAgent(admin, agent, {
+            authHeader: req.headers.get("Authorization")!,
+            userAgent: req.headers.get("x-oslr-user-agent") ?? req.headers.get("user-agent"), serve: CALIBRATION_SIZE,
+          });
+          if (!r.ok) return json({ error: r.error }, r.status && r.status < 500 ? r.status : 502);
+          patch.status = "calibrating"; patch.next_run_at = null;
+        }
+      }
       await admin.from("clin_agents").update(patch).eq("id", agent.id);
       if (patch.status) await logEvent(admin, agent, "status_" + String(patch.status), {});
       return json({ ok: true });
