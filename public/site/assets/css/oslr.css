@@ -1862,3 +1862,21 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 .rd-more span { font-size: 0.9375rem; line-height: 1.5; color: var(--fg-2); }
 .rd-stats b { font: 600 clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem)/1.05 var(--f-display); letter-spacing: -0.02em; }
 @media (prefers-reduced-motion: reduce) { .rd-c { transition: none; } }
+
+/* ---- Phone layout fixes ---- */
+@media (max-width: 759px) {
+  .flow__steps { display: grid; gap: 64px; }
+  .t4__f { white-space: normal; max-width: calc(30% - 6px); line-height: 1.2; }
+  .tl__years span { display: none; }
+  .tl__years span:first-child, .tl__years span:last-child { display: inline; }
+  .tl__years span:last-child { transform: translateX(-100%); }
+  .x-who { min-height: 0; }
+  .x-who .x-q { margin-top: 12px; }
+  .board { grid-template-columns: repeat(3, minmax(148px, 1fr)); overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; padding-bottom: 4px; }
+  .board .col { scroll-snap-align: start; }
+  .col__h { gap: 6px; }
+  .export .ub { white-space: nowrap; flex: none; }
+  .ig-hub, .ig-hub--home { aspect-ratio: 1 / 1 !important; }
+  .ag-card { grid-template-columns: auto minmax(0, 1fr); }
+  .ag-card > .ag-act { grid-column: 2; }
+}

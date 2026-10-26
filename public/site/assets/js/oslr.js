@@ -156,7 +156,8 @@
     var e2 = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
     var spark = "";
     var items = $$(".cx__item", cx), you = $(".cx__you p", cx), status = $(".cx__status", cx), chipsEl = $(".cx__chips", cx), resEl = $(".cx__res", cx);
-    var youWrap = $(".cx__you", cx), typed = $(".cx__typed", cx), send = $(".cx__send", cx);
+    var youWrap = $(".cx__you", cx), typed = $(".cx__typed", cx), send = $(".cx__send", cx), ph = $(".cx__ph", cx);
+    var setTyped = function (t) { typed.textContent = t; if (ph) ph.style.display = t ? "none" : ""; };
     var cur = 0, timers = [], auto = true, visible = false, raf, t0 = 0, dur = 0, run = 0;
     var later = function (fn, ms) { timers.push(setTimeout(fn, ms)); };
     var clear = function () { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
@@ -187,7 +188,7 @@
       status.classList.remove("busy");
       chipsEl.innerHTML = P.chips.map(function (c) { return "<span>" + e2(c) + "</span>"; }).join("");
       resEl.innerHTML = head(P) + '<div class="ui__list">' + P.res.map(card).join("").replace(/ in-pre/g, "") + "</div>";
-      typed.textContent = ""; typed.classList.remove("caret-on"); send.classList.remove("ready");
+      setTyped(""); typed.classList.remove("caret-on"); send.classList.remove("ready");
     };
     var play = function (i, fromClick) {
       clear(); run++; var me = run;
@@ -199,18 +200,18 @@
       youWrap.classList.add("in-pre"); youWrap.classList.remove("in-go");
       status.classList.add("in-pre"); status.classList.remove("in-go");
       chipsEl.innerHTML = ""; resEl.innerHTML = "";
-      typed.textContent = ""; typed.classList.add("caret-on"); send.classList.remove("ready");
+      setTyped(""); typed.classList.add("caret-on"); send.classList.remove("ready");
       /* type into the composer */
       var n = 0, step = 28;
       var type = function () {
         if (me !== run) return;
-        n++; typed.textContent = P.q.slice(0, n);
+        n++; setTyped(P.q.slice(0, n));
         if (n === 1) send.classList.add("ready");
         if (n < P.q.length) later(type, step); else later(sendIt, 380);
       };
       var sendIt = function () {
         send.classList.add("press"); later(function () { send.classList.remove("press"); }, 140);
-        typed.textContent = ""; typed.classList.remove("caret-on"); send.classList.remove("ready");
+        setTyped(""); typed.classList.remove("caret-on"); send.classList.remove("ready");
         you.textContent = P.q;
         later(function () { youWrap.classList.add("in-go"); }, 60);
         later(function () { status.classList.add("busy", "in-go"); }, 420);
