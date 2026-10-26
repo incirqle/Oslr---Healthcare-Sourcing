@@ -485,6 +485,262 @@ export type Database = {
           },
         ]
       }
+      clin_agent_decisions: {
+        Row: {
+          agent_id: string
+          company_id: string
+          created_at: string
+          decision: string
+          id: string
+          note: string | null
+          pool_id: string
+          skip_city: string | null
+          tags: string[]
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          company_id: string
+          created_at?: string
+          decision: string
+          id?: string
+          note?: string | null
+          pool_id: string
+          skip_city?: string | null
+          tags?: string[]
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          company_id?: string
+          created_at?: string
+          decision?: string
+          id?: string
+          note?: string | null
+          pool_id?: string
+          skip_city?: string | null
+          tags?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clin_agent_decisions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "clin_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clin_agent_decisions_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "clin_agent_pool"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clin_agent_events: {
+        Row: {
+          agent_id: string
+          company_id: string
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          agent_id: string
+          company_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          agent_id?: string
+          company_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clin_agent_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "clin_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clin_agent_lease: {
+        Row: {
+          id: number
+          locked_until: string
+        }
+        Insert: {
+          id: number
+          locked_until?: string
+        }
+        Update: {
+          id?: number
+          locked_until?: string
+        }
+        Relationships: []
+      }
+      clin_agent_pool: {
+        Row: {
+          agent_id: string
+          base_score: number
+          boost: number
+          company_id: string
+          created_at: string
+          decided_at: string | null
+          decision: string | null
+          features: string[]
+          final_score: number
+          id: string
+          person_id: string
+          profile: Json
+          pruned: boolean
+          served_at: string | null
+          why: string | null
+        }
+        Insert: {
+          agent_id: string
+          base_score?: number
+          boost?: number
+          company_id: string
+          created_at?: string
+          decided_at?: string | null
+          decision?: string | null
+          features?: string[]
+          final_score?: number
+          id?: string
+          person_id: string
+          profile: Json
+          pruned?: boolean
+          served_at?: string | null
+          why?: string | null
+        }
+        Update: {
+          agent_id?: string
+          base_score?: number
+          boost?: number
+          company_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decision?: string | null
+          features?: string[]
+          final_score?: number
+          id?: string
+          person_id?: string
+          profile?: Json
+          pruned?: boolean
+          served_at?: string | null
+          why?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clin_agent_pool_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "clin_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clin_agents: {
+        Row: {
+          brief: string
+          company_id: string
+          created_at: string
+          email_updates: boolean
+          empty_runs: number
+          finish_date: string | null
+          goal: number | null
+          id: string
+          last_reviewed_at: string | null
+          last_run_at: string | null
+          name: string
+          next_run_at: string | null
+          owner_id: string
+          pause_reason: string | null
+          per_day: number
+          preferences: Json
+          project_id: string | null
+          run_hour: number
+          status: string
+          taste_memo: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          brief: string
+          company_id: string
+          created_at?: string
+          email_updates?: boolean
+          empty_runs?: number
+          finish_date?: string | null
+          goal?: number | null
+          id?: string
+          last_reviewed_at?: string | null
+          last_run_at?: string | null
+          name: string
+          next_run_at?: string | null
+          owner_id: string
+          pause_reason?: string | null
+          per_day?: number
+          preferences?: Json
+          project_id?: string | null
+          run_hour?: number
+          status?: string
+          taste_memo?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          brief?: string
+          company_id?: string
+          created_at?: string
+          email_updates?: boolean
+          empty_runs?: number
+          finish_date?: string | null
+          goal?: number | null
+          id?: string
+          last_reviewed_at?: string | null
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string | null
+          owner_id?: string
+          pause_reason?: string | null
+          per_day?: number
+          preferences?: Json
+          project_id?: string | null
+          run_hour?: number
+          status?: string
+          taste_memo?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clin_agents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clin_agents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinician_search_intelligence: {
         Row: {
           audit_summary: Json | null
@@ -676,6 +932,32 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      company_features: {
+        Row: {
+          agents_enabled: boolean
+          company_id: string
+          updated_at: string
+        }
+        Insert: {
+          agents_enabled?: boolean
+          company_id: string
+          updated_at?: string
+        }
+        Update: {
+          agents_enabled?: boolean
+          company_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_features_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_invites: {
         Row: {
