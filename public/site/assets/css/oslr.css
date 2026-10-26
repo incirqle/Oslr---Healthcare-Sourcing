@@ -1375,7 +1375,7 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 .switch--paper input:checked + .switch__t::after { background: #fff; }
 
 .tl-win .tl { --name-w: 330px; }
-@media (max-width: 760px) { .tl-win .tl { --name-w: 132px; } .tl-win .tl__who small { display: none; } }
+@media (max-width: 760px) { .js .x-panel--tl[data-reveal].pre { transform: none; } .js .x-panel--tl[data-reveal].in { transition: opacity 500ms ease; } .tl-win { box-shadow: 0 24px 48px -32px rgba(0,0,0,0.9); } .tl__row, .tl__bar, .tl__pgy { transition: none; } .tl-win .tl { --name-w: 132px; } .tl-win .tl__who small { display: none; } }
 
 /* =====================================================================
    "Ask the way you would say it": a live search conversation.
