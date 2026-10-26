@@ -39,7 +39,7 @@ A premium rebuild of the Bakken/RepGPT agent system for clinical hiring. An agen
 
 ## Decisions baked in (tell me if any are wrong)
 - People per day: 1 to 10 on Starter, default 10 (reference said 25; lower keeps your data costs safe).
-- Daily runs only for paying, exempt or unlimited workspaces; beta pass users can create one agent with calibration only.
+- Agents are a premium feature, off by default. You switch it on per team (later sold as Pro or an add-on, price decided later). Teams without it see a locked Agents preview. No new Stripe products in this build.
 - No outreach emails to candidates in this build (campaigns stay retired). Contact lookups stay manual and credit-priced.
 - Old agent tables from the earlier build are left untouched and unused.
 
@@ -51,5 +51,6 @@ A premium rebuild of the Bakken/RepGPT agent system for clinical hiring. An agen
 - `agents-tick` edge function on an hourly schedule: single-flight lease, bounded batch, one provider pull per agent per 24h, idempotent pool inserts, pause on credit/limit errors, stop on goal/date, pause after 3 empty runs or 7 days without review.
 - Email via Lovable's built-in email sender (domain setup step), digest template in Oslr branding, direct links.
 - Frontend: `/agents`, `/agents/:id` routes (replace current redirects), `AgentsHome`, `AgentBriefDialog`, `AgentWorkspace`, `AgentReviewCard`, `AgentRail`, profile reuse from CandidateDrawer; Dashboard "Active agents" strip and Project "Agents" tab. Approve inserts into `candidates` for the agent's project.
+- Access: `company_features` table (company_id, agents_enabled) read server-side in `clinician-agent` and `agents-tick`; the app locks Agents when off. Your own and unlimited-pass workspaces switched on.
 - Rules respected: LinkedIn only as badge, no em dashes in UI, no DEI wording, no NPI/privileges, no board certification anywhere, public stats only.
 - Record architecture rule in AGENTS.md; update the Oslr Agents memory.
