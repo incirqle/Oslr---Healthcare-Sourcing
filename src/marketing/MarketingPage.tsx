@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MarketingRoute } from "./routes";
+import { applySeo, clearSeo } from "./seo";
 
 /**
  * Renders one page of the Oslr marketing site exactly as designed.
@@ -37,8 +38,7 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
   useEffect(() => {
     let alive = true;
     route.load().then((m) => alive && setHtml(m.default));
-    document.title = route.title;
-    setMeta("description", route.description);
+    applySeo(route);
     ensureLink(FONT_ID, "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap");
     ensureLink(CSS_ID, "/site/assets/css/oslr.css");
     document.documentElement.classList.add("oslr-site");
