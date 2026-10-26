@@ -1,14 +1,14 @@
 // Credit-metered contact enrichment.
-// Prices: work email 2, personal email 3, phone 5. Only charged when found.
+// Prices depend on the workspace plan (see _shared/plans.ts). Only charged when found.
 // Once found, a contact type is stored per workspace and never charged again.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
 
-export const PRICES = { work_email: 2, personal_email: 3, phone: 5 } as const;
-export type ContactKind = keyof typeof PRICES;
-const KINDS = Object.keys(PRICES) as ContactKind[];
+import { contactPrices, type ContactKind } from "../_shared/plans.ts";
+export type { ContactKind };
+const KINDS: ContactKind[] = ["work_email", "personal_email", "phone"];
 const FIELD: Record<ContactKind, string> = {
   work_email: "business_email",
   personal_email: "personal_emails",
@@ -48,6 +48,8 @@ export async function handleEnrichContact(
   const { data: pass } = await db.from("billing_exemptions").select("unlimited_access")
     .eq("company_id", companyId).maybeSingle();
   const unlimited = pass?.unlimited_access === true;
+  const { data: feat } = await db.from("company_features").select("plan").eq("company_id", companyId).maybeSingle();
+  const PRICES = contactPrices(feat?.plan as string | undefined);
 
   const url = typeof body.linkedin_url === "string" ? body.linkedin_url.trim().toLowerCase().replace(/\/+$/, "") : "";
   if (!url || url.length > 500) return { status: 400, payload: { error: "A LinkedIn URL is required." } };

@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 export type ContactKind = "work_email" | "personal_email" | "phone";
-export const CONTACT_PRICES: Record<ContactKind, number> = { work_email: 2, personal_email: 3, phone: 5 };
+// Starter prices until the server reports this workspace's plan prices (updated in place).
+export const CONTACT_PRICES: Record<ContactKind, number> = { work_email: 2, personal_email: 3, phone: 3 };
 
 export interface ContactState {
   contact: { work_email?: string | null; personal_emails?: string[]; phone_numbers?: string[] };
@@ -26,6 +27,8 @@ export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], c
     } catch { /* ignore */ }
     if (!payload) throw error;
   }
+  const prices = (payload as { prices?: Record<ContactKind, number> } | null)?.prices;
+  if (prices) Object.assign(CONTACT_PRICES, prices);
   return payload as unknown as ContactState & { charged?: number; found?: ContactKind[]; error?: string; needed?: number };
 }
 

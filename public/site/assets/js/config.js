@@ -18,7 +18,7 @@ window.OSLR = {
     roundMonthly: true,            // show annual monthly price rounded to the dollar
     plans: {
       starter: { monthly: 129, credits: 150 },
-      pro:     { monthly: 229, credits: 400 }   // CONFIRM: Pro credit allowance
+      pro:     { monthly: 229, credits: 500 }
     },
     // What one reveal costs, in credits
     creditCost: { workEmail: 1, personalEmail: 2, phone: 3 }

@@ -937,16 +937,19 @@ export type Database = {
         Row: {
           agents_enabled: boolean
           company_id: string
+          plan: string
           updated_at: string
         }
         Insert: {
           agents_enabled?: boolean
           company_id: string
+          plan?: string
           updated_at?: string
         }
         Update: {
           agents_enabled?: boolean
           company_id?: string
+          plan?: string
           updated_at?: string
         }
         Relationships: [
