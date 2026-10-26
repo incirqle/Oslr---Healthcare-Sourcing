@@ -36,6 +36,13 @@
       "when": 1793042006177,
       "tag": "0004_workspace_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793042535818,
+      "tag": "0005_monthly_credits_beta_seats",
+      "breakpoints": true
     }
   ]
 }
