@@ -231,6 +231,9 @@ Deno.serve(async (req) => {
           });
           if (!r.ok) return json({ error: r.error }, r.status && r.status < 500 ? r.status : 502);
           patch.status = "calibrating"; patch.next_run_at = null;
+          await logEvent(admin, agent, "chat", { role: "agent", text: r.served > 0
+            ? `I found ${r.served} people to start. Approve or pass each one so I learn what you want.`
+            : "I could not find anyone for this yet. Try widening the area or the role." });
         }
       }
       await admin.from("clin_agents").update(patch).eq("id", agent.id);

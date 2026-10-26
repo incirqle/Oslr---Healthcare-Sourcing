@@ -41,6 +41,28 @@ export async function logEvent(admin: SupabaseClient, agent: Agent, type: string
   if (error) console.error("[agent] event insert failed", error.message);
 }
 
+/** Flat card/drawer shape from a raw engine row; the raw row stays under `raw`. */
+export function flattenRow(r: Record<string, unknown>): Record<string, unknown> {
+  const locality = (r.location_locality as string) ?? null;
+  const region = (r.location_region as string) ?? null;
+  const loc = (r.location as string) ?? [locality, region].filter(Boolean).join(", ");
+  return {
+    id: r.id ?? r.linkedin_url,
+    full_name: r.full_name ?? "",
+    title: r.title ?? r.job_title ?? r.headline ?? null,
+    current_employer: r.current_employer ?? r.job_company_name ?? null,
+    location: loc || null,
+    linkedin_url: r.linkedin_url ?? null,
+    profile_pic_url: r.profile_pic_url ?? r.profile_picture_url ?? null,
+    company_logo_url: r.company_logo_url ?? r.job_company_logo_url ?? null,
+    company_domain: r.company_domain ?? r.job_company_domain ?? null,
+    summary: r.summary ?? r.headline ?? null,
+    match_rate: r.match_rate ?? null,
+    audit_score: r.audit_score ?? null,
+    raw: r,
+  };
+}
+
 export interface SourceResult {
   ok: boolean;
   status?: number;
@@ -81,7 +103,7 @@ export async function sourceAgent(
   const rows: Record<string, unknown>[] = Array.isArray(body.results) ? body.results : [];
   const { data: existing } = await admin.from("clin_agent_pool").select("person_id").eq("agent_id", agent.id);
   const seen = new Set((existing ?? []).map((r) => r.person_id));
-  const fresh = rows.filter((r) => r.id && !seen.has(String(r.id)));
+  const fresh = rows.map(flattenRow).filter((r) => r.id && !seen.has(String(r.id)));
   if (fresh.length > 0) {
     const inserts = fresh.map((r) => {
       const mr = typeof r.match_rate === "number" ? r.match_rate : typeof r.audit_score === "number" ? r.audit_score : 50;
@@ -89,7 +111,7 @@ export async function sourceAgent(
       return {
         agent_id: agent.id, company_id: agent.company_id, person_id: String(r.id),
         profile: r, features: featuresFor(r),
-        why: String(r.audit_reason ?? r.relevance_summary ?? "").slice(0, 400) || null,
+        why: String((r.raw as Record<string, unknown>).audit_reason ?? "").slice(0, 400) || null,
         base_score: base, boost: 1, final_score: base,
       };
     });
