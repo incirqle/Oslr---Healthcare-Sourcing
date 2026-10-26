@@ -203,9 +203,10 @@ export async function aiText(
 
 /** Regenerate the three-part taste memo from decisions so far. */
 export async function refreshTasteMemo(admin: SupabaseClient, agent: Agent): Promise<string | null> {
-  const { data: decs } = await admin.from("clin_agent_decisions")
+  const { data: decs, error: dErr } = await admin.from("clin_agent_decisions")
     .select("decision, tags, note, skip_city, pool:clin_agent_pool(profile)")
     .eq("agent_id", agent.id).order("created_at", { ascending: false }).limit(40);
+  if (dErr) console.warn("[agent] memo decisions read failed", dErr.message);
   if (!decs || decs.length === 0) return null;
   const lines = decs.map((d) => {
     // deno-lint-ignore no-explicit-any
