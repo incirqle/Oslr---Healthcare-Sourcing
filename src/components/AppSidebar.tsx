@@ -10,6 +10,7 @@ import {
   BarChart2,
   BookOpen,
   Zap,
+  Bot,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
@@ -33,6 +34,7 @@ const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Search", url: "/search", icon: Search },
+  { title: "Agents", url: "/agents", icon: Bot },
   { title: "Contacts", url: "/contacts", icon: Users },
   { title: "News", url: "/news", icon: Newspaper },
 ];
