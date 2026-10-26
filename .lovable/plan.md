@@ -1,6 +1,6 @@
 # Oslr Agents: your own researcher, working every night
 
-A premium rebuild of the Bakken/RepGPT agent system for clinical hiring. An agent takes a plain-English brief ("Board-certified pain physicians in the Southwest open to private practice"), shows a small first batch to learn your taste, then brings up to N fresh clinicians every morning, ranked by what you approved and passed.
+A premium rebuild of the Bakken/RepGPT agent system for clinical hiring. An agent takes a plain-English brief ("Pain physicians in the Southwest open to private practice"), shows a small first batch to learn your taste, then brings up to N fresh clinicians every morning, ranked by what you approved and passed.
 
 ## What I learned from the blueprint and screenshots
 
@@ -30,7 +30,7 @@ A premium rebuild of the Bakken/RepGPT agent system for clinical hiring. An agen
 - Reuses the Oslr profile (experience/education logos, contact lookup with the current credit rules and "You will not be charged" message) with a "Your decision" side panel and previous/next arrows.
 
 **5. Learning and daily runs**
-- Clinical reason tags: Specialty fit, Board certified, Practice owner / partner, Leadership role, Right area, Right career stage; pass reasons: Wrong area, Wrong specialty, Too junior, In training, Wrong practice setting.
+- Clinical reason tags: Specialty fit, Practice owner / partner, Leadership role, Right area, Right career stage; pass reasons: Wrong area, Wrong specialty, Too junior, In training, Wrong practice setting.
 - Re-ranking happens instantly in place; taste memo refreshes after each decision with tags or a note.
 - One run per agent per day at your chosen hour; shared search limits and caching still apply.
 
