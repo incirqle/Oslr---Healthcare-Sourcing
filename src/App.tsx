@@ -5,7 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
-import Landing from "./pages/Landing";
+import HomeRoute from "./marketing/HomeRoute";
+import MarketingPage from "./marketing/MarketingPage";
+import { MARKETING_ROUTES } from "./marketing/routes";
 import Dashboard from "./pages/Dashboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./hooks/useAuth";
@@ -37,7 +39,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<HomeRoute />} />
+            {MARKETING_ROUTES.filter((r) => r.path !== "/").map((r) => (
+              <Route key={r.path} path={r.path} element={<MarketingPage route={r} />} />
+            ))}
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<P><Dashboard /></P>} />
