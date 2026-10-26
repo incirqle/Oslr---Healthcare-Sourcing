@@ -21,16 +21,6 @@ function ensureLink(id: string, href: string) {
   document.head.appendChild(l);
 }
 
-function setMeta(name: string, content: string) {
-  let m = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
-  if (!m) {
-    m = document.createElement("meta");
-    m.name = name;
-    document.head.appendChild(m);
-  }
-  m.content = content;
-}
-
 export default function MarketingPage({ route }: { route: MarketingRoute }) {
   const ref = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -44,6 +34,7 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     document.documentElement.classList.add("oslr-site");
     return () => {
       alive = false;
+      clearSeo();
       document.getElementById(CSS_ID)?.remove();
       document.documentElement.classList.remove("oslr-site", "js");
     };
