@@ -258,6 +258,24 @@ export type Database = {
         }
         Relationships: []
       }
+      beta_plan_invites: {
+        Row: {
+          created_at: string
+          email: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       billing_exemptions: {
         Row: {
           company_id: string
@@ -2000,6 +2018,15 @@ export type Database = {
         Returns: boolean
       }
       redeem_beta_code: { Args: { _code: string }; Returns: boolean }
+      reset_monthly_credits: {
+        Args: {
+          _amount: number
+          _company_id: string
+          _note: string
+          _ref: string
+        }
+        Returns: boolean
+      }
       spend_credits: {
         Args: { _amount: number; _company_id: string }
         Returns: number
