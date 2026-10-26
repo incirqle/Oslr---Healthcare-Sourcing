@@ -1,6 +1,8 @@
 // Oslr plans: Stripe prices, monthly credits and contact lookup costs.
 // One source for billing (checkout, credit grants) and contact lookups.
-export type PlanId = "starter" | "pro";
+// Credits are always granted one month at a time and expire at the end of that month (no rollover),
+// including on yearly billing.
+export type PlanId = "starter" | "pro" | "beta";
 export type Interval = "month" | "year";
 export type ContactKind = "work_email" | "personal_email" | "phone";
 
@@ -14,26 +16,38 @@ export interface Plan {
 export const PLANS: Record<PlanId, Plan> = {
   starter: { monthlyCredits: 150, agents: false, seats: 1, prices: { work_email: 2, personal_email: 3, phone: 3 } },
   pro: { monthlyCredits: 500, agents: true, seats: 5, prices: { work_email: 1, personal_email: 2, phone: 3 } },
+  // Invite-only early-user plan ($115 a month). Never shown publicly.
+  beta: { monthlyCredits: 150, agents: false, seats: 1, prices: { work_email: 2, personal_email: 3, phone: 3 } },
 };
 
-// Stripe price id -> plan and billing interval. The $115 legacy price still counts as Starter monthly.
+export const BETA_PRICE = "price_1UPqrsIIdDz6ofU5w98C1smQ";
+
+// Stripe price id -> plan and billing interval.
 export const PRICE_IDS: Record<string, { plan: PlanId; interval: Interval }> = {
   price_1UUtK3IIdDz6ofU5A65xRxfi: { plan: "starter", interval: "month" },
   price_1UUtK3IIdDz6ofU5w3c9iX8o: { plan: "starter", interval: "year" },
   price_1UUtK4IIdDz6ofU5GaoEuBDX: { plan: "pro", interval: "month" },
   price_1UUtK4IIdDz6ofU5T91Yq4Gz: { plan: "pro", interval: "year" },
-  price_1UPqrsIIdDz6ofU5w98C1smQ: { plan: "starter", interval: "month" },
+  [BETA_PRICE]: { plan: "beta", interval: "month" },
 };
 
 export function priceFor(plan: PlanId, interval: Interval): string {
-  const hit = Object.entries(PRICE_IDS).find(([id, v]) =>
-    v.plan === plan && v.interval === interval && id !== "price_1UPqrsIIdDz6ofU5w98C1smQ");
+  if (plan === "beta") return BETA_PRICE;
+  const hit = Object.entries(PRICE_IDS).find(([, v]) => v.plan === plan && v.interval === interval);
   return hit![0];
 }
 
-/** Credits granted for one paid invoice. A yearly invoice grants twelve months up front. */
-export function creditsForInvoice(plan: PlanId, interval: Interval): number {
-  return PLANS[plan].monthlyCredits * (interval === "year" ? 12 : 1);
+/** Credits granted for one month of a plan. Yearly plans never get more than one month at a time. */
+export function creditsForMonth(plan: PlanId): number {
+  return PLANS[plan].monthlyCredits;
+}
+
+/** Whole months elapsed since a yearly period started (0 = first month). */
+export function monthIndex(periodStartMs: number, nowMs: number): number {
+  const a = new Date(periodStartMs), b = new Date(nowMs);
+  let m = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+  if (b.getUTCDate() < a.getUTCDate()) m -= 1;
+  return Math.max(0, Math.min(11, m));
 }
 
 /** Contact lookup prices for a workspace plan. Unknown or missing plan pays Starter prices. */
