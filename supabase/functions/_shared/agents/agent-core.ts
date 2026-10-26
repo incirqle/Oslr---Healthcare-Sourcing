@@ -2,7 +2,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleClinicianSearch } from "../clinician-engine/handler.ts";
 import {
-  type AgentPreferences, emptyPreferences, featuresFor, rerank,
+  type AgentPreferences, featuresFor, rerank,
 } from "./agent-brain.ts";
 
 export const CALIBRATION_SIZE = 6;
@@ -16,7 +16,7 @@ export function prefsOf(agent: Agent): AgentPreferences {
   return {
     weights: p.weights ?? {},
     skip: { cities: p.skip?.cities ?? [], employers: p.skip?.employers ?? [] },
-  } ?? emptyPreferences();
+  };
 }
 
 /** Next occurrence of run_hour in the agent's timezone, at least 20h from now. */
