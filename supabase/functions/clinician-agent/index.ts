@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       if (error) return json({ error: "Could not create the agent." }, 500);
       await logEvent(admin, agent, "chat", { role: "user", text: brief });
       await logEvent(admin, agent, "calibration_started", {});
-      const r = await sourceAgent(admin, agent, { authHeader: req.headers.get("Authorization")!, serve: CALIBRATION_SIZE });
+      const r = await sourceAgent(admin, agent, { authHeader: req.headers.get("Authorization")!, userAgent: req.headers.get("x-oslr-user-agent") ?? req.headers.get("user-agent"), serve: CALIBRATION_SIZE });
       if (!r.ok) {
         await admin.from("clin_agents").update({ status: "paused", pause_reason: r.error }).eq("id", agent.id);
         return json({ agent_id: agent.id, warning: r.error });

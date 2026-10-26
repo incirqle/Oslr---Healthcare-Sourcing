@@ -54,10 +54,15 @@ export interface SourceResult {
 export async function sourceAgent(
   admin: SupabaseClient,
   agent: Agent,
-  opts: { authHeader?: string; serve: number },
+  opts: { authHeader?: string; userAgent?: string | null; serve: number },
 ): Promise<SourceResult> {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const headers: Record<string, string> = { "Content-Type": "application/json", "x-oslr-user-agent": "oslr-agent" };
+  // The signed-in browser's own user agent for in-app creates; scheduled runs
+  // identify as the Oslr agent (server-side, behind the service key).
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-oslr-user-agent": opts.userAgent || "Mozilla/5.0 (compatible; OslrAgent/1.0)",
+  };
   if (opts.authHeader) headers.Authorization = opts.authHeader;
   else { headers.Authorization = `Bearer ${serviceKey}`; headers["x-oslr-internal-user"] = agent.owner_id; }
 
