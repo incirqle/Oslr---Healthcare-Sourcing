@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MarketingRoute } from "./routes";
+import { applySeo, clearSeo } from "./seo";
 
 /**
  * Renders one page of the Oslr marketing site exactly as designed.
@@ -20,16 +21,6 @@ function ensureLink(id: string, href: string) {
   document.head.appendChild(l);
 }
 
-function setMeta(name: string, content: string) {
-  let m = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
-  if (!m) {
-    m = document.createElement("meta");
-    m.name = name;
-    document.head.appendChild(m);
-  }
-  m.content = content;
-}
-
 export default function MarketingPage({ route }: { route: MarketingRoute }) {
   const ref = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -37,13 +28,13 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
   useEffect(() => {
     let alive = true;
     route.load().then((m) => alive && setHtml(m.default));
-    document.title = route.title;
-    setMeta("description", route.description);
+    applySeo(route);
     ensureLink(FONT_ID, "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap");
     ensureLink(CSS_ID, "/site/assets/css/oslr.css");
     document.documentElement.classList.add("oslr-site");
     return () => {
       alive = false;
+      clearSeo();
       document.getElementById(CSS_ID)?.remove();
       document.documentElement.classList.remove("oslr-site", "js");
     };

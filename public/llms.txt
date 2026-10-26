@@ -1,0 +1,40 @@
+# Oslr
+
+> Oslr is a clinical talent search platform for U.S. healthcare recruiting. Recruiters, health systems, surgery centers and private practices search physicians, residents, fellows, nurses, advanced practice providers and allied health professionals in plain English.
+
+Oslr covers 5.1M+ U.S. healthcare profiles, including 2.1M+ nurses and 200K+ medical and nursing students and residents, plus 1.18M U.S. clinical organizations. Searches read specialty, subspecialty, training year, practice setting, employer and location from every profile. Oslr is exclusively for clinical roles. Plans: Starter $129 a month, Pro $229 a month (includes Oslr Agents), Enterprise custom. Contact: hello@oslr.health.
+
+## Products
+
+- [How Oslr Works](https://oslr.health/how-it-works): How Oslr turns a plain-English search into a shortlist of clinicians, and exactly how it reads specialty, training year, employer and location.
+- [Oslr Pricing](https://oslr.health/pricing): Oslr plans for healthcare recruiters: Starter $129 a month, Pro $229 a month, Enterprise custom. Save 15% billed annually.
+- [Oslr Agents](https://oslr.health/product/agents): Oslr agents search for clinicians every day, learn from every person you approve or pass, and bring fresh matches every morning.
+- [Oslr Company Intel](https://oslr.health/product/companies): See any healthcare employer's clinical team by role and subspecialty, from health systems to single-office practices, plus who joined and left.
+- [Oslr Integrations](https://oslr.health/product/integrations): Connect Oslr to iCIMS, Workday, Oracle Taleo, Greenhouse, Bullhorn, Salesforce, HubSpot, Pipedrive and more. ATS and CRM integrations on Pro and Enterprise.
+- [Oslr Talent Search](https://oslr.health/product/talent-search): Search 5M+ U.S. clinicians in plain English by specialty, subspecialty, training year, practice setting and location.
+
+## Resources
+
+- [Oslr Resources](https://oslr.health/guides): Search library, glossary, sourcing guides and outreach templates for healthcare recruiters.
+- [Healthcare Recruiting Glossary](https://oslr.health/guides/glossary): Plain-English definitions of the credentials, training stages and terms in clinical recruiting.
+- [Managing your pipeline](https://oslr.health/guides/managing-pipelines): Using Projects, statuses, notes and Contacts to keep a large pipeline easy to work.
+- [Oslr Search Library](https://oslr.health/guides/search-library): Copy-ready Oslr searches for residents, fellows, physicians, nurses, APPs and CRNAs.
+- [Sourcing healthcare talent](https://oslr.health/guides/sourcing-healthcare-talent): Search patterns and market notes for physicians, residents, APPs, nurses, CRNAs and therapists.
+- [Outreach to NPs and PAs](https://oslr.health/guides/templates-nps-pas): A four-email sequence for advanced practice providers, with room for state scope.
+- [Outreach to physicians](https://oslr.health/guides/templates-physicians): A four-email sequence for board-certified attendings, with cadence and fill-in fields.
+- [Outreach to registered nurses](https://oslr.health/guides/templates-rns): A schedule-first four-email sequence for staff and specialty RNs.
+- [Writing good searches](https://oslr.health/guides/writing-good-searches): How to phrase a search so Oslr returns the right clinicians the first time.
+
+## Comparisons
+
+- [Oslr Comparisons](https://oslr.health/compare): How Oslr compares with Juicebox, Doximity Talent Finder, SeekOut, hireEZ and Apollo for clinical recruiting.
+- [Oslr vs Apollo](https://oslr.health/compare/apollo): Oslr vs Apollo for healthcare recruiting: features, training stage search, pricing and who each one fits.
+- [Oslr vs Doximity Talent Finder](https://oslr.health/compare/doximity): Oslr vs Doximity Talent Finder for healthcare recruiting: features, training stage search, pricing and who each one fits.
+- [Oslr vs hireEZ](https://oslr.health/compare/hireez): Oslr vs hireEZ for healthcare recruiting: features, training stage search, pricing and who each one fits.
+- [Oslr vs Juicebox](https://oslr.health/compare/juicebox): Oslr vs Juicebox for healthcare recruiting: features, training stage search, pricing and who each one fits.
+- [Oslr vs SeekOut](https://oslr.health/compare/seekout): Oslr vs SeekOut for healthcare recruiting: features, training stage search, pricing and who each one fits.
+
+## Company
+
+- [Oslr Subprocessors](https://oslr.health/subprocessors): The third-party services Oslr uses to run the product and process customer data.
+- [Oslr Trust Center](https://oslr.health/trust): How Oslr protects data: no patient data, GDPR and CCPA privacy rights, encryption, access control, responsible AI, and documents your security team can request.
