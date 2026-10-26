@@ -29,6 +29,13 @@
       "when": 1793039622193,
       "tag": "0003_clinician_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793042006177,
+      "tag": "0004_workspace_plan",
+      "breakpoints": true
     }
   ]
 }
