@@ -17,6 +17,8 @@ import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import Resources from "./pages/Resources";
 import Credits from "./pages/Credits";
+import Agents from "./pages/Agents";
+import AgentDetail from "./pages/AgentDetail";
 import NotFound from "./pages/NotFound";
 import DocsIndex from "./pages/docs/DocsIndex";
 import DocsPageRouter from "./pages/docs/DocsPageRouter";
@@ -43,8 +45,8 @@ const App = () => (
             <Route path="/projects" element={<P><Projects /></P>} />
             <Route path="/projects/:id" element={<P><ProjectDetail /></P>} />
             <Route path="/projects/:projectId/search" element={<P><SearchPage /></P>} />
-            <Route path="/agents" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/agents/:id" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/agents" element={<P><Agents /></P>} />
+            <Route path="/agents/:id" element={<P><AgentDetail /></P>} />
             <Route path="/contacts" element={<P><Contacts /></P>} />
             <Route path="/campaigns/*" element={<Navigate to="/projects" replace />} />
             <Route path="/analytics/*" element={<Navigate to="/dashboard" replace />} />

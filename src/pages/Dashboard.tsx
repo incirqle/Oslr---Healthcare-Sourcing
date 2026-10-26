@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, FolderKanban, Search, Zap, ArrowRight } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
+import { ActiveAgentsStrip } from "@/components/agents/ActiveAgentsStrip";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
@@ -104,6 +105,8 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+
+        <ActiveAgentsStrip />
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card>

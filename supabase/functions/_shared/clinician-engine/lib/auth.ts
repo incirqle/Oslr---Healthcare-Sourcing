@@ -18,6 +18,13 @@ export async function resolveCaller(
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
+  // In-process agent runs (scheduled, no user session): only reachable with
+  // the server-held service key, which never leaves the backend.
+  const internalUser = req.headers.get("x-oslr-internal-user");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (internalUser && serviceKey && jwt === serviceKey) {
+    return { userId: internalUser, email: null, isAdmin: false };
+  }
   try {
     const { data, error } = await adminClient.auth.getUser(jwt);
     if (!error && data?.user) {
