@@ -51,5 +51,5 @@ A premium rebuild of the Bakken/RepGPT agent system for clinical hiring. An agen
 - `agents-tick` edge function on an hourly schedule: single-flight lease, bounded batch, one provider pull per agent per 24h, idempotent pool inserts, pause on credit/limit errors, stop on goal/date, pause after 3 empty runs or 7 days without review.
 - Email via Lovable's built-in email sender (domain setup step), digest template in Oslr branding, direct links.
 - Frontend: `/agents`, `/agents/:id` routes (replace current redirects), `AgentsHome`, `AgentBriefDialog`, `AgentWorkspace`, `AgentReviewCard`, `AgentRail`, profile reuse from CandidateDrawer; Dashboard "Active agents" strip and Project "Agents" tab. Approve inserts into `candidates` for the agent's project.
-- Rules respected: LinkedIn only as badge, no em dashes in UI, no DEI wording, no NPI/privileges, public stats only.
+- Rules respected: LinkedIn only as badge, no em dashes in UI, no DEI wording, no NPI/privileges, no board certification anywhere, public stats only.
 - Record architecture rule in AGENTS.md; update the Oslr Agents memory.
