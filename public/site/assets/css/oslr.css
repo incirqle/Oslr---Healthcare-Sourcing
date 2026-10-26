@@ -1865,7 +1865,7 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 
 /* ---- Phone layout fixes ---- */
 @media (max-width: 759px) {
-  .flow__steps { gap: 64px; }
+  .flow__steps { display: grid; gap: 64px; }
   .t4__f { white-space: normal; max-width: calc(30% - 6px); line-height: 1.2; }
   .tl__years span { display: none; }
   .tl__years span:first-child, .tl__years span:last-child { display: inline; }
