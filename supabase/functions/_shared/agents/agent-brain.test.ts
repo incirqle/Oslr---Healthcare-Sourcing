@@ -38,3 +38,10 @@ Deno.test("practice owner approval lifts owners above others", () => {
   ]);
   assertEquals(ranked[0].id, "owner");
 });
+
+import { stripCredentialClaims } from "./agent-core.ts";
+Deno.test("board certification is never shown as a reason", () => {
+  const out = stripCredentialClaims("Double-board certified interventional pain physician in Arizona with pain fellowship training.");
+  assert(!/board/i.test(out), out);
+  assert(/interventional pain physician in Arizona/.test(out), out);
+});

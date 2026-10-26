@@ -63,6 +63,13 @@ export function flattenRow(r: Record<string, unknown>): Record<string, unknown> 
   };
 }
 
+/** Oslr cannot verify board certification, so it is never shown as a reason. */
+export function stripCredentialClaims(text: string): string {
+  return text
+    .replace(/\b(?:double|triple|dual)?[- ]?board[- ]certified\s*(?:in\s+[\w\s]+?(?=[,.;]|$))?/gi, "")
+    .replace(/\s{2,}/g, " ").replace(/\s+([,.;])/g, "$1").trim();
+}
+
 export interface SourceResult {
   ok: boolean;
   status?: number;
@@ -111,7 +118,7 @@ export async function sourceAgent(
       return {
         agent_id: agent.id, company_id: agent.company_id, person_id: String(r.id),
         profile: r, features: featuresFor(r),
-        why: String((r.raw as Record<string, unknown>).audit_reason ?? "").slice(0, 400) || null,
+        why: stripCredentialClaims(String((r.raw as Record<string, unknown>).audit_reason ?? "")).slice(0, 400) || null,
         base_score: base, boost: 1, final_score: base,
       };
     });

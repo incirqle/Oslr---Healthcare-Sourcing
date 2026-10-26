@@ -77,8 +77,8 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
         </div>
         {!decision && !draft && (
           <div className="flex shrink-0 gap-1.5">
-            <Button size="icon" variant="outline" className="h-10 w-10 rounded-full" aria-label="Pass" onClick={() => onDraft("passed")}><ThumbsDown className="h-4 w-4" /></Button>
-            <Button size="icon" className="h-10 w-10 rounded-full" aria-label="Approve" onClick={() => onDraft("approved")}><ThumbsUp className="h-4 w-4" /></Button>
+            <Button size="icon" variant="outline" className="h-10 w-10 rounded-full" aria-label={`Pass on ${p.full_name ?? ""}`} onClick={() => onDraft("passed")}><ThumbsDown className="h-4 w-4" /></Button>
+            <Button size="icon" className="h-10 w-10 rounded-full" aria-label={`Approve ${p.full_name ?? ""}`} onClick={() => onDraft("approved")}><ThumbsUp className="h-4 w-4" /></Button>
           </div>
         )}
       </div>
