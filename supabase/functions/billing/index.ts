@@ -1,10 +1,9 @@
-// Billing: Starter plan checkout, billing portal, and paid-credit sync.
-// Every paid Starter invoice grants 150 credits exactly once (keyed by invoice id).
+// Billing: Starter and Pro checkout (monthly or yearly), billing portal, and paid-credit sync.
+// Every paid plan invoice grants its credits exactly once (keyed by invoice id).
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const STARTER_PRICE = "price_1UPqrsIIdDz6ofU5w98C1smQ";
-const MONTHLY_CREDITS = 150;
+import { creditsForInvoice, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -46,11 +45,13 @@ Deno.serve(async (req) => {
         customerId = (await stripe.customers.create({ email: user.email, metadata: { company_id: companyId } })).id;
       }
       const active = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
-      if (active.data.length) return json({ error: "Your workspace already has the Starter plan." }, 400);
+      if (active.data.length) return json({ error: "Your workspace already has a plan. Use Manage billing to change it." }, 400);
+      const plan: PlanId = body?.plan === "pro" ? "pro" : "starter";
+      const interval: Interval = body?.interval === "year" ? "year" : "month";
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: "subscription",
-        line_items: [{ price: STARTER_PRICE, quantity: 1 }],
+        line_items: [{ price: priceFor(plan, interval), quantity: 1 }],
         success_url: `${origin}/credits?checkout=success`,
         cancel_url: `${origin}/credits`,
         subscription_data: { metadata: { company_id: companyId, user_id: user.id } },
@@ -68,28 +69,39 @@ Deno.serve(async (req) => {
     // status (default): report plan and grant credits for any paid invoice not yet credited.
     if (!customerId) return json({ subscribed: false, granted: 0 });
     const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
-    const starter = subs.data.find((s: { items: { data: { price: { id: string } }[] } } & { status: string }) =>
-      s.items.data.some((i: { price: { id: string } }) => i.price.id === STARTER_PRICE) &&
-      ["active", "trialing", "past_due"].includes(s.status));
+    type Sub = { status: string; cancel_at_period_end: boolean; items: { data: { price: { id: string }; current_period_end?: number }[] } };
+    const live = (subs.data as unknown as Sub[]).find((s) =>
+      s.items.data.some((i) => PRICE_IDS[i.price.id]) && ["active", "trialing", "past_due"].includes(s.status));
+    const liveInfo = live ? PRICE_IDS[live.items.data.find((i) => PRICE_IDS[i.price.id])!.price.id] : null;
     const invoices = await stripe.invoices.list({ customer: customerId, status: "paid", limit: 24 });
     let granted = 0;
     for (const inv of invoices.data) {
-      const isStarter = inv.lines.data.some((l: { pricing?: { price_details?: { price?: string } }; price?: { id?: string } }) =>
-          l.pricing?.price_details?.price === STARTER_PRICE ||
-          l.price?.id === STARTER_PRICE
-      );
-      if (!isStarter || !inv.id || (inv.amount_paid ?? 0) <= 0) continue;
+      const line = inv.lines.data.find((l: { pricing?: { price_details?: { price?: string } }; price?: { id?: string } }) =>
+        PRICE_IDS[l.pricing?.price_details?.price ?? l.price?.id ?? ""]) as
+        { pricing?: { price_details?: { price?: string } }; price?: { id?: string } } | undefined;
+      if (!line || !inv.id || (inv.amount_paid ?? 0) <= 0) continue;
+      const info = PRICE_IDS[line.pricing?.price_details?.price ?? line.price?.id ?? ""];
+      const amount = creditsForInvoice(info.plan, info.interval);
+      const label = info.plan === "pro" ? "Pro" : "Starter";
       const { data: ok } = await db.rpc("grant_paid_credits", {
-        _company_id: companyId, _amount: MONTHLY_CREDITS, _ref: inv.id, _note: "Starter plan · monthly credits",
+        _company_id: companyId, _amount: amount, _ref: inv.id,
+        _note: `${label} plan · ${info.interval === "year" ? "yearly" : "monthly"} credits`,
       });
-      if (ok) granted += MONTHLY_CREDITS;
+      if (ok) granted += amount;
     }
-    const periodEnd = (starter?.items.data[0] as unknown as { current_period_end?: number })?.current_period_end;
+    // Record the plan; Pro switches Agents on. Never switch off a hand-granted Agents pass.
+    const plan: PlanId = liveInfo?.plan ?? "starter";
+    const patch: Record<string, unknown> = { company_id: companyId, plan, updated_at: new Date().toISOString() };
+    if (PLANS[plan].agents) patch.agents_enabled = true;
+    await db.from("company_features").upsert(patch, { onConflict: "company_id" });
+    const periodEnd = live?.items.data[0]?.current_period_end;
     return json({
-      subscribed: !!starter,
-      status: starter?.status ?? null,
+      subscribed: !!live,
+      plan: live ? plan : null,
+      interval: liveInfo?.interval ?? null,
+      status: live?.status ?? null,
       renews_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-      cancel_at_period_end: starter?.cancel_at_period_end ?? false,
+      cancel_at_period_end: live?.cancel_at_period_end ?? false,
       granted,
     });
   } catch (e) {
