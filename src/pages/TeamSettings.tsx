@@ -17,6 +17,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { fetchSearchUsage, type SearchUsage } from "@/lib/search-meter";
 import { CreditsPanel } from "@/pages/Credits";
+import { useInvites } from "@/hooks/useInvites";
 
 const TABS = ["general", "team", "billing", "monitoring"] as const;
 
@@ -128,6 +129,8 @@ function TeamTab() {
 
   return (
     <div className="space-y-6">
+      <InviteCard memberCount={members.length} />
+
 
       <Card>
         <CardHeader><CardTitle className="font-display text-base">Members</CardTitle><CardDescription>People with access to this workspace</CardDescription></CardHeader>
@@ -141,6 +144,64 @@ function TeamTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function InviteCard({ memberCount }: { memberCount: number }) {
+  const { companyId } = useCompany();
+  const { list, create, revoke } = useInvites();
+  const [email, setEmail] = useState("");
+  const { data: plan } = useQuery({
+    queryKey: ["settings-plan", companyId],
+    enabled: !!companyId,
+    queryFn: async () => (await supabase.from("company_features").select("plan").eq("company_id", companyId!).maybeSingle()).data?.plan ?? "starter",
+  });
+  const seats = plan === "pro" ? 5 : 1;
+  const pending = (list.data ?? []).filter((i) => !i.accepted_at);
+  const used = memberCount + pending.length;
+  const full = used >= seats;
+
+  const send = async () => {
+    const e = email.trim();
+    if (!/^\S+@\S+\.\S+$/.test(e)) return toast.error("Enter a valid email");
+    try {
+      await create.mutateAsync({ email: e, role: "recruiter" });
+      setEmail(""); toast.success("Invite sent");
+    } catch (err) {
+      const msg = (err as Error).message ?? "";
+      toast.error(msg.includes("seat_limit") ? "All seats are in use. Upgrade to Pro for up to 5 seats." : "Couldn't send the invite. Only workspace admins can invite.");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-display text-base">Invite teammates</CardTitle>
+        <CardDescription>{used} of {seats} {seats === 1 ? "seat" : "seats"} used on {plan === "pro" ? "Pro" : plan === "beta" ? "Early access" : "Starter"}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {full ? (
+          <p className="text-sm text-muted-foreground">
+            {seats === 1 ? "Your plan includes 1 seat. Upgrade to Pro in Billing & Credits for up to 5 seats." : "All 5 seats are in use. Contact hello@oslr.health for more."}
+          </p>
+        ) : (
+          <div className="flex gap-2">
+            <Input type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className="max-w-sm" />
+            <Button size="sm" onClick={send} disabled={create.isPending}>{create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send invite"}</Button>
+          </div>
+        )}
+        {pending.length > 0 && (
+          <div className="divide-y divide-border">
+            {pending.map((i) => (
+              <div key={i.id} className="flex items-center justify-between py-2 text-sm">
+                <span>{i.email} <span className="text-xs text-muted-foreground">· pending</span></span>
+                <Button size="sm" variant="ghost" onClick={() => revoke.mutate(i.id)}>Cancel</Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
