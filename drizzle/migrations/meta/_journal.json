@@ -50,6 +50,13 @@
       "when": 1793060919063,
       "tag": "0006_pro_seat_credit_pool",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793118233599,
+      "tag": "0007_doctor_intel_cache",
+      "breakpoints": true
     }
   ]
 }
