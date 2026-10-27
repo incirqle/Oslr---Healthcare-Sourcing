@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DoctorIntelTab } from "@/components/DoctorIntelTab";
+import { isDoctor } from "@/lib/doctorIntel";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -942,6 +944,7 @@ export function CandidateDrawer({
                   { value: "education", label: "Education" },
                   { value: "skills", label: "Skills" },
                   { value: "notes", label: `Notes${notes.length > 0 ? ` (${notes.length})` : ""}` },
+                  ...(isDoctor(candidate) ? [{ value: "research", label: "Research & Industry" }] : []),
                   { value: "contact", label: "Contact" },
                 ].map((t) => (
                   <TabsTrigger
@@ -1460,6 +1463,12 @@ export function CandidateDrawer({
                   </div>
                 )}
               </TabsContent>
+
+              {isDoctor(candidate) && (
+                <TabsContent value="research" className="mt-0 px-5 py-5 pb-24 sm:px-6">
+                  <DoctorIntelTab person={candidate} />
+                </TabsContent>
+              )}
 
               <TabsContent value="contact" className="mt-0 px-6 py-6 pb-28 sm:px-7">
                 <ContactEnrichPanel
