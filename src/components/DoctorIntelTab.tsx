@@ -116,7 +116,6 @@ export function DoctorIntelTab({ person }: { person: IntelPerson }) {
                 {pay.byType.map((c) => <span key={c.name} className="rounded-full bg-muted/60 px-3 py-1 text-[12px] text-ui-text-secondary">{c.name} <span className="font-medium text-foreground">{usd(c.amount)}</span></span>)}
               </div>
             </div>
-            <a href={`https://openpaymentsdata.cms.gov/physician/${d.npi.npi}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">View on Open Payments <ExternalLink className="h-3 w-3" /></a>
           </div>
         )}
       </Section>
