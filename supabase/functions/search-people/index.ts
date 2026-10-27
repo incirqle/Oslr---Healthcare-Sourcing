@@ -22,6 +22,7 @@
  * caching, credit ceilings, widening, and run logging are all the engine's.
  */
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { handleClinicianSearch } from "../_shared/clinician-engine/handler.ts";
 import { callClaude } from "../_shared/clinician-engine/ai-router.ts";
 import {
@@ -172,6 +173,20 @@ function deriveGeoScope(parsed: Row | null, relaxed: string[]): Row {
 /* ------------------------------------------------------------------ */
 /*  Engine invocation (in-process)                                      */
 /* ------------------------------------------------------------------ */
+
+/** Verified caller id from the session token, or null. */
+async function callerId(req: Request): Promise<string | null> {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false } });
+    const { data } = await sb.auth.getClaims(token);
+    const sub = data?.claims?.sub;
+    return typeof sub === "string" && sub ? sub : null;
+  } catch {
+    return null;
+  }
+}
 
 async function runEngine(req: Request, engineBody: Row): Promise<{ status: number; data: Row }> {
   const engineReq = new Request("http://internal/search-clinicians", {
@@ -379,6 +394,27 @@ Deno.serve(async (req: Request) => {
       ...(clientParsed ? { cached_parsed: clientParsed } : {}),
     };
 
+    // Whole-response cache: reopening a finished search (same person, same
+    // sentence, no edits) returns the saved results for 90 days with no
+    // parse, provider call or AI grading.
+    const isFresh = !clientParsed && !preview && page === 0 && !body.ranking_criteria &&
+      !body.removeIds && body.cityToState !== true && body.bypass_cache !== true;
+    let respKey: string | null = null;
+    if (isFresh) {
+      const uid = await callerId(req);
+      if (uid) {
+        const norm = query.toLowerCase().replace(/\s+/g, " ");
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(norm))))
+          .map((b) => b.toString(16).padStart(2, "0")).join("");
+        respKey = `clin:resp:v1:${uid}:${hash}`;
+        const hit = await getCrustDataCache(respKey);
+        const saved = hit?.profiles?.[0] as Row | undefined;
+        if (saved && Array.isArray(saved.results)) {
+          return json({ ...saved, cache_hit: true, response_cached: true, credits: 0, timing_ms: Date.now() - requestStart });
+        }
+      }
+    }
+
     const { status, data } = await runEngine(req, engineBody);
 
     // Engine-level failures pass through with their message.
@@ -424,7 +460,7 @@ Deno.serve(async (req: Request) => {
     // silently empty. Same row shape as results, plus audit_verdict/reason.
     const hiddenRows = (Array.isArray(data.hidden_results) ? data.hidden_results as Row[] : []).map(toSearchPageRow);
 
-    return json({
+    const payload: Row = {
       results: rows,
       total,
       total_is_estimate: data.total_is_estimate === true,
@@ -469,7 +505,12 @@ Deno.serve(async (req: Request) => {
       credits_session: data.credits_session ?? 0,
       cache_hit: data.cache_hit ?? false,
       timing_ms: Date.now() - requestStart,
-    });
+    };
+    if (respKey && rows.length > 0) {
+      await setCrustDataCache(respKey, rows.length, [payload], null)
+        .catch((e) => console.warn("[search-people] response cache write failed", e));
+    }
+    return json(payload);
   } catch (err) {
     console.error("[search-people] handler error:", err);
     return json({ error: err instanceof Error ? err.message : "Internal error" }, 500);
