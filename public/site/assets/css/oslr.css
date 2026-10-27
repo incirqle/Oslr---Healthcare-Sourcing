@@ -1880,3 +1880,35 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
   .ag-card { grid-template-columns: auto minmax(0, 1fr); }
   .ag-card > .ag-act { grid-column: 2; }
 }
+
+/* ---- Credits: costs by plan + calculator ---- */
+.cr { display: grid; gap: 20px; }
+@media (min-width: 980px) { .cr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.cr-cost { border: 1px solid var(--line-2); border-radius: var(--r-lg); overflow: hidden; background: var(--ink-1); }
+.cr-cost table { width: 100%; border-collapse: collapse; }
+.cr-cost th, .cr-cost td { padding: 18px 22px; text-align: left; border-bottom: 1px solid var(--line); }
+.cr-cost thead th { font-size: var(--t-small); font-weight: 500; color: var(--fg-2); }
+.cr-cost thead th.us { color: var(--sea); }
+.cr-cost tbody th { font-weight: 500; color: var(--fg); }
+.cr-cost tbody th small { display: block; margin-top: 4px; font-size: 0.8125rem; font-weight: 400; color: var(--fg-3); }
+.cr-cost td { font: 600 1.5rem/1 var(--f-display); font-variant-numeric: tabular-nums; color: var(--fg); width: 90px; }
+.cr-cost td.us { color: var(--sea); }
+.cr-cost tr:last-child th, .cr-cost tr:last-child td { border-bottom: 0; }
+.cr-cost__tot th, .cr-cost__tot td { background: rgba(255, 255, 255, 0.02); }
+.calc__plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+.calc__plan { display: grid; gap: 8px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--ink-0); }
+.calc__plan b { font: 600 1.75rem/1 var(--f-display); letter-spacing: -0.018em; font-variant-numeric: tabular-nums; color: var(--fg); }
+.calc__plan b small { font-size: 0.9rem; font-weight: 500; color: var(--fg-3); }
+.calc__bar { display: block; height: 4px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
+.calc__bar i { display: block; height: 100%; background: var(--sea); transform-origin: left; transition: transform 180ms var(--ease-out); }
+.calc__plan.over b span { color: var(--fg-3); }
+.calc__plan.over .calc__bar i { background: var(--fg-3); }
+.calc .fit { margin: 0; color: var(--fg-2); }
+.calc .fit strong { color: var(--fg); }
+/* ---- Nav: links centered in the bar ---- */
+@media (min-width: 960px) {
+  .nav__in { display: grid; grid-template-columns: 1fr auto 1fr; }
+  .nav__in > .logo { justify-self: start; }
+  .nav__in > .nav__links { justify-self: center; }
+  .nav__in > .nav__cta { justify-self: end; margin-left: 0; }
+}

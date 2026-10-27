@@ -434,21 +434,24 @@
     requestAnimationFrame(function () { ind.style.transition = "none"; moveInd(btns.filter(function (b) { return b.getAttribute("aria-pressed") === "true"; })[0]); requestAnimationFrame(function () { ind.style.transition = ""; }); });
   }
 
-  /* credit calculator */
+  /* credit calculator: credits needed on each plan, using each plan's prices */
   var calc = $(".calc");
   if (calc && cfg.pricing) {
-    var C = cfg.pricing.creditCost, ins = $$("input[type=range]", calc);
+    var C = cfg.pricing.creditCost, PL = cfg.pricing.plans, ins = $$("input[type=range]", calc);
+    var cost = function (k, w, pe, ph) { var c = C[k] || C; return w * c.workEmail + pe * c.personalEmail + ph * c.phone; };
     var update = function () {
       var w = +$("#c-work").value, pe = +$("#c-personal").value, ph = +$("#c-phone").value;
       ins.forEach(function (i) { var p = (i.value - i.min) / (i.max - i.min) * 100; i.style.setProperty("--p", p + "%"); });
       $("#o-work").textContent = w; $("#o-personal").textContent = pe; $("#o-phone").textContent = ph;
-      var total = w * C.workEmail + pe * C.personalEmail + ph * C.phone;
-      $("#o-total").textContent = total.toLocaleString("en-US");
-      var s = cfg.pricing.plans.starter.credits, p = cfg.pricing.plans.pro.credits, fit;
-      if (total <= s) fit = "Fits in <strong>Starter</strong> (" + s + " credits a month)";
-      else if (total <= p) fit = "Fits in <strong>Pro</strong> (" + p + " credits a month)";
-      else fit = "Above Pro. <strong>Enterprise</strong> sets volume to your team";
-      $("#o-fit").innerHTML = fit;
+      var fits = [];
+      ["starter", "pro"].forEach(function (k) {
+        var need = cost(k, w, pe, ph), cap = PL[k].credits, el = $("#o-" + k), bar = $("#b-" + k);
+        if (el) el.textContent = need.toLocaleString("en-US");
+        if (bar) bar.style.transform = "scaleX(" + Math.min(1, need / cap) + ")";
+        var box = $('.calc__plan[data-plan="' + k + '"]'); if (box) box.classList.toggle("over", need > cap);
+        if (need <= cap) fits.push(k);
+      });
+      $("#o-fit").innerHTML = fits.length ? "Fits in <strong>" + (fits[0] === "starter" ? "Starter" : "Pro") + "</strong>" : "Above Pro. <strong>Enterprise</strong> sets volume to your team";
     };
     ins.forEach(function (i) { i.addEventListener("input", update); });
     update();

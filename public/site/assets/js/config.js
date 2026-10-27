@@ -20,7 +20,10 @@ window.OSLR = {
       starter: { monthly: 129, credits: 150 },
       pro:     { monthly: 229, credits: 500 }
     },
-    // What one reveal costs, in credits
-    creditCost: { workEmail: 1, personalEmail: 2, phone: 3 }
+    // What one reveal costs, in credits, by plan
+    creditCost: {
+      starter: { workEmail: 2, personalEmail: 3, phone: 3 },
+      pro:     { workEmail: 1, personalEmail: 2, phone: 3 }
+    }
   }
 };
