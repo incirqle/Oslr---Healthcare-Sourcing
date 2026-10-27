@@ -15,8 +15,8 @@ import "./lib/crustdata-killswitch.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 export const SEARCH_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
-/** How long finished search results (and run snapshots) are reused: 30 days. */
-export const RESULTS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** How long finished search results (and run snapshots) are reused: 90 days. */
+export const RESULTS_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const ENRICHMENT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function getServiceClient() {
@@ -176,7 +176,7 @@ export async function setCrustDataCache(
     data: data.slice(0, CACHE_CHUNK_ROWS),
     next_cursor: nextCursor,
     created_at: now,
-  });
+  }, { onConflict: "cache_key" });
   if (head.error) {
     console.warn(`[cache] head write failed for ${cacheKey.slice(0, 20)}…: ${head.error.message}`);
     return;
@@ -188,7 +188,7 @@ export async function setCrustDataCache(
       data: data.slice(i * CACHE_CHUNK_ROWS, (i + 1) * CACHE_CHUNK_ROWS),
       next_cursor: null,
       created_at: now,
-    });
+    }, { onConflict: "cache_key" });
     if (part.error) {
       console.warn(`[cache] chunk ${i} write failed for ${cacheKey.slice(0, 20)}…: ${part.error.message}`);
       return;
@@ -200,7 +200,7 @@ export async function setCrustDataCache(
     data: [],
     next_cursor: null,
     created_at: now,
-  });
+  }, { onConflict: "cache_key" });
   if (meta.error) {
     console.warn(`[cache] chunk-count write failed for ${cacheKey.slice(0, 20)}…: ${meta.error.message}`);
   }
