@@ -177,7 +177,10 @@ function InviteCard({ memberCount }: { memberCount: number }) {
     <Card>
       <CardHeader>
         <CardTitle className="font-display text-base">Invite teammates</CardTitle>
-        <CardDescription>{used} of {seats} {seats === 1 ? "seat" : "seats"} used on {plan === "pro" ? "Pro" : plan === "beta" ? "Early access" : "Starter"}</CardDescription>
+        <CardDescription>
+          {used} of {seats} {seats === 1 ? "seat" : "seats"} used on {plan === "pro" ? "Pro" : plan === "beta" ? "Early access" : "Starter"}
+          {plan === "pro" && <> · each seat adds 500 credits a month to your shared credit pool ({((memberCount) * 500).toLocaleString()} credits a month at {memberCount} {memberCount === 1 ? "seat" : "seats"})</>}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {full ? (
