@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { prefetchDoctorIntel } from "@/lib/doctorIntel";
 import { AppLayout } from "@/components/AppLayout";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,6 +112,8 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ParsedFilters>(EMPTY_FILTERS);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  // Pre-load doctors' payments, research and trials in the background as results land.
+  useEffect(() => { if (candidates.length) prefetchDoctorIntel(candidates); }, [candidates]);
   const [revealedCount, setRevealedCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [totalIsEstimate, setTotalIsEstimate] = useState(false);
