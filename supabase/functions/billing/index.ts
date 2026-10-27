@@ -3,7 +3,7 @@
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-import { creditsForMonth, monthIndex, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
+import { creditsForSeats, monthIndex, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -100,8 +100,11 @@ Deno.serve(async (req) => {
     const liveItem = live?.items.data.find((i) => PRICE_IDS[i.price.id]);
     const liveInfo = liveItem ? PRICE_IDS[liveItem.price.id] : null;
     let granted = 0;
+    // Credits are one shared pool for the whole workspace. Pro grows the pool by 500 per seat in use.
+    const { count: seatCount } = await db.from("profiles").select("user_id", { count: "exact", head: true }).eq("company_id", companyId);
+    const seatsUsed = Math.max(1, seatCount ?? 1);
     const grant = async (plan: PlanId, ref: string, note: string) => {
-      const amount = creditsForMonth(plan);
+      const amount = creditsForSeats(plan, seatsUsed);
       const { data: ok } = await db.rpc("reset_monthly_credits", { _company_id: companyId, _amount: amount, _ref: ref, _note: note });
       if (ok) granted = amount;
     };
@@ -133,6 +136,8 @@ Deno.serve(async (req) => {
       renews_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
       cancel_at_period_end: live?.cancel_at_period_end ?? false,
       seats: PLANS[plan].seats,
+      seats_used: seatsUsed,
+      monthly_credits: creditsForSeats(plan, seatsUsed),
       beta_eligible: betaEligible,
       granted,
     });

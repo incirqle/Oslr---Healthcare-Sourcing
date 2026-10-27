@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { BETA_PRICE, contactPrices, creditsForMonth, monthIndex, PLANS, priceFor, PRICE_IDS } from "./plans.ts";
+import { BETA_PRICE, contactPrices, creditsForMonth, creditsForSeats, monthIndex, PLANS, priceFor, PRICE_IDS } from "./plans.ts";
 
 Deno.test("Starter: 150 credits, work 2, personal 3, phone 3", () => {
   assertEquals(PLANS.starter.monthlyCredits, 150);
@@ -18,6 +18,17 @@ Deno.test("Missing plan pays Starter prices", () => {
 Deno.test("Yearly plans only ever get one month of credits at a time", () => {
   assertEquals(creditsForMonth("starter"), 150);
   assertEquals(creditsForMonth("pro"), 500);
+});
+Deno.test("Pro credit pool is 500 per seat in use, capped at 5 seats", () => {
+  assertEquals(creditsForSeats("pro", 1), 500);
+  assertEquals(creditsForSeats("pro", 3), 1500);
+  assertEquals(creditsForSeats("pro", 5), 2500);
+  assertEquals(creditsForSeats("pro", 9), 2500);
+  assertEquals(creditsForSeats("pro", 0), 500);
+});
+Deno.test("Starter and beta pools never grow with seats", () => {
+  assertEquals(creditsForSeats("starter", 5), 150);
+  assertEquals(creditsForSeats("beta", 5), 150);
 });
 Deno.test("Month index within a yearly period", () => {
   const start = Date.UTC(2026, 0, 15);

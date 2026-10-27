@@ -42,6 +42,16 @@ export function creditsForMonth(plan: PlanId): number {
   return PLANS[plan].monthlyCredits;
 }
 
+/**
+ * Monthly credit pool for a workspace. Credits are shared by the whole team.
+ * Pro adds 500 credits per seat in use (up to its 5-seat cap); other plans are a flat pool.
+ */
+export function creditsForSeats(plan: PlanId, seats: number): number {
+  if (plan !== "pro") return PLANS[plan].monthlyCredits;
+  const used = Math.max(1, Math.min(PLANS.pro.seats, Math.floor(seats) || 1));
+  return PLANS.pro.monthlyCredits * used;
+}
+
 /** Whole months elapsed since a yearly period started (0 = first month). */
 export function monthIndex(periodStartMs: number, nowMs: number): number {
   const a = new Date(periodStartMs), b = new Date(nowMs);

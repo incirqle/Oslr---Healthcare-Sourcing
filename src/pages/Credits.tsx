@@ -23,7 +23,7 @@ export function CreditsPanel() {
   const { companyId } = useCompany();
   const balance = useCreditBalance(companyId);
   const [rows, setRows] = useState<Tx[]>([]);
-  const [plan, setPlan] = useState<{ subscribed: boolean; plan?: "starter" | "pro" | "beta" | null; interval?: "month" | "year" | null; renews_at: string | null; cancel_at_period_end: boolean; beta_eligible?: boolean } | null>(null);
+  const [plan, setPlan] = useState<{ subscribed: boolean; plan?: "starter" | "pro" | "beta" | null; interval?: "month" | "year" | null; renews_at: string | null; cancel_at_period_end: boolean; beta_eligible?: boolean; seats_used?: number; monthly_credits?: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState<"starter" | "pro" | "beta">("starter");
   const [yearly, setYearly] = useState(false);
@@ -84,7 +84,7 @@ export function CreditsPanel() {
             </div>
             <div className="text-right text-sm text-muted-foreground">
                {unlimited ? <p>Contact lookups included · no expiry</p> : <>
-                 <p>{planName} plan · {plan?.plan === "pro" ? 500 : 150} credits a month</p>
+                 <p>{planName} plan · {(plan?.monthly_credits ?? (plan?.plan === "pro" ? 500 : 150)).toLocaleString()} credits a month{plan?.plan === "pro" ? ` · ${plan.seats_used ?? 1} ${(plan.seats_used ?? 1) === 1 ? "seat" : "seats"} × 500, one shared pool` : ""}</p>
                  <p>{plan?.plan === "pro" ? "Work email 1 · Personal email 2 · Phone 3" : "Work email 2 · Personal email 3 · Phone 3"}</p>
                  <p>Credits reset each month. Unused credits don't roll over.</p>
                </>}
@@ -104,7 +104,7 @@ export function CreditsPanel() {
                       ? `Ends ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : "soon"}`
                       : `Active · renews ${plan.renews_at ? new Date(plan.renews_at).toLocaleDateString() : ""}`
                     : exempt ? "Approved access, no payment needed"
-                    : "Starter: 150 credits a month. Pro: 500 credits a month, Agents and up to 5 seats."}
+                    : "Starter: 150 credits a month. Pro: 500 credits a month per seat (up to 5 seats), Agents included."}
               </p>
             </div>
             {plan?.subscribed ? (
