@@ -22,7 +22,7 @@
  * caching, credit ceilings, widening, and run logging are all the engine's.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { handleClinicianSearch } from "../_shared/clinician-engine/handler.ts";
 import { callClaude } from "../_shared/clinician-engine/ai-router.ts";
 import {
