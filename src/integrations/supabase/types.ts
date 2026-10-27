@@ -1235,6 +1235,24 @@ export type Database = {
         }
         Relationships: []
       }
+      doctor_intel_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          data: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          data?: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          data?: Json
+        }
+        Relationships: []
+      }
       email_campaigns: {
         Row: {
           bounce_count: number | null
