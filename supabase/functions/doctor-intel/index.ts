@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
       const ok = rows.filter((r) => (r.data as any).npi || (r.data as any).publications || (r.data as any).trials);
       if (ok.length) await admin.from("doctor_intel_cache").upsert(ok);
     }
-    return json({ results: out });
+    return json({ results: keys.map((k) => out[k] ?? null) });
   } catch (e) {
     return json({ error: String((e as Error).message ?? e) }, 500);
   }
