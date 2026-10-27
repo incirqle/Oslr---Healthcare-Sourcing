@@ -229,7 +229,22 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
     const hasClientParsed = !!(clientParsed && typeof clientParsed === "object" && Object.keys(clientParsed).length > 0);
     // "Suggested for this search" runs alongside the search (no added wait).
     const suggestionsP: Promise<string[]> = preview || hasClientParsed ? Promise.resolve([]) : suggestionsFor(String(query ?? ""));
-    const parsed = await parseQuery(query.trim(), hasClientParsed ? clientParsed : null);
+    // The same sentence must always parse the same way, or the search cache
+    // misses (the model once added "Durham, NC" on a repeat). Parses are
+    // reused for the results cache window, keyed on the normalized sentence.
+    const parseKey = "clin:parse:" + String(query ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    let parsed: Record<string, unknown>;
+    if (hasClientParsed) {
+      parsed = await parseQuery(query.trim(), clientParsed);
+    } else {
+      const cachedParse = bypassCache ? null : await getCrustDataCache(parseKey);
+      if (cachedParse && cachedParse.profiles[0]) {
+        parsed = await parseQuery(query.trim(), cachedParse.profiles[0]);
+      } else {
+        parsed = await parseQuery(query.trim(), null);
+        await setCrustDataCache(parseKey, 1, [parsed], null);
+      }
+    }
 
     let resolvedCriteria: SearchCriteria[] = [];
     try {
