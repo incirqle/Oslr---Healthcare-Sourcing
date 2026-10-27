@@ -43,6 +43,13 @@
       "when": 1793042535818,
       "tag": "0005_monthly_credits_beta_seats",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793060919063,
+      "tag": "0006_pro_seat_credit_pool",
+      "breakpoints": true
     }
   ]
 }
