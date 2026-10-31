@@ -229,7 +229,10 @@ Deno.serve(async (req) => {
             authHeader: req.headers.get("Authorization")!,
             userAgent: req.headers.get("x-oslr-user-agent") ?? req.headers.get("user-agent"), serve: CALIBRATION_SIZE,
           });
-          if (!r.ok) return json({ error: r.error }, r.status && r.status < 500 ? r.status : 502);
+          if (!r.ok) {
+            await admin.from("clin_agents").update({ status: "paused", pause_reason: r.error }).eq("id", agent.id);
+            return json({ error: r.error }, r.status && r.status < 500 ? r.status : 502);
+          }
           patch.status = "calibrating"; patch.next_run_at = null;
           await logEvent(admin, agent, "chat", { role: "agent", text: r.served > 0
             ? `I found ${r.served} people to start. Approve or pass each one so I learn what you want.`
