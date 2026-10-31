@@ -674,6 +674,7 @@ export type Database = {
           brief: string
           company_id: string
           created_at: string
+          creation_request_id: string | null
           email_updates: boolean
           empty_runs: number
           finish_date: string | null
@@ -698,6 +699,7 @@ export type Database = {
           brief: string
           company_id: string
           created_at?: string
+          creation_request_id?: string | null
           email_updates?: boolean
           empty_runs?: number
           finish_date?: string | null
@@ -722,6 +724,7 @@ export type Database = {
           brief?: string
           company_id?: string
           created_at?: string
+          creation_request_id?: string | null
           email_updates?: boolean
           empty_runs?: number
           finish_date?: string | null
@@ -1997,6 +2000,21 @@ export type Database = {
           search_limit: number
           searches_used: number
         }[]
+      }
+      create_metered_clin_agent: {
+        Args: {
+          _brief: string
+          _company_id: string
+          _finish_date: string
+          _goal: number
+          _name: string
+          _owner_id: string
+          _per_day: number
+          _project_id: string
+          _request_id: string
+          _timezone: string
+        }
+        Returns: Json
       }
       get_invite_by_token: {
         Args: { _token: string }
