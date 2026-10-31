@@ -37,3 +37,6 @@ verify_jwt = false
 
 [functions.export-feed]
 verify_jwt = false
+
+[functions.demo-request]
+verify_jwt = false

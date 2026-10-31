@@ -9,7 +9,7 @@ window.OSLR = {
   links: {
     signup: "/auth?mode=signup",
     login: "/auth",
-    demo: "mailto:hello@oslr.health?subject=Oslr%20demo",
+    demo: "#demo",
     email: "hello@oslr.health"
   },
 
