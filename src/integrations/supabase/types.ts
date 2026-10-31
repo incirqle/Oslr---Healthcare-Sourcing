@@ -187,6 +187,36 @@ export type Database = {
         }
         Relationships: []
       }
+      app_user_connections: {
+        Row: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at: string
+          id: string
+          reconnect_required: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at?: string
+          id?: string
+          reconnect_required?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_key_ciphertext?: string
+          connector_id?: string
+          created_at?: string
+          id?: string
+          reconnect_required?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       beta_access: {
         Row: {
           activated_at: string
@@ -1560,6 +1590,131 @@ export type Database = {
           token?: string
         }
         Relationships: []
+      }
+      export_destinations: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          created_by: string
+          feed_token: string | null
+          id: string
+          kind: string
+          label: string | null
+          last_error: string | null
+          last_synced_at: string | null
+          project_id: string
+          secret_ciphertext: string | null
+          sheet_url: string | null
+          spreadsheet_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          created_by: string
+          feed_token?: string | null
+          id?: string
+          kind: string
+          label?: string | null
+          last_error?: string | null
+          last_synced_at?: string | null
+          project_id: string
+          secret_ciphertext?: string | null
+          sheet_url?: string | null
+          spreadsheet_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          feed_token?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          last_error?: string | null
+          last_synced_at?: string | null
+          project_id?: string
+          secret_ciphertext?: string | null
+          sheet_url?: string | null
+          spreadsheet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_destinations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_destinations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      export_outbox: {
+        Row: {
+          attempts: number
+          candidate_id: string
+          created_at: string
+          error: string | null
+          event: string
+          id: number
+          processed_at: string | null
+          project_id: string
+        }
+        Insert: {
+          attempts?: number
+          candidate_id: string
+          created_at?: string
+          error?: string | null
+          event: string
+          id?: number
+          processed_at?: string | null
+          project_id: string
+        }
+        Update: {
+          attempts?: number
+          candidate_id?: string
+          created_at?: string
+          error?: string | null
+          event?: string
+          id?: number
+          processed_at?: string | null
+          project_id?: string
+        }
+        Relationships: []
+      }
+      export_rows: {
+        Row: {
+          candidate_id: string
+          destination_id: string
+          row_number: number
+        }
+        Insert: {
+          candidate_id: string
+          destination_id: string
+          row_number: number
+        }
+        Update: {
+          candidate_id?: string
+          destination_id?: string
+          row_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_rows_destination_id_fkey"
+            columns: ["destination_id"]
+            isOneToOne: false
+            referencedRelation: "export_destinations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       oslr_searches: {
         Row: {
