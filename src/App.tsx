@@ -55,6 +55,7 @@ const App = () => (
             <Route path="/agents" element={<P><Agents /></P>} />
             <Route path="/agents/:id" element={<P><AgentDetail /></P>} />
             <Route path="/contacts" element={<P><Contacts /></P>} />
+            <Route path="/integrations" element={<P><Integrations /></P>} />
             <Route path="/campaigns/*" element={<Navigate to="/projects" replace />} />
             <Route path="/analytics/*" element={<Navigate to="/dashboard" replace />} />
             <Route path="/news" element={<P><News /></P>} />
