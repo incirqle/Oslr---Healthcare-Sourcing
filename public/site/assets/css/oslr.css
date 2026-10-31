@@ -2042,3 +2042,28 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 @media (hover: hover) and (pointer: fine) { .rs__sol a:hover { border-color: var(--sea); } }
 @media (prefers-reduced-motion: reduce) { .sx__p.on { animation: none; } }
 .sv.av--img{object-fit:cover;padding:0}
+/* ---------------- Solutions feature layout (on-brand, roomy) */
+@media (min-width: 980px) {
+  .sol-feat--wide { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .sol-feat--wide .cmp-feat__copy { order: 0 !important; max-width: 720px; }
+}
+.sol-feat .cmp-feat__vis { padding: clamp(12px, 2vw, 28px); }
+.sol-feat .sx { min-height: 0; }
+.sol-feat:not(.sol-feat--wide) .sx { grid-template-columns: minmax(0, 1fr); }
+.sr__b--ok { background: #A9D6C1; border-color: #A9D6C1; color: #0F241B; }
+.sr__learn span { background: var(--paper-sea); border: 1px solid var(--paper-sea-line); color: var(--paper-sea-ink); }
+.sc__go { font: 500 12.5px/1 var(--f-body) !important; color: var(--paper-sea-ink) !important; padding: 7px 12px; border-radius: 8px; background: var(--paper-sea); border: 1px solid var(--paper-sea-line); }
+.sc__rv[data-done] .sc__go { display: none; }
+.sc__foot { grid-template-columns: 1fr; }
+@media (max-width: 859px) {
+  .sx__side { padding: 14px; }
+  .sx__tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .sx__t { flex: none; white-space: nowrap; }
+  .sx__main { padding: 14px; }
+  .sx__r .pt { display: none; }
+}
+@media (max-width: 640px) {
+  .sx__r { grid-template-columns: auto minmax(0, 1fr); }
+  .sr__c { padding: 12px; }
+  .co-main, .co-side { padding: 16px; }
+}
