@@ -28,7 +28,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <main className="flex-1 flex flex-col">
+        <main className="flex min-w-0 flex-1 flex-col">
           <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-background sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="mr-1" />
@@ -41,7 +41,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </Breadcrumb>
             </div>
           </header>
-          <div className="flex-1 p-6">
+          <div className="min-w-0 flex-1 p-6">
             {children}
           </div>
         </main>
