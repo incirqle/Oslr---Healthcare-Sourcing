@@ -15,7 +15,7 @@ const DemoRequest = ({ name, email, company, page }: Props) => (
         <Text style={text}><b>Name:</b> {name ?? '-'}</Text>
         <Text style={text}><b>Email:</b> {email ?? '-'}</Text>
         <Text style={text}><b>Company:</b> {company ?? '-'}</Text>
-        <Text style={muted}>Sent from {page ?? 'the website'}. They were sent on to book a time.</Text>
+        <Text style={muted}>Sent from {page ?? 'the website'}. They were shown your booking calendar next.</Text>
       </Container>
     </Body>
   </Html>
