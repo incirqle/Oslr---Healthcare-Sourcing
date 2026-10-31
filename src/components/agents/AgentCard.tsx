@@ -8,7 +8,7 @@ export function AgentCard({ agent }: { agent: AgentRow }) {
   return (
     <Link
       to={`/agents/${agent.id}`}
-      className="group flex items-center gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 backdrop-blur transition-all duration-200 hover:border-primary/40 hover:bg-card active:scale-[0.99]"
+      className="agent-enter group flex items-center gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 hover:shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.6)] backdrop-blur transition-all duration-200 hover:border-primary/40 hover:bg-card active:scale-[0.99]"
     >
       <div className="relative flex items-center justify-center">
         <GoalRing value={s.approved} max={agent.goal} size={44} />

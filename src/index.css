@@ -328,3 +328,22 @@
 .animate-gradient-float-reverse {
   animation: gradient-float-reverse 14s ease-in-out infinite;
 }
+
+/* Agents: soft mint + sky sparkle surfaces */
+:root { --sky: 199 85% 74%; --sky-soft: 199 90% 94%; --mint-soft: 153 45% 93%; }
+.agent-glow { position: relative; isolation: isolate; }
+.agent-glow::before { content: ""; position: absolute; inset: -8% -4% -12% -4%; z-index: -1; pointer-events: none; border-radius: 28px;
+  background:
+    radial-gradient(55% 60% at 10% 0%, hsl(var(--primary) / 0.35), transparent 70%),
+    radial-gradient(45% 55% at 92% 20%, hsl(var(--sky) / 0.30), transparent 70%),
+    radial-gradient(hsl(var(--primary-glow) / 0.22) 1px, transparent 1.4px) 0 0 / 14px 14px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 60%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 60%, transparent 100%); }
+.agent-sheen { background: linear-gradient(135deg, hsl(var(--mint-soft)), hsl(var(--sky-soft))); }
+.agent-sheen-border { border-color: hsl(var(--primary) / 0.45); }
+.agent-enter { animation: agent-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+@keyframes agent-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.agent-spark { animation: agent-spark 2.4s ease-in-out infinite; }
+@keyframes agent-spark { 0%,100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .agent-enter { animation: agent-fade 200ms ease both; } .agent-spark { animation: none; } }
+@keyframes agent-fade { from { opacity: 0; } to { opacity: 1; } }

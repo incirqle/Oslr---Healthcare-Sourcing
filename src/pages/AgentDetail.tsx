@@ -10,6 +10,9 @@ import { CandidateDrawer } from "@/components/CandidateDrawer";
 import { AgentReviewCard } from "@/components/agents/AgentReviewCard";
 import { AgentRail } from "@/components/agents/AgentRail";
 import { AgentStatusDot, STATUS_LABEL } from "@/components/agents/AgentStatusDot";
+import { AgentCountdown } from "@/components/agents/AgentCountdown";
+import { ApprovedTools } from "@/components/agents/ApprovedTools";
+import { LiveSyncDialog } from "@/components/LiveSyncDialog";
 import { AgentsLocked } from "@/components/agents/AgentsLocked";
 import { fmtWhen, useAgentsEnabled, useDecide, useRoster, useSteer, useUpdateAgent, type PoolItem } from "@/hooks/useAgents";
 import { cn } from "@/lib/utils";
@@ -105,7 +108,7 @@ export default function AgentDetail() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           {/* Header */}
-          <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-border/70 bg-card/80 px-5 py-4 backdrop-blur-xl">
+          <div className="agent-glow sticky top-0 z-10 -mx-1 rounded-2xl border agent-sheen-border bg-card/85 px-5 py-4 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Back" onClick={() => navigate("/agents")}><ArrowLeft className="h-4 w-4" /></Button>
               <AgentStatusDot status={agent.status} waiting={lists.review.length} />
@@ -139,6 +142,12 @@ export default function AgentDetail() {
               </p>
             </div>
             {agent.goal ? <Progress value={pct} className="mt-2 h-1.5" /> : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {agent.status === "sourcing" && <AgentCountdown at={agent.next_run_at} />}
+              {agent.project_id
+                ? <span className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">Send approved people to Sheets, Slack or Excel <LiveSyncDialog projectId={agent.project_id} /></span>
+                : <span className="text-[12px] text-muted-foreground">Link a project to send approved people to Sheets, Slack or Excel.</span>}
+            </div>
           </div>
 
           {agent.pause_reason && agent.status === "paused" && (
@@ -202,13 +211,14 @@ export default function AgentDetail() {
             {([["review", "To review"], ["approved", "Approved"], ["passed", "Passed"]] as [Tab, string][]).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={cn("rounded-full px-3.5 py-1.5 text-[14px] transition-colors active:scale-[0.97]",
-                  tab === k ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary")}>
+                  tab === k ? "bg-primary text-primary-foreground shadow-[0_0_0_4px_hsl(var(--primary)/0.18)]" : "text-muted-foreground hover:bg-secondary")}>
                 {label} ({lists[k].length})
               </button>
             ))}
             {tab === "review" && lists.review.length > 0 && <span className="ml-auto hidden text-[12px] text-muted-foreground md:inline">Press A to approve, P to pass</span>}
           </div>
 
+          {tab === "approved" && <ApprovedTools agentName={agent.name} items={lists.approved} decisions={roster.decisions} projectId={agent.project_id} />}
           <div className="space-y-3">
             {visible.length === 0 ? (
               <p className="py-10 text-center text-[15px] text-muted-foreground">
