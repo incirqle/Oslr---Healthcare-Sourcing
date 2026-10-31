@@ -681,7 +681,7 @@ export default function SearchPage() {
               Back
             </button>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">Project:</span>
             <Select
               value={projectId ?? NO_PROJECT}
@@ -690,7 +690,7 @@ export default function SearchPage() {
                 navigate(v === NO_PROJECT ? "/search" : `/projects/${v}/search`);
               }}
             >
-              <SelectTrigger className="h-8 w-[220px] text-sm">
+              <SelectTrigger className="h-8 w-[220px] max-w-[60vw] text-sm">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
