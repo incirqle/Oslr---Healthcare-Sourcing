@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       const name = String(body.name ?? "").trim().slice(0, 120);
       const brief = String(body.brief ?? "").trim().slice(0, 500);
       if (!name || brief.length < 8) return json({ error: "Add a name and describe who to find." }, 400);
-      const perDay = Math.max(1, Math.min(MAX_PER_DAY, Number(body.per_day) || 10));
+      const perDay = Math.max(1, Math.min(createPolicy.daily_max, Number(body.per_day) || 10));
       const goal = body.goal ? Math.max(1, Math.min(1000, Number(body.goal))) : null;
       const finish = typeof body.finish_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.finish_date) ? body.finish_date : null;
       const tz = typeof body.timezone === "string" && body.timezone.length < 60 ? body.timezone : "America/New_York";
