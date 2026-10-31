@@ -1,34 +1,27 @@
 project_id = "pagxfpeqjxlbaoldmeua"
 
-[functions.seed-data]
-verify_jwt = false
-
-[functions.search-people]
-verify_jwt = false
-
-[functions.news-feed]
-verify_jwt = false
-
-[functions.register-sending-domain]
-verify_jwt = false
-
-[functions.verify-domain]
-verify_jwt = false
-
-[functions.delete-domain]
-verify_jwt = false
-
-[functions.nylas-oauth-callback]
-verify_jwt = false
-
-[functions.nylas-webhook]
-verify_jwt = false
-
-[functions.unsubscribe]
-verify_jwt = false
-
-[functions.company-enrichment]
-verify_jwt = false
-
-[functions.search-clinicians]
-verify_jwt = false
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.company-enrichment]
+    verify_jwt = false
+  [functions.delete-domain]
+    verify_jwt = false
+  [functions.news-feed]
+    verify_jwt = false
+  [functions.nylas-oauth-callback]
+    verify_jwt = false
+  [functions.nylas-webhook]
+    verify_jwt = false
+  [functions.register-sending-domain]
+    verify_jwt = false
+  [functions.search-clinicians]
+    verify_jwt = false
+  [functions.search-people]
+    verify_jwt = false
+  [functions.seed-data]
+    verify_jwt = false
+  [functions.unsubscribe]
+    verify_jwt = false
+  [functions.verify-domain]
+    verify_jwt = false
