@@ -69,17 +69,6 @@ export default function Agents() {
                 <Button onClick={() => setOpen(true)} className="mt-6 h-11 rounded-full px-5"><Plus className="mr-1.5 h-4 w-4" />Start a new agent</Button>
               </div>
             </div>
-          ) : (
-            GROUPS.map((g) => {
-              const list = agents.filter(g.test);
-              if (list.length === 0) return null;
-              return (
-                <section key={g.title} className="space-y-3">
-                  <h2 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">{g.title} <span className="ml-1 tabular-nums">{list.length}</span></h2>
-                  <div className="grid gap-3 md:grid-cols-2">{list.map((a) => <AgentCard key={a.id} agent={a} />)}</div>
-                </section>
-              );
-            })
           )}
         </div>
       )}
