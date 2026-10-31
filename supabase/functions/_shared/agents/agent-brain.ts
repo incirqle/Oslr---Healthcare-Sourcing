@@ -5,7 +5,8 @@
 
 export interface AgentPreferences {
   weights: Record<string, number>;
-  skip: { cities: string[]; employers: string[] };
+  skip: { cities: string[]; employers: string[]; features?: string[] };
+  query?: { brief: string; parsed: Record<string, unknown> };
 }
 
 export interface PoolRowLike {
@@ -113,7 +114,7 @@ export function applyDecision(
   }
   const cities = [...prefs.skip.cities];
   if (skipCity && !cities.some((c) => norm(c) === norm(skipCity))) cities.push(skipCity.trim());
-  return { weights, skip: { cities, employers: [...prefs.skip.employers] } };
+  return { ...prefs, weights, skip: { ...prefs.skip, cities, employers: [...prefs.skip.employers] } };
 }
 
 export function boostFor(prefs: AgentPreferences, features: string[]): number {
@@ -123,7 +124,7 @@ export function boostFor(prefs: AgentPreferences, features: string[]): number {
 export function isSkipped(prefs: AgentPreferences, features: string[]): boolean {
   const cities = prefs.skip.cities.map((c) => "city:" + norm(c));
   const emps = prefs.skip.employers.map((c) => "employer:" + norm(c));
-  return features.some((f) => cities.includes(f) || emps.includes(f));
+  return features.some((f) => cities.includes(f) || emps.includes(f) || prefs.skip.features?.includes(f));
 }
 
 /** Re-score rows; skipped rows are flagged pruned and sorted last. */

@@ -42,9 +42,9 @@ export default function AgentDetail() {
   const navigate = useNavigate();
   const { data: enabled, isLoading: el } = useAgentsEnabled();
   const { data: roster, isLoading, error } = useRoster(enabled ? id : undefined);
-  const decide = useDecide(id!);
-  const steer = useSteer(id!);
-  const update = useUpdateAgent(id!);
+  const decide = useDecide(id ?? "");
+  const steer = useSteer(id ?? "");
+  const update = useUpdateAgent(id ?? "");
   const [tab, setTab] = useState<Tab>("review");
   const [drafts, setDrafts] = useState<Record<string, "approved" | "passed" | null>>({});
   const [openId, setOpenId] = useState<string | null>(null);
@@ -96,9 +96,8 @@ export default function AgentDetail() {
 
   const sendSteer = async () => {
     const m = msg.trim();
-    if (!m) return;
-    setMsg("");
-    try { await steer.mutateAsync(m); } catch (e) { toast.error(e instanceof Error ? e.message : "Could not send"); }
+    if (!m || steer.isPending) return;
+    try { await steer.mutateAsync(m); setMsg(""); } catch (e) { toast.error(e instanceof Error ? e.message : "Could not send"); }
   };
 
   return (
@@ -240,7 +239,7 @@ export default function AgentDetail() {
             <div className="flex items-end gap-2">
               <Textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={1} maxLength={600}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendSteer(); } }}
-                placeholder="Ask about your search or request a change, e.g. skip Phoenix"
+                placeholder="e.g. Send five per day, pause, or favor private practice"
                 className="min-h-[44px] resize-none border-0 bg-transparent text-[15px] shadow-none focus-visible:ring-0" />
               <Button size="icon" className="h-10 w-10 shrink-0 rounded-full" aria-label="Send" disabled={!msg.trim() || steer.isPending} onClick={sendSteer}>
                 <ArrowUp className="h-4 w-4" />

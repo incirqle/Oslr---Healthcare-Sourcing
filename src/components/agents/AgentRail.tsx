@@ -13,6 +13,8 @@ const EVENT_LABEL: Record<string, string> = {
   status_sourcing: "Agent resumed",
   status_completed: "Agent finished",
   status_closed: "Agent closed",
+  steering_updated: "Agent instructions updated",
+  learning_updated: "Review preferences learned",
 };
 
 export function AgentRail({ roster, onUnskip }: { roster: Roster; onUnskip: (city: string) => void }) {
@@ -76,6 +78,10 @@ export function AgentRail({ roster, onUnskip }: { roster: Roster; onUnskip: (cit
             <p className="mt-1.5 whitespace-pre-line text-[14px] leading-relaxed text-foreground/85">{agent.taste_memo}</p>
           </div>
         )}
+        {Object.entries(agent.preferences.weights).some(([, weight]) => weight !== 1) && <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Learned preferences</p>
+          <ul className="mt-2 space-y-1.5 text-sm">{Object.entries(agent.preferences.weights).filter(([, weight]) => weight !== 1).map(([feature, weight]) => <li key={feature} className="flex items-start justify-between gap-3"><span>{featureLabel(feature)}</span><span className="shrink-0 text-muted-foreground">{weight > 1 ? "Favor" : "Less often"}</span></li>)}</ul>
+        </div>}
         {notes.length > 0 && (
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">From your notes</p>
@@ -89,6 +95,14 @@ export function AgentRail({ roster, onUnskip }: { roster: Roster; onUnskip: (cit
       </TabsContent>
 
       <TabsContent value="skips" className="mt-5 space-y-5">
+        {!!agent.preferences.skip.features?.length && <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Excluded profiles</p>
+          <ul className="mt-2 space-y-1 text-sm">{agent.preferences.skip.features.map(f => <li key={f}>{featureLabel(f)}</li>)}</ul>
+        </div>}
+        {!!agent.preferences.skip.employers.length && <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Organizations you skip</p>
+          <ul className="mt-2 space-y-1 text-sm">{agent.preferences.skip.employers.map(e => <li key={e}>{e}</li>)}</ul>
+        </div>}
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Towns you skip</p>
           {agent.preferences.skip.cities.length === 0 ? <p className="mt-1.5 text-[13px] text-muted-foreground">None yet.</p> : (

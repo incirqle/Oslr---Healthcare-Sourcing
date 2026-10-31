@@ -1,6 +1,8 @@
 // Sourcing + AI helpers shared by clinician-agent and agents-tick.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleClinicianSearch } from "../clinician-engine/handler.ts";
+import { parseQuery } from "../clinician-engine/parse-query.ts";
+import { getCrustDataCache, setCrustDataCache } from "../clinician-engine/cache.ts";
 import {
   type AgentPreferences, featuresFor, rerank,
 } from "./agent-brain.ts";
@@ -14,9 +16,19 @@ export type Agent = Record<string, any>;
 export function prefsOf(agent: Agent): AgentPreferences {
   const p = agent.preferences ?? {};
   return {
+    ...p,
     weights: p.weights ?? {},
-    skip: { cities: p.skip?.cities ?? [], employers: p.skip?.employers ?? [] },
+    skip: { cities: p.skip?.cities ?? [], employers: p.skip?.employers ?? [], features: p.skip?.features ?? [] },
   };
+}
+
+/** Interpretation only: no people provider, search meter or contact enrichment. */
+export async function interpretBrief(brief: string) {
+  const key = "clin:parse:" + brief.trim().toLowerCase().replace(/\s+/g, " ");
+  const cached = await getCrustDataCache(key);
+  const parsed = await parseQuery(brief, cached?.profiles[0] ?? null);
+  if (!cached) await setCrustDataCache(key, 1, [parsed], null);
+  return parsed;
 }
 
 /** Next occurrence of run_hour in the agent's timezone, at least 20h from now. */
@@ -95,8 +107,14 @@ export async function sourceAgent(
   if (opts.authHeader) headers.Authorization = opts.authHeader;
   else { headers.Authorization = `Bearer ${serviceKey}`; headers["x-oslr-internal-user"] = agent.owner_id; }
 
+  const prefs = prefsOf(agent);
+  const parsed = prefs.query?.brief === agent.brief ? prefs.query.parsed : await interpretBrief(agent.brief);
+  prefs.query = { brief: agent.brief, parsed };
+  agent.preferences = prefs;
+  const { error: parseSaveError } = await admin.from("clin_agents").update({ preferences: prefs }).eq("id", agent.id);
+  if (parseSaveError) return { ok: false, status: 500, error: "Could not save your search interpretation.", added: 0, served: 0 };
   const res = await handleClinicianSearch(new Request("http://internal/search", {
-    method: "POST", headers, body: JSON.stringify({ query: agent.brief, page: 0, size: 50 }),
+    method: "POST", headers, body: JSON.stringify({ query: agent.brief, cached_parsed: parsed, page: 0, size: 50 }),
   }));
   // deno-lint-ignore no-explicit-any
   let body: any = {};
@@ -163,6 +181,9 @@ export async function aiText(
 ): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new AiError(401, "AI is not configured");
+  const deniedKey = "oslr:agents:ai-access-denied:v1";
+  const denied = await getCrustDataCache(deniedKey, Number.POSITIVE_INFINITY);
+  if (denied?.profiles[0]?.message) throw new AiError(403, denied.profiles[0].message);
   const body: Record<string, unknown> = {
     model: "openai/gpt-6-astra",
     instructions,
@@ -182,7 +203,16 @@ export async function aiText(
   });
   if (!res.ok || !res.body) {
     const t = await res.text().catch(() => "");
-    throw new AiError(res.status, t.slice(0, 300) || "AI request failed");
+    let message = "AI request failed";
+    try {
+      const e = JSON.parse(t);
+      message = e.message ?? e.error?.message ?? message;
+      const type = String(e.type ?? e.error?.type ?? "");
+      if (res.status === 403 && /provider.*(?:denied|access)|access_denied/.test(type) && !/region|vendor|retention/.test(type)) {
+        await setCrustDataCache(deniedKey, 1, [{ message }], null);
+      }
+    } catch { /* no safe message */ }
+    throw new AiError(res.status, message);
   }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
@@ -200,11 +230,13 @@ export async function aiText(
       if (!data || data === "[DONE]") continue;
       try {
         const ev = JSON.parse(data);
+        if (ev.type === "response.refusal.delta") throw new AiError(403, ev.delta || "The agent could not process this request.");
         if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") out += ev.delta;
         if (ev.type === "response.failed" || ev.type === "error") throw new AiError(500, ev.error?.message ?? "AI failed");
       } catch (e) { if (e instanceof AiError) throw e; }
     }
   }
+  if (!out.trim()) throw new AiError(502, "The agent returned no answer. No changes were applied.");
   return out.trim();
 }
 

@@ -5,3 +5,7 @@
 - [ ] Agents morning email (blocked: needs an Oslr sending email domain set up).
 - [x] Agent metering: Starter 1 active per workspace, Pro 5 per user, Enterprise unlimited; charge 30 workspace credits per new agent and preserve separate contact charges. Tests passed; signed-in Starter limit rejection verified with unchanged credits/projects.
 - [ ] Verify successful 30-credit creation, retries and concurrent requests end-to-end (blocked: no authorized disposable funded workspace; existing account is already at its active limit).
+- [x] Live natural-language brief interpretation without sourcing or contact charges; verified signed in with an Arizona pain-physician brief.
+- [x] Apply rejection notes to learned ranking and explicit skip rules; pure rule tests pass. No real candidate decision changed during checks.
+- [x] Conversational steering for daily volume, pause/resume and search rules, preserving agent limits; live five-per-day change verified and original ten restored.
+- [x] Test natural-language agent flows and deploy updated clinician-agent and agents-tick functions. Pause/resume and replacement rules covered by tests; live destructive review/resume checks remain under the existing disposable-workspace blocker.
