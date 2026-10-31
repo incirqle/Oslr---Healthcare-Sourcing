@@ -5,3 +5,7 @@
 - [ ] Agents morning email (blocked: needs an Oslr sending email domain set up).
 - [x] Agent metering: Starter 1 active per workspace, Pro 5 per user, Enterprise unlimited; charge 30 workspace credits per new agent and preserve separate contact charges. Tests passed; signed-in Starter limit rejection verified with unchanged credits/projects.
 - [ ] Verify successful 30-credit creation, retries and concurrent requests end-to-end (blocked: no authorized disposable funded workspace; existing account is already at its active limit).
+- [ ] Live natural-language brief interpretation without sourcing or contact charges.
+- [ ] Apply rejection notes to learned ranking and explicit skip rules.
+- [ ] Conversational steering for daily volume, pause/resume and search rules, preserving agent limits.
+- [ ] Test natural-language agent flows and deploy the updated agent function.
