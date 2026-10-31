@@ -69,7 +69,7 @@ import { ExportMenu } from "@/components/ExportMenu";
 import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 
 
-interface CandidateDrawerProps {
+export interface CandidateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId?: string;
@@ -147,7 +147,7 @@ interface EnrichedData {
   languages?: ({ name: string } | string)[];
 }
 
-interface ExperienceEntry {
+export interface ExperienceEntry {
   title: string | null;
   company: string | null;
   startDate: string | null;
@@ -161,7 +161,7 @@ interface ExperienceEntry {
   salary: string | null;
 }
 
-interface EducationEntry {
+export interface EducationEntry {
   school: string | null;
   degree: string | null;
   major: string | null;
