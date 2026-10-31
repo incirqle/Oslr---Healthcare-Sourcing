@@ -13,6 +13,8 @@ const EVENT_LABEL: Record<string, string> = {
   status_sourcing: "Agent resumed",
   status_completed: "Agent finished",
   status_closed: "Agent closed",
+  steering_updated: "Agent instructions updated",
+  learning_updated: "Review preferences learned",
 };
 
 export function AgentRail({ roster, onUnskip }: { roster: Roster; onUnskip: (city: string) => void }) {
@@ -89,6 +91,14 @@ export function AgentRail({ roster, onUnskip }: { roster: Roster; onUnskip: (cit
       </TabsContent>
 
       <TabsContent value="skips" className="mt-5 space-y-5">
+        {!!agent.preferences.skip.features?.length && <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Excluded profiles</p>
+          <ul className="mt-2 space-y-1 text-sm">{agent.preferences.skip.features.map(f => <li key={f}>{featureLabel(f)}</li>)}</ul>
+        </div>}
+        {!!agent.preferences.skip.employers.length && <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Organizations you skip</p>
+          <ul className="mt-2 space-y-1 text-sm">{agent.preferences.skip.employers.map(e => <li key={e}>{e}</li>)}</ul>
+        </div>}
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Towns you skip</p>
           {agent.preferences.skip.cities.length === 0 ? <p className="mt-1.5 text-[13px] text-muted-foreground">None yet.</p> : (

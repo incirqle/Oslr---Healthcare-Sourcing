@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, Loader2, Minus, Plus, Target, ArrowUpRight } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/hooks/useProjects";
-import { useAgentMetering, useCreateAgent } from "@/hooks/useAgents";
+import { useAgentMetering, useCreateAgent, useBriefInterpretation } from "@/hooks/useAgents";
 import { useCompany } from "@/hooks/useCompany";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { toast } from "sonner";
@@ -31,6 +31,24 @@ export function AgentBriefDialog({
   const [goal, setGoal] = useState("");
   const [finish, setFinish] = useState("");
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? "new");
+  const [settledBrief, setSettledBrief] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledBrief(brief.trim()), 900);
+    return () => window.clearTimeout(timer);
+  }, [brief]);
+  const interpretation = useBriefInterpretation(settledBrief, open && settledBrief === brief.trim());
+  const parsed = settledBrief === brief.trim() ? interpretation.data?.parsed : undefined;
+  const text = (v: unknown) => typeof v === "string" ? v.replace(/_/g, " ") : "";
+  const list = (v: unknown) => Array.isArray(v) ? v.filter((s): s is string => typeof s === "string").join(", ") : "";
+  const loc = parsed?.location && typeof parsed.location === "object" ? parsed.location as Record<string, unknown> : {};
+  const interpreted = parsed ? [
+    ["Role", text(parsed.role_class) || list(parsed.job_titles)],
+    ["Specialty", list(parsed.specialties) || text(parsed.specialty)],
+    ["Area", [text(loc.city), text(loc.state), text(loc.metro), text(loc.region_key), ...(Array.isArray(parsed.locations) ? parsed.locations.map(l => typeof l === "object" && l ? Object.values(l).filter(v => typeof v === "string").join(", ") : "") : [])].filter(Boolean).join(" · ")],
+    ["Setting", text(parsed.employment_model) || text(parsed.care_setting)],
+    ["Education", list(parsed.credentials)],
+    ["Other requirements", list(parsed.required_keywords)],
+  ].filter(([, v]) => v) : [];
 
   const atLimit = !!metering && metering.limit !== null && metering.active >= metering.limit;
   const ready = name.trim().length > 0 && brief.trim().length >= 8 && !create.isPending && !!metering && !atLimit && (balance ?? 0) >= metering.build_credits;
@@ -55,7 +73,7 @@ export function AgentBriefDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !create.isPending && onOpenChange(o)}>
-      <DialogContent className="max-w-xl overflow-hidden border-border/70 bg-card/95 p-0 backdrop-blur-xl">
+      <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto border-border/70 bg-card/95 p-0 backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_at_top_left,hsl(var(--primary)/0.18),transparent_70%)]" />
         <div className="relative space-y-5 p-7">
           <DialogHeader className="space-y-1.5 text-left">
@@ -86,6 +104,15 @@ export function AgentBriefDialog({
               <span>Role, specialty, area and practice setting.</span>
               <span>{brief.length}/500</span>
             </div>
+            {brief.trim().length >= 8 && <div className="mt-3 border-t border-border pt-3 text-sm" aria-live="polite">
+              {settledBrief !== brief.trim() || interpretation.isFetching ? <p className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />Understanding your brief…</p> : interpretation.error ? <p className="text-destructive">{interpretation.error.message}</p> : <>
+                <p className="mb-2 font-medium">Your search brief</p>
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+                  {interpreted.map(([label, value]) => <div key={label} className="contents"><dt className="text-muted-foreground">{label}</dt><dd className="break-words capitalize">{value}</dd></div>)}
+                </dl>
+                {Array.isArray(parsed?.unmapped_concepts) && parsed.unmapped_concepts.length > 0 && <p className="mt-2 text-muted-foreground">Not verified: {list(parsed.unmapped_concepts)}</p>}
+              </>}
+            </div>}
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/40 p-4">

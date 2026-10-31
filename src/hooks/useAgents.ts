@@ -19,7 +19,7 @@ export interface AgentRow {
   taste_memo: string | null;
   email_updates: boolean;
   pause_reason: string | null;
-  preferences: { weights: Record<string, number>; skip: { cities: string[]; employers: string[] } };
+  preferences: { weights: Record<string, number>; skip: { cities: string[]; employers: string[]; features?: string[] } };
   created_at: string;
   stats?: { waiting: number; approved: number; passed: number };
 }
@@ -72,6 +72,18 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
   }
   if (data?.error) throw new Error(data.error);
   return data as T;
+}
+
+export function useBriefInterpretation(brief: string, enabled: boolean) {
+  const { companyId } = useCompany();
+  return useQuery({
+    queryKey: ["agent-brief-interpretation", companyId, brief],
+    enabled: enabled && !!companyId && brief.length >= 8,
+    queryFn: () => call<{ parsed: Record<string, unknown> }>({ action: "interpret", brief }),
+    staleTime: 90 * 24 * 60 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 }
 
 /** Agents are a per-team premium switch, read from the backend. */
@@ -153,7 +165,7 @@ export function useSteer(agentId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (message: string) => call<{ reply: string }>({ action: "steer", agent_id: agentId, message }),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }),
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); },
   });
 }
 
