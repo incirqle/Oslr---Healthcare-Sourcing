@@ -52,6 +52,41 @@ export function AgentBriefDialog({
   const atLimit = !!metering && metering.limit !== null && metering.active >= metering.limit;
   const ready = name.trim().length > 0 && brief.trim().length >= 8 && !create.isPending && !!metering && !atLimit && (balance ?? 0) >= metering.build_credits;
 
+  const toggleDest = async (k: Dest | "none") => {
+    if (k === "none") { setDests([]); return; }
+    if (dests.includes(k)) { setDests((d) => d.filter((x) => x !== k)); return; }
+    if (k === "sheets") {
+      setBusyDest("sheets");
+      try {
+        const g = await exportsCall<{ connected: boolean; reconnectRequired: boolean }>({ action: "google_status" });
+        if (!g.connected || g.reconnectRequired) {
+          const popup = window.open("", "oslr-google", "width=560,height=720");
+          if (!popup) { toast.error("Your browser blocked the Google window. Allow pop-ups and try again."); return; }
+          try {
+            const { authorizationUrl } = await exportsCall<{ authorizationUrl: string }>({ action: "google_start", origin: window.location.origin });
+            const done = waitForPopup(popup);
+            popup.location.href = authorizationUrl;
+            await done;
+          } catch (e) { popup.close(); throw e; }
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "Could not connect Google"); return; }
+      finally { setBusyDest(null); }
+    }
+    setDests((d) => [...d, k]);
+  };
+
+  const connectDestinations = async (agentId: string) => {
+    if (dests.length === 0) return;
+    const r = await callAgent<{ agent: { project_id: string | null } }>({ action: "roster", agent_id: agentId });
+    const pid = r.agent.project_id;
+    if (!pid) return;
+    const fails: string[] = [];
+    if (dests.includes("sheets")) await exportsCall({ action: "create_sheet", project_id: pid }).catch(() => fails.push("Google Sheets"));
+    if (dests.includes("excel")) await exportsCall({ action: "create_excel", project_id: pid }).catch(() => fails.push("Excel"));
+    if (dests.includes("slack") && webhook.trim()) await exportsCall({ action: "create_slack", project_id: pid, webhook_url: webhook.trim() }).catch(() => fails.push("Slack"));
+    if (fails.length) toast.error(`${fails.join(" and ")} did not connect. Use Live sync on the agent to try again.`);
+  };
+
   const submit = async () => {
     try {
       const r = await create.mutateAsync({
@@ -59,10 +94,11 @@ export function AgentBriefDialog({
         goal: goal ? Number(goal) : null, finish_date: finish || null,
         project_id: projectId === "new" ? null : projectId,
       });
+      await connectDestinations(r.agent_id).catch(() => toast.error("Your results destinations did not connect. Use Live sync on the agent."));
       if (r.warning) toast.error(r.warning);
       else toast.success(r.served ? `Your first ${r.served} matches are ready` : "Agent started");
       onOpenChange(false);
-      setName(""); setBrief(""); setGoal(""); setFinish("");
+      setName(""); setBrief(""); setGoal(""); setFinish(""); setDests([]); setWebhook("");
       setRequestId(crypto.randomUUID());
       navigate(`/agents/${r.agent_id}`);
     } catch (e) {
@@ -147,6 +183,34 @@ export function AgentBriefDialog({
                 {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-background/40 p-4">
+            <p className="text-[14px] font-medium">Where should your results go?</p>
+            <p className="text-[12px] text-muted-foreground">Everyone you approve is sent there right away. You can change this later.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {([
+                ["slack", "Slack", Slack],
+                ["sheets", "Google Sheets", FileSpreadsheet],
+                ["excel", "Excel", Table2],
+                ["none", "Just here", Minus],
+              ] as const).map(([k, label, Icon]) => {
+                const on = k === "none" ? dests.length === 0 : dests.includes(k);
+                return (
+                  <button key={k} type="button" onClick={() => toggleDest(k)} aria-pressed={on}
+                    className={cn("flex flex-col items-center gap-1.5 rounded-xl border bg-card px-2 py-3 text-[13px] font-medium transition-colors active:scale-[0.97]",
+                      on ? "border-mint bg-mint-soft text-mint-ink" : "border-border text-foreground/80 hover:border-mint/40")}>
+                    {busyDest === k ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}{label}
+                  </button>
+                );
+              })}
+            </div>
+            {dests.includes("slack") && (
+              <Input value={webhook} onChange={(e) => setWebhook(e.target.value)} className="mt-3 h-10 text-[13px]"
+                placeholder="Paste your Slack webhook link (https://hooks.slack.com/...)" />
+            )}
+            {dests.includes("sheets") && <p className="mt-2 text-[12px] text-muted-foreground">Google connected. A new sheet is created in your Drive.</p>}
+            {dests.includes("excel") && <p className="mt-2 text-[12px] text-muted-foreground">You get a private link that Excel keeps up to date.</p>}
           </div>
         </div>
         <div className="flex items-center justify-between border-t border-border/60 bg-background/40 px-7 py-4">
