@@ -145,11 +145,11 @@ export default function AgentDetail() {
             {agent.goal ? <Progress value={pct} className="mt-2 h-1.5" /> : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {agent.status === "sourcing" && <AgentCountdown at={agent.next_run_at} />}
-              {agent.project_id
-                ? <span className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">Send approved people to Sheets, Slack or Excel <LiveSyncDialog projectId={agent.project_id} /></span>
-                : <span className="text-[12px] text-muted-foreground">Link a project to send approved people to Sheets, Slack or Excel.</span>}
             </div>
           </div>
+
+          {agent.project_id && <AgentConnections projectId={agent.project_id} />}
+
 
           {agent.pause_reason && agent.status === "paused" && (
             <div className="rounded-xl border border-border bg-secondary/60 px-4 py-3 text-[14px]">
