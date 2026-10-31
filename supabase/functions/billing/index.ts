@@ -3,7 +3,7 @@
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-import { creditsForSeats, monthIndex, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
+import { type Account, creditsForSeats, monthIndex, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -29,15 +29,35 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
     const origin = typeof body?.origin === "string" && /^https?:\/\//.test(body.origin) ? body.origin : "https://oslr.health";
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2025-08-27.basil" });
+    const api = { apiVersion: "2025-08-27.basil" } as const;
+    const oslr = new Stripe(Deno.env.get("STRIPE_OSLR_SECRET_KEY")!, api);
+    const legacyKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const legacy = legacyKey ? new Stripe(legacyKey, api) : null;
 
     // Customer is per workspace; reuse by metadata, then email.
-    const found = await stripe.customers.search({ query: `metadata['company_id']:'${companyId}'`, limit: 1 }).catch(() => null);
-    let customerId = found?.data[0]?.id;
-    if (!customerId) {
-      const byEmail = await stripe.customers.list({ email: user.email, limit: 1 });
-      customerId = byEmail.data[0]?.id;
-      if (customerId) await stripe.customers.update(customerId, { metadata: { company_id: companyId } });
+    const findCustomer = async (s: Stripe) => {
+      const found = await s.customers.search({ query: `metadata['company_id']:'${companyId}'`, limit: 1 }).catch(() => null);
+      let id = found?.data[0]?.id;
+      if (!id) {
+        const byEmail = await s.customers.list({ email: user.email, limit: 1 });
+        id = byEmail.data[0]?.id;
+        if (id) await s.customers.update(id, { metadata: { company_id: companyId } });
+      }
+      return id;
+    };
+    const hasLivePlan = async (s: Stripe, id: string) => {
+      const subs = await s.subscriptions.list({ customer: id, status: "all", limit: 10 });
+      return subs.data.some((x) => ["active", "trialing", "past_due"].includes(x.status) && x.items.data.some((i) => PRICE_IDS[i.price.id]));
+    };
+    // Existing customers with a live plan on the old Pitchsink account stay there; everyone else uses Oslr.
+    let stripe: Stripe = oslr;
+    let account: Account = "oslr";
+    let customerId = await findCustomer(oslr);
+    if (legacy && !(customerId && await hasLivePlan(oslr, customerId))) {
+      const legacyId = await findCustomer(legacy).catch(() => undefined);
+      if (legacyId && await hasLivePlan(legacy, legacyId).catch(() => false)) {
+        stripe = legacy; account = "legacy"; customerId = legacyId;
+      }
     }
 
     const email = user.email.toLowerCase();
@@ -45,6 +65,7 @@ Deno.serve(async (req) => {
     const betaEligible = !!betaRow;
 
     if (action === "checkout") {
+      if (account === "legacy") return json({ error: "Your workspace already has a plan. Use Manage billing to change it." }, 400);
       if (!customerId) {
         customerId = (await stripe.customers.create({ email: user.email, metadata: { company_id: companyId } })).id;
       }
@@ -100,7 +121,7 @@ Deno.serve(async (req) => {
       if (cur.plan === "pro") return json({ error: "You are already on Pro." }, 400);
       const interval: Interval = body?.interval === "year" ? "year" : cur.interval;
       await stripe.subscriptions.update(live.id, {
-        items: [{ id: item.id, price: priceFor("pro", interval) }],
+        items: [{ id: item.id, price: priceFor("pro", interval, account) }],
         proration_behavior: "always_invoice",
         cancel_at_period_end: false,
       });
