@@ -16,6 +16,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import GoogleSheetsReturn from "./pages/GoogleSheetsReturn";
 import Contacts from "./pages/Contacts";
+import Integrations from "./pages/Integrations";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import Resources from "./pages/Resources";

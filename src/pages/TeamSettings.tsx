@@ -17,9 +17,10 @@ import { useCompany } from "@/hooks/useCompany";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { fetchSearchUsage, type SearchUsage } from "@/lib/search-meter";
 import { CreditsPanel } from "@/pages/Credits";
+import { IntegrationsPanel } from "@/pages/Integrations";
 import { useInvites } from "@/hooks/useInvites";
 
-const TABS = ["general", "team", "billing", "monitoring"] as const;
+const TABS = ["general", "team", "integrations", "billing", "monitoring"] as const;
 
 export default function TeamSettings() {
   const [params, setParams] = useSearchParams();
@@ -35,11 +36,13 @@ export default function TeamSettings() {
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="billing">Billing & Credits</TabsTrigger>
             <TabsTrigger value="monitoring">Usage</TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="mt-6"><GeneralTab /></TabsContent>
           <TabsContent value="team" className="mt-6"><TeamTab /></TabsContent>
+          <TabsContent value="integrations" className="mt-6"><IntegrationsPanel /></TabsContent>
           <TabsContent value="billing" className="mt-6"><CreditsPanel /></TabsContent>
           <TabsContent value="monitoring" className="mt-6"><MonitoringTab /></TabsContent>
         </Tabs>
