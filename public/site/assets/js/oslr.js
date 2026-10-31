@@ -642,8 +642,7 @@
     var used = sc.querySelector('.sc__used');
     sc.querySelectorAll('.sc__rv').forEach(function (b) { b.addEventListener('click', function () {
       if (b.hasAttribute('data-done')) return; b.setAttribute('data-done', '');
-      b.querySelector('.v').textContent = 'Found. Saved to Contacts';
-      used.textContent = String(+used.textContent + +b.getAttribute('data-c'));
+      b.querySelector('.v').textContent = b.getAttribute('data-v').replace(/^./, function (c) { return c.toUpperCase(); }) + '. Saved to the project';
     }); });
   });
   document.querySelectorAll('.cp').forEach(function (b) { b.addEventListener('click', function () {
