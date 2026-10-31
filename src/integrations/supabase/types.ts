@@ -1661,6 +1661,7 @@ export type Database = {
         Row: {
           attempts: number
           candidate_id: string
+          claimed_at: string | null
           created_at: string
           error: string | null
           event: string
@@ -1671,6 +1672,7 @@ export type Database = {
         Insert: {
           attempts?: number
           candidate_id: string
+          claimed_at?: string | null
           created_at?: string
           error?: string | null
           event: string
@@ -1681,6 +1683,7 @@ export type Database = {
         Update: {
           attempts?: number
           candidate_id?: string
+          claimed_at?: string | null
           created_at?: string
           error?: string | null
           event?: string
@@ -2252,6 +2255,26 @@ export type Database = {
           searches_used: number
         }[]
       }
+      claim_export_outbox: {
+        Args: { _limit?: number }
+        Returns: {
+          attempts: number
+          candidate_id: string
+          claimed_at: string | null
+          created_at: string
+          error: string | null
+          event: string
+          id: number
+          processed_at: string | null
+          project_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "export_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       create_metered_clin_agent: {
         Args: {
           _brief: string
@@ -2318,6 +2341,7 @@ export type Database = {
         Args: { _amount: number; _company_id: string }
         Returns: number
       }
+      wake_export_sync: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "recruiter" | "viewer"

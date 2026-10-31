@@ -99,6 +99,13 @@
       "when": 1793475818305,
       "tag": "0013_export_contact_propagation",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793475855149,
+      "tag": "0014_export_outbox_claim",
+      "breakpoints": true
     }
   ]
 }
