@@ -593,20 +593,71 @@
   });
 })();
 
-/* ---------------- Products dropdown */
+/* ---------------- Header dropdowns (Products, Solutions) */
 (function () {
-  var dd = document.querySelector('.dd'); if (!dd) return;
-  var btn = dd.querySelector('.dd__btn'), t;
-  function set(open) { dd.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); }
+  var all = Array.prototype.slice.call(document.querySelectorAll('.dd')); if (!all.length) return;
   var fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
-  if (fine) {
-    dd.addEventListener('mouseenter', function () { clearTimeout(t); set(true); });
-    dd.addEventListener('mouseleave', function () { t = setTimeout(function () { set(false); }, 120); });
+  all.forEach(function (dd) {
+    var btn = dd.querySelector('.dd__btn'), t;
+    function set(open) {
+      if (open) all.forEach(function (o) { if (o !== dd) { o.classList.remove('open'); o.querySelector('.dd__btn').setAttribute('aria-expanded', false); } });
+      dd.classList.toggle('open', open); btn.setAttribute('aria-expanded', open);
+    }
+    if (fine) {
+      dd.addEventListener('mouseenter', function () { clearTimeout(t); set(true); });
+      dd.addEventListener('mouseleave', function () { t = setTimeout(function () { set(false); }, 120); });
+    }
+    btn.addEventListener('click', function () { set(!dd.classList.contains('open')); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && dd.classList.contains('open')) { set(false); btn.focus(); } });
+    document.addEventListener('click', function (e) { if (!dd.contains(e.target)) set(false); });
+    dd.addEventListener('focusout', function (e) { if (!dd.contains(e.relatedTarget)) set(false); });
+  });
+})();
+
+/* ---------------- Solutions mockups and Resources filter */
+(function () {
+  function tabs(root, tSel, pSel) {
+    var ts = root.querySelectorAll(tSel), ps = root.querySelectorAll(pSel);
+    ts.forEach(function (t, i) { t.addEventListener('click', function () {
+      ts.forEach(function (x, j) { x.classList.toggle('on', i === j); x.setAttribute('aria-selected', i === j); });
+      ps.forEach(function (p, j) { p.classList.toggle('on', i === j); });
+    }); });
   }
-  btn.addEventListener('click', function () { set(!dd.classList.contains('open')); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && dd.classList.contains('open')) { set(false); btn.focus(); } });
-  document.addEventListener('click', function (e) { if (!dd.contains(e.target)) set(false); });
-  dd.addEventListener('focusout', function (e) { if (!dd.contains(e.relatedTarget)) set(false); });
+  document.querySelectorAll('.sx').forEach(function (sx) { tabs(sx, '.sx__t', '.sx__p'); });
+  document.querySelectorAll('.rx').forEach(function (rx) { tabs(rx, '.rx__t', '.rx__p'); });
+  document.querySelectorAll('.sr').forEach(function (sr) {
+    var sent = 0, out = sr.querySelector('.sr__out'), n = sr.querySelector('.sr__n'), dest = sr.getAttribute('data-dest');
+    sr.addEventListener('click', function (e) {
+      var b = e.target.closest('.sr__b'); if (!b) return;
+      var c = b.closest('.sr__c'); if (c.hasAttribute('data-d')) return;
+      var ok = b.getAttribute('data-d') === 'a';
+      c.setAttribute('data-d', ok ? 'a' : 'p');
+      c.querySelector('.sr__st').textContent = ok ? 'Approved' : 'Passed';
+      if (ok) { sent++; out.textContent = sent + (sent === 1 ? ' person' : ' people') + ' sent to ' + dest + ' just now'; sr.classList.add('sent'); }
+      var left = sr.querySelectorAll('.sr__c:not([data-d])').length;
+      n.textContent = left ? left + ' to review' : 'All reviewed. The agent learned from this.';
+    });
+  });
+  document.querySelectorAll('.sc').forEach(function (sc) {
+    var used = sc.querySelector('.sc__used');
+    sc.querySelectorAll('.sc__rv').forEach(function (b) { b.addEventListener('click', function () {
+      if (b.hasAttribute('data-done')) return; b.setAttribute('data-done', '');
+      b.querySelector('.v').textContent = 'Found. Saved to Contacts';
+      used.textContent = String(+used.textContent + +b.getAttribute('data-c'));
+    }); });
+  });
+  document.querySelectorAll('.cp').forEach(function (b) { b.addEventListener('click', function () {
+    var q = b.getAttribute('data-q'); if (navigator.clipboard) navigator.clipboard.writeText(q).catch(function () {});
+    b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy search'; }, 1400);
+  }); });
+  document.querySelectorAll('.rs').forEach(function (rs) {
+    var fs = rs.querySelectorAll('.rs__f'), items = rs.querySelectorAll('[data-tags]');
+    fs.forEach(function (f) { f.addEventListener('click', function () {
+      var k = f.getAttribute('data-f');
+      fs.forEach(function (x) { x.classList.toggle('on', x === f); });
+      items.forEach(function (it) { it.hidden = k !== 'all' && it.getAttribute('data-tags').split(' ').indexOf(k) < 0; });
+    }); });
+  });
 })();
 
 /* ---------------- How Oslr reads a search */

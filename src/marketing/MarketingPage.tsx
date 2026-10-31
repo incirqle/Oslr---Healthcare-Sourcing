@@ -47,12 +47,32 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     const root = ref.current;
     const primary = root.querySelector(".nav__links");
     const links = [
-      ["/how-it-works", "How It Works"],
       ["/about", "Company"],
       ["/pricing", "Pricing"],
       ["/guides", "Resources"],
     ];
-    primary?.querySelectorAll(":scope > a").forEach((a) => a.remove());
+    const solutions: { group: string; items: [string, string, string][] }[] = [
+      { group: "By setting", items: [
+        ["/solutions/private-practices", "Private practices", "Find a partner, an APP or a fellow finishing this year."],
+        ["/solutions/practice-groups", "Practice groups and MSOs", "An agent and a project for every office."],
+        ["/solutions/surgery-centers", "Surgery centers", "Surgeons, CRNAs, anesthesiologists and OR nurses."],
+        ["/solutions/health-systems", "Hospitals and health systems", "Hard-to-fill roles and graduating trainees."],
+      ] },
+      { group: "By team", items: [
+        ["/solutions/health-systems", "Hospital and in-house recruiters", "Clinical search built for talent teams."],
+        ["/solutions/recruiters", "Agency and search firm recruiters", "Every client search in one place."],
+        ["/solutions", "All solutions", "See every team Oslr is built for."],
+      ] },
+    ];
+    primary?.querySelectorAll(":scope > a, :scope > .dd--sol").forEach((a) => a.remove());
+    const chevron = '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5L6 7.5 9 4.5"/></svg>';
+    const solDd = document.createElement("div");
+    solDd.className = "dd dd--sol";
+    solDd.innerHTML = `<button class="dd__btn" type="button" aria-expanded="false" aria-haspopup="true">Solutions ${chevron}</button><div class="dd__panel dd__panel--sol" role="menu"><div class="dd__cols">${solutions
+      .map((g) => `<div><p class="dd__h">${g.group}</p>${g.items.map(([h, b, s]) => `<a class="dd__item" role="menuitem" href="${h}"><b>${b}</b><span>${s}</span></a>`).join("")}</div>`)
+      .join("")}</div></div>`;
+    solDd.querySelector(".dd__btn")?.toggleAttribute("data-current", route.path.startsWith("/solutions"));
+    primary?.appendChild(solDd);
     links.forEach(([href, label]) => {
       const a = document.createElement("a");
       a.href = href;
@@ -65,8 +85,19 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     const productButton = primary?.querySelector(".dd__btn");
     productButton?.toggleAttribute("data-current", route.path.startsWith("/product/"));
     const sheet = root.querySelector(".sheet");
-    sheet?.querySelectorAll('a.sheet__link:not([data-link])').forEach((a) => a.remove());
+    sheet?.querySelectorAll('a.sheet__link:not([data-link]), .sheet__sol').forEach((a) => a.remove());
     const login = sheet?.querySelector('[data-link="login"]');
+    const solHead = document.createElement("p");
+    solHead.className = "sheet__h sheet__sol";
+    solHead.textContent = "Solutions";
+    sheet?.insertBefore(solHead, login ?? null);
+    solutions[0].items.concat([solutions[1].items[1]]).forEach(([h, b, s]) => {
+      const a = document.createElement("a");
+      a.className = "sheet__prod sheet__sol";
+      a.href = h;
+      a.innerHTML = `<b>${b}</b><span>${s}</span>`;
+      sheet?.insertBefore(a, login ?? null);
+    });
     links.forEach(([href, label]) => {
       const a = document.createElement("a");
       a.className = "sheet__link";
@@ -85,6 +116,13 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
       item.appendChild(a);
       list.prepend(item);
     });
+    const productCol = Array.from(root.querySelectorAll(".foot__cols h4")).find((h) => h.textContent === "Product")?.parentElement;
+    if (productCol && !root.querySelector(".foot__sol")) {
+      const col = document.createElement("div");
+      col.className = "foot__sol";
+      col.innerHTML = `<h4>Solutions</h4><ul>${[...solutions[0].items, solutions[1].items[1]].map(([h, b]) => `<li><a href="${h}">${b}</a></li>`).join("")}</ul>`;
+      productCol.after(col);
+    }
     const onDemo = (e: MouseEvent) => {
       const a = (e.target as HTMLElement).closest('a[data-link="demo"], a[href^="mailto:hello@oslr.health"]');
       if (!a || !/demo|sales|Meet Oslr/i.test(a.textContent ?? "")) return;
