@@ -25,3 +25,6 @@ project_id = "pagxfpeqjxlbaoldmeua"
     verify_jwt = false
   [functions.verify-domain]
     verify_jwt = false
+
+[functions.preview-transactional-email]
+verify_jwt = false
