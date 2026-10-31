@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { OrgLogo, PersonAvatar } from "@/components/search/Avatars";
+import { MatchFacts } from "./MatchFacts";
 import type { DecisionRow, PoolItem, Tag } from "@/hooks/useAgents";
 
 export function cityOf(p: Record<string, unknown>): string {
@@ -43,7 +44,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
 
   return (
     <div className={cn(
-      "rounded-2xl border bg-card/80 p-4 backdrop-blur transition-all duration-300",
+      "agent-enter rounded-2xl border bg-card/80 p-4 backdrop-blur transition-[border-color,box-shadow] duration-200",
       active ? "border-primary/50 shadow-[0_0_0_4px_hsl(var(--primary)/0.08)]" : "border-border/70",
     )}>
       <div className="flex items-start gap-3.5">
@@ -73,6 +74,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
             {p.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{p.location}</span>}
           </div>
           {item.why && !decision && <p className="mt-2 text-[13px] leading-relaxed text-foreground/70">{item.why}</p>}
+          {!decision && <MatchFacts item={item} />}
           {decision?.note && <p className="mt-2 border-l-2 border-primary/40 pl-3 text-[13px] italic text-foreground/80">"{decision.note}"</p>}
         </div>
         {!decision && !draft && (
@@ -110,7 +112,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
             <Button variant="ghost" size="sm" onClick={() => onDraft(null)} disabled={busy}><X className="mr-1 h-3.5 w-3.5" />Cancel</Button>
             <Button size="sm" variant={draft === "approved" ? "default" : "secondary"} onClick={() => submit(draft)} disabled={busy} className="rounded-full px-4">
               {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-              {draft === "approved" ? "Approve and save" : "Pass"}
+              {draft === "approved" ? "Looks good, save" : "Not a fit"}
             </Button>
           </div>
         </div>
