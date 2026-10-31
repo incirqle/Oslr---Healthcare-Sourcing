@@ -108,7 +108,7 @@ export default function AgentDetail() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           {/* Header */}
-          <div className="agent-glow sticky top-0 z-10 -mx-1 rounded-2xl border agent-sheen-border bg-card/85 px-5 py-4 backdrop-blur-xl">
+          <div className="agent-glow rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-sm">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Back" onClick={() => navigate("/agents")}><ArrowLeft className="h-4 w-4" /></Button>
               <AgentStatusDot status={agent.status} waiting={lists.review.length} />
@@ -211,7 +211,7 @@ export default function AgentDetail() {
             {([["review", "To review"], ["approved", "Approved"], ["passed", "Passed"]] as [Tab, string][]).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={cn("rounded-full px-3.5 py-1.5 text-[14px] transition-colors active:scale-[0.97]",
-                  tab === k ? "bg-primary text-primary-foreground shadow-[0_0_0_4px_hsl(var(--primary)/0.18)]" : "text-muted-foreground hover:bg-secondary")}>
+                  tab === k ? "bg-mint text-mint-foreground shadow-sm" : "text-muted-foreground hover:bg-secondary")}>
                 {label} ({lists[k].length})
               </button>
             ))}

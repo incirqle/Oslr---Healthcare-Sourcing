@@ -110,7 +110,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
             placeholder="Optional note for your agent, e.g. only people who run their own practice" className="resize-none text-[14px]" />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => onDraft(null)} disabled={busy}><X className="mr-1 h-3.5 w-3.5" />Cancel</Button>
-            <Button size="sm" variant={draft === "approved" ? "default" : "secondary"} data-x="" onClick={() => submit(draft)} disabled={busy} className="rounded-full px-4">
+            <Button size="sm" variant={draft === "approved" ? "default" : "secondary"} onClick={() => submit(draft)} disabled={busy} className={cn("rounded-full px-4", draft === "approved" && "bg-mint text-mint-foreground hover:bg-mint/90")}>
               {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {draft === "approved" ? "Looks good, save" : "Not a fit"}
             </Button>
