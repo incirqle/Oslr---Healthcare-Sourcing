@@ -77,7 +77,7 @@ export async function handleEnrichContact(
   const toFetch = requested.filter((k) => !has(stored, k) && !recent(k));
 
   const summary = () => ({
-    contact: stored,
+    contact: { work_email: stored.work_email, personal_emails: stored.personal_emails?.slice(0, 1), phone_numbers: stored.phone_numbers },
     checked,
     balance,
     unlimited,
