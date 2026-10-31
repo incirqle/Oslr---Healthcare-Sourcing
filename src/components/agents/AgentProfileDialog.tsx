@@ -58,7 +58,6 @@ export function AgentProfileDialog({ item, candidate, decision, tags, hasPrev, h
     setBusy(true);
     try {
       await onSubmit({ decision: d, tags: picked, note: note.trim() || undefined, skip_city: d === "passed" && skipCity ? city : null });
-      if (hasNext) onNext(); else onClose();
     } finally { setBusy(false); }
   };
 

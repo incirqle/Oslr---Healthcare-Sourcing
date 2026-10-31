@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowUp, CheckCircle2, CircleDashed, Loader2, MoreHorizontal, Target } from "lucide-react";
+import { ArrowLeft, ArrowUp, CheckCircle2, ChevronDown, CircleDashed, Loader2, MessageSquare, MoreHorizontal, Target } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CandidateDrawer } from "@/components/CandidateDrawer";
+import { AgentProfileDialog } from "@/components/agents/AgentProfileDialog";
 import { AgentReviewCard } from "@/components/agents/AgentReviewCard";
 import { AgentRail } from "@/components/agents/AgentRail";
 import { AgentStatusDot, STATUS_LABEL } from "@/components/agents/AgentStatusDot";
@@ -52,6 +52,7 @@ export default function AgentDetail() {
   const [drafts, setDrafts] = useState<Record<string, "approved" | "passed" | null>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
 
   const decById = useMemo(() => new Map((roster?.decisions ?? []).map((d) => [d.pool_id, d])), [roster]);
