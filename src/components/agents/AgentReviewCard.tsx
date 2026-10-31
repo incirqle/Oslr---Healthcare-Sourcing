@@ -45,7 +45,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
   return (
     <div className={cn(
       "agent-enter rounded-2xl border bg-card/80 p-4 backdrop-blur transition-[border-color,box-shadow] duration-200",
-      active ? "border-primary/50 shadow-[0_0_0_4px_hsl(var(--primary)/0.08)]" : "border-border/70",
+      active ? "border-mint/40 shadow-[0_8px_30px_-12px_hsl(var(--mint)/0.35)]" : "border-border/70 hover:border-mint/30",
     )}>
       <div className="flex items-start gap-3.5">
         <button onClick={onOpen} aria-label={`Open ${p.full_name ?? ""} profile`} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -53,11 +53,11 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={onOpen} className="truncate text-left font-display text-[16px] font-semibold tracking-tight hover:text-primary">{p.full_name}</button>
+            <button onClick={onOpen} className="truncate text-left font-display text-[16px] font-semibold tracking-tight hover:text-mint-ink">{p.full_name}</button>
             {decision && (
               <span className={cn(
                 "rounded-full px-2 py-0.5 text-[12px] font-medium",
-                decision.decision === "approved" ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground",
+                decision.decision === "approved" ? "bg-mint-soft text-mint-ink" : "bg-secondary text-muted-foreground",
               )}>
                 {decision.decision === "approved" ? "Liked" : "Passed"}{decision.tags[0] ? `: ${tagLabel(decision.tags[0]).toLowerCase()}` : ""}
               </span>
@@ -80,7 +80,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
         {!decision && !draft && (
           <div className="flex shrink-0 gap-1.5">
             <Button size="icon" variant="outline" className="h-10 w-10 rounded-full" aria-label={`Pass on ${p.full_name ?? ""}`} onClick={() => onDraft("passed")}><ThumbsDown className="h-4 w-4" /></Button>
-            <Button size="icon" className="h-10 w-10 rounded-full" aria-label={`Approve ${p.full_name ?? ""}`} onClick={() => onDraft("approved")}><ThumbsUp className="h-4 w-4" /></Button>
+            <Button size="icon" className="h-10 w-10 rounded-full bg-mint text-mint-foreground hover:bg-mint/90" aria-label={`Approve ${p.full_name ?? ""}`} onClick={() => onDraft("approved")}><ThumbsUp className="h-4 w-4" /></Button>
           </div>
         )}
       </div>
@@ -94,7 +94,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
               return (
                 <button key={t.id} onClick={() => setPicked((x) => on ? x.filter((y) => y !== t.id) : [...x, t.id])}
                   className={cn("rounded-full border px-3 py-1.5 text-[13px] transition-colors active:scale-[0.97]",
-                    on ? "border-primary bg-primary/15 text-primary" : "border-border text-foreground/80 hover:border-primary/40")}>
+                    on ? "border-mint bg-mint-soft text-mint-ink" : "border-border text-foreground/80 hover:border-primary/40")}>
                   {on && <Check className="mr-1 inline h-3 w-3" />}{t.label}
                 </button>
               );
@@ -110,7 +110,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
             placeholder="Optional note for your agent, e.g. only people who run their own practice" className="resize-none text-[14px]" />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => onDraft(null)} disabled={busy}><X className="mr-1 h-3.5 w-3.5" />Cancel</Button>
-            <Button size="sm" variant={draft === "approved" ? "default" : "secondary"} onClick={() => submit(draft)} disabled={busy} className="rounded-full px-4">
+            <Button size="sm" variant={draft === "approved" ? "default" : "secondary"} data-x="" onClick={() => submit(draft)} disabled={busy} className="rounded-full px-4">
               {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {draft === "approved" ? "Looks good, save" : "Not a fit"}
             </Button>
