@@ -41,3 +41,11 @@ Oslr covers 5.1M+ U.S. healthcare profiles, including 2.1M+ nurses and 200K+ med
 - [Oslr Privacy Policy](https://oslr.health/privacy): How Oslr collects, uses and protects information and honors GDPR, UK GDPR and CCPA rights.
 - [Oslr Terms of Service](https://oslr.health/terms): The terms for using Oslr.
 - [Oslr Trust Center](https://oslr.health/trust): How Oslr protects data: no patient data, GDPR and CCPA privacy rights, encryption, access control, responsible AI, and documents your security team can request.
+
+## Solutions
+- [Solutions](https://oslr.health/solutions)
+- [Private practices](https://oslr.health/solutions/private-practices)
+- [Practice groups and MSOs](https://oslr.health/solutions/practice-groups)
+- [Surgery centers](https://oslr.health/solutions/surgery-centers)
+- [Hospitals and health systems](https://oslr.health/solutions/health-systems)
+- [Recruiters and search firms](https://oslr.health/solutions/recruiters)
