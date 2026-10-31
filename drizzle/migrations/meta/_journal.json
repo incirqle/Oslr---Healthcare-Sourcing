@@ -64,6 +64,13 @@
       "when": 1793409956744,
       "tag": "0008_meter_agent_creation",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793469532518,
+      "tag": "0009_agent_plan_limits_v2",
+      "breakpoints": true
     }
   ]
 }
