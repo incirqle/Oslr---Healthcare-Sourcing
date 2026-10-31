@@ -156,21 +156,44 @@ export default function AgentDetail() {
             </div>
           )}
 
-          {/* Thread */}
-          <div className="space-y-3">
-            {chat.map((e, i) => {
-              const mine = e.payload.role === "user";
-              return (
-                <div key={i} className={cn("flex", mine ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed",
-                    mine ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground")}>
-                    {String(e.payload.text ?? "")}
-                  </div>
+          {/* Conversation: collapsible, input inside the card so nothing floats over the list */}
+          <div className="rounded-2xl border border-border/70 bg-card shadow-sm">
+            <button onClick={() => setChatOpen((v) => !v)} aria-expanded={chatOpen}
+              className="flex w-full items-center gap-2 px-5 py-3.5 text-left">
+              <MessageSquare className="h-4 w-4 text-mint" />
+              <span className="text-[14px] font-medium">Talk to your agent</span>
+              <span className="text-[12px] text-muted-foreground">{chat.length ? `${chat.length} messages` : "Change volume, pause, or steer it"}</span>
+              <ChevronDown className={cn("ml-auto h-4 w-4 text-muted-foreground transition-transform duration-200", chatOpen && "rotate-180")} />
+            </button>
+            {chatOpen && (
+              <div className="border-t border-border/60 px-4 pb-4 pt-3">
+                <div className="max-h-72 space-y-2.5 overflow-y-auto pr-1">
+                  {chat.length === 0 && <p className="py-3 text-center text-[13px] text-muted-foreground">Try "send five per day" or "favor private practice".</p>}
+                  {chat.map((e, i) => {
+                    const mine = e.payload.role === "user";
+                    return (
+                      <div key={i} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                        <div className={cn("max-w-[85%] rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed",
+                          mine ? "bg-mint-soft text-mint-ink" : "bg-secondary text-foreground")}>
+                          {String(e.payload.text ?? "")}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {steer.isPending && <div className="flex"><div className="rounded-2xl bg-secondary px-4 py-2.5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div></div>}
+                  <div ref={threadEnd} />
                 </div>
-              );
-            })}
-            {steer.isPending && <div className="flex"><div className="rounded-2xl bg-secondary px-4 py-2.5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div></div>}
-            <div ref={threadEnd} />
+                <div className="mt-3 flex items-end gap-2 rounded-xl border border-border bg-background/60 p-1.5 focus-within:border-mint/50">
+                  <Textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={1} maxLength={600}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendSteer(); } }}
+                    placeholder="e.g. Send five per day, pause, or favor private practice"
+                    className="min-h-[40px] resize-none border-0 bg-transparent text-[14px] shadow-none focus-visible:ring-0" />
+                  <Button size="icon" className="h-9 w-9 shrink-0 rounded-full bg-mint text-mint-foreground hover:bg-mint/90" aria-label="Send" disabled={!msg.trim() || steer.isPending} onClick={sendSteer}>
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Milestones */}
