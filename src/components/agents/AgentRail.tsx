@@ -78,6 +78,10 @@ export function AgentRail({ roster, onUnskip }: { roster: Roster; onUnskip: (cit
             <p className="mt-1.5 whitespace-pre-line text-[14px] leading-relaxed text-foreground/85">{agent.taste_memo}</p>
           </div>
         )}
+        {Object.entries(agent.preferences.weights).some(([, weight]) => weight !== 1) && <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Learned preferences</p>
+          <ul className="mt-2 space-y-1.5 text-sm">{Object.entries(agent.preferences.weights).filter(([, weight]) => weight !== 1).map(([feature, weight]) => <li key={feature} className="flex items-start justify-between gap-3"><span>{featureLabel(feature)}</span><span className="shrink-0 text-muted-foreground">{weight > 1 ? "Favor" : "Less often"}</span></li>)}</ul>
+        </div>}
         {notes.length > 0 && (
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">From your notes</p>

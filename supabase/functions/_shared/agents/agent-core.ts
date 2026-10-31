@@ -181,6 +181,9 @@ export async function aiText(
 ): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new AiError(401, "AI is not configured");
+  const deniedKey = "oslr:agents:ai-access-denied:v1";
+  const denied = await getCrustDataCache(deniedKey, Number.POSITIVE_INFINITY);
+  if (denied?.profiles[0]?.message) throw new AiError(403, denied.profiles[0].message);
   const body: Record<string, unknown> = {
     model: "openai/gpt-6-astra",
     instructions,
@@ -201,7 +204,14 @@ export async function aiText(
   if (!res.ok || !res.body) {
     const t = await res.text().catch(() => "");
     let message = "AI request failed";
-    try { const e = JSON.parse(t); message = e.message ?? e.error?.message ?? message; } catch { /* no safe message */ }
+    try {
+      const e = JSON.parse(t);
+      message = e.message ?? e.error?.message ?? message;
+      const type = String(e.type ?? e.error?.type ?? "");
+      if (res.status === 403 && /provider.*(?:denied|access)|access_denied/.test(type) && !/region|vendor|retention/.test(type)) {
+        await setCrustDataCache(deniedKey, 1, [{ message }], null);
+      }
+    } catch { /* no safe message */ }
     throw new AiError(res.status, message);
   }
   const reader = res.body.getReader();

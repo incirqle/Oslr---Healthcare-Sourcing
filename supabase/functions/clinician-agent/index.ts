@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
       });
       if (dErr) return json({ error: "Could not save your decision." }, 500);
       await admin.from("clin_agent_pool").update({ decision, decided_at: now }).eq("id", row.id);
-      const prefs = applyLanguageRules(applyDecision(prefsOf(agent), decision, tags, row.features ?? [], decision === "passed" ? skipCity : null), learned);
+      const prefs = applyLanguageRules(applyDecision(prefsOf(agent), decision, note && tags.length === 0 ? ["note_rules"] : tags, row.features ?? [], decision === "passed" ? skipCity : null), learned);
       agent.preferences = prefs;
 
       // Approved people land in the agent's project pipeline.
