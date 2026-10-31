@@ -225,7 +225,7 @@ function logoUrl(domain: string | null): string | null {
 }
 
 
-function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): ExperienceEntry[] {
+export function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): ExperienceEntry[] {
   if (enriched?.experience?.length) {
     return enriched.experience.map((entry) => ({
       title: entry.title?.name ?? null,
@@ -296,7 +296,7 @@ function normalizeExperience(candidate: CandidateDrawerProps["candidate"], enric
 
 
 
-function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): EducationEntry[] {
+export function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): EducationEntry[] {
   if (enriched?.education?.length) {
     return enriched.education.map((entry) => ({
       school: entry.school?.name ?? null,

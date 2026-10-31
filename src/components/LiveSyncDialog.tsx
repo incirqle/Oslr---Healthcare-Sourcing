@@ -14,7 +14,7 @@ type Destination = {
 
 const FEED_BASE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/export-feed?token=`;
 
-async function call<T = Record<string, unknown>>(body: Record<string, unknown>): Promise<T> {
+export async function call<T = Record<string, unknown>>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("exports", { body });
   if (error) {
     let msg = error.message;
@@ -27,7 +27,7 @@ async function call<T = Record<string, unknown>>(body: Record<string, unknown>):
   return data as T;
 }
 
-function waitForPopup(popup: Window) {
+export function waitForPopup(popup: Window) {
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => { window.removeEventListener("message", onMsg); window.clearInterval(poll); };
     const onMsg = (e: MessageEvent) => {
