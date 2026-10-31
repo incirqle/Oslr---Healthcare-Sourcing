@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MarketingRoute } from "./routes";
 import { applySeo, clearSeo } from "./seo";
-import companyPhoto from "@/assets/oslr-company.jpg";
+import { openDemoCard } from "./demoCard";
 
 /**
  * Renders one page of the Oslr marketing site exactly as designed.
@@ -85,9 +85,14 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
       item.appendChild(a);
       list.prepend(item);
     });
-    root.querySelectorAll<HTMLImageElement>("img[data-company-photo]").forEach((img) => {
-      img.src = companyPhoto;
-    });
+    const onDemo = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement).closest('a[data-link="demo"], a[href^="mailto:hello@oslr.health"]');
+      if (!a || !/demo|sales|Meet Oslr/i.test(a.textContent ?? "")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openDemoCard();
+    };
+    root.addEventListener("click", onDemo, true);
     const scripts = ["/site/assets/js/config.js", "/site/assets/js/oslr.js"].map((src) => {
       const s = document.createElement("script");
       s.src = src;
@@ -98,7 +103,10 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     });
     const hash = window.location.hash;
     if (hash) requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView());
-    return () => scripts.forEach((s) => s.remove());
+    return () => {
+      root.removeEventListener("click", onDemo, true);
+      scripts.forEach((s) => s.remove());
+    };
   }, [html, route.path]);
 
   return <div ref={ref} className="oslr-site-root" />;

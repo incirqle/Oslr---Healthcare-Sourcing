@@ -1,7 +1,7 @@
 // Generated from the Oslr marketing site build (static pages exported into src/marketing/pages and public/site). Regenerate rather than hand-editing.
 export type MarketingRoute = { path: string; title: string; description: string; load: () => Promise<{ default: string }> };
 export const MARKETING_ROUTES: MarketingRoute[] = [
-  { path: "/about", title: "About Oslr", description: "Oslr is a brand of Pitchsink Inc., purpose-built by clinicians, entrepreneurs and AI specialists to level the playing field for healthcare talent sourcing.", load: () => import("./pages/about.html?raw") },
+  { path: "/about", title: "About Oslr", description: "Oslr is a brand of Pitch Sink Inc., purpose-built by clinicians, entrepreneurs and AI specialists to level the playing field for healthcare talent sourcing.", load: () => import("./pages/about.html?raw") },
   { path: "/", title: "Oslr", description: "Clinical talent search for recruiters, health systems, surgery centers and private practices. Search 5M+ U.S. clinicians by specialty, training year and location.", load: () => import("./pages/home.html?raw") },
   { path: "/compare", title: "Oslr Comparisons", description: "How Oslr compares with Juicebox, Doximity Talent Finder, SeekOut, hireEZ and Apollo for clinical recruiting.", load: () => import("./pages/compare.html?raw") },
   { path: "/compare/apollo", title: "Oslr vs Apollo", description: "Oslr vs Apollo for healthcare recruiting: features, training stage search, pricing and who each one fits.", load: () => import("./pages/compare--apollo.html?raw") },
