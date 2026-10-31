@@ -267,37 +267,34 @@ export default function AgentDetail() {
             ))}
           </div>
 
-          {/* Steer */}
-          <div className="sticky bottom-3 rounded-2xl border border-primary/30 bg-card/90 p-2 shadow-lg backdrop-blur-xl">
-            <div className="flex items-end gap-2">
-              <Textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={1} maxLength={600}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendSteer(); } }}
-                placeholder="e.g. Send five per day, pause, or favor private practice"
-                className="min-h-[44px] resize-none border-0 bg-transparent text-[15px] shadow-none focus-visible:ring-0" />
-              <Button size="icon" className="h-10 w-10 shrink-0 rounded-full" aria-label="Send" disabled={!msg.trim() || steer.isPending} onClick={sendSteer}>
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
         </div>
 
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 backdrop-blur">
+          <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
             <AgentRail roster={roster} onUnskip={(c) => update.mutate({ unskip_city: c })} />
           </div>
         </aside>
       </div>
 
-      <CandidateDrawer
-        open={!!openItem}
-        onOpenChange={(o) => !o && setOpenId(null)}
+      <AgentProfileDialog
+        item={openItem}
         candidate={openItem ? toCandidate(openItem) : null}
-        projectId={agent.project_id ?? undefined}
-        isSaved={openItem?.decision === "approved"}
+        decision={openItem ? decById.get(openItem.id) : undefined}
+        tags={roster.tags}
         hasPrev={openIdx > 0}
         hasNext={openIdx >= 0 && openIdx < visible.length - 1}
         onPrev={() => openIdx > 0 && setOpenId(visible[openIdx - 1].id)}
         onNext={() => openIdx < visible.length - 1 && setOpenId(visible[openIdx + 1].id)}
+        onClose={() => setOpenId(null)}
+        onSubmit={async (b) => {
+          if (!openItem) return;
+          const nextId = visible[openIdx + 1]?.id ?? null;
+          try {
+            await decide.mutateAsync({ pool_id: openItem.id, ...b });
+            toast.success(b.decision === "approved" ? "Saved to your project" : "Passed. Your agent will adjust.");
+            setOpenId(nextId);
+          } catch (e) { toast.error(e instanceof Error ? e.message : "Could not save"); }
+        }}
       />
     </AppLayout>
   );
