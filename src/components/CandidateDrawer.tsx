@@ -909,7 +909,7 @@ export function CandidateDrawer({
 
           {/* Row 3: Match chip strip — single line with tooltips */}
           {matchChips.length > 0 && (
-            <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-ui-border-light bg-primary/15 px-5 py-1.5 sm:px-6">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 max-h-[84px] overflow-y-auto border-b border-ui-border-light bg-primary/15 px-5 py-1.5 sm:px-6">
               <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground/80">
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                 Matched
@@ -937,7 +937,7 @@ export function CandidateDrawer({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
             {/* Sticky tabs */}
             <div className="sticky top-0 z-10 shrink-0 border-b border-ui-border-light bg-card px-5 sm:px-6">
-              <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 text-left">
+              <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-none bg-transparent p-0 text-left">
                 {[
                   { value: "overview", label: "Overview" },
                   { value: "experience", label: "Experience" },
