@@ -17,3 +17,6 @@
 - [x] Company page with purpose-built mission, unnamed team and Pitchsink Inc. brand relationship; verified desktop and phone layouts.
 - [x] Larger header logo and clearer navigation across public pages, including Company; verified homepage link, Products menu and phone menu.
 - [ ] Replace infrastructure subprocessors with AWS (blocked: AWS-only hosting and processing location are not verified; retain accurate provider disclosures).
+- [x] Integrations page (side menu and Settings tab) with curated ATS/CRM list, Pro and Enterprise gate, Send to ATS or CRM on projects; Salesforce logo fixed.
+- [ ] Test a real Merge connection end to end (blocked: needs a Pro workspace and a test ATS or CRM login).
+- [ ] Ask Merge to turn on iCIMS and Bullhorn betas; Greenhouse partner form (blocked: done in Merge/Greenhouse by you).
