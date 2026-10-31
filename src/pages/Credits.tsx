@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
+import { EmbeddedCheckoutDialog } from "@/components/EmbeddedCheckoutDialog";
+import { stripePromise } from "@/lib/stripe";
 
 const LABEL: Record<string, string> = {
   work_email: "Work email found",
@@ -28,6 +30,7 @@ export function CreditsPanel() {
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState<"starter" | "pro" | "beta">("starter");
   const [yearly, setYearly] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const planName = plan?.plan === "pro" ? "Pro" : plan?.plan === "beta" ? "Early access" : "Starter";
   const [exempt, setExempt] = useState(false);
   const [unlimited, setUnlimited] = useState(false);
@@ -50,6 +53,7 @@ export function CreditsPanel() {
   useEffect(() => { loadStatus(); }, []);
 
   const go = async (action: "checkout" | "portal" | "upgrade") => {
+    if (action === "checkout" && stripePromise) { setCheckoutOpen(true); return; }
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("billing", { body: { action, origin: window.location.origin, plan: pick, interval: yearly && pick !== "beta" ? "year" : "month" } });
     setBusy(false);
@@ -133,6 +137,7 @@ export function CreditsPanel() {
                     Pay yearly, save 15%
                   </label>
                 )}
+                <EmbeddedCheckoutDialog open={checkoutOpen} onOpenChange={setCheckoutOpen} plan={pick} interval={yearly && pick !== "beta" ? "year" : "month"} />
                 <Button disabled={busy || plan === null} onClick={() => go("checkout")}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe · ${priceText(pick, yearly && pick !== "beta")}`}
                 </Button>
