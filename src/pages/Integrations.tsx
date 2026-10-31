@@ -12,15 +12,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { supabase } from "@/integrations/supabase/client";
 import { SheetsLogo, SlackLogo, ExcelLogo } from "@/components/agents/AgentConnections";
 
-type Sys = { slug: string; name: string; line: string; logo: string };
+type Sys = { slug: string; name: string; line: string; logo: string; soon?: boolean };
 const L = (f: string) => `/site/assets/img/logos/${f}.png`;
 const ATS: Sys[] = [
   { slug: "workday", name: "Workday", line: "Health systems and large hospital networks", logo: L("workday") },
   { slug: "oracle-taleo", name: "Oracle Taleo", line: "Enterprise hospital recruiting", logo: L("oracle-taleo") },
   { slug: "ukg-pro-recruiting", name: "UKG Pro Recruiting", line: "Regional hospitals and health systems", logo: L("ukg") },
-  { slug: "icims", name: "iCIMS", line: "Enterprise healthcare talent teams", logo: L("icims") },
-  { slug: "bullhorn", name: "Bullhorn", line: "Physician and clinical search firms", logo: L("bullhorn") },
-  { slug: "greenhouse", name: "Greenhouse", line: "Growing clinical groups", logo: L("greenhouse") },
+  { slug: "icims", name: "iCIMS", line: "Enterprise healthcare talent teams", logo: L("icims"), soon: true },
+  { slug: "bullhorn", name: "Bullhorn", line: "Physician and clinical search firms", logo: L("bullhorn"), soon: true },
+  { slug: "greenhouse", name: "Greenhouse", line: "Growing clinical groups", logo: L("greenhouse"), soon: true },
   { slug: "smartrecruiters", name: "SmartRecruiters", line: "Multi-site provider groups", logo: L("smartrecruiters") },
   { slug: "lever", name: "Lever", line: "Specialty clinics and practice groups", logo: L("lever") },
 ];
@@ -94,7 +94,9 @@ export function IntegrationsPanel() {
           </div>
         </div>
         <div className="mt-auto flex items-center gap-2">
-          {c ? (
+          {s.soon && !c ? (
+            <Badge variant="secondary">Coming soon</Badge>
+          ) : c ? (
             <>
               <span className="inline-flex items-center gap-1 text-sm text-primary"><Check className="h-4 w-4" />Connected</span>
               <Button size="sm" variant="ghost" className="ml-auto" disabled={busy === s.slug} onClick={() => disconnect(c)}>Disconnect</Button>

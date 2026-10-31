@@ -10,7 +10,7 @@ Oslr covers 5.1M+ U.S. healthcare profiles, including 2.1M+ nurses and 200K+ med
 - [Oslr Pricing](https://oslr.health/pricing): Oslr plans for healthcare recruiters: Starter $129 a month, Pro $229 a month, Enterprise custom. Save 15% billed annually.
 - [Oslr Agents](https://oslr.health/product/agents): Oslr agents search for clinicians every day, learn from every person you approve or pass, and bring fresh matches every morning.
 - [Oslr Company Intel](https://oslr.health/product/companies): See any healthcare employer's clinical team by role and subspecialty, from health systems to single-office practices, plus who joined and left.
-- [Oslr Integrations](https://oslr.health/product/integrations): Connect Oslr to iCIMS, Workday, Oracle Taleo, Greenhouse, Bullhorn, Salesforce, HubSpot, Pipedrive and more. ATS and CRM integrations on Pro and Enterprise.
+- [Oslr Integrations](https://oslr.health/product/integrations): Connect Oslr to Workday, Oracle Taleo, UKG Pro, Salesforce, HubSpot, Pipedrive and more. ATS and CRM integrations on Pro and Enterprise.
 - [Oslr Talent Search](https://oslr.health/product/talent-search): Search 5M+ U.S. clinicians in plain English by specialty, subspecialty, training year, practice setting and location.
 
 ## Resources
