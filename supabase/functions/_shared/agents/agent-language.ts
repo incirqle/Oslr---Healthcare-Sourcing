@@ -21,11 +21,11 @@ export function applyLanguageRules(prefs: AgentPreferences, rules: LanguageRules
   return { ...prefs, weights, skip: { cities: merge(prefs.skip.cities, rules.skip_cities), employers: merge(prefs.skip.employers, rules.skip_employers), features: merge(prefs.skip.features ?? [], rules.exclude) } };
 }
 
-export function steeringPatch(agent: { status: string; brief: string }, value: unknown, available: string[]) {
+export function steeringPatch(agent: { status: string; brief: string }, value: unknown, available: string[], maxPerDay = 10) {
   const v = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const patch: Record<string, unknown> = {};
   if (v.per_day !== null && v.per_day !== undefined) {
-    if (typeof v.per_day !== "number" || !Number.isInteger(v.per_day) || v.per_day < 1 || v.per_day > 10) throw new Error("Choose between 1 and 10 people per day.");
+    if (typeof v.per_day !== "number" || !Number.isInteger(v.per_day) || v.per_day < 1 || v.per_day > maxPerDay) throw new Error(`Choose between 1 and ${maxPerDay} people per day.`);
     patch.per_day = v.per_day;
   }
   if (typeof v.brief === "string" && v.brief.trim()) {
