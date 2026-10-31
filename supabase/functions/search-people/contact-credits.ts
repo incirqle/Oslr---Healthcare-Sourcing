@@ -48,7 +48,10 @@ export async function handleEnrichContact(
   const { data: pass } = await db.from("billing_exemptions").select("unlimited_access")
     .eq("company_id", companyId).maybeSingle();
   const unlimited = pass?.unlimited_access === true;
-  const { data: feat } = await db.from("company_features").select("plan").eq("company_id", companyId).maybeSingle();
+  const { data: feat } = await db.from("company_features").select("plan, billing_hold").eq("company_id", companyId).maybeSingle();
+  if (feat?.billing_hold && !unlimited) {
+    return { status: 403, payload: { error: "Contact lookups are paused while a billing issue is reviewed. Please contact support@oslr.health." } };
+  }
   const PRICES = contactPrices(feat?.plan as string | undefined);
 
   const url = typeof body.linkedin_url === "string" ? body.linkedin_url.trim().toLowerCase().replace(/\/+$/, "") : "";
