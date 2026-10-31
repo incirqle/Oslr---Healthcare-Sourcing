@@ -53,6 +53,19 @@ Deno.serve(async (req) => {
       const plan: PlanId = body?.plan === "pro" ? "pro" : body?.plan === "beta" ? "beta" : "starter";
       if (plan === "beta" && !betaEligible) return json({ error: "This plan is by invitation only." }, 403);
       const interval: Interval = plan !== "beta" && body?.interval === "year" ? "year" : "month";
+      if (body?.embedded === true) {
+        // Embedded checkout keeps buyers on oslr.health; Stripe redirects to return_url on completion.
+        const session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          mode: "subscription",
+          ui_mode: "embedded",
+          line_items: [{ price: priceFor(plan, interval), quantity: 1 }],
+          return_url: `${origin}/credits?checkout=success`,
+          subscription_data: { metadata: { company_id: companyId, user_id: user.id } },
+          metadata: { company_id: companyId },
+        });
+        return json({ client_secret: session.client_secret });
+      }
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: "subscription",
