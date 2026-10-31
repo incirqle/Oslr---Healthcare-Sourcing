@@ -54,7 +54,7 @@
         if (e.key === "Escape" && nav.hasAttribute("data-open")) { setOpen(false); menuBtn.focus(); }
       });
       $$("a", sheet).forEach(function (a) { a.addEventListener("click", function () { setOpen(false); }); });
-      window.addEventListener("resize", function () { if (window.innerWidth >= 960) setOpen(false); });
+      window.addEventListener("resize", function () { if (window.innerWidth >= 768) setOpen(false); });
     }
   }
 

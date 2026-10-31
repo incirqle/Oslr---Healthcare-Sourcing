@@ -36,6 +36,7 @@ Oslr covers 5.1M+ U.S. healthcare profiles, including 2.1M+ nurses and 200K+ med
 
 ## Company
 
+- [About Oslr](https://oslr.health/about): A brand of Pitchsink Inc., purpose-built by clinicians, entrepreneurs and AI specialists to level the playing field for healthcare talent sourcing.
 - [Oslr Subprocessors](https://oslr.health/subprocessors): The third-party services Oslr uses to run the product and process customer data.
 - [Oslr Privacy Policy](https://oslr.health/privacy): How Oslr collects, uses and protects information and honors GDPR, UK GDPR and CCPA rights.
 - [Oslr Terms of Service](https://oslr.health/terms): The terms for using Oslr.
