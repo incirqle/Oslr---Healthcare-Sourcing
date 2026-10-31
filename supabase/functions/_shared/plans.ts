@@ -20,20 +20,32 @@ export const PLANS: Record<PlanId, Plan> = {
   beta: { monthlyCredits: 150, agents: false, seats: 1, prices: { work_email: 2, personal_email: 3, phone: 3 } },
 };
 
-export const BETA_PRICE = "price_1UPqrsIIdDz6ofU5w98C1smQ";
+export type Account = "oslr" | "legacy";
 
-// Stripe price id -> plan and billing interval.
-export const PRICE_IDS: Record<string, { plan: PlanId; interval: Interval }> = {
+// Legacy Pitchsink account: existing customers only. New checkouts use the Oslr account.
+export const BETA_PRICE = "price_1UPqrsIIdDz6ofU5w98C1smQ";
+const LEGACY: Record<string, { plan: PlanId; interval: Interval }> = {
   price_1UUtK3IIdDz6ofU5A65xRxfi: { plan: "starter", interval: "month" },
   price_1UUtK3IIdDz6ofU5w3c9iX8o: { plan: "starter", interval: "year" },
   price_1UUtK4IIdDz6ofU5GaoEuBDX: { plan: "pro", interval: "month" },
   price_1UUtK4IIdDz6ofU5T91Yq4Gz: { plan: "pro", interval: "year" },
   [BETA_PRICE]: { plan: "beta", interval: "month" },
 };
+const OSLR: Record<string, { plan: PlanId; interval: Interval }> = {
+  price_1UWgc7InIoJSr7wv1isXlTeK: { plan: "starter", interval: "month" },
+  price_1UWgc8InIoJSr7wvsUVYZB0h: { plan: "starter", interval: "year" },
+  price_1UWgc8InIoJSr7wvoP4ZnjgO: { plan: "pro", interval: "month" },
+  price_1UWgc8InIoJSr7wv6wr1H50n: { plan: "pro", interval: "year" },
+  price_1UWgc9InIoJSr7wvO2FyCz2D: { plan: "beta", interval: "month" },
+};
 
-export function priceFor(plan: PlanId, interval: Interval): string {
-  if (plan === "beta") return BETA_PRICE;
-  const hit = Object.entries(PRICE_IDS).find(([, v]) => v.plan === plan && v.interval === interval);
+// Stripe price id (either account) -> plan and billing interval.
+export const PRICE_IDS: Record<string, { plan: PlanId; interval: Interval }> = { ...LEGACY, ...OSLR };
+
+export function priceFor(plan: PlanId, interval: Interval, account: Account = "oslr"): string {
+  const table = account === "legacy" ? LEGACY : OSLR;
+  const iv: Interval = plan === "beta" ? "month" : interval;
+  const hit = Object.entries(table).find(([, v]) => v.plan === plan && v.interval === iv);
   return hit![0];
 }
 
