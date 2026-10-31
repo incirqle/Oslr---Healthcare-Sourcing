@@ -40,6 +40,9 @@ Deno.test("Month index within a yearly period", () => {
 Deno.test("$115 beta price is kept, 150 credits a month, and never used for Starter checkout", () => {
   assertEquals(PRICE_IDS[BETA_PRICE], { plan: "beta", interval: "month" });
   assertEquals(PLANS.beta.monthlyCredits, 150);
-  assertEquals(priceFor("starter", "month"), "price_1UUtK3IIdDz6ofU5A65xRxfi");
-  assertEquals(priceFor("beta", "month"), BETA_PRICE);
+  assertEquals(priceFor("starter", "month"), "price_1UWgc7InIoJSr7wv1isXlTeK");
+  assertEquals(priceFor("starter", "month", "legacy"), "price_1UUtK3IIdDz6ofU5A65xRxfi");
+  assertEquals(priceFor("pro", "year"), "price_1UWgc8InIoJSr7wv6wr1H50n");
+  assertEquals(priceFor("beta", "month", "legacy"), BETA_PRICE);
+  assertEquals(priceFor("beta", "year"), "price_1UWgc9InIoJSr7wvO2FyCz2D");
 });
