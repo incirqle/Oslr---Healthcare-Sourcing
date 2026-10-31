@@ -14,3 +14,6 @@
 - [ ] Google Sheets live sync: code is built; waiting on the Google Sheets connection for Oslr to be linked (needs the Oslr Google client plus the gateway redirect link).
 - [x] Slack live sync (channel link) and Excel live link per project.
 - [x] Privacy Policy, Terms of Service, subprocessors update.
+- [ ] Company page with purpose-built mission, unnamed team and Pitchsink Inc. brand relationship.
+- [ ] Larger header logo and clearer navigation across public pages, including Company.
+- [ ] Replace infrastructure subprocessors with AWS (blocked: AWS-only hosting and processing location are not verified; retain accurate provider disclosures).
