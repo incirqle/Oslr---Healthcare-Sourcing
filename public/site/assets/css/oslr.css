@@ -1808,7 +1808,7 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 .dd__panel::before { content: ""; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
 .dd.open .dd__panel { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition-delay: 0s; }
 .dd__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-.nav__links .dd__item { display: grid; gap: 6px; padding: 16px 18px; border-radius: 12px; color: var(--fg); font-size: inherit; }
+.nav__links .dd__item { display: grid; gap: 6px; padding: 16px 18px; border-radius: 8px; color: var(--fg); font-size: inherit; white-space: normal; min-width: 0; }
 .dd__item b { font-size: 0.9875rem; font-weight: 600; letter-spacing: -0.01em; color: var(--fg); }
 .dd__item span { font-size: 0.875rem; line-height: 1.45; color: var(--fg-2); }
 .nav__links .dd__item:hover, .nav__links .dd__item:focus-visible { background: rgba(255, 255, 255, 0.05); }
