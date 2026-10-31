@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MarketingRoute } from "./routes";
 import { applySeo, clearSeo } from "./seo";
+import companyPhoto from "@/assets/oslr-company.jpg";
 
 /**
  * Renders one page of the Oslr marketing site exactly as designed.
@@ -43,6 +44,50 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
   useEffect(() => {
     if (html === null || !ref.current) return;
     ref.current.innerHTML = html;
+    const root = ref.current;
+    const primary = root.querySelector(".nav__links");
+    const links = [
+      ["/how-it-works", "How It Works"],
+      ["/about", "Company"],
+      ["/pricing", "Pricing"],
+      ["/guides", "Resources"],
+    ];
+    primary?.querySelectorAll(":scope > a").forEach((a) => a.remove());
+    links.forEach(([href, label]) => {
+      const a = document.createElement("a");
+      a.href = href;
+      a.textContent = label;
+      if (route.path === href || (href === "/guides" && route.path.startsWith("/guides/"))) {
+        a.setAttribute("aria-current", "page");
+      }
+      primary?.appendChild(a);
+    });
+    const productButton = primary?.querySelector(".dd__btn");
+    productButton?.toggleAttribute("data-current", route.path.startsWith("/product/"));
+    const sheet = root.querySelector(".sheet");
+    sheet?.querySelectorAll('a.sheet__link:not([data-link])').forEach((a) => a.remove());
+    const login = sheet?.querySelector('[data-link="login"]');
+    links.forEach(([href, label]) => {
+      const a = document.createElement("a");
+      a.className = "sheet__link";
+      a.href = href;
+      a.textContent = label;
+      sheet?.insertBefore(a, login ?? null);
+    });
+    root.querySelectorAll(".foot__cols h4").forEach((heading) => {
+      if (heading.textContent !== "Company") return;
+      const list = heading.parentElement?.querySelector("ul");
+      if (!list || list.querySelector('a[href="/about"]')) return;
+      const item = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = "/about";
+      a.textContent = "About Oslr";
+      item.appendChild(a);
+      list.prepend(item);
+    });
+    root.querySelectorAll<HTMLImageElement>("img[data-company-photo]").forEach((img) => {
+      img.src = companyPhoto;
+    });
     const scripts = ["/site/assets/js/config.js", "/site/assets/js/oslr.js"].map((src) => {
       const s = document.createElement("script");
       s.src = src;
@@ -54,7 +99,7 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     const hash = window.location.hash;
     if (hash) requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView());
     return () => scripts.forEach((s) => s.remove());
-  }, [html]);
+  }, [html, route.path]);
 
   return <div ref={ref} className="oslr-site-root" />;
 }
