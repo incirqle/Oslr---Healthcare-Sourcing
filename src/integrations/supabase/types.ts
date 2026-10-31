@@ -276,6 +276,33 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_events: {
+        Row: {
+          account: string
+          company_id: string | null
+          created_at: string
+          payload: Json
+          stripe_event_id: string
+          type: string
+        }
+        Insert: {
+          account: string
+          company_id?: string | null
+          created_at?: string
+          payload?: Json
+          stripe_event_id: string
+          type: string
+        }
+        Update: {
+          account?: string
+          company_id?: string | null
+          created_at?: string
+          payload?: Json
+          stripe_event_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       billing_exemptions: {
         Row: {
           company_id: string
@@ -304,6 +331,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      billing_nudges: {
+        Row: {
+          canceled_at: string | null
+          company_id: string | null
+          created_at: string
+          dedupe_key: string
+          email: string
+          error: string | null
+          id: string
+          kind: string
+          send_after: string
+          sent_at: string | null
+        }
+        Insert: {
+          canceled_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          email: string
+          error?: string | null
+          id?: string
+          kind: string
+          send_after?: string
+          sent_at?: string | null
+        }
+        Update: {
+          canceled_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          email?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          send_after?: string
+          sent_at?: string | null
+        }
+        Relationships: []
       }
       campaign_sends: {
         Row: {
@@ -957,18 +1023,27 @@ export type Database = {
       company_features: {
         Row: {
           agents_enabled: boolean
+          billing_hold: string | null
+          cancel_at_period_end: boolean
+          canceled_at: string | null
           company_id: string
           plan: string
           updated_at: string
         }
         Insert: {
           agents_enabled?: boolean
+          billing_hold?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
           company_id: string
           plan?: string
           updated_at?: string
         }
         Update: {
           agents_enabled?: boolean
+          billing_hold?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
           company_id?: string
           plan?: string
           updated_at?: string
