@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { MARKETING_ROUTES } from "./routes";
 import type { MarketingRoute } from "./routes";
 import { applySeo, clearSeo } from "./seo";
 import { openDemoCard } from "./demoCard";
@@ -25,6 +27,7 @@ function ensureLink(id: string, href: string) {
 export default function MarketingPage({ route }: { route: MarketingRoute }) {
   const ref = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let alive = true;
@@ -36,8 +39,11 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     return () => {
       alive = false;
       clearSeo();
-      document.getElementById(CSS_ID)?.remove();
-      document.documentElement.classList.remove("oslr-site", "js");
+      setTimeout(() => {
+        if (document.querySelector(".oslr-site-root")) return;
+        document.getElementById(CSS_ID)?.remove();
+        document.documentElement.classList.remove("oslr-site", "js");
+      }, 0);
     };
   }, [route]);
 
@@ -131,6 +137,20 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
       openDemoCard();
     };
     root.addEventListener("click", onDemo, true);
+    const onNav = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const a = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank") return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (!MARKETING_ROUTES.some((r) => r.path === url.pathname)) return;
+      if (url.pathname === window.location.pathname && url.hash) return;
+      e.preventDefault();
+      navigate(url.pathname + url.search + url.hash);
+      window.scrollTo(0, 0);
+    };
+    root.addEventListener("click", onNav);
+    MARKETING_ROUTES.forEach((r) => r.load());
     const scripts = ["/site/assets/js/config.js", "/site/assets/js/oslr.js"].map((src) => {
       const s = document.createElement("script");
       s.src = src;
@@ -143,6 +163,7 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     if (hash) requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView());
     return () => {
       root.removeEventListener("click", onDemo, true);
+      root.removeEventListener("click", onNav);
       scripts.forEach((s) => s.remove());
     };
   }, [html, route.path]);

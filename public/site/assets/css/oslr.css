@@ -2041,3 +2041,4 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 .rs__sol a { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: 999px; background: var(--tile); border: 1px solid var(--line-2); color: var(--fg); font-weight: 500; transition: border-color 150ms ease; }
 @media (hover: hover) and (pointer: fine) { .rs__sol a:hover { border-color: var(--sea); } }
 @media (prefers-reduced-motion: reduce) { .sx__p.on { animation: none; } }
+.sv.av--img{object-fit:cover;padding:0}
