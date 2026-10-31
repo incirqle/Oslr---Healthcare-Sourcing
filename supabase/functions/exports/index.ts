@@ -133,6 +133,10 @@ Deno.serve(async (req) => {
           await admin.from("export_destinations").update({ last_error: e instanceof Error ? e.message.slice(0, 300) : "Sync failed" }).eq("id", d.id);
         }
       }
+      // Also flush anything still queued (Slack posts, retries) right now.
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/export-sync`, {
+        method: "POST", headers: { Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      }).catch((e) => console.warn("export-sync wake failed", e));
       return json({ ok: true });
     }
     return json({ error: "Unknown action" }, 400);
