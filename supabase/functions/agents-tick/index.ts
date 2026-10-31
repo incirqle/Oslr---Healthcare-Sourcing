@@ -21,10 +21,10 @@ Deno.serve(async () => {
       .eq("status", "sourcing").lte("next_run_at", now.toISOString())
       .order("next_run_at", { ascending: true }).limit(MAX_AGENTS_PER_TICK);
     for (const agent of due ?? []) {
-      const { data: feat } = await admin.from("company_features").select("agents_enabled").eq("company_id", agent.company_id).maybeSingle();
+      const { data: feat } = await admin.from("company_features").select("agents_enabled, plan").eq("company_id", agent.company_id).maybeSingle();
       const today = now.toISOString().slice(0, 10);
       let stop: { status: string; reason: string } | null = null;
-      if (!feat?.agents_enabled) stop = { status: "paused", reason: "Agents are turned off for this team" };
+      if (!feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "")) stop = { status: "paused", reason: "Agents are turned off for this team" };
       else if (agent.finish_date && agent.finish_date < today) stop = { status: "completed", reason: "Finish date reached" };
       else if (agent.last_reviewed_at && now.getTime() - new Date(agent.last_reviewed_at).getTime() > INACTIVE_DAYS * 86400_000) {
         stop = { status: "paused", reason: "Paused after 7 days without review" };

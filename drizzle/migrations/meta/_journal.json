@@ -57,6 +57,13 @@
       "when": 1793118233599,
       "tag": "0007_doctor_intel_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793409956744,
+      "tag": "0008_meter_agent_creation",
+      "breakpoints": true
     }
   ]
 }

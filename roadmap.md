@@ -3,4 +3,5 @@
 - [ ] Stop any existing Stripe subscription (blocked: Stripe lookup declined).
 - [x] Oslr Agents: create, first matches, approve/pass with reasons, skip towns, learning summary, steer chat, Dashboard and Project cards, nightly runs, premium switch.
 - [ ] Agents morning email (blocked: needs an Oslr sending email domain set up).
-- [ ] Agents pricing as Pro plan or add-on (waiting on Steven's pricing decision).
+- [x] Agent metering: Starter 1 active per workspace, Pro 5 per user, Enterprise unlimited; charge 30 workspace credits per new agent and preserve separate contact charges. Tests passed; signed-in Starter limit rejection verified with unchanged credits/projects.
+- [ ] Verify successful 30-credit creation, retries and concurrent requests end-to-end (blocked: no authorized disposable funded workspace; existing account is already at its active limit).

@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/hooks/useProjects";
-import { useCreateAgent } from "@/hooks/useAgents";
+import { useAgentMetering, useCreateAgent } from "@/hooks/useAgents";
+import { useCompany } from "@/hooks/useCompany";
+import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { toast } from "sonner";
 
 const MAX_PER_DAY = 10;
@@ -19,6 +21,10 @@ export function AgentBriefDialog({
   const navigate = useNavigate();
   const { data: projects = [] } = useProjects();
   const create = useCreateAgent();
+  const { companyId } = useCompany();
+  const balance = useCreditBalance(companyId);
+  const { data: metering } = useAgentMetering(open);
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
   const [perDay, setPerDay] = useState(10);
@@ -26,12 +32,13 @@ export function AgentBriefDialog({
   const [finish, setFinish] = useState("");
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? "new");
 
-  const ready = name.trim().length > 0 && brief.trim().length >= 8 && !create.isPending;
+  const atLimit = !!metering && metering.limit !== null && metering.active >= metering.limit;
+  const ready = name.trim().length > 0 && brief.trim().length >= 8 && !create.isPending && !!metering && !atLimit && (balance ?? 0) >= metering.build_credits;
 
   const submit = async () => {
     try {
       const r = await create.mutateAsync({
-        name: name.trim(), brief: brief.trim(), per_day: perDay,
+        request_id: requestId, name: name.trim(), brief: brief.trim(), per_day: perDay,
         goal: goal ? Number(goal) : null, finish_date: finish || null,
         project_id: projectId === "new" ? null : projectId,
       });
@@ -39,6 +46,7 @@ export function AgentBriefDialog({
       else toast.success(r.served ? `Your first ${r.served} matches are ready` : "Agent started");
       onOpenChange(false);
       setName(""); setBrief(""); setGoal(""); setFinish("");
+      setRequestId(crypto.randomUUID());
       navigate(`/agents/${r.agent_id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not start the agent");
@@ -54,6 +62,12 @@ export function AgentBriefDialog({
             <DialogTitle className="font-display text-2xl tracking-tight">Start a new agent</DialogTitle>
             <DialogDescription className="text-[15px]">Tell it who to find. It brings you fresh matches every day.</DialogDescription>
           </DialogHeader>
+          <div className="text-sm text-muted-foreground" aria-live="polite">
+            <p>Build an agent: {metering?.build_credits ?? 30} credits. Contact enrichment is charged separately.</p>
+            <p>{metering ? `${metering.active} active · ${metering.limit === null ? "Unlimited" : metering.limit} allowed ${metering.scope === "user" ? "per user" : "per workspace"}` : "Checking your allowance…"}</p>
+            {atLimit && <p className="text-destructive">Pause or close an active agent before starting another.</p>}
+            {balance !== null && balance !== undefined && balance < 30 && <p className="text-destructive">You need 30 available workspace credits.</p>}
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="agent-name">Agent name</Label>

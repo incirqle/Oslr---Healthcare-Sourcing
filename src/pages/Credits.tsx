@@ -15,6 +15,7 @@ const LABEL: Record<string, string> = {
   phone: "Phone number found",
   grant: "Credits added",
   expired: "Unused credits expired",
+  agent_build: "Agent created",
 };
 
 interface Tx { id: string; kind: string; credits: number; candidate_name: string | null; note: string | null; created_at: string }

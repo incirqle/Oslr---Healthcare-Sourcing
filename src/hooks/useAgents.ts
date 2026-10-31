@@ -81,8 +81,9 @@ export function useAgentsEnabled() {
     queryKey: ["agents-enabled", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data } = await supabase.from("company_features").select("agents_enabled").eq("company_id", companyId!).maybeSingle();
-      return !!data?.agents_enabled;
+      if (!companyId) return false;
+      const { data } = await supabase.from("company_features").select("agents_enabled, plan").eq("company_id", companyId).maybeSingle();
+      return !!data?.agents_enabled || ["starter", "pro", "enterprise"].includes(data?.plan ?? "");
     },
     staleTime: 60_000,
   });
@@ -109,11 +110,20 @@ export function useRoster(agentId: string | undefined) {
 export function useCreateAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (b: { name: string; brief: string; per_day: number; goal?: number | null; finish_date?: string | null; project_id?: string | null }) =>
+    mutationFn: (b: { request_id: string; name: string; brief: string; per_day: number; goal?: number | null; finish_date?: string | null; project_id?: string | null }) =>
       call<{ agent_id: string; served?: number; warning?: string }>({
         action: "create", ...b, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["projects"] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); qc.invalidateQueries({ queryKey: ["projects"] }); window.dispatchEvent(new Event("oslr:credits")); },
+  });
+}
+
+export function useAgentMetering(enabled: boolean) {
+  const { companyId } = useCompany();
+  return useQuery({
+    queryKey: ["agent-metering", companyId], enabled: enabled && !!companyId,
+    queryFn: () => call<{ metering: { limit: number | null; scope: "workspace" | "user"; active: number; build_credits: number } }>({ action: "list" }).then((r) => r.metering),
+    refetchInterval: 60_000,
   });
 }
 
@@ -135,7 +145,7 @@ export function useDecide(agentId: string) {
       return { prev };
     },
     onError: (_e, _b, ctx) => { if (ctx?.prev) qc.setQueryData(["agent-roster", agentId], ctx.prev); },
-    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); },
   });
 }
 
@@ -151,7 +161,7 @@ export function useUpdateAgent(agentId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (b: Record<string, unknown>) => call<{ ok: true }>({ action: "update", agent_id: agentId, ...b }),
-    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); },
   });
 }
 
