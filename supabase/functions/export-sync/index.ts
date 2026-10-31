@@ -7,8 +7,7 @@ const MAX_ATTEMPTS = 5;
 
 Deno.serve(async () => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: pending } = await admin.from("export_outbox").select("*")
-    .is("processed_at", null).lt("attempts", MAX_ATTEMPTS).order("id").limit(300);
+  const { data: pending } = await admin.rpc("claim_export_outbox", { _limit: 300 });
   if (!pending?.length) return Response.json({ processed: 0 });
 
   const byProject = new Map<string, typeof pending>();
@@ -55,7 +54,7 @@ Deno.serve(async () => {
     for (const i of items) {
       const attempts = i.attempts + 1;
       await admin.from("export_outbox").update(
-        failed && attempts < MAX_ATTEMPTS ? { attempts, error: failed } : { attempts, processed_at: now, error: failed },
+        failed && attempts < MAX_ATTEMPTS ? { attempts, error: failed, claimed_at: null } : { attempts, processed_at: now, error: failed },
       ).eq("id", i.id);
     }
     processed += items.length;

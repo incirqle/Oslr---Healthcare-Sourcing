@@ -28,3 +28,12 @@ project_id = "pagxfpeqjxlbaoldmeua"
 
 [functions.preview-transactional-email]
 verify_jwt = false
+
+[functions.exports]
+verify_jwt = false
+
+[functions.export-sync]
+verify_jwt = false
+
+[functions.export-feed]
+verify_jwt = false
