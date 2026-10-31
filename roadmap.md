@@ -11,3 +11,6 @@
 - [x] Test natural-language agent flows and deploy updated clinician-agent and agents-tick functions. Pause/resume and replacement rules covered by tests; live destructive review/resume checks remain under the existing disposable-workspace blocker.
 
 - [ ] Billing emails: cancellation, failed payment, refund and owner alerts send from Oslr once notify.oslr.health DNS verifies. Abandoned-checkout and win-back reminders are not sent (promotional; needs a marketing email service).
+- [ ] Google Sheets live sync: code is built; waiting on the Google Sheets connection for Oslr to be linked (needs the Oslr Google client plus the gateway redirect link).
+- [x] Slack live sync (channel link) and Excel live link per project.
+- [x] Privacy Policy, Terms of Service, subprocessors update.
