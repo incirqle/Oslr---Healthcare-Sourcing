@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ExportMenu } from "@/components/ExportMenu";
 import { LiveSyncDialog } from "@/components/LiveSyncDialog";
+import { SendToSystem } from "@/components/SendToSystem";
 import { BulkEnrichDialog } from "@/components/BulkEnrichDialog";
 import type { AnyCandidate } from "@/lib/candidate-export-adapter";
 import {
@@ -411,6 +412,7 @@ export default function ProjectDetail() {
                 className="h-8"
               />
               {id && <LiveSyncDialog projectId={id} />}
+              {id && <SendToSystem projectId={id} />}
               <div className="relative max-w-[220px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
