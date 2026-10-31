@@ -9,3 +9,5 @@
 - [x] Apply rejection notes to learned ranking and explicit skip rules; pure rule tests pass. No real candidate decision changed during checks.
 - [x] Conversational steering for daily volume, pause/resume and search rules, preserving agent limits; live five-per-day change verified and original ten restored.
 - [x] Test natural-language agent flows and deploy updated clinician-agent and agents-tick functions. Pause/resume and replacement rules covered by tests; live destructive review/resume checks remain under the existing disposable-workspace blocker.
+
+- [ ] Billing emails (abandoned cart, win-back, refund, failed payment, chargeback alerts): queued but not sent until an email sender for hello@oslr.health is set up.

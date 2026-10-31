@@ -159,6 +159,26 @@ async function handle(stripe: Stripe, ev: Stripe.Event): Promise<string | null> 
   return null;
 }
 
+const EVENTS = ["checkout.session.completed", "checkout.session.expired", "customer.subscription.updated",
+  "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed", "charge.refunded",
+  "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed"] as const;
+
+// Registers this listener in each Stripe account once. Safe to call repeatedly: existing setups are kept.
+async function setup() {
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/stripe-webhook`;
+  const out: Record<string, string> = {};
+  for (const [name, key] of [["oslr", Deno.env.get("STRIPE_OSLR_SECRET_KEY")], ["legacy", Deno.env.get("STRIPE_SECRET_KEY")]] as const) {
+    if (!key) { out[name] = "no_key"; continue; }
+    const { data: have } = await db.from("stripe_webhook_config").select("endpoint_id").eq("account", name).maybeSingle();
+    if (have) { out[name] = "already_connected"; continue; }
+    const stripe = new Stripe(key, api);
+    const ep = await stripe.webhookEndpoints.create({ url, enabled_events: [...EVENTS] as Stripe.WebhookEndpointCreateParams.EnabledEvent[], description: "Oslr billing lifecycle" });
+    await db.from("stripe_webhook_config").insert({ account: name, endpoint_id: ep.id, signing_secret: ep.secret! });
+    out[name] = "connected";
+  }
+  return out;
+}
+
 async function tick() {
   const { data: due } = await db.from("billing_nudges").select("*")
     .is("sent_at", null).is("canceled_at", null).lte("send_after", new Date().toISOString()).limit(50);
@@ -183,13 +203,18 @@ Deno.serve(async (req) => {
   const raw = await req.text();
   const sig = req.headers.get("stripe-signature");
   if (!sig) {
-    try { if (JSON.parse(raw)?.tick) return ok(await tick()); } catch { /* fallthrough */ }
+    let b: Record<string, unknown> = {};
+    try { b = JSON.parse(raw); } catch { /* ignore */ }
+    if (b?.tick) return ok(await tick());
+    if (b?.setup) return ok(await setup());
     return ok({ error: "Missing signature" }, 400);
   }
   const accounts: { name: string; key?: string; secret?: string }[] = [
-    { name: "oslr", key: Deno.env.get("STRIPE_OSLR_SECRET_KEY"), secret: Deno.env.get("STRIPE_OSLR_WEBHOOK_SECRET") },
-    { name: "legacy", key: Deno.env.get("STRIPE_SECRET_KEY"), secret: Deno.env.get("STRIPE_LEGACY_WEBHOOK_SECRET") },
+    { name: "oslr", key: Deno.env.get("STRIPE_OSLR_SECRET_KEY") },
+    { name: "legacy", key: Deno.env.get("STRIPE_SECRET_KEY") },
   ];
+  const { data: cfg } = await db.from("stripe_webhook_config").select("account, signing_secret");
+  for (const a of accounts) a.secret = cfg?.find((c) => c.account === a.name)?.signing_secret;
   for (const a of accounts) {
     if (!a.key || !a.secret) continue;
     const stripe = new Stripe(a.key, api);
