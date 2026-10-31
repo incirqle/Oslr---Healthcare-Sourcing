@@ -14,6 +14,7 @@ import { AuthProvider } from "./hooks/useAuth";
 import SearchPage from "./pages/SearchPage";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
+import GoogleSheetsReturn from "./pages/GoogleSheetsReturn";
 import Contacts from "./pages/Contacts";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/search" element={<P><SearchPage /></P>} />
             <Route path="/projects" element={<P><Projects /></P>} />
             <Route path="/projects/:id" element={<P><ProjectDetail /></P>} />
+            <Route path="/oauth/google-sheets/return" element={<GoogleSheetsReturn />} />
             <Route path="/projects/:projectId/search" element={<P><SearchPage /></P>} />
             <Route path="/agents" element={<P><Agents /></P>} />
             <Route path="/agents/:id" element={<P><AgentDetail /></P>} />
