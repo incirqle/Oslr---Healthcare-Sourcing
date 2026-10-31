@@ -1,8 +1,36 @@
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 
-/** Cal.com booking link. Visitors go here after sharing their details. */
-export const CAL_URL = "";
+/** Cal.com event shown inside the card after visitors share their details. */
+const CAL_LINK = "spitchsink/oslr-demo";
+const CAL_NS = "oslr-demo";
+
+/* Cal.com's official loader, adapted from their inline embed snippet. */
+function loadCal(): any {
+  const w = window as any;
+  if (!w.Cal) {
+    (function (C: any, A: string, L: string) {
+      const p = (a: any, ar: any) => a.q.push(ar);
+      const d = C.document;
+      C.Cal = C.Cal || function (...ar: any[]) {
+        const cal = C.Cal;
+        if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; }
+        if (ar[0] === L) {
+          const api: any = function (...a: any[]) { p(api, a); };
+          const namespace = ar[1];
+          api.q = api.q || [];
+          if (typeof namespace === "string") { cal.ns[namespace] = cal.ns[namespace] || api; p(cal.ns[namespace], ar); p(cal, ["initNamespace", namespace]); }
+          else p(cal, ar);
+          return;
+        }
+        p(cal, ar);
+      };
+    })(w, "https://app.cal.com/embed/embed.js", "init");
+    w.Cal("init", CAL_NS, { origin: "https://app.cal.com" });
+    w.Cal.ns[CAL_NS]("ui", { cssVarsPerTheme: { light: { "cal-brand": "#7AC5B0" }, dark: { "cal-brand": "#7AC5B0" } }, hideEventTypeDetails: false, layout: "month_view", theme: "dark" });
+  }
+  return w.Cal;
+}
 
 const schema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(100),
@@ -24,6 +52,10 @@ const css = `
 .dc .dc-err{color:#ff8a8a;font-size:13px;min-height:18px;margin:-4px 0 10px}
 .dc .dc-row{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
 .dc button{cursor:pointer}
+.dc.dc--cal{max-width:1000px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;padding:20px}
+.dc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.dc-head h2{margin:0}
+.dc-cal{flex:1;min-height:560px;overflow:auto;border-radius:10px}
 @media (prefers-reduced-motion: reduce){.dc{transform:none!important;transition:none}}
 `;
 
@@ -87,13 +119,13 @@ export function openDemoCard() {
       err.textContent = "That did not go through. Please try again.";
       return;
     }
-    if (CAL_URL) {
-      const u = new URL(CAL_URL);
-      u.searchParams.set("name", parsed.data.name);
-      u.searchParams.set("email", parsed.data.email);
-      window.location.href = u.toString();
-      return;
-    }
-    form.innerHTML = `<h2>Thanks, ${parsed.data.name.replace(/[<>&"]/g, "")}.</h2><p>We will be in touch shortly to set a time.</p><div class="dc-row"><button type="button" class="btn btn--primary" data-close>Done</button></div>`;
+    form.classList.add("dc--cal");
+    form.innerHTML = `<div class="dc-head"><h2>Pick a time</h2><button type="button" class="btn btn--ghost btn--sm" data-close aria-label="Close">Close</button></div><div id="dc-cal" class="dc-cal"></div>`;
+    const Cal = loadCal();
+    Cal.ns[CAL_NS]("inline", {
+      elementOrSelector: "#dc-cal",
+      calLink: CAL_LINK,
+      config: { layout: "month_view", useSlotsViewOnSmallScreen: "true", name: parsed.data.name, email: parsed.data.email, notes: `Company: ${parsed.data.company}` },
+    });
   });
 }
