@@ -145,7 +145,7 @@ export function useDecide(agentId: string) {
       return { prev };
     },
     onError: (_e, _b, ctx) => { if (ctx?.prev) qc.setQueryData(["agent-roster", agentId], ctx.prev); },
-    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); },
   });
 }
 
@@ -161,7 +161,7 @@ export function useUpdateAgent(agentId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (b: Record<string, unknown>) => call<{ ok: true }>({ action: "update", agent_id: agentId, ...b }),
-    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); },
   });
 }
 
