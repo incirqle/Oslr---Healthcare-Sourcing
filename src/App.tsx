@@ -16,6 +16,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import GoogleSheetsReturn from "./pages/GoogleSheetsReturn";
 import Contacts from "./pages/Contacts";
+import Integrations from "./pages/Integrations";
 import TeamSettings from "./pages/TeamSettings";
 import News from "./pages/News";
 import Resources from "./pages/Resources";
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/agents" element={<P><Agents /></P>} />
             <Route path="/agents/:id" element={<P><AgentDetail /></P>} />
             <Route path="/contacts" element={<P><Contacts /></P>} />
+            <Route path="/integrations" element={<P><Integrations /></P>} />
             <Route path="/campaigns/*" element={<Navigate to="/projects" replace />} />
             <Route path="/analytics/*" element={<Navigate to="/dashboard" replace />} />
             <Route path="/news" element={<P><News /></P>} />

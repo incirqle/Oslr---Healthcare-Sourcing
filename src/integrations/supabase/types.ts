@@ -2266,6 +2266,51 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_integrations: {
+        Row: {
+          account_token: string | null
+          category: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          provider: string
+          provider_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_token?: string | null
+          category: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          provider: string
+          provider_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_token?: string | null
+          category?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          provider?: string
+          provider_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

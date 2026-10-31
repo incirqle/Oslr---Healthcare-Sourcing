@@ -11,6 +11,7 @@ import {
   BookOpen,
   Zap,
   Bot,
+  Plug,
 } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import { NavLink } from "@/components/NavLink";
@@ -36,6 +37,7 @@ const mainNav = [
   { title: "Search", url: "/search", icon: Search },
   { title: "Agents", url: "/agents", icon: Bot },
   { title: "Contacts", url: "/contacts", icon: Users },
+  { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "News", url: "/news", icon: Newspaper },
 ];
 
