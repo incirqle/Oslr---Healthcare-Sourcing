@@ -13,8 +13,6 @@ import { useCompany } from "@/hooks/useCompany";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { toast } from "sonner";
 
-const MAX_PER_DAY = 10;
-
 export function AgentBriefDialog({
   open, onOpenChange, defaultProjectId,
 }: { open: boolean; onOpenChange: (o: boolean) => void; defaultProjectId?: string }) {
@@ -24,6 +22,7 @@ export function AgentBriefDialog({
   const { companyId } = useCompany();
   const balance = useCreditBalance(companyId);
   const { data: metering } = useAgentMetering(open);
+  const MAX_PER_DAY = metering?.daily_max ?? 10;
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
