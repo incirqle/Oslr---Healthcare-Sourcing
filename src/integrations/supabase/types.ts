@@ -1947,6 +1947,27 @@ export type Database = {
           },
         ]
       }
+      stripe_webhook_config: {
+        Row: {
+          account: string
+          created_at: string
+          endpoint_id: string
+          signing_secret: string
+        }
+        Insert: {
+          account: string
+          created_at?: string
+          endpoint_id: string
+          signing_secret: string
+        }
+        Update: {
+          account?: string
+          created_at?: string
+          endpoint_id?: string
+          signing_secret?: string
+        }
+        Relationships: []
+      }
       user_mailboxes: {
         Row: {
           company_id: string
