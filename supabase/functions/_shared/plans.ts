@@ -14,7 +14,7 @@ export interface Plan {
 }
 
 export const PLANS: Record<PlanId, Plan> = {
-  starter: { monthlyCredits: 150, agents: false, seats: 1, prices: { work_email: 2, personal_email: 3, phone: 3 } },
+  starter: { monthlyCredits: 150, agents: true, seats: 1, prices: { work_email: 2, personal_email: 3, phone: 3 } },
   pro: { monthlyCredits: 500, agents: true, seats: 5, prices: { work_email: 1, personal_email: 2, phone: 3 } },
   // Invite-only early-user plan ($115 a month). Never shown publicly.
   beta: { monthlyCredits: 150, agents: false, seats: 1, prices: { work_email: 2, personal_email: 3, phone: 3 } },

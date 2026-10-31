@@ -1,6 +1,7 @@
 // clinician-agent: create / list / roster / decide / steer / update for Oslr Agents.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
+import { activeAgentCount, agentPolicy, AGENT_BUILD_CREDITS } from "../_shared/agents/agent-metering.ts";
 import { APPROVE_TAGS, applyDecision, approvalSignals, PASS_TAGS } from "../_shared/agents/agent-brain.ts";
 import {
   AiError, aiText, CALIBRATION_SIZE, logEvent, MAX_PER_DAY, nextRunAt, prefsOf,
@@ -24,8 +25,8 @@ Deno.serve(async (req) => {
     const { data: prof } = await admin.from("profiles").select("company_id").eq("user_id", caller.userId).maybeSingle();
     const companyId = prof?.company_id as string | undefined;
     if (!companyId) return json({ error: "No workspace found." }, 400);
-    const { data: feat } = await admin.from("company_features").select("agents_enabled").eq("company_id", companyId).maybeSingle();
-    if (!feat?.agents_enabled) return json({ error: "Agents are not turned on for your team.", locked: true }, 403);
+    const { data: feat } = await admin.from("company_features").select("agents_enabled, plan").eq("company_id", companyId).maybeSingle();
+    if (!feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "")) return json({ error: "Agents are not turned on for your team.", locked: true }, 403);
 
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "");
@@ -50,7 +51,9 @@ Deno.serve(async (req) => {
         else if (p.decision === "passed") s.passed++;
         else if (p.served_at && !p.pruned) s.waiting++;
       }
-      return json({ agents: (agents ?? []).map((a) => ({ ...a, stats: stats[a.id] ?? { waiting: 0, approved: 0, passed: 0 } })) });
+      const policy = agentPolicy(feat?.plan);
+      return json({ agents: (agents ?? []).map((a) => ({ ...a, stats: stats[a.id] ?? { waiting: 0, approved: 0, passed: 0 } })),
+        metering: { ...policy, active: activeAgentCount(agents ?? [], feat?.plan, caller.userId), build_credits: AGENT_BUILD_CREDITS } });
     }
 
     if (action === "create") {
@@ -61,22 +64,16 @@ Deno.serve(async (req) => {
       const goal = body.goal ? Math.max(1, Math.min(1000, Number(body.goal))) : null;
       const finish = typeof body.finish_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.finish_date) ? body.finish_date : null;
       const tz = typeof body.timezone === "string" && body.timezone.length < 60 ? body.timezone : "America/New_York";
-      let projectId: string | null = typeof body.project_id === "string" ? body.project_id : null;
-      if (projectId) {
-        const { data: p } = await admin.from("projects").select("id").eq("id", projectId).eq("company_id", companyId).maybeSingle();
-        if (!p) projectId = null;
-      }
-      if (!projectId) {
-        const { data: p, error } = await admin.from("projects")
-          .insert({ company_id: companyId, name, description: brief, created_by: caller.userId }).select("id").single();
-        if (error) return json({ error: "Could not create the project." }, 500);
-        projectId = p.id;
-      }
-      const { data: agent, error } = await admin.from("clin_agents").insert({
-        company_id: companyId, project_id: projectId, owner_id: caller.userId, name, brief,
-        per_day: perDay, goal, finish_date: finish, timezone: tz, status: "calibrating",
-      }).select("*").single();
-      if (error) return json({ error: "Could not create the agent." }, 500);
+      const requestId = typeof body.request_id === "string" && /^[0-9a-f-]{36}$/i.test(body.request_id) ? body.request_id : crypto.randomUUID();
+      const { data: result, error } = await admin.rpc("create_metered_clin_agent", {
+        _company_id: companyId, _owner_id: caller.userId, _request_id: requestId,
+        _project_id: typeof body.project_id === "string" ? body.project_id : null,
+        _name: name, _brief: brief, _per_day: perDay, _goal: goal, _finish_date: finish, _timezone: tz,
+      });
+      if (error) return json({ error: error.message }, error.message.includes("30 credits") ? 402 : error.message.includes("active agent") ? 409 : 400);
+      const agent = result?.agent;
+      if (!agent) return json({ error: "Could not create the agent." }, 500);
+      if (result.reused) return json({ agent_id: agent.id, reused: true });
       await logEvent(admin, agent, "chat", { role: "user", text: brief });
       await logEvent(admin, agent, "calibration_started", {});
       const r = await sourceAgent(admin, agent, { authHeader: req.headers.get("Authorization")!, userAgent: req.headers.get("x-oslr-user-agent") ?? req.headers.get("user-agent"), serve: CALIBRATION_SIZE });
@@ -221,6 +218,9 @@ Deno.serve(async (req) => {
         patch.preferences = prefs;
       }
       if (Object.keys(patch).length === 0) return json({ error: "Nothing to change." }, 400);
+      // Reserve the active slot before any sourcing; the database enforces resume limits too.
+      const { error: updateError } = await admin.from("clin_agents").update(patch).eq("id", agent.id);
+      if (updateError) return json({ error: updateError.message }, updateError.message.includes("active agent") ? 409 : 400);
       // Resuming an agent that never got its first matches retries calibration.
       if (patch.status === "sourcing") {
         const { count } = await admin.from("clin_agent_pool").select("id", { count: "exact", head: true }).eq("agent_id", agent.id);
@@ -236,7 +236,8 @@ Deno.serve(async (req) => {
             : "I could not find anyone for this yet. Try widening the area or the role." });
         }
       }
-      await admin.from("clin_agents").update(patch).eq("id", agent.id);
+      const { error: finalError } = await admin.from("clin_agents").update(patch).eq("id", agent.id);
+      if (finalError) return json({ error: finalError.message }, 400);
       if (patch.status) await logEvent(admin, agent, "status_" + String(patch.status), {});
       return json({ ok: true });
     }
