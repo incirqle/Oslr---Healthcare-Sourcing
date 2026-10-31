@@ -28,6 +28,13 @@ export default {
           foreground: "hsl(var(--primary-foreground))",
           glow: "hsl(var(--primary-glow))",
         },
+        mint: {
+          DEFAULT: "hsl(var(--mint))",
+          ink: "hsl(var(--mint-ink))",
+          soft: "hsl(var(--mint-soft))",
+          foreground: "hsl(var(--mint-foreground))",
+        },
+        sky: { DEFAULT: "hsl(var(--sky))", soft: "hsl(var(--sky-soft))" },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",

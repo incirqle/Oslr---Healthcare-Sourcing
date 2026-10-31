@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowUp, CheckCircle2, CircleDashed, Loader2, MoreHorizontal, Target } from "lucide-react";
+import { ArrowLeft, ArrowUp, CheckCircle2, ChevronDown, CircleDashed, Loader2, MessageSquare, MoreHorizontal, Target } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CandidateDrawer } from "@/components/CandidateDrawer";
+import { AgentProfileDialog } from "@/components/agents/AgentProfileDialog";
 import { AgentReviewCard } from "@/components/agents/AgentReviewCard";
 import { AgentRail } from "@/components/agents/AgentRail";
 import { AgentStatusDot, STATUS_LABEL } from "@/components/agents/AgentStatusDot";
@@ -52,6 +52,7 @@ export default function AgentDetail() {
   const [drafts, setDrafts] = useState<Record<string, "approved" | "passed" | null>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
 
   const decById = useMemo(() => new Map((roster?.decisions ?? []).map((d) => [d.pool_id, d])), [roster]);
@@ -108,7 +109,7 @@ export default function AgentDetail() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           {/* Header */}
-          <div className="agent-glow sticky top-0 z-10 -mx-1 rounded-2xl border agent-sheen-border bg-card/85 px-5 py-4 backdrop-blur-xl">
+          <div className="agent-glow rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-sm">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Back" onClick={() => navigate("/agents")}><ArrowLeft className="h-4 w-4" /></Button>
               <AgentStatusDot status={agent.status} waiting={lists.review.length} />
@@ -156,21 +157,44 @@ export default function AgentDetail() {
             </div>
           )}
 
-          {/* Thread */}
-          <div className="space-y-3">
-            {chat.map((e, i) => {
-              const mine = e.payload.role === "user";
-              return (
-                <div key={i} className={cn("flex", mine ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed",
-                    mine ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground")}>
-                    {String(e.payload.text ?? "")}
-                  </div>
+          {/* Conversation: collapsible, input inside the card so nothing floats over the list */}
+          <div className="rounded-2xl border border-border/70 bg-card shadow-sm">
+            <button onClick={() => setChatOpen((v) => !v)} aria-expanded={chatOpen}
+              className="flex w-full items-center gap-2 px-5 py-3.5 text-left">
+              <MessageSquare className="h-4 w-4 text-mint" />
+              <span className="text-[14px] font-medium">Talk to your agent</span>
+              <span className="text-[12px] text-muted-foreground">{chat.length ? `${chat.length} messages` : "Change volume, pause, or steer it"}</span>
+              <ChevronDown className={cn("ml-auto h-4 w-4 text-muted-foreground transition-transform duration-200", chatOpen && "rotate-180")} />
+            </button>
+            {chatOpen && (
+              <div className="border-t border-border/60 px-4 pb-4 pt-3">
+                <div className="max-h-72 space-y-2.5 overflow-y-auto pr-1">
+                  {chat.length === 0 && <p className="py-3 text-center text-[13px] text-muted-foreground">Try "send five per day" or "favor private practice".</p>}
+                  {chat.map((e, i) => {
+                    const mine = e.payload.role === "user";
+                    return (
+                      <div key={i} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                        <div className={cn("max-w-[85%] rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed",
+                          mine ? "bg-mint-soft text-mint-ink" : "bg-secondary text-foreground")}>
+                          {String(e.payload.text ?? "")}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {steer.isPending && <div className="flex"><div className="rounded-2xl bg-secondary px-4 py-2.5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div></div>}
+                  <div ref={threadEnd} />
                 </div>
-              );
-            })}
-            {steer.isPending && <div className="flex"><div className="rounded-2xl bg-secondary px-4 py-2.5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div></div>}
-            <div ref={threadEnd} />
+                <div className="mt-3 flex items-end gap-2 rounded-xl border border-border bg-background/60 p-1.5 focus-within:border-mint/50">
+                  <Textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={1} maxLength={600}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendSteer(); } }}
+                    placeholder="e.g. Send five per day, pause, or favor private practice"
+                    className="min-h-[40px] resize-none border-0 bg-transparent text-[14px] shadow-none focus-visible:ring-0" />
+                  <Button size="icon" className="h-9 w-9 shrink-0 rounded-full bg-mint text-mint-foreground hover:bg-mint/90" aria-label="Send" disabled={!msg.trim() || steer.isPending} onClick={sendSteer}>
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Milestones */}
@@ -211,7 +235,7 @@ export default function AgentDetail() {
             {([["review", "To review"], ["approved", "Approved"], ["passed", "Passed"]] as [Tab, string][]).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={cn("rounded-full px-3.5 py-1.5 text-[14px] transition-colors active:scale-[0.97]",
-                  tab === k ? "bg-primary text-primary-foreground shadow-[0_0_0_4px_hsl(var(--primary)/0.18)]" : "text-muted-foreground hover:bg-secondary")}>
+                  tab === k ? "bg-mint text-mint-foreground shadow-sm" : "text-muted-foreground hover:bg-secondary")}>
                 {label} ({lists[k].length})
               </button>
             ))}
@@ -244,37 +268,34 @@ export default function AgentDetail() {
             ))}
           </div>
 
-          {/* Steer */}
-          <div className="sticky bottom-3 rounded-2xl border border-primary/30 bg-card/90 p-2 shadow-lg backdrop-blur-xl">
-            <div className="flex items-end gap-2">
-              <Textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={1} maxLength={600}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendSteer(); } }}
-                placeholder="e.g. Send five per day, pause, or favor private practice"
-                className="min-h-[44px] resize-none border-0 bg-transparent text-[15px] shadow-none focus-visible:ring-0" />
-              <Button size="icon" className="h-10 w-10 shrink-0 rounded-full" aria-label="Send" disabled={!msg.trim() || steer.isPending} onClick={sendSteer}>
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
         </div>
 
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 backdrop-blur">
+          <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
             <AgentRail roster={roster} onUnskip={(c) => update.mutate({ unskip_city: c })} />
           </div>
         </aside>
       </div>
 
-      <CandidateDrawer
-        open={!!openItem}
-        onOpenChange={(o) => !o && setOpenId(null)}
+      <AgentProfileDialog
+        item={openItem}
         candidate={openItem ? toCandidate(openItem) : null}
-        projectId={agent.project_id ?? undefined}
-        isSaved={openItem?.decision === "approved"}
+        decision={openItem ? decById.get(openItem.id) : undefined}
+        tags={roster.tags}
         hasPrev={openIdx > 0}
         hasNext={openIdx >= 0 && openIdx < visible.length - 1}
         onPrev={() => openIdx > 0 && setOpenId(visible[openIdx - 1].id)}
         onNext={() => openIdx < visible.length - 1 && setOpenId(visible[openIdx + 1].id)}
+        onClose={() => setOpenId(null)}
+        onSubmit={async (b) => {
+          if (!openItem) return;
+          const nextId = visible[openIdx + 1]?.id ?? null;
+          try {
+            await decide.mutateAsync({ pool_id: openItem.id, ...b });
+            toast.success(b.decision === "approved" ? "Saved to your project" : "Passed. Your agent will adjust.");
+            setOpenId(nextId);
+          } catch (e) { toast.error(e instanceof Error ? e.message : "Could not save"); }
+        }}
       />
     </AppLayout>
   );
