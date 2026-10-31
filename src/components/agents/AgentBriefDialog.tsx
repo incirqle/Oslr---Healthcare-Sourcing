@@ -80,10 +80,10 @@ export function AgentBriefDialog({
             <DialogDescription className="text-[15px]">Tell it who to find. It brings you fresh matches every day.</DialogDescription>
           </DialogHeader>
           <div className="text-sm text-muted-foreground" aria-live="polite">
-            <p>Build an agent: {metering?.build_credits ?? 30} credits. Contact enrichment is charged separately.</p>
+            <p>Build an agent: {metering?.build_credits ?? 15} credits from your shared credits, the same credits used for contact details.</p>
             <p>{metering ? `${metering.active} active · ${metering.limit === null ? "Unlimited" : metering.limit} allowed ${metering.scope === "user" ? "per user" : "per workspace"}` : "Checking your allowance…"}</p>
             {atLimit && <p className="text-destructive">Pause or close an active agent before starting another.</p>}
-            {balance !== null && balance !== undefined && balance < 30 && <p className="text-destructive">You need 30 available workspace credits.</p>}
+            {balance !== null && balance !== undefined && balance < (metering?.build_credits ?? 15) && <p className="text-destructive">You need {metering?.build_credits ?? 15} available workspace credits.</p>}
           </div>
 
           <div className="space-y-2">
