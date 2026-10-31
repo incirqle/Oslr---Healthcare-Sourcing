@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Loader2, Minus, Plus, Target, ArrowUpRight } from "lucide-react";
+import { CalendarDays, Loader2, Minus, Plus, Target, ArrowUpRight, Slack, FileSpreadsheet, Table2 } from "lucide-react";
+import { call as exportsCall, waitForPopup } from "@/components/LiveSyncDialog";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/hooks/useProjects";
-import { useAgentMetering, useCreateAgent, useBriefInterpretation } from "@/hooks/useAgents";
+import { useAgentMetering, useCreateAgent, useBriefInterpretation, call as callAgent } from "@/hooks/useAgents";
+
+type Dest = "slack" | "sheets" | "excel";
 import { useCompany } from "@/hooks/useCompany";
 import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { toast } from "sonner";
@@ -31,6 +35,9 @@ export function AgentBriefDialog({
   const [finish, setFinish] = useState("");
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? "new");
   const [settledBrief, setSettledBrief] = useState("");
+  const [dests, setDests] = useState<Dest[]>([]);
+  const [webhook, setWebhook] = useState("");
+  const [busyDest, setBusyDest] = useState<Dest | null>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => setSettledBrief(brief.trim()), 900);
     return () => window.clearTimeout(timer);
@@ -109,7 +116,7 @@ export function AgentBriefDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !create.isPending && onOpenChange(o)}>
       <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto border-border/70 bg-card/95 p-0 backdrop-blur-xl">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_at_top_left,hsl(var(--primary)/0.18),transparent_70%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_at_top_left,hsl(var(--mint)/0.16),transparent_70%)]" />
         <div className="relative space-y-5 p-7">
           <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="font-display text-2xl tracking-tight">Start a new agent</DialogTitle>
@@ -215,7 +222,7 @@ export function AgentBriefDialog({
         </div>
         <div className="flex items-center justify-between border-t border-border/60 bg-background/40 px-7 py-4">
           <p className="text-[12px] text-muted-foreground">{create.isPending ? "Finding your first matches. This can take a minute." : "Your first 6 matches arrive right away."}</p>
-          <Button onClick={submit} disabled={!ready} className="h-11 rounded-full px-6">
+          <Button onClick={submit} disabled={!ready || (dests.includes("slack") && !webhook.trim().startsWith("https://hooks.slack.com/"))} className="h-11 rounded-full bg-mint px-6 text-mint-foreground hover:bg-mint/90">
             {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Start agent <ArrowUpRight className="ml-1.5 h-4 w-4" />
           </Button>

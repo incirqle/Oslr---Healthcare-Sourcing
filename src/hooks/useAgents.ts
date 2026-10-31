@@ -59,7 +59,7 @@ export interface Roster {
   tags: { approve: Tag[]; pass: Tag[] };
 }
 
-async function call<T>(body: Record<string, unknown>): Promise<T> {
+export async function call<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("clinician-agent", { body });
   if (error) {
     let msg = "Something went wrong.";
