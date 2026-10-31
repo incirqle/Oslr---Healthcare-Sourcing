@@ -71,6 +71,13 @@
       "when": 1793469532518,
       "tag": "0009_agent_plan_limits_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793470216922,
+      "tag": "0010_billing_lifecycle",
+      "breakpoints": true
     }
   ]
 }
