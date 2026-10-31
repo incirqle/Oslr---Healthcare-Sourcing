@@ -12,7 +12,7 @@ import { AgentRail } from "@/components/agents/AgentRail";
 import { AgentStatusDot, STATUS_LABEL } from "@/components/agents/AgentStatusDot";
 import { AgentCountdown } from "@/components/agents/AgentCountdown";
 import { ApprovedTools } from "@/components/agents/ApprovedTools";
-import { LiveSyncDialog } from "@/components/LiveSyncDialog";
+import { AgentConnections } from "@/components/agents/AgentConnections";
 import { AgentsLocked } from "@/components/agents/AgentsLocked";
 import { fmtWhen, useAgentsEnabled, useDecide, useRoster, useSteer, useUpdateAgent, type PoolItem } from "@/hooks/useAgents";
 import { cn } from "@/lib/utils";
