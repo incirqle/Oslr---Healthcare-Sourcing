@@ -39,8 +39,11 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
     return () => {
       alive = false;
       clearSeo();
-      document.getElementById(CSS_ID)?.remove();
-      document.documentElement.classList.remove("oslr-site", "js");
+      setTimeout(() => {
+        if (document.querySelector(".oslr-site-root")) return;
+        document.getElementById(CSS_ID)?.remove();
+        document.documentElement.classList.remove("oslr-site", "js");
+      }, 0);
     };
   }, [route]);
 
