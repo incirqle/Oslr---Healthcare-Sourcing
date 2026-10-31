@@ -3,6 +3,7 @@
 // Every event is stored once by Stripe event id, so retries never double-act.
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendTemplateEmail } from "../_shared/transactional-email-templates/send-email.ts";
 
 const api = { apiVersion: "2025-08-27.basil" } as const;
 const DAY = 86400_000;
@@ -11,31 +12,25 @@ const crypto = Stripe.createSubtleCryptoProvider();
 
 const ok = (b: unknown = { received: true }, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
-const COPY: Record<string, { subject: string; body: string }> = {
-  abandoned_cart: { subject: "Your Oslr plan is one step away", body: "You started setting up Oslr but didn't finish checkout. Your workspace is ready whenever you are." },
-  cancel_scheduled: { subject: "Your Oslr plan is set to end", body: "Your plan stays active, with your credits, until the end of this billing period. Changed your mind? You can keep your plan from Billing at any time." },
-  payment_failed: { subject: "Your Oslr payment didn't go through", body: "We couldn't charge your card for Oslr. Please update your payment details in Billing so your searches and credits keep working." },
-  winback_3: { subject: "Your Oslr projects are still saved", body: "Your projects, saved clinicians and search history are all still here. Pick a plan to start searching again." },
-  winback_14: { subject: "Ready to find your next clinician?", body: "Oslr covers more than 5.1 million U.S. healthcare profiles. Come back any time; everything you saved is waiting." },
-  refund: { subject: "Your Oslr refund is on its way", body: "We've issued your refund. It usually shows on your statement within 5 to 10 business days." },
-};
+// Only emails a customer expects because of their own billing event are sent.
+// Abandoned-checkout and win-back reminders are promotional, so they stay queued and are skipped.
+const CUSTOMER_KINDS = new Set(["cancel_scheduled", "payment_failed", "refund"]);
 
-async function sendEmail(to: string, subject: string, text: string): Promise<string | null> {
-  const key = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("BILLING_FROM_EMAIL");
-  if (!key || !from) return "email_not_configured";
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#111"><p>${text}</p><p><a href="https://oslr.health/credits">Open Oslr</a></p><p style="color:#777;font-size:12px">Oslr · oslr.health</p></div>`;
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html }),
-  });
-  return r.ok ? null : `resend_${r.status}: ${(await r.text()).slice(0, 300)}`;
+async function sendEmail(kind: string, to: string, key: string): Promise<string | null> {
+  try {
+    await sendTemplateEmail("billing-notice", to, { templateData: { kind }, idempotencyKey: `billing-${key}` });
+    return null;
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code === "domain_not_verified" || code === "emails_disabled" || (e as { status?: number })?.status === 429) return "email_not_configured";
+    return String((e as Error)?.message ?? e).slice(0, 300);
+  }
 }
 
-async function alertOwner(subject: string, text: string) {
-  const to = Deno.env.get("OSLR_ALERT_EMAIL");
-  if (to) await sendEmail(to, `[Oslr billing] ${subject}`, text);
+async function alertOwner(title: string, details: string) {
+  try {
+    await sendTemplateEmail("billing-alert", "hello@oslr.health", { templateData: { title, details }, idempotencyKey: `alert-${title}-${details}`.slice(0, 200) });
+  } catch (e) { console.error("owner alert failed", e); }
 }
 
 async function queue(companyId: string | null, email: string | null | undefined, kind: string, key: string, delayDays = 0) {
@@ -189,8 +184,8 @@ async function tick() {
       const { data: f } = await db.from("company_features").select("plan").eq("company_id", n.company_id).maybeSingle();
       if (f?.plan && f.plan !== "none") { await db.from("billing_nudges").update({ canceled_at: new Date().toISOString() }).eq("id", n.id); continue; }
     }
-    const c = COPY[n.kind];
-    const err = c ? await sendEmail(n.email, c.subject, c.body) : "unknown_kind";
+    if (!CUSTOMER_KINDS.has(n.kind)) { await db.from("billing_nudges").update({ canceled_at: new Date().toISOString(), error: "promotional_not_sent" }).eq("id", n.id); continue; }
+    const err = await sendEmail(n.kind, n.email, n.dedupe_key);
     if (err === "email_not_configured") break; // keep queued until a sender exists
     await db.from("billing_nudges").update(err ? { error: err } : { sent_at: new Date().toISOString(), error: null }).eq("id", n.id);
     if (!err) sent++;

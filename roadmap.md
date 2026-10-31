@@ -10,4 +10,4 @@
 - [x] Conversational steering for daily volume, pause/resume and search rules, preserving agent limits; live five-per-day change verified and original ten restored.
 - [x] Test natural-language agent flows and deploy updated clinician-agent and agents-tick functions. Pause/resume and replacement rules covered by tests; live destructive review/resume checks remain under the existing disposable-workspace blocker.
 
-- [ ] Billing emails (abandoned cart, win-back, refund, failed payment, chargeback alerts): queued but not sent until an email sender for hello@oslr.health is set up.
+- [ ] Billing emails: cancellation, failed payment, refund and owner alerts send from Oslr once notify.oslr.health DNS verifies. Abandoned-checkout and win-back reminders are not sent (promotional; needs a marketing email service).
