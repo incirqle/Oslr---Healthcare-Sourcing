@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
+import { mergeContacts, missingAfterPrimary, pdlEnrichContact } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
 
 import { contactPrices, type ContactKind } from "../_shared/plans.ts";
@@ -19,6 +20,8 @@ interface Stored {
   work_email?: string | null;
   personal_emails?: string[];
   phone_numbers?: string[];
+  pdl_id?: string; // linked secondary-provider id, server only
+
 }
 
 function admin() {
@@ -74,7 +77,7 @@ export async function handleEnrichContact(
   const toFetch = requested.filter((k) => !has(stored, k) && !recent(k));
 
   const summary = () => ({
-    contact: stored,
+    contact: { work_email: stored.work_email, personal_emails: stored.personal_emails?.slice(0, 1), phone_numbers: stored.phone_numbers },
     checked,
     balance,
     unlimited,
@@ -88,27 +91,40 @@ export async function handleEnrichContact(
     return { status: 402, payload: { ...summary(), error: "insufficient_credits", needed: maxCost } };
   }
 
-  // Instant lookup first; fall back to the batch pipeline only if it errors.
+  // Primary provider: instant lookup first, batch pipeline only if it errors.
   const wanted = toFetch.map((k) => FIELD[k]);
   let res = await syncContactEnrich([url], wanted);
   if (!res.ok && !res.insufficientCredits) {
     console.warn(`[enrich_contact] sync lookup failed (${res.status}): ${res.detail.slice(0, 200)} — falling back to batch`);
     res = await batchContactEnrich([{ linkedin_url: url }], wanted);
   }
-  if (!res.ok) return { status: 502, payload: { ...summary(), error: "Contact lookup is unavailable right now. Try again shortly." } };
-  const r = res.data[0];
+  const primary = res.ok ? res.data[0] ?? null : null;
+
+  // Secondary provider only for what the primary left empty.
+  const missing = missingAfterPrimary(toFetch, primary);
+  let secondary = null;
+  let secondaryFailed = false;
+  if (missing.length) {
+    const s = await pdlEnrichContact(url, missing, stored.pdl_id ?? null);
+    if (s.ok) secondary = s.contact;
+    else secondaryFailed = s.reason === "unavailable";
+  }
+  if (!res.ok && (secondaryFailed || !secondary)) {
+    return { status: 502, payload: { ...summary(), error: "Contact lookup is unavailable right now. Try again shortly." } };
+  }
+  if (secondary?.pdl_id) stored.pdl_id = secondary.pdl_id;
+  const merged = mergeContacts(toFetch, primary, secondary);
 
   const found: ContactKind[] = [];
   const now = new Date().toISOString();
   for (const k of toFetch) {
     checked[k] = now;
-    if (k === "work_email" && r?.business_email) { stored.work_email = r.business_email; found.push(k); }
-    if (k === "personal_email" && r?.personal_emails?.length) { stored.personal_emails = r.personal_emails; found.push(k); }
-    if (k === "phone" && (r?.mobile_phone || r?.phones?.length)) {
-      stored.phone_numbers = [...new Set([r.mobile_phone, ...(r.phones ?? [])].filter((p): p is string => !!p))];
-      found.push(k);
-    }
+    if (k === "work_email" && merged.work_email) { stored.work_email = merged.work_email; found.push(k); }
+    if (k === "personal_email" && merged.personal_email) { stored.personal_emails = [merged.personal_email]; found.push(k); }
+    if (k === "phone" && merged.phones?.length) { stored.phone_numbers = merged.phones; found.push(k); }
   }
+  const sources = merged.sources;
+  if (Object.keys(sources).length) console.log(`[enrich_contact] sources ${JSON.stringify(sources)}`);
 
   const charge = contactCharge(unlimited, found.map((k) => PRICES[k]));
   if (charge > 0) {
