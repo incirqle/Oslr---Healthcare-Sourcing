@@ -4,6 +4,8 @@ import { ReactNode, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { PaywallChoice, BetaEnded } from "@/components/BetaScreens";
+import { EmbeddedCheckoutDialog } from "@/components/EmbeddedCheckoutDialog";
+import { stripePromise } from "@/lib/stripe";
 
 const IS_PREVIEW = window.location.hostname.includes("-preview--");
 
@@ -101,6 +103,9 @@ const Spinner = ({ label }: { label?: string }) => (
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const { access, msg, checkout, recheck } = usePaidAccess(user?.id, () => { void signOut(); });
+  const [embeddedOpen, setEmbeddedOpen] = useState(false);
+  const startCheckout = () => (stripePromise ? setEmbeddedOpen(true) : checkout());
+  const embedded = <EmbeddedCheckoutDialog open={embeddedOpen} onOpenChange={setEmbeddedOpen} />;
 
   // Editor preview without a sign-in stays open for building.
   if (IS_PREVIEW && !user && !loading) return <>{children}</>;
@@ -108,8 +113,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!user) return <Navigate to="/auth" replace />;
 
   if (access === "ok") return <>{children}</>;
-  if (access === "choose") return <PaywallChoice onCheckout={checkout} onRedeemed={recheck} onSignOut={() => signOut()} />;
-  if (access === "beta-ended") return <BetaEnded userId={user.id} email={user.email} onCheckout={checkout} onSignOut={() => signOut()} />;
+  if (access === "choose") return <><PaywallChoice onCheckout={startCheckout} onRedeemed={recheck} onSignOut={() => signOut()} />{embedded}</>;
+  if (access === "beta-ended") return <><BetaEnded userId={user.id} email={user.email} onCheckout={startCheckout} onSignOut={() => signOut()} />{embedded}</>;
   if (access === "error") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 p-6 text-center">
