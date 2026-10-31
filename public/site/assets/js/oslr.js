@@ -607,7 +607,7 @@
       dd.addEventListener('mouseenter', function () { clearTimeout(t); set(true); });
       dd.addEventListener('mouseleave', function () { t = setTimeout(function () { set(false); }, 120); });
     }
-    btn.addEventListener('click', function () { set(!dd.classList.contains('open')); });
+    btn.addEventListener('click', function () { set(fine ? true : !dd.classList.contains('open')); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && dd.classList.contains('open')) { set(false); btn.focus(); } });
     document.addEventListener('click', function (e) { if (!dd.contains(e.target)) set(false); });
     dd.addEventListener('focusout', function (e) { if (!dd.contains(e.relatedTarget)) set(false); });
