@@ -1,16 +1,18 @@
 /**
- * Movement tab: who joined and who left in the last 24 months. Shows the
- * counts first; pulls on request.
+ * Movement tab: who joined and who left in the last 24 months. Everything
+ * here comes from the base record and preview counts already loaded, so the
+ * charts never cost anything to open.
  */
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyBriefState, MovementPerson } from "@/hooks/useCompanyBrief";
 import { PersonAvatar } from "./PersonAvatar";
 import { LinkedInBadge } from "./LinkedInBadge";
 import { Chip } from "./PeoplePanel";
 import { fmtCount, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter } from "./brief-utils";
+import { monthlyNetChange } from "./regions";
 import { cn } from "@/lib/utils";
 import { FlowSankey } from "./FlowSankey";
 
@@ -26,8 +28,8 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
     const net = hires !== null && deps !== null ? hires - deps : null;
     const hc = s.base?.headcount;
     const yoyPct = hc?.yoy_percent ?? null;
-    const rows = Math.min(hires ?? 0, MOVEMENT_LIMIT) + Math.min(deps ?? 0, MOVEMENT_LIMIT);
     const loading = s.previewState === "loading";
+    const momentum = monthlyNetChange(hc?.timeseries ?? [], mv?.window_months ?? 24);
     return (
       <section className="space-y-4">
         <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
