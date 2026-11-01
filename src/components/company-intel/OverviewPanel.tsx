@@ -222,8 +222,15 @@ const RANGES = [["1Y", 12], ["2Y", 24], ["All", 0]] as const;
 /** Headcount over time with a range switch, the change across the range, and its peak and low. */
 function HeadcountCard({ series: all, total }: { series: { date: string; employee_count: number }[]; total: number | null }) {
   const sorted = useMemo(() => [...all].filter((p) => p.date && Number.isFinite(p.employee_count)).sort((a, b) => a.date.localeCompare(b.date)), [all]);
-  const [range, setRange] = useState<number>(sorted.length > 13 ? 24 : 12);
-  const series = range ? sorted.slice(-(range + 1)) : sorted;
+  const spanMonths = sorted.length > 1 ? (Date.parse(sorted[sorted.length - 1].date) - Date.parse(sorted[0].date)) / (30.44 * 86_400_000) : 0;
+  const [range, setRange] = useState<number>(spanMonths > 13 ? 24 : 12);
+  const series = useMemo(() => {
+    if (!range || !sorted.length) return sorted;
+    const cut = new Date(sorted[sorted.length - 1].date);
+    cut.setMonth(cut.getMonth() - range);
+    const iso = cut.toISOString().slice(0, 10);
+    return sorted.filter((p) => p.date >= iso);
+  }, [sorted, range]);
   if (series.length < 2) return null;
   const first = series[0].employee_count;
   const last = series[series.length - 1].employee_count;
@@ -241,7 +248,7 @@ function HeadcountCard({ series: all, total }: { series: { date: string; employe
         </div>
         <div className="flex items-center gap-0.5 rounded-full bg-muted p-0.5">
           {RANGES.map(([label, m]) => (
-            <button key={label} type="button" onClick={() => setRange(m)} disabled={m > 0 && sorted.length <= m && m !== 12}
+            <button key={label} type="button" onClick={() => setRange(m)} disabled={m > 12 && spanMonths < 13}
               className={cn("rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors duration-150 active:scale-[0.97] disabled:opacity-40", range === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
               {label}
             </button>
