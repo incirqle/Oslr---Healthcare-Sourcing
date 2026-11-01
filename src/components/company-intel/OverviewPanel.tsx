@@ -11,6 +11,7 @@ import type { CompanyBase, CompanyBriefState, PullGroup } from "@/hooks/useCompa
 import { LinkedInBadge } from "./LinkedInBadge";
 import { PersonAvatar } from "./PersonAvatar";
 import { fmtCount, fmtMonth, GROUP_LABEL, GROUP_ORDER, OWNERSHIP_LABEL } from "./brief-utils";
+import { LocationsCard } from "./LocationsPanel";
 import { cn } from "@/lib/utils";
 
 /** Cached companies predate server-side founded-year backfill: read it out of the description ("Founded in 1863"). */
@@ -176,21 +177,7 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
             )}
           </Card>
         )}
-        {base.sites.length > 0 && (
-          <Card title="Where staff work">
-            <ul className="space-y-2.5">
-              {base.sites.slice(0, 6).map((x) => (
-                <li key={x.place} className="grid grid-cols-[minmax(0,1fr)_96px_36px] items-center gap-3">
-                  <span className="truncate text-[14px] text-foreground">{x.place}</span>
-                  <span className="h-2 overflow-hidden rounded-full bg-muted">
-                    <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(6, (x.count / maxSite) * 100)}%` }} />
-                  </span>
-                  <span className="text-right text-[13px] tabular-nums text-muted-foreground">{fmtCount(x.count)}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
+        <LocationsCard base={base} />
       </div>
 
       {(base.headcount_by_function?.length ?? 0) > 0 && <FunctionCard rows={base.headcount_by_function!} />}
