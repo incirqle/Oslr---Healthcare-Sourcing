@@ -102,8 +102,8 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
         <div className="flex flex-wrap gap-1.5">{filters.map((x) => <Chip key={x.key} active={f === x.key} onClick={() => setF(x.key)} label={x.label} count={x.n} />)}</div>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+      <div className="space-y-4 xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:gap-4 xl:space-y-0">
+        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm xl:row-span-2">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <div>
               <h3 className="font-display text-[15px] font-semibold text-foreground">Talent flow</h3>
@@ -138,7 +138,7 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
           {list.length === 0 ? (
             <p className="px-4 py-10 text-center text-[13px] text-ui-text-muted">Nobody for this filter.</p>
           ) : (
-            <ul className="max-h-[420px] divide-y divide-ui-border-light overflow-y-auto">{list.map((p, i) => <MoveRow key={`${p.name}-${i}`} p={p} dir={effDir} />)}</ul>
+            <ul className="max-h-[420px] xl:max-h-[560px] divide-y divide-ui-border-light overflow-y-auto">{list.map((p, i) => <MoveRow key={`${p.name}-${i}`} p={p} dir={effDir} />)}</ul>
           )}
         </div>
       </div>
