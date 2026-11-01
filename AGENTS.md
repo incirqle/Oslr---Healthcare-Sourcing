@@ -1,5 +1,7 @@
 # AGENTS.md
 
+- The company Movement and People tabs must render their aggregate counts (joined/left/net, team size, group totals) from the base company record and preview counts without pulling individual profiles; names, the flow chart and rosters stay behind an explicit user click. Why: profile pulls burn provider credits every open, while aggregates are already paid for.
+
 - Unlimited contact passes are authorized only by `billing_exemptions.unlimited_access` read server-side after resolving the caller's workspace; ordinary billing exemptions remain credit-metered. Why: permanent free lookup access must not rely on client flags, admin roles, or a finite credit grant.
 
 - Per-criterion results and the match rate are computed server-side in `supabase/functions/_shared/clinician-engine/ranking-criteria.ts` (rules first, the grader only for what rules leave); the browser only joins criterion titles and renders. Why: one scoring source shared by tests, cards and the later table view.

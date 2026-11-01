@@ -13,6 +13,14 @@ import { PersonAvatar } from "./PersonAvatar";
 import { fmtCount, fmtMonth, GROUP_LABEL, GROUP_ORDER, OWNERSHIP_LABEL } from "./brief-utils";
 import { cn } from "@/lib/utils";
 
+/** Cached companies predate server-side founded-year backfill: read it out of the description ("Founded in 1863"). */
+function yearFromDescription(description: string | null | undefined): number | null {
+  if (!description) return null;
+  const m = /(?:founded|established|started|opened)(?:\s+in)?\s+(?:the\s+year\s+)?(1[5-9]\d{2}|20\d{2})\b/i.exec(description)
+    ?? /\bsince\s+(1[5-9]\d{2}|20\d{2})\b/i.exec(description);
+  return m ? Number(m[1]) : null;
+}
+
 function initialsOf(name: string) {
   return name.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(and|of|the)$/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 }
@@ -111,6 +119,7 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
 
   const hc = base.headcount;
   const yoy = hc.yoy_percent;
+  const foundedYear = base.year_founded ?? yearFromDescription(base.description);
   const maxSite = Math.max(1, ...base.sites.map((x) => x.count));
   const groups = GROUP_ORDER.map((g) => ({ g, count: s.preview?.groups.find((x) => x.group === g)?.count ?? null }));
   const mv = s.preview?.movement;
@@ -125,7 +134,7 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
           value={yoy === null ? "–" : <span className="inline-flex items-center gap-1.5">{yoy >= 0 ? <TrendingUp className="h-6 w-6" /> : <TrendingDown className="h-6 w-6" />}{yoy >= 0 ? "+" : ""}{yoy.toFixed(1)}%</span>}
           sub={hc.yoy_absolute !== null ? `${hc.yoy_absolute >= 0 ? "+" : ""}${hc.yoy_absolute} people` : undefined}
         />
-        <Stat label="Founded" value={base.year_founded ?? "–"} sub={base.year_founded ? `${new Date().getFullYear() - base.year_founded} years in business` : undefined} />
+        <Stat label="Founded" value={foundedYear ?? "–"} sub={foundedYear ? `${new Date().getFullYear() - foundedYear} years in business` : undefined} />
         <Stat label="Locations" value={fmtCount(base.sites.length || null)} sub={base.sites[0] ? `Most staff in ${base.sites[0].place}` : undefined} />
       </div>
 
