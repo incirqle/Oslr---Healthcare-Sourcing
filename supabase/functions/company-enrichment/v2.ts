@@ -318,6 +318,7 @@ export interface MappedEnrichment {
   employee_count_range: string | null;
   company_type: string | null;
   headquarters: string | null;
+  office_addresses: string[];
   hq_city: string | null;
   hq_state: string | null;
   hq_country: string | null;
@@ -368,6 +369,7 @@ export function mapEnrichment(cd: Any, preferDomain: string | null = null): Mapp
     employee_count_range: typeof b.employee_count_range === "string" ? b.employee_count_range : null,
     company_type: typeof b.company_type === "string" ? b.company_type : null,
     headquarters: hqStr,
+    office_addresses: Array.isArray(loc.all_office_addresses) ? loc.all_office_addresses.filter((a: unknown): a is string => typeof a === "string" && !!a) : [],
     hq_city: hqParts[0] ?? null,
     hq_state: (typeof loc.state === "string" && loc.state) || hqParts[1] || null,
     hq_country: (typeof loc.country === "string" && loc.country) || hqParts[hqParts.length - 1] || null,

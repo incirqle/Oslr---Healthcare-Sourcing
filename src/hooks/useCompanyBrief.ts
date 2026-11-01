@@ -39,8 +39,12 @@ export interface CompanyBase {
     yoy_percent: number | null;
     yoy_absolute: number | null;
     timeseries: { date: string; employee_count: number }[];
+    /** Raw region breakdown ("West Palm Beach, FL": 4), main page plus hand-mapped sibling pages. */
+    by_region?: Record<string, number> | null;
   };
   sites: { place: string; count: number }[];
+  /** Street addresses of every office the company lists. */
+  offices?: string[];
   /** Founders, executives and decision makers listed for the company. */
   leaders?: { name: string; title: string; linkedin_url: string | null; profile_picture_url: string | null }[];
   /** Staff by job function, largest first. */

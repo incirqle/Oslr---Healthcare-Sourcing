@@ -45,7 +45,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 /** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
 const CREDITS_PER_PROFILE = 0.03;
 const DAY = 24 * 60 * 60 * 1000;
@@ -75,6 +75,8 @@ const COMPANY_ALIASES: Record<string, string> = {
 
 const PREMAPPED_ENTITY_IDS: Record<string, number[]> = {
   uchealth: [1304813, 6259524, 6524064, 9255529, 12929305, 10791937, 9819138, 6644127, 670107, 6041104, 2056710],
+  // HSS Florida (10584373) is a separate page; the main HSS page's region data has no Florida at all.
+  "hospital for special surgery": [10584373],
 };
 
 function resolveCanonical(name: string | null): string | null {
@@ -104,6 +106,8 @@ interface Identified {
   employee_count_range: string | null;
   all_ids: number[];
   pages: EntityPage[];
+  /** True when a hand-maintained entity map (UCHealth, HSS) is involved: the base call enriches those pages too and merges where staff work. */
+  premapped: boolean;
 }
 
 function siblingsOf(list: IdentifyCandidate[], primary: IdentifyCandidate | null, primaryId: number, canonical: string, premapped: number[] | null): Identified {
@@ -121,6 +125,7 @@ function siblingsOf(list: IdentifyCandidate[], primary: IdentifyCandidate | null
     employee_count_range: primary?.employee_count_range ?? null,
     all_ids: allIds,
     pages,
+    premapped: !!premapped,
   };
 }
 
@@ -196,10 +201,39 @@ function functionBreakdown(raw: unknown): { label: string; count: number }[] {
     .slice(0, 8);
 }
 
+/** Sum two LinkedIn region maps ("New York, NY": 2649 + "West Palm Beach, FL": 4 from a sibling page). */
+function mergeRegions(a: unknown, b: unknown): Record<string, number> | null {
+  const out: Record<string, number> = {};
+  for (const src of [a, b]) {
+    if (!src || typeof src !== "object") continue;
+    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
+      if (typeof v === "number" && v > 0) out[k] = (out[k] ?? 0) + v;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 async function buildBase(identified: Identified, preferDomain: string | null) {
   const raw = await cdPostV2("/company/enrich", { crustdata_company_ids: [identified.company_id], fields: [...ENRICH_FIELDS] });
   const match = matchesOf(firstResult(raw))[0];
   const e = match ? mapEnrichment(match.company_data, preferDomain) : null;
+  // Hand-mapped sibling pages (HSS Florida, UCHealth arms) carry their own
+  // region footprint; enrich them once and merge so "where staff work" is complete.
+  let siblingRegions: Record<string, number> | null = null;
+  let siblingOffices: string[] = [];
+  if (identified.premapped) {
+    const extraIds = identified.all_ids.filter((id) => id !== identified.company_id).slice(0, 6);
+    if (extraIds.length) {
+      const sibRaw = await cdPostV2("/company/enrich", { crustdata_company_ids: extraIds, fields: ["headcount", "locations"] });
+      for (const m of matchesOf(firstResult(sibRaw))) {
+        const se = mapEnrichment(m.company_data, preferDomain);
+        const shc = (se?.headcount ?? null) as Any;
+        siblingRegions = mergeRegions(siblingRegions, shc?.linkedin_headcount_by_region_absolute);
+        siblingOffices.push(...(se?.office_addresses ?? []));
+      }
+    }
+  }
+  const mergedRegions = mergeRegions((e?.headcount as Any)?.linkedin_headcount_by_region_absolute, siblingRegions);
   const hc = (e?.headcount ?? null) as Any;
   const legal = e?.company_name || identified.company_name;
   const total: number | null = hc?.linkedin_headcount ?? headcountFromRange(e?.employee_count_range ?? identified.employee_count_range);
@@ -229,8 +263,12 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
       yoy_percent: hc?.linkedin_headcount_total_growth_percent?.yoy ?? null,
       yoy_absolute: hc?.linkedin_headcount_total_growth_absolute?.yoy ?? null,
       timeseries: Array.isArray(hc?.linkedin_headcount_timeseries) ? hc.linkedin_headcount_timeseries : [],
+      /** Raw region breakdown (main page + hand-mapped siblings), kept so the panel can chart every place staff work without a new call. */
+      by_region: mergedRegions,
     },
-    sites: sitesFromRegions(hc?.linkedin_headcount_by_region_absolute),
+    sites: sitesFromRegions(mergedRegions),
+    /** Street addresses of every office the company lists (its own website footprint, e.g. HSS Florida). */
+    offices: [...new Set([...(e?.office_addresses ?? []), ...siblingOffices])],
     leaders: dedupeLeaders([...(e?.founders ?? []), ...(e?.cxos ?? []), ...(e?.decision_makers ?? [])]).slice(0, 12),
     headcount_by_function: functionBreakdown(hc?.linkedin_headcount_by_role_absolute),
     enriched_at: new Date().toISOString(),
