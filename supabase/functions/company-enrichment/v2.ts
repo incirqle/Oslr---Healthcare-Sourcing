@@ -23,6 +23,7 @@ export const ENRICH_FIELDS: readonly string[] = [
   "headcount",
   "taxonomy",
   "locations",
+  "people",
 ];
 // 2026-10-18: funding, people (CXOs), employee_reviews, software_reviews,
 // web_traffic and competitors were dropped. The panel no longer shows them.

@@ -14,7 +14,7 @@
  *   action "pull"      One group's people, 50 a page, 0.03 credits a profile
  *                      returned. `cursor` gets the next page. Cached 30 days.
  *   action "movement"  Who joined and who left in the last 24 months, up to
- *                      100 each way. Cached 7 days.
+ *                      100 each way. Cached 90 days.
  *
  * Every cache entry is shared by all users: a company pulled once is free
  * for everyone until it expires.
@@ -45,11 +45,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 /** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
 const CREDITS_PER_PROFILE = 0.03;
 const DAY = 24 * 60 * 60 * 1000;
-const TTL = { base: 7 * DAY, preview: 30 * DAY, pull: 30 * DAY, movement: 7 * DAY } as const;
+/** Everything is shared and kept a full quarter: a company opened once is free for everyone for 90 days. */
+const QUARTER = 90 * DAY;
+const TTL = { base: QUARTER, preview: QUARTER, pull: QUARTER, movement: QUARTER } as const;
 const MOVEMENT_MONTHS = 24;
 const MOVEMENT_LIMIT = 100;
 
@@ -174,6 +176,26 @@ function headcountFromRange(r: string | null | undefined): number | null {
   return m ? parseInt(m[m.length - 1].replace(/,/g, ""), 10) : null;
 }
 
+function dedupeLeaders(list: Array<{ name: string; title: string; linkedin_url: string | null; profile_picture_url: string | null }>) {
+  const seen = new Set<string>();
+  return list.filter((l) => {
+    const k = l.name.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** Headcount by job function, largest first, top 8. */
+function functionBreakdown(raw: unknown): { label: string; count: number }[] {
+  if (!raw || typeof raw !== "object") return [];
+  return Object.entries(raw as Record<string, unknown>)
+    .filter(([, v]) => typeof v === "number" && (v as number) > 0)
+    .map(([k, v]) => ({ label: k.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()), count: v as number }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+}
+
 async function buildBase(identified: Identified, preferDomain: string | null) {
   const raw = await cdPostV2("/company/enrich", { crustdata_company_ids: [identified.company_id], fields: [...ENRICH_FIELDS] });
   const match = matchesOf(firstResult(raw))[0];
@@ -209,6 +231,8 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
       timeseries: Array.isArray(hc?.linkedin_headcount_timeseries) ? hc.linkedin_headcount_timeseries : [],
     },
     sites: sitesFromRegions(hc?.linkedin_headcount_by_region_absolute),
+    leaders: dedupeLeaders([...(e?.founders ?? []), ...(e?.cxos ?? []), ...(e?.decision_makers ?? [])]).slice(0, 12),
+    headcount_by_function: functionBreakdown(hc?.linkedin_headcount_by_role_absolute),
     enriched_at: new Date().toISOString(),
   };
 }
