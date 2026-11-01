@@ -52,6 +52,10 @@ export interface TalentFlowPerson {
   previous_company_linkedin_url: string | null;
   previous_title: string | null;
   previous_end_date: string | null;
+  current_company_logo?: string | null;
+  current_company_domain?: string | null;
+  previous_company_logo?: string | null;
+  previous_company_domain?: string | null;
   function_category: string | null;
   seniority_level: string | null;
   /** Clinical role group of the role at the company (hire: new role; departure: role they left). */
@@ -109,6 +113,18 @@ export function entryName(e: Any): string | null {
 export function entryTitle(e: Any): string | null {
   return e?.title ?? e?.employee_title ?? null;
 }
+/** Employer logo permalink and bare website domain on an employment entry (display only). */
+export function entryLogo(e: Any): string | null {
+  const v = e?.company_profile_picture_permalink ?? e?.company_logo_url ?? null;
+  return typeof v === "string" && v ? v : null;
+}
+export function entryDomain(e: Any): string | null {
+  const v = e?.company_website_domain ?? e?.company_website ?? null;
+  if (typeof v !== "string" || !v) return null;
+  const d = v.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+  return d.includes(".") ? d : null;
+}
+
 /** v2 key observed live 2026-10-18 is company_professional_network_profile_url. */
 export function entryLinkedIn(e: Any): string | null {
   return e?.company_professional_network_profile_url ??
@@ -210,6 +226,10 @@ export function classifyHire(person: Any, target: Target, sinceISO: string): Cla
       previous_company_linkedin_url: previous ? entryLinkedIn(previous) : null,
       previous_title: previous ? entryTitle(previous) : null,
       previous_end_date: previous?.end_date ?? null,
+      current_company_logo: entryLogo(roleEntry),
+      current_company_domain: entryDomain(roleEntry),
+      previous_company_logo: previous ? entryLogo(previous) : null,
+      previous_company_domain: previous ? entryDomain(previous) : null,
       function_category: roleEntry?.function_category ?? null,
       seniority_level: roleEntry?.seniority_level ?? null,
       role_group: role.group,
@@ -258,6 +278,10 @@ export function classifyDeparture(person: Any, target: Target, sinceISO: string)
       previous_company_linkedin_url: entryLinkedIn(exit),
       previous_title: entryTitle(exit),
       previous_end_date: exit.end_date ?? null,
+      current_company_logo: dest ? entryLogo(dest) : null,
+      current_company_domain: dest ? entryDomain(dest) : null,
+      previous_company_logo: entryLogo(exit),
+      previous_company_domain: entryDomain(exit),
       function_category: exit?.function_category ?? null,
       seniority_level: exit?.seniority_level ?? null,
       role_group: role.group,
