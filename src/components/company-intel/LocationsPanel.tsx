@@ -4,7 +4,7 @@
  * per-person pulls, no extra cost.
  */
 import { useMemo, useState } from "react";
-import { Building2, Globe2, MapPin } from "lucide-react";
+import { Building2, MapPin } from "lucide-react";
 import type { CompanyBase } from "@/hooks/useCompanyBrief";
 import { campusesFromOffices, splitRegions } from "./regions";
 import { fmtCount } from "./brief-utils";
