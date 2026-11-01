@@ -23,38 +23,54 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
   if (!s.movement) {
     const hires = mv?.hires ?? null;
     const deps = mv?.departures ?? null;
+    const net = hires !== null && deps !== null ? hires - deps : null;
+    const hc = s.base?.headcount;
+    const yoyPct = hc?.yoy_percent ?? null;
     const rows = Math.min(hires ?? 0, MOVEMENT_LIMIT) + Math.min(deps ?? 0, MOVEMENT_LIMIT);
+    const loading = s.previewState === "loading";
     return (
-      <section className="rounded-2xl border border-border/70 bg-card shadow-sm">
-        <header className="border-b border-ui-border-light px-5 py-3.5">
+      <section className="space-y-4">
+        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
           <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Who joined and who left</h3>
-          <p className="text-[12.5px] text-ui-text-secondary">Last {mv?.window_months ?? 24} months. Promotions, side jobs and students are removed after the pull.</p>
-        </header>
-        <div className="grid grid-cols-2 divide-x divide-ui-border-light">
-          {[["Started here", hires], ["Left", deps]].map(([label, n]) => (
-            <div key={label as string} className="px-5 py-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-ui-text-muted">{label}</p>
-              <div className="mt-1 font-display text-[24px] font-semibold tabular-nums text-ui-text-primary">
-                {s.previewState === "loading" ? <Skeleton className="h-7 w-12" /> : <>up to {fmtCount(n as number | null)}</>}
+          <p className="mt-0.5 text-[12.5px] text-ui-text-secondary">Last {mv?.window_months ?? 24} months, from the company record already loaded.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {([
+              ["Started here", loading ? null : hires, "up", "people who joined"] as const,
+              ["Left", loading ? null : deps, "down", "people who moved on"] as const,
+              ["Net change", loading ? null : net, net !== null && net >= 0 ? "up" : "down", "joined minus left"] as const,
+              ["Team size today", loading ? null : hc?.total ?? null, "up", yoyPct !== null ? `${yoyPct >= 0 ? "+" : ""}${yoyPct.toFixed(1)}% in 1 year` : "public profiles counted"] as const,
+            ]).map(([label, n, tone, sub]) => (
+              <div key={label} className="rounded-xl bg-muted/50 px-4 py-3.5">
+                <p className="text-[12px] text-ui-text-muted">{label}</p>
+                <p className={cn("mt-1.5 font-display text-[24px] font-semibold leading-none tabular-nums", tone === "up" ? "text-primary" : "text-ui-text-primary")}>
+                  {loading ? <Skeleton className="h-6 w-10" /> : n === null ? "–" : label === "Net change" ? `${(n as number) >= 0 ? "+" : ""}${(n as number).toLocaleString()}` : fmtCount(n as number | null)}
+                </p>
+                <p className="mt-1.5 text-[12px] text-ui-text-muted">{sub}</p>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-ui-border-light px-5 py-3.5">
-          <p className="text-[12.5px] text-ui-text-secondary">
-            {rows > 0 ? <><span className="font-semibold tabular-nums text-ui-text-primary">{rows}</span> profiles</> : "No movement found in this window."}
-          </p>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-sm">
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-medium text-ui-text-primary">Want the individuals behind these numbers?</p>
+            <p className="mt-0.5 text-[12.5px] text-ui-text-secondary">
+              {rows > 0
+                ? <>See up to <span className="font-semibold tabular-nums text-ui-text-primary">{rows}</span> people with names, employers, titles and dates, plus the talent flow chart.</>
+                : "No movement found in this window."}
+            </p>
+          </div>
           <button
             type="button"
             onClick={s.pullMovement}
             disabled={rows === 0 || !!s.busy.movement}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#0A1F44] px-4 text-[13px] font-medium text-white transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:opacity-40"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#0A1F44] px-4 text-[13px] font-medium text-white transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:opacity-40"
           >
             {s.busy.movement && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Pull movement
+            See the individuals
           </button>
-        </footer>
-        {s.errors.movement && <p className="px-5 pb-3 text-[12px] text-destructive">Couldn't pull movement. {s.errors.movement}</p>}
+        </div>
+        {s.errors.movement && <p className="px-1 text-[12px] text-destructive">Couldn't load movement. {s.errors.movement}</p>}
       </section>
     );
   }

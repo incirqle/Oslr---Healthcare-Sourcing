@@ -118,6 +118,15 @@ Deno.test("enrichment maps basic_info, locations, taxonomy, reviews, traffic, fu
   assertEquals(m.decision_makers[0].title, "VP Operations");
 });
 
+Deno.test("founded year: numeric strings, alternate keys, and the description all work", () => {
+  const base = { basic_info: { name: "X" } };
+  assertEquals(mapEnrichment({ ...base, basic_info: { name: "X", year_founded: "1863" } }).year_founded, 1863);
+  assertEquals(mapEnrichment({ ...base, basic_info: { name: "X", founded_year: 1998 } }).year_founded, 1998);
+  assertEquals(mapEnrichment({ ...base, basic_info: { name: "X", description: "Founded in 1863, X is a specialty hospital." } }).year_founded, 1863);
+  assertEquals(mapEnrichment({ ...base, basic_info: { name: "X", description: "Serving patients since 1974." } }).year_founded, 1974);
+  assertEquals(mapEnrichment({ ...base, basic_info: { name: "X", description: "A modern clinic." } }).year_founded, null);
+});
+
 Deno.test("empty sections map to null / [] rather than throwing", () => {
   const m = mapEnrichment({ crustdata_company_id: 1, basic_info: { name: "Tiny Practice" } });
   assertEquals(m.company_name, "Tiny Practice");
