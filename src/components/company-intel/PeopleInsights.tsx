@@ -165,7 +165,7 @@ export function PeopleInsights({ s, onBrowse }: { s: CompanyBriefState; onBrowse
             <>
               <RankList rows={feeders.map((f) => ({ name: f.name, count: f.count, logo: f.logo, domain: f.domain }))} total={feederTotal} logos />
               {training.length > 0 && (
-                <p className="mt-4 rounded-lg bg-primary/10 px3 px-3 py-2 text-[12px] text-foreground">
+                <p className="mt-4 rounded-lg bg-primary/10 px-3 py-2 text-[12px] text-foreground">
                   <span className="font-semibold">Training pipeline:</span> {training.slice(0, 3).map((t) => t.name).join(", ")}
                 </p>
               )}

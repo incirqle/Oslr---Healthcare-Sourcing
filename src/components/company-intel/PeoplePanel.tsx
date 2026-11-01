@@ -11,6 +11,7 @@ import { PersonAvatar } from "./PersonAvatar";
 import { LinkedInBadge } from "./LinkedInBadge";
 import { fmtCount, fmtMonth, GROUP_LABEL, GROUP_ORDER, tenure } from "./brief-utils";
 import { cn } from "@/lib/utils";
+import { PeopleInsights } from "./PeopleInsights";
 
 /** Profiles per pull page (matches PULL_PAGE_SIZE in the edge function). */
 export const PAGE_SIZE = 50;
@@ -38,12 +39,25 @@ export function PeoplePanel({ s, initialPicked }: { s: CompanyBriefState; initia
     setPicked((cur) => cur.filter((g) => !groups.includes(g)));
   };
 
+  const [open, setOpen] = useState(!!initialPicked?.length || anyPulled);
+  const browse = (g: PullGroup) => {
+    setPicked((cur) => (cur.includes(g) ? cur : [...cur, g]));
+    setOpen(true);
+    setTimeout(() => document.getElementById("people-browse")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border/70 bg-card shadow-sm">
+      <PeopleInsights s={s} onBrowse={browse} />
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="w-full rounded-2xl border border-dashed border-border/80 px-5 py-4 text-left text-[13px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground">
+          Need actual names? <span className="font-medium text-primary">Browse individual profiles</span>
+        </button>
+      ) : (
+      <section id="people-browse" className="rounded-2xl border border-border/70 bg-card shadow-sm">
         <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ui-border-light px-5 py-3.5">
           <div>
-            <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Who do you want to see?</h3>
+            <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Browse individual profiles</h3>
             <p className="text-[12.5px] text-ui-text-secondary">Pick the groups you want to see.</p>
           </div>
         </header>
@@ -128,6 +142,7 @@ export function PeoplePanel({ s, initialPicked }: { s: CompanyBriefState; initia
           </button>
         </footer>
       </section>
+      )}
 
       {anyPulled && <Results s={s} />}
     </div>
