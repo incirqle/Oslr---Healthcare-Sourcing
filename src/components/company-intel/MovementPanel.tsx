@@ -53,25 +53,37 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-[13.5px] font-medium text-ui-text-primary">Want the individuals behind these numbers?</p>
-            <p className="mt-0.5 text-[12.5px] text-ui-text-secondary">
-              {rows > 0
-                ? <>See up to <span className="font-semibold tabular-nums text-ui-text-primary">{rows}</span> people with names, employers, titles and dates, plus the talent flow chart.</>
-                : "No movement found in this window."}
-            </p>
+        {momentum.length > 1 && (
+          <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Net change by month</h3>
+                <p className="text-[12.5px] text-ui-text-secondary">How the listed headcount moved each month. Green grew, gray shrank.</p>
+              </div>
+              <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-primary/70" />Grew</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-muted-foreground/50" />Shrank</span>
+              </div>
+            </div>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={momentum} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="month" tickFormatter={(m: string) => fmtMonth(`${m}-01`)} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} minTickGap={40} />
+                  <YAxis width={40} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmtCount(v)} />
+                  <Tooltip
+                    formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toLocaleString()} people`, "Net change"]}
+                    labelFormatter={(m: string) => fmtMonth(`${m}-01`)}
+                    contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", fontSize: 12 }}
+                  />
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                  <Bar dataKey="delta" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                    {momentum.map((r) => <Cell key={r.month} fill={r.delta >= 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.45)"} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={s.pullMovement}
-            disabled={rows === 0 || !!s.busy.movement}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#0A1F44] px-4 text-[13px] font-medium text-white transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:opacity-40"
-          >
-            {s.busy.movement && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            See the individuals
-          </button>
-        </div>
+        )}
         {s.errors.movement && <p className="px-1 text-[12px] text-destructive">Couldn't load movement. {s.errors.movement}</p>}
       </section>
     );
