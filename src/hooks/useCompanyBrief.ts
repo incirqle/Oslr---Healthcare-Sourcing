@@ -41,6 +41,8 @@ export interface CompanyBase {
     timeseries: { date: string; employee_count: number }[];
   };
   sites: { place: string; count: number }[];
+  /** Street addresses of every office the company lists. */
+  offices?: string[];
   /** Founders, executives and decision makers listed for the company. */
   leaders?: { name: string; title: string; linkedin_url: string | null; profile_picture_url: string | null }[];
   /** Staff by job function, largest first. */

@@ -233,6 +233,8 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
       by_region: hc?.linkedin_headcount_by_region_absolute && typeof hc.linkedin_headcount_by_region_absolute === "object" ? hc.linkedin_headcount_by_region_absolute : null,
     },
     sites: sitesFromRegions(hc?.linkedin_headcount_by_region_absolute),
+    /** Street addresses of every office the company lists (its own website footprint, e.g. HSS Florida). */
+    offices: e?.office_addresses ?? [],
     leaders: dedupeLeaders([...(e?.founders ?? []), ...(e?.cxos ?? []), ...(e?.decision_makers ?? [])]).slice(0, 12),
     headcount_by_function: functionBreakdown(hc?.linkedin_headcount_by_role_absolute),
     enriched_at: new Date().toISOString(),
