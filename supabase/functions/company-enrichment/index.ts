@@ -45,7 +45,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 /** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
 const CREDITS_PER_PROFILE = 0.03;
 const DAY = 24 * 60 * 60 * 1000;
@@ -153,7 +153,10 @@ async function identifyById(id: number): Promise<Identified | null> {
   if (primary.company_website_domain) {
     add(identifyCandidates(firstResult(await cdPostV2("/company/identify", { domains: [primary.company_website_domain] }))));
   }
-  return siblingsOf(list, primary, id, primary.company_name, null);
+  // Hand-mapped sibling pages (HSS Florida) apply on this path too.
+  const canonical = resolveCanonical(primary.company_name);
+  const premapped = canonical ? PREMAPPED_ENTITY_IDS[canonical] ?? null : null;
+  return siblingsOf(list, primary, id, primary.company_name, premapped);
 }
 
 /* ------------------------------------------------------------------ */

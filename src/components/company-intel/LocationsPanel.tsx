@@ -4,7 +4,7 @@
  * per-person pulls, no extra cost.
  */
 import { useMemo, useState } from "react";
-import { Building2, Globe2, MapPin } from "lucide-react";
+import { Building2, MapPin } from "lucide-react";
 import type { CompanyBase } from "@/hooks/useCompanyBrief";
 import { campusesFromOffices, splitRegions } from "./regions";
 import { fmtCount } from "./brief-utils";
@@ -42,10 +42,11 @@ export function LocationsCard({ base }: { base: CompanyBase }) {
   const hqState = base.hq_state ?? "";
   const highlight = (place: string) => !!hqState && (place === hqState || place.endsWith(`, ${hqState}`) || place.startsWith(`${hqState},`));
 
+  // Overseas entries on a US health system are profile noise (remote
+  // contractors, mislabeled profiles), not real sites, so they are not shown.
   const tabs: { key: View; label: string; n: number }[] = [
     { key: "states", label: "States", n: split.states.length },
     { key: "cities", label: "Cities", n: split.cities.length },
-    { key: "countries", label: "Countries", n: split.countries.length },
   ];
 
   return (
@@ -98,12 +99,6 @@ export function LocationsCard({ base }: { base: CompanyBase }) {
         </div>
       )}
 
-      {split.countries.length > 0 && view !== "countries" && (
-        <p className="mt-4 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-          <Globe2 className="h-3.5 w-3.5" />
-          Also listed in {split.countries.slice(0, 3).map((c) => c.place).join(", ")}{split.countries.length > 3 ? ` and ${split.countries.length - 3} more` : ""}.
-        </p>
-      )}
     </section>
   );
 }

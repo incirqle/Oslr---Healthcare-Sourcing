@@ -4,21 +4,28 @@
  * charts never cost anything to open.
  */
 
-import { useState } from "react";
-import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyBriefState, MovementPerson } from "@/hooks/useCompanyBrief";
 import { PersonAvatar } from "./PersonAvatar";
 import { LinkedInBadge } from "./LinkedInBadge";
 import { Chip } from "./PeoplePanel";
 import { fmtCount, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter } from "./brief-utils";
-import { monthlyNetChange } from "./regions";
 import { cn } from "@/lib/utils";
 import { FlowSankey } from "./FlowSankey";
 
 
 export function MovementPanel({ s }: { s: CompanyBriefState }) {
   const mv = s.preview?.movement;
+
+  // One capped pull per company, shared by every user for a quarter, so the
+  // flow chart is simply there. Group rosters stay out of this path.
+  const started = useRef(false);
+  useEffect(() => {
+    if (s.movement || started.current || !s.base || s.busy.movement || s.errors.movement) return;
+    started.current = true;
+    void s.pullMovement();
+  }, [s.base, s.movement, s.busy.movement, s.errors.movement, s]);
 
   if (!s.movement) {
     const hires = mv?.hires ?? null;
@@ -27,7 +34,6 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
     const hc = s.base?.headcount;
     const yoyPct = hc?.yoy_percent ?? null;
     const loading = s.previewState === "loading";
-    const momentum = monthlyNetChange(hc?.timeseries ?? [], mv?.window_months ?? 24);
     return (
       <section className="space-y-4">
         <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
@@ -51,37 +57,18 @@ export function MovementPanel({ s }: { s: CompanyBriefState }) {
           </div>
         </div>
 
-        {momentum.length > 1 && (
-          <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Net change by month</h3>
-                <p className="text-[12.5px] text-ui-text-secondary">How the listed headcount moved each month. Green grew, gray shrank.</p>
+        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+          <h3 className="font-display text-[15px] font-semibold text-ui-text-primary">Talent flow</h3>
+          <p className="mt-0.5 text-[12.5px] text-ui-text-secondary">Where people came from and where they went.</p>
+          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+            {[0, 1].map((col) => (
+              <div key={col} className={cn("space-y-2.5", col === 1 && "col-start-3")}>
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
               </div>
-              <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-primary/70" />Grew</span>
-                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-muted-foreground/50" />Shrank</span>
-              </div>
-            </div>
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={momentum} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="month" tickFormatter={(m: string) => fmtMonth(`${m}-01`)} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} minTickGap={40} />
-                  <YAxis width={40} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => fmtCount(v)} />
-                  <Tooltip
-                    formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v.toLocaleString()} people`, "Net change"]}
-                    labelFormatter={(m: string) => fmtMonth(`${m}-01`)}
-                    contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", fontSize: 12 }}
-                  />
-                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                  <Bar dataKey="delta" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                    {momentum.map((r) => <Cell key={r.month} fill={r.delta >= 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.45)"} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            ))}
+            <Skeleton className="col-start-2 row-start-1 h-20 w-20 rounded-2xl" />
           </div>
-        )}
+        </div>
         {s.errors.movement && <p className="px-1 text-[12px] text-destructive">Couldn't load movement. {s.errors.movement}</p>}
       </section>
     );
