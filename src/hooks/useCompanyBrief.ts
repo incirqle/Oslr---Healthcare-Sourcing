@@ -42,8 +42,6 @@ export interface CompanyBase {
     /** Raw region breakdown ("West Palm Beach, FL": 4), main page plus hand-mapped sibling pages. */
     by_region?: Record<string, number> | null;
   };
-  /** Street addresses of every office the company lists. */
-  offices?: string[];
   sites: { place: string; count: number }[];
   /** Street addresses of every office the company lists. */
   offices?: string[];
