@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyBriefState, MovementPerson } from "@/hooks/useCompanyBrief";
 import { PersonAvatar } from "./PersonAvatar";
@@ -72,7 +72,6 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
   const focusName = focus ? focus.slice(focus.indexOf(":") + 1) : null;
   const focusSide = focus?.startsWith("from:") ? "joined" : focus ? "left" : null;
   const rows = netFlow(hires, deps);
-  const maxSide = Math.max(1, ...rows.map((r) => Math.max(r.joined_from, r.left_to)));
   const effDir = focusSide ?? dir;
   const list = (effDir === "joined" ? hires : deps).filter((p) => !focusName || ((effDir === "joined" ? p.previous_company : p.current_company) ?? "").trim().toLowerCase() === focusName);
   const ex = m.excluded;
@@ -102,7 +101,6 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
             </div>
           </div>
           <FlowSankey base={s.base} name={s.base?.display_name ?? "This company"} hires={hires} departures={deps} focus={focus} onFocus={setFocus} />
-          {rows.length === 0 && null}
         </div>
         {focus && (
           <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/8 px-4 py-2.5 text-[13px]">

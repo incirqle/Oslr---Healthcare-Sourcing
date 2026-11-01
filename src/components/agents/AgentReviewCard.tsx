@@ -43,8 +43,14 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
   const options = draft === "approved" ? tags.approve : tags.pass;
 
   return (
-    <div className={cn(
-      "agent-enter rounded-2xl border bg-card/80 p-4 backdrop-blur transition-[border-color,box-shadow] duration-200",
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${p.full_name ?? ""} full profile`}
+      onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, label, [role=checkbox]")) onOpen(); }}
+      onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) onOpen(); }}
+      className={cn(
+      "agent-enter cursor-pointer rounded-2xl border bg-card/80 p-4 backdrop-blur transition-[border-color,box-shadow,transform] duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       active ? "border-mint/40 shadow-[0_8px_30px_-12px_hsl(var(--mint)/0.35)]" : "border-border/70 hover:border-mint/30",
     )}>
       <div className="flex items-start gap-3.5">
@@ -75,6 +81,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
           </div>
           {item.why && !decision && <p className="mt-2 text-[13px] leading-relaxed text-foreground/70">{item.why}</p>}
           {!decision && <MatchFacts item={item} />}
+          <button onClick={onOpen} className="mt-2 text-[13px] font-medium text-mint-ink hover:underline">View full profile</button>
           {decision?.note && <p className="mt-2 border-l-2 border-primary/40 pl-3 text-[13px] italic text-foreground/80">"{decision.note}"</p>}
         </div>
         {!decision && !draft && (
