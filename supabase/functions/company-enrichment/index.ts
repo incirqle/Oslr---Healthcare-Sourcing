@@ -45,7 +45,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 /** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
 const CREDITS_PER_PROFILE = 0.03;
 const DAY = 24 * 60 * 60 * 1000;
@@ -229,6 +229,8 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
       yoy_percent: hc?.linkedin_headcount_total_growth_percent?.yoy ?? null,
       yoy_absolute: hc?.linkedin_headcount_total_growth_absolute?.yoy ?? null,
       timeseries: Array.isArray(hc?.linkedin_headcount_timeseries) ? hc.linkedin_headcount_timeseries : [],
+      /** Raw region breakdown, kept so the panel can chart every place staff work without a new call. */
+      by_region: hc?.linkedin_headcount_by_region_absolute && typeof hc.linkedin_headcount_by_region_absolute === "object" ? hc.linkedin_headcount_by_region_absolute : null,
     },
     sites: sitesFromRegions(hc?.linkedin_headcount_by_region_absolute),
     leaders: dedupeLeaders([...(e?.founders ?? []), ...(e?.cxos ?? []), ...(e?.decision_makers ?? [])]).slice(0, 12),
