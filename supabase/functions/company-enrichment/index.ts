@@ -75,6 +75,8 @@ const COMPANY_ALIASES: Record<string, string> = {
 
 const PREMAPPED_ENTITY_IDS: Record<string, number[]> = {
   uchealth: [1304813, 6259524, 6524064, 9255529, 12929305, 10791937, 9819138, 6644127, 670107, 6041104, 2056710],
+  // HSS Florida (10584373) is a separate page; the main HSS page's region data has no Florida at all.
+  "hospital for special surgery": [10584373],
 };
 
 function resolveCanonical(name: string | null): string | null {
@@ -104,6 +106,8 @@ interface Identified {
   employee_count_range: string | null;
   all_ids: number[];
   pages: EntityPage[];
+  /** True when a hand-maintained entity map (UCHealth, HSS) is involved: the base call enriches those pages too and merges where staff work. */
+  premapped: boolean;
 }
 
 function siblingsOf(list: IdentifyCandidate[], primary: IdentifyCandidate | null, primaryId: number, canonical: string, premapped: number[] | null): Identified {
