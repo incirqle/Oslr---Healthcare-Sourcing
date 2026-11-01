@@ -263,12 +263,12 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
       yoy_percent: hc?.linkedin_headcount_total_growth_percent?.yoy ?? null,
       yoy_absolute: hc?.linkedin_headcount_total_growth_absolute?.yoy ?? null,
       timeseries: Array.isArray(hc?.linkedin_headcount_timeseries) ? hc.linkedin_headcount_timeseries : [],
-      /** Raw region breakdown, kept so the panel can chart every place staff work without a new call. */
-      by_region: hc?.linkedin_headcount_by_region_absolute && typeof hc.linkedin_headcount_by_region_absolute === "object" ? hc.linkedin_headcount_by_region_absolute : null,
+      /** Raw region breakdown (main page + hand-mapped siblings), kept so the panel can chart every place staff work without a new call. */
+      by_region: mergedRegions,
     },
-    sites: sitesFromRegions(hc?.linkedin_headcount_by_region_absolute),
+    sites: sitesFromRegions(mergedRegions),
     /** Street addresses of every office the company lists (its own website footprint, e.g. HSS Florida). */
-    offices: e?.office_addresses ?? [],
+    offices: [...new Set([...(e?.office_addresses ?? []), ...siblingOffices])],
     leaders: dedupeLeaders([...(e?.founders ?? []), ...(e?.cxos ?? []), ...(e?.decision_makers ?? [])]).slice(0, 12),
     headcount_by_function: functionBreakdown(hc?.linkedin_headcount_by_role_absolute),
     enriched_at: new Date().toISOString(),
