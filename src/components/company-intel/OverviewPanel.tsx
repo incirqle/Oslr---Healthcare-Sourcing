@@ -119,6 +119,7 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
 
   const hc = base.headcount;
   const yoy = hc.yoy_percent;
+  const foundedYear = base.year_founded ?? yearFromDescription(base.description);
   const maxSite = Math.max(1, ...base.sites.map((x) => x.count));
   const groups = GROUP_ORDER.map((g) => ({ g, count: s.preview?.groups.find((x) => x.group === g)?.count ?? null }));
   const mv = s.preview?.movement;
@@ -133,7 +134,7 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
           value={yoy === null ? "–" : <span className="inline-flex items-center gap-1.5">{yoy >= 0 ? <TrendingUp className="h-6 w-6" /> : <TrendingDown className="h-6 w-6" />}{yoy >= 0 ? "+" : ""}{yoy.toFixed(1)}%</span>}
           sub={hc.yoy_absolute !== null ? `${hc.yoy_absolute >= 0 ? "+" : ""}${hc.yoy_absolute} people` : undefined}
         />
-        <Stat label="Founded" value={base.year_founded ?? "–"} sub={base.year_founded ? `${new Date().getFullYear() - base.year_founded} years in business` : undefined} />
+        <Stat label="Founded" value={foundedYear ?? "–"} sub={foundedYear ? `${new Date().getFullYear() - foundedYear} years in business` : undefined} />
         <Stat label="Locations" value={fmtCount(base.sites.length || null)} sub={base.sites[0] ? `Most staff in ${base.sites[0].place}` : undefined} />
       </div>
 
