@@ -9,6 +9,7 @@ import { DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyBase, CompanyBriefState, PullGroup } from "@/hooks/useCompanyBrief";
 import { LinkedInBadge } from "./LinkedInBadge";
+import { PersonAvatar } from "./PersonAvatar";
 import { fmtCount, fmtMonth, GROUP_LABEL, GROUP_ORDER, OWNERSHIP_LABEL } from "./brief-utils";
 import { cn } from "@/lib/utils";
 
@@ -129,30 +130,9 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
         <Stat label="Locations" value={fmtCount(base.sites.length || null)} sub={base.sites[0] ? `Most staff in ${base.sites[0].place}` : undefined} />
       </div>
 
-      {series.length > 1 && (
-        <Card title="Headcount" action={<span className="text-[12.5px] text-muted-foreground">Since {fmtMonth(series[0].date)}</span>}>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="hcFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tickFormatter={(d) => fmtMonth(d)} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} minTickGap={40} />
-                <YAxis width={36} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={["dataMin - 1", "dataMax + 1"]} allowDecimals={false} />
-                <Tooltip
-                  formatter={(v: number) => [fmtCount(v), "Employees"]}
-                  labelFormatter={(d: string) => fmtMonth(d)}
-                  contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", fontSize: 12 }}
-                />
-                <Area type="monotone" dataKey="employee_count" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#hcFill)" dot={false} isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      )}
+      {hc.timeseries.length > 1 && <HeadcountCard series={hc.timeseries} total={hc.total} />}
+
+      {(base.leaders?.length ?? 0) > 0 && <LeadershipCard leaders={base.leaders!} />}
 
       <Card
         title="Who works here"
@@ -205,6 +185,8 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
         )}
       </div>
 
+      {(base.headcount_by_function?.length ?? 0) > 0 && <FunctionCard rows={base.headcount_by_function!} />}
+
       {mv && (mv.hires !== null || mv.departures !== null) && (
         <Card title={`Movement in the last ${mv.window_months} months`} action={<button type="button" onClick={onOpenMovement} className="inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:underline">See who <ArrowRight className="h-3.5 w-3.5" /></button>}>
           <div className="grid grid-cols-2 gap-3">
@@ -233,5 +215,121 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
         </Card>
       )}
     </div>
+  );
+}
+
+const RANGES = [["1Y", 12], ["2Y", 24], ["All", 0]] as const;
+
+/** Headcount over time with a range switch, the change across the range, and its peak and low. */
+function HeadcountCard({ series: all, total }: { series: { date: string; employee_count: number }[]; total: number | null }) {
+  const sorted = useMemo(() => [...all].filter((p) => p.date && Number.isFinite(p.employee_count)).sort((a, b) => a.date.localeCompare(b.date)), [all]);
+  const [range, setRange] = useState<number>(sorted.length > 13 ? 24 : 12);
+  const series = range ? sorted.slice(-(range + 1)) : sorted;
+  if (series.length < 2) return null;
+  const first = series[0].employee_count;
+  const last = series[series.length - 1].employee_count;
+  const diff = last - first;
+  const pct = first ? (diff / first) * 100 : 0;
+  const peak = series.reduce((a, b) => (b.employee_count > a.employee_count ? b : a));
+  const low = series.reduce((a, b) => (b.employee_count < a.employee_count ? b : a));
+  const up = diff >= 0;
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-[15px] font-semibold tracking-tight text-foreground">Headcount over time</h3>
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">Employees with a public profile at this company, by month, {fmtMonth(series[0].date)} to {fmtMonth(series[series.length - 1].date)}</p>
+        </div>
+        <div className="flex items-center gap-0.5 rounded-full bg-muted p-0.5">
+          {RANGES.map(([label, m]) => (
+            <button key={label} type="button" onClick={() => setRange(m)} disabled={m > 0 && sorted.length <= m && m !== 12}
+              className={cn("rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors duration-150 active:scale-[0.97] disabled:opacity-40", range === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Mini label="Today" value={fmtCount(total ?? last)} />
+        <Mini label={`Change since ${fmtMonth(series[0].date)}`} value={`${up ? "+" : ""}${diff.toLocaleString()}`} sub={`${up ? "+" : ""}${pct.toFixed(1)}%`} tone={up ? "up" : "down"} />
+        <Mini label="Peak" value={fmtCount(peak.employee_count)} sub={fmtMonth(peak.date)} />
+        <Mini label="Low" value={fmtCount(low.employee_count)} sub={fmtMonth(low.date)} />
+      </div>
+      <div className="mt-4 h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="hcFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tickFormatter={(d) => fmtMonth(d)} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} minTickGap={48} />
+            <YAxis width={48} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={["auto", "auto"]} allowDecimals={false} tickFormatter={(v: number) => fmtCount(v)} />
+            <Tooltip
+              formatter={(v: number) => [`${v.toLocaleString()} employees`, ""]}
+              labelFormatter={(d: string) => fmtMonth(d)}
+              separator=""
+              contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", fontSize: 12 }}
+            />
+            <Area type="monotone" dataKey="employee_count" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#hcFill)" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
+function Mini({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone?: "up" | "down" }) {
+  return (
+    <div className="rounded-xl bg-muted/50 px-3.5 py-3">
+      <p className="truncate text-[12px] text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 font-display text-[19px] font-semibold leading-none tabular-nums text-foreground", tone === "up" && "text-primary")}>{value}</p>
+      {sub && <p className={cn("mt-1 text-[12px] tabular-nums text-muted-foreground", tone === "up" && "text-primary")}>{sub}</p>}
+    </div>
+  );
+}
+
+function LeadershipCard({ leaders }: { leaders: NonNullable<CompanyBase["leaders"]> }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? leaders : leaders.slice(0, 6);
+  return (
+    <Card title="Leadership" action={<span className="text-[12.5px] text-muted-foreground">{leaders.length} listed</span>}>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {shown.map((l) => (
+          <li key={l.name} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3.5 py-3">
+            <PersonAvatar name={l.name} src={l.profile_picture_url} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1.5 truncate text-[14px] font-medium text-foreground">
+                <span className="truncate">{l.name}</span>
+                <LinkedInBadge href={l.linkedin_url} size={14} label={`${l.name} profile`} />
+              </p>
+              <p className="truncate text-[12.5px] text-muted-foreground" title={l.title}>{l.title || "Leadership"}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {leaders.length > 6 && (
+        <button type="button" onClick={() => setAll((v) => !v)} className="mt-3 text-[13px] font-medium text-primary hover:underline">{all ? "Show fewer" : `Show all ${leaders.length}`}</button>
+      )}
+    </Card>
+  );
+}
+
+function FunctionCard({ rows }: { rows: { label: string; count: number }[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  const sum = rows.reduce((n, r) => n + r.count, 0);
+  return (
+    <Card title="Staff by function" action={<span className="text-[12.5px] text-muted-foreground">Share of listed staff</span>}>
+      <ul className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
+        {rows.map((r) => (
+          <li key={r.label} className="grid grid-cols-[minmax(0,1fr)_110px_64px] items-center gap-3">
+            <span className="truncate text-[14px] text-foreground">{r.label}</span>
+            <span className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (r.count / max) * 100)}%` }} /></span>
+            <span className="text-right text-[13px] tabular-nums text-muted-foreground">{fmtCount(r.count)} · {Math.round((r.count / sum) * 100)}%</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

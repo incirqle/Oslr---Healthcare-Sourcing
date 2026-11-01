@@ -41,6 +41,10 @@ export interface CompanyBase {
     timeseries: { date: string; employee_count: number }[];
   };
   sites: { place: string; count: number }[];
+  /** Founders, executives and decision makers listed for the company. */
+  leaders?: { name: string; title: string; linkedin_url: string | null; profile_picture_url: string | null }[];
+  /** Staff by job function, largest first. */
+  headcount_by_function?: { label: string; count: number }[];
   enriched_at: string;
   cached?: boolean;
 }
@@ -109,6 +113,10 @@ export interface MovementPerson {
   previous_company_linkedin_url: string | null;
   previous_title: string | null;
   previous_end_date: string | null;
+  current_company_logo?: string | null;
+  current_company_domain?: string | null;
+  previous_company_logo?: string | null;
+  previous_company_domain?: string | null;
   role_group: RoleGroup;
   specialty: string | null;
 }
