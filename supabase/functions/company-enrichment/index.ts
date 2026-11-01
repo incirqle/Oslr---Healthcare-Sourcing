@@ -125,6 +125,7 @@ function siblingsOf(list: IdentifyCandidate[], primary: IdentifyCandidate | null
     employee_count_range: primary?.employee_count_range ?? null,
     all_ids: allIds,
     pages,
+    premapped: !!premapped,
   };
 }
 
