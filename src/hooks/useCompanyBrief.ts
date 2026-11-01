@@ -39,6 +39,8 @@ export interface CompanyBase {
     yoy_percent: number | null;
     yoy_absolute: number | null;
     timeseries: { date: string; employee_count: number }[];
+    /** Raw region breakdown ("West Palm Beach, FL": 4), main page plus hand-mapped sibling pages. */
+    by_region?: Record<string, number> | null;
   };
   sites: { place: string; count: number }[];
   /** Street addresses of every office the company lists. */
