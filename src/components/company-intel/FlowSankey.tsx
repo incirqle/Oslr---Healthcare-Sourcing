@@ -39,7 +39,7 @@ export function buildNodes(list: MovementPerson[], side: "from" | "to", limit: n
     n.count++;
     n.logo ??= (side === "from" ? p.previous_company_logo : p.current_company_logo) ?? null;
     n.domain ??= (side === "from" ? p.previous_company_domain : p.current_company_domain) ?? null;
-    const title = side === "from" ? p.previous_title : p.previous_title;
+    const title = p.previous_title;
     if (title && TRAINING.test(title)) n.training++;
     m.set(k, n);
   }

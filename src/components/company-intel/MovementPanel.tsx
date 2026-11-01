@@ -12,6 +12,7 @@ import { LinkedInBadge } from "./LinkedInBadge";
 import { Chip } from "./PeoplePanel";
 import { fmtCount, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter, netFlow } from "./brief-utils";
 import { cn } from "@/lib/utils";
+import { FlowSankey } from "./FlowSankey";
 
 /** Profiles pulled per direction at most (matches MOVEMENT_LIMIT in the edge function). */
 const MOVEMENT_LIMIT = 100;
@@ -65,11 +66,15 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
   const m = s.movement!;
   const [dir, setDir] = useState<"joined" | "left">("joined");
   const [f, setF] = useState<MoveFilter>("all");
+  const [focus, setFocus] = useState<string | null>(null);
   const hires = m.hires.filter((p) => inMoveFilter(p, f));
   const deps = m.departures.filter((p) => inMoveFilter(p, f));
+  const focusName = focus ? focus.slice(focus.indexOf(":") + 1) : null;
+  const focusSide = focus?.startsWith("from:") ? "joined" : focus ? "left" : null;
   const rows = netFlow(hires, deps);
   const maxSide = Math.max(1, ...rows.map((r) => Math.max(r.joined_from, r.left_to)));
-  const list = dir === "joined" ? hires : deps;
+  const effDir = focusSide ?? dir;
+  const list = (effDir === "joined" ? hires : deps).filter((p) => !focusName || ((effDir === "joined" ? p.previous_company : p.current_company) ?? "").trim().toLowerCase() === focusName);
   const ex = m.excluded;
   const internal = ex.hires.internal_move + ex.departures.internal_move;
   const students = ex.hires.non_employee + ex.departures.non_employee;
@@ -84,43 +89,35 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
         <div className="flex flex-wrap gap-1.5">{filters.map((x) => <Chip key={x.key} active={f === x.key} onClick={() => setF(x.key)} label={x.label} count={x.n} />)}</div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div className="rounded-lg border border-ui-border-medium bg-white p-5 dark:bg-background">
-          <h3 className="text-[13.5px] font-semibold text-ui-text-primary">Trades staff with</h3>
-          <div className="mt-1 flex justify-between text-[11px] text-ui-text-muted">
-            <span className="inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" />Left for them</span>
-            <span className="inline-flex items-center gap-1">Came from them<ArrowRight className="h-3 w-3" /></span>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h3 className="font-display text-[15px] font-semibold text-foreground">Talent flow</h3>
+              <p className="text-[12.5px] text-muted-foreground">Where people came from and where they went. Tap an employer to see who.</p>
+            </div>
+            <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-primary/70" />Came from</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-full bg-muted-foreground/50" />Left for</span>
+            </div>
           </div>
-          {rows.length === 0 ? (
-            <p className="py-8 text-center text-[13px] text-ui-text-muted">No moves to or from other companies for this filter.</p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {rows.map((r) => (
-                <li key={r.company}>
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[12.5px] text-ui-text-primary" title={r.company}>{r.company}</span>
-                    <LinkedInBadge href={r.linkedin_url} size={14} label={`${r.company} company page`} />
-                  </div>
-                  <div className="mt-1 grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1fr)_22px] items-center gap-1.5">
-                    <span className="text-right text-[11.5px] tabular-nums text-ui-text-secondary">{r.left_to || ""}</span>
-                    <span className="flex h-2 justify-end">{r.left_to > 0 && <span className="block h-full rounded-l-sm bg-[#0A1F44] dark:bg-[#8FA3C4]" style={{ width: `${(r.left_to / maxSide) * 100}%` }} />}</span>
-                    <span className="flex h-2 border-l border-ui-border-medium">{r.joined_from > 0 && <span className="block h-full rounded-r-sm bg-[#7AC5B0]" style={{ width: `${(r.joined_from / maxSide) * 100}%` }} />}</span>
-                    <span className="text-[11.5px] tabular-nums text-ui-text-secondary">{r.joined_from || ""}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <FlowSankey base={s.base} name={s.base?.display_name ?? "This company"} hires={hires} departures={deps} focus={focus} onFocus={setFocus} />
+          {rows.length === 0 && null}
         </div>
-
+        {focus && (
+          <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/8 px-4 py-2.5 text-[13px]">
+            <span className="text-foreground">Showing {list.length} {focusSide === "joined" ? "who came from" : "who left for"} <span className="font-semibold">{list[0] ? (focusSide === "joined" ? list[0].previous_company : list[0].current_company) : focusName}</span></span>
+            <button type="button" onClick={() => setFocus(null)} className="font-medium text-primary hover:underline">Clear</button>
+          </div>
+        )}
         <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
           <div className="flex border-b border-ui-border-light p-1.5">
             {(["joined", "left"] as const).map((d) => (
               <button
                 key={d}
                 type="button"
-                onClick={() => setDir(d)}
-                className={cn("flex-1 rounded-md py-1.5 text-[12.5px] font-medium transition-colors duration-150", dir === d ? "bg-ui-surface-subtle text-ui-text-primary" : "text-ui-text-muted hover:text-ui-text-primary")}
+                onClick={() => { setDir(d); setFocus(null); }}
+                className={cn("flex-1 rounded-md py-1.5 text-[12.5px] font-medium transition-colors duration-150", effDir === d ? "bg-ui-surface-subtle text-ui-text-primary" : "text-ui-text-muted hover:text-ui-text-primary")}
               >
                 {d === "joined" ? "Started here" : "Left"} <span className="tabular-nums text-ui-text-muted">{d === "joined" ? hires.length : deps.length}</span>
               </button>
@@ -129,7 +126,7 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
           {list.length === 0 ? (
             <p className="px-4 py-10 text-center text-[13px] text-ui-text-muted">Nobody for this filter.</p>
           ) : (
-            <ul className="max-h-[420px] divide-y divide-ui-border-light overflow-y-auto">{list.map((p, i) => <MoveRow key={`${p.name}-${i}`} p={p} dir={dir} />)}</ul>
+            <ul className="max-h-[420px] divide-y divide-ui-border-light overflow-y-auto">{list.map((p, i) => <MoveRow key={`${p.name}-${i}`} p={p} dir={effDir} />)}</ul>
           )}
         </div>
       </div>

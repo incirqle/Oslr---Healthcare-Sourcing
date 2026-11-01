@@ -111,7 +111,6 @@ export function OverviewPanel({ s, onOpenGroup, onOpenMovement }: { s: CompanyBr
 
   const hc = base.headcount;
   const yoy = hc.yoy_percent;
-  const series = hc.timeseries.slice(-36);
   const maxSite = Math.max(1, ...base.sites.map((x) => x.count));
   const groups = GROUP_ORDER.map((g) => ({ g, count: s.preview?.groups.find((x) => x.group === g)?.count ?? null }));
   const mv = s.preview?.movement;
