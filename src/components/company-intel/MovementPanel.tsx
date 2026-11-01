@@ -16,8 +16,6 @@ import { monthlyNetChange } from "./regions";
 import { cn } from "@/lib/utils";
 import { FlowSankey } from "./FlowSankey";
 
-/** Profiles pulled per direction at most (matches MOVEMENT_LIMIT in the edge function). */
-const MOVEMENT_LIMIT = 100;
 
 export function MovementPanel({ s }: { s: CompanyBriefState }) {
   const mv = s.preview?.movement;
