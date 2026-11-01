@@ -201,10 +201,39 @@ function functionBreakdown(raw: unknown): { label: string; count: number }[] {
     .slice(0, 8);
 }
 
+/** Sum two LinkedIn region maps ("New York, NY": 2649 + "West Palm Beach, FL": 4 from a sibling page). */
+function mergeRegions(a: unknown, b: unknown): Record<string, number> | null {
+  const out: Record<string, number> = {};
+  for (const src of [a, b]) {
+    if (!src || typeof src !== "object") continue;
+    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
+      if (typeof v === "number" && v > 0) out[k] = (out[k] ?? 0) + v;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 async function buildBase(identified: Identified, preferDomain: string | null) {
   const raw = await cdPostV2("/company/enrich", { crustdata_company_ids: [identified.company_id], fields: [...ENRICH_FIELDS] });
   const match = matchesOf(firstResult(raw))[0];
   const e = match ? mapEnrichment(match.company_data, preferDomain) : null;
+  // Hand-mapped sibling pages (HSS Florida, UCHealth arms) carry their own
+  // region footprint; enrich them once and merge so "where staff work" is complete.
+  let siblingRegions: Record<string, number> | null = null;
+  let siblingOffices: string[] = [];
+  if (identified.premapped) {
+    const extraIds = identified.all_ids.filter((id) => id !== identified.company_id).slice(0, 6);
+    if (extraIds.length) {
+      const sibRaw = await cdPostV2("/company/enrich", { crustdata_company_ids: extraIds, fields: ["headcount", "locations"] });
+      for (const m of matchesOf(firstResult(sibRaw))) {
+        const se = mapEnrichment(m.company_data, preferDomain);
+        const shc = (se?.headcount ?? null) as Any;
+        siblingRegions = mergeRegions(siblingRegions, shc?.linkedin_headcount_by_region_absolute);
+        siblingOffices.push(...(se?.office_addresses ?? []));
+      }
+    }
+  }
+  const mergedRegions = mergeRegions((e?.headcount as Any)?.linkedin_headcount_by_region_absolute, siblingRegions);
   const hc = (e?.headcount ?? null) as Any;
   const legal = e?.company_name || identified.company_name;
   const total: number | null = hc?.linkedin_headcount ?? headcountFromRange(e?.employee_count_range ?? identified.employee_count_range);
