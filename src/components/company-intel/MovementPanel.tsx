@@ -10,7 +10,7 @@ import type { CompanyBriefState, MovementPerson } from "@/hooks/useCompanyBrief"
 import { PersonAvatar } from "./PersonAvatar";
 import { LinkedInBadge } from "./LinkedInBadge";
 import { Chip } from "./PeoplePanel";
-import { fmtCount, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter, netFlow } from "./brief-utils";
+import { fmtCount, fmtMonth, inMoveFilter, MOVE_FILTERS, type MoveFilter } from "./brief-utils";
 import { cn } from "@/lib/utils";
 import { FlowSankey } from "./FlowSankey";
 
@@ -71,7 +71,6 @@ function MovementResults({ s }: { s: CompanyBriefState }) {
   const deps = m.departures.filter((p) => inMoveFilter(p, f));
   const focusName = focus ? focus.slice(focus.indexOf(":") + 1) : null;
   const focusSide = focus?.startsWith("from:") ? "joined" : focus ? "left" : null;
-  const rows = netFlow(hires, deps);
   const effDir = focusSide ?? dir;
   const list = (effDir === "joined" ? hires : deps).filter((p) => !focusName || ((effDir === "joined" ? p.previous_company : p.current_company) ?? "").trim().toLowerCase() === focusName);
   const ex = m.excluded;

@@ -47,7 +47,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
       role="button"
       tabIndex={0}
       aria-label={`Open ${p.full_name ?? ""} full profile`}
-      onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, label, [role=checkbox]")) onOpen(); }}
+      onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, label, [role=checkbox], [data-noopen]")) onOpen(); }}
       onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) onOpen(); }}
       className={cn(
       "agent-enter cursor-pointer rounded-2xl border bg-card/80 p-4 backdrop-blur transition-[border-color,box-shadow,transform] duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -93,7 +93,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
       </div>
 
       {!decision && draft && (
-        <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-background/50 p-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
+        <div data-noopen className="mt-4 cursor-default space-y-3 rounded-xl border border-border/60 bg-background/50 p-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
           <p className="text-[13px] font-medium">{draft === "approved" ? "What did you like? Pick any." : "Why not? Pick any."}</p>
           <div className="flex flex-wrap gap-2">
             {options.map((t) => {
