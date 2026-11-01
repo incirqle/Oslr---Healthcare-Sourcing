@@ -13,6 +13,14 @@ import { PersonAvatar } from "./PersonAvatar";
 import { fmtCount, fmtMonth, GROUP_LABEL, GROUP_ORDER, OWNERSHIP_LABEL } from "./brief-utils";
 import { cn } from "@/lib/utils";
 
+/** Cached companies predate server-side founded-year backfill: read it out of the description ("Founded in 1863"). */
+function yearFromDescription(description: string | null | undefined): number | null {
+  if (!description) return null;
+  const m = /(?:founded|established|started|opened)(?:\s+in)?\s+(?:the\s+year\s+)?(1[5-9]\d{2}|20\d{2})\b/i.exec(description)
+    ?? /\bsince\s+(1[5-9]\d{2}|20\d{2})\b/i.exec(description);
+  return m ? Number(m[1]) : null;
+}
+
 function initialsOf(name: string) {
   return name.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(and|of|the)$/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 }
