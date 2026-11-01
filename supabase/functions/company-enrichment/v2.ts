@@ -333,9 +333,23 @@ export interface MappedEnrichment {
   competitor_domains: string[];
 }
 
+/** Founded year: a number, a numeric string ("1863"), alternate keys, or "founded in 1863" in the description. */
+function parseYearFounded(b: Any, description: string | null): number | null {
+  const direct = b.year_founded ?? b.founded_year ?? b.yearFounded ?? b.founded ?? null;
+  const num = typeof direct === "number" ? direct : typeof direct === "string" ? Number(direct.trim()) : NaN;
+  if (Number.isInteger(num) && num > 1500 && num <= new Date().getFullYear()) return num;
+  if (description) {
+    const m = /(?:founded|established|started|opened)(?:\s+in)?\s+(?:the\s+year\s+)?(1[5-9]\d{2}|20\d{2})\b/i.exec(description)
+      ?? /\bsince\s+(1[5-9]\d{2}|20\d{2})\b/i.exec(description);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
 /** One /company/enrich match's company_data → everything the panel contract needs. */
 export function mapEnrichment(cd: Any, preferDomain: string | null = null): MappedEnrichment {
   const b = cd?.basic_info ?? {};
+  const description: string | null = typeof b.description === "string" && b.description ? b.description : null;
   const loc = cd?.locations ?? {};
   const hqStr: string | null = typeof loc.headquarters === "string" && loc.headquarters ? loc.headquarters : null;
   const hqParts = hqStr ? hqStr.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
@@ -349,8 +363,8 @@ export function mapEnrichment(cd: Any, preferDomain: string | null = null): Mapp
     company_website_domain: primaryDomain,
     linkedin_profile_url: typeof b.professional_network_url === "string" ? b.professional_network_url : null,
     linkedin_logo_url: typeof b.logo_permalink === "string" ? b.logo_permalink : null,
-    description: typeof b.description === "string" ? b.description : null,
-    year_founded: typeof b.year_founded === "number" ? b.year_founded : null,
+    description,
+    year_founded: parseYearFounded(b, description),
     employee_count_range: typeof b.employee_count_range === "string" ? b.employee_count_range : null,
     company_type: typeof b.company_type === "string" ? b.company_type : null,
     headquarters: hqStr,
