@@ -45,7 +45,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 /** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
 const CREDITS_PER_PROFILE = 0.03;
 const DAY = 24 * 60 * 60 * 1000;
