@@ -2,6 +2,7 @@ import type { ComponentType } from 'npm:react@18.3.1'
 import { template as billingNotice } from './billing-notice.tsx'
 import { template as billingAlert } from './billing-alert.tsx'
 import { template as demoRequest } from './demo-request.tsx'
+import { template as teamInvite } from './team-invite.tsx'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -24,4 +25,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'billing-notice': billingNotice,
   'billing-alert': billingAlert,
   'demo-request': demoRequest,
+  'team-invite': teamInvite,
 }
