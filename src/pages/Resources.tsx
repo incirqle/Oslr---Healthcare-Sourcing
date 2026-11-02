@@ -5,7 +5,7 @@ import { ResourceArticlePage } from "@/components/resources/ResourceArticle";
 import { CategoryIndex } from "@/components/resources/CategoryIndex";
 import { findArticle, ResourceCategory } from "@/content/resources/manifest";
 
-const CATEGORY_INDEX_SLUGS = new Set<string>(["best-practices", "templates"]);
+const CATEGORY_INDEX_SLUGS = new Set<string>(["best-practices", "account-billing"]);
 
 /**
  * Single shell for /resources/* — parses the wildcard path and dispatches

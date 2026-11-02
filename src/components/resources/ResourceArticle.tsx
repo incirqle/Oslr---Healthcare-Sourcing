@@ -79,7 +79,7 @@ export function ResourceArticlePage({ slug }: { slug: string }) {
   const categoryLabel = CATEGORY_LABELS[article.category];
   // Category index path only exists for best-practices and templates
   const hasCategoryIndex =
-    article.category === "best-practices" || article.category === "templates";
+    article.category === "best-practices" || article.category === "account-billing";
   const categoryHref = hasCategoryIndex ? `/resources/${article.category}` : null;
 
   return (

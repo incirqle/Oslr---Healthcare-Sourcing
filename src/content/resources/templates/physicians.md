@@ -1,3 +1,0 @@
-# Physicians (attending)
-
-Content coming.
