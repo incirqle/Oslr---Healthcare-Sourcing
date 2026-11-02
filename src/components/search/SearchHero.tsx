@@ -32,27 +32,38 @@ export function SearchHero({ onSearch, loading, projectName }: SearchHeroProps) 
   };
 
   return (
-    <div className="relative flex min-h-[62vh] flex-col items-center justify-center px-4">
+    <div className="relative flex min-h-[70vh] flex-col items-center justify-center px-4 py-12">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-[18%] h-[420px] w-[620px] -translate-x-1/2 rounded-full bg-mint/10 blur-[120px]" />
+        <div className="absolute left-1/2 top-[12%] h-[460px] w-[760px] -translate-x-1/2 rounded-full bg-mint/15 blur-[130px]" />
+        <div className="absolute right-[12%] top-[40%] h-[260px] w-[320px] rounded-full bg-primary/10 blur-[110px]" />
       </div>
 
-      <motion.p {...enter(0)} className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-mint-ink">
-        {projectName ? "Searching inside your project" : "Every search becomes a project"}
-      </motion.p>
+      {projectName && (
+        <motion.p {...enter(0)} className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-mint-ink">
+          Searching inside {projectName}
+        </motion.p>
+      )}
 
       <motion.h1
         {...enter(0.03)}
-        className="text-center font-display text-[2.5rem] font-bold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-5xl"
+        className="text-center font-display text-5xl font-bold leading-[1.1] tracking-[-0.02em] text-foreground sm:text-6xl md:text-7xl"
       >
-        Talent Search
+        Talent{" "}
+        <motion.span
+          className="inline-block bg-gradient-to-r from-emerald-500 via-primary to-teal-500 bg-clip-text pb-1 text-transparent"
+          animate={reduce ? undefined : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+          style={{ backgroundSize: "200% 200%" }}
+          transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+        >
+          Search
+        </motion.span>
       </motion.h1>
 
-      <motion.p {...enter(0.06)} className="mt-3 max-w-md text-center text-[15px] leading-relaxed text-muted-foreground">
+      <motion.p {...enter(0.06)} className="mt-5 max-w-lg text-center text-base leading-relaxed text-muted-foreground sm:text-lg">
         Describe the clinician you need. Specialty, training, location, employer.
       </motion.p>
 
-      <motion.div {...enter(0.09)} className="mt-8 w-full max-w-2xl">
+      <motion.div {...enter(0.09)} className="mt-12 w-full max-w-3xl">
         <form
           onSubmit={(e) => { e.preventDefault(); submit(); }}
           className="group relative rounded-[22px] border border-border/70 bg-card/80 p-2 shadow-[0_1px_0_hsl(var(--foreground)/0.04),0_18px_40px_-24px_hsl(var(--mint)/0.45)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 focus-within:border-mint/60 focus-within:shadow-[0_0_0_4px_hsl(var(--mint)/0.12),0_18px_40px_-20px_hsl(var(--mint)/0.5)]"
