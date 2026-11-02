@@ -2,7 +2,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
-import { ActiveAgentsStrip } from "@/components/agents/ActiveAgentsStrip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -329,8 +328,6 @@ export default function ProjectDetail() {
         </div>
 
         <ProjectWorkspace projectId={id!} ownerId={project.created_by} createdAt={project.created_at} />
-
-        <ActiveAgentsStrip projectId={id} />
 
         {/* Pipeline summary */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

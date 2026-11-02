@@ -63,6 +63,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <BreadcrumbSeparator />
                     <BreadcrumbItem className="min-w-0"><BreadcrumbLink asChild><Link className="max-w-[180px] truncate sm:max-w-[320px]" to={projectPath(projectId)}>{project?.name ?? "Loading project…"}</Link></BreadcrumbLink></BreadcrumbItem>
                     <BreadcrumbSeparator />
+                    {context.agentId && <><BreadcrumbItem><BreadcrumbLink asChild><Link to={projectPath(projectId, "agents")}>Agents</Link></BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /></>}
                   </>}
                   <BreadcrumbItem>
                     <BreadcrumbPage className="max-w-[180px] truncate text-sm font-medium">{projectId ? agent?.name ?? sectionName : currentPage}</BreadcrumbPage>

@@ -28,4 +28,4 @@
 - [ ] Configure per-seat charging (blocked: current Stripe subscriptions charge quantity one; additional-seat price and charge timing have not been agreed).
 - [ ] Google sign-in as a pop-up on the auth page: blocked on the Google consent screen / oslr.health OAuth client setup (Google rejected the shared lovable.app domain); code side not started.
 - [ ] Paywall plan screen (PaywallChoice) rebuilt with live Stripe prices but not seen on screen: this account has full access, so the paywall never renders; the shared plan picker was verified inside the checkout window instead.
-- [ ] Keep project context visible across candidates, Talent Search, agents, and connections; fix project links and verify signed-in navigation.
+- [x] Keep project context visible across candidates, Talent Search, agents, and connections; verified signed in on Southwest pain physicians, including agent destination and return paths; four navigation tests passed.
