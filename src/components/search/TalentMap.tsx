@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { geoAlbersUsa, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
-import type { Topology, GeometryCollection } from "topojson-specification";
 import statesTopo from "us-atlas/states-10m.json";
 import { toTitleCase } from "./candidate-ui";
 
@@ -21,7 +20,8 @@ export function TalentMap({ states, onSelect, selected }: {
   const max = Math.max(1, ...states.map((s) => s.count));
 
   const shapes = useMemo(() => {
-    const topo = statesTopo as unknown as Topology<{ states: GeometryCollection<{ name: string }> }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const topo = statesTopo as any;
     const fc = feature(topo, topo.objects.states) as unknown as GeoJSON.FeatureCollection<GeoJSON.Geometry, { name: string }>;
     const projection = geoAlbersUsa().fitSize([W, H], fc);
     const path = geoPath(projection);
