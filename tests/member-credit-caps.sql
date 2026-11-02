@@ -1,10 +1,12 @@
 -- Run inside a disposable transaction; always rolls back test data.
 BEGIN;
 DO $$
-DECLARE c uuid; u uuid := gen_random_uuid(); before_balance integer; failed boolean := false;
+DECLARE c uuid; u uuid; before_balance integer; failed boolean := false;
 BEGIN
  INSERT INTO public.companies(name) VALUES('Credit cap rollback test') RETURNING id INTO c;
- INSERT INTO public.profiles(user_id,company_id,email) VALUES(u,c,'cap-test@example.invalid');
+ SELECT user_id INTO u FROM public.profiles LIMIT 1;
+ IF u IS NULL THEN RAISE EXCEPTION 'An existing auth user is required for the rollback test'; END IF;
+ UPDATE public.profiles SET company_id=c WHERE user_id=u;
  INSERT INTO public.member_credit_limits(company_id,user_id,monthly_limit) VALUES(c,u,3);
  UPDATE public.credit_balances SET balance=100 WHERE company_id=c;
  PERFORM public.charge_contact_credits(c,u,'[{"kind":"phone","cost":3}]'::jsonb,'Test','test:cap');
