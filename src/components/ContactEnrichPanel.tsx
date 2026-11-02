@@ -66,7 +66,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
           <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ui-text-primary">Contact</h3>
           <p className="text-[13px] text-ui-text-muted">{state.unlimited ? "Included in your unlimited pass. Saved forever." : "Charged only when we find it. Saved forever."}</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[12px] font-medium tabular-nums text-primary">
+        <span className="inline-flex items-center gap-1 rounded-full bg-mint/10 px-2.5 py-1 text-[12px] font-medium tabular-nums text-mint-ink">
           <Zap className="h-3 w-3" />
           {state.unlimited ? "Unlimited" : `${state.balance ?? "-"} credits`}
         </span>
@@ -88,7 +88,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
               <span
                 className={cn(
                   "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150",
-                  r.status === "found" ? "bg-primary/15 text-primary" : "bg-muted text-ui-text-muted",
+                  r.status === "found" ? "bg-mint/15 text-mint-ink" : "bg-muted text-ui-text-muted",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -97,7 +97,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-medium text-ui-text-muted">{r.label}</p>
                 {r.status === "found" && r.value ? (
-                  <a href={href} className="block truncate text-[15px] text-ui-text-primary hover:text-primary">
+                  <a href={href} className="block truncate text-[15px] text-ui-text-primary hover:text-mint-ink">
                     {r.value}
                   </a>
                 ) : r.status === "missing" ? (
@@ -117,7 +117,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
                   aria-label={`Copy ${r.label}`}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-ui-text-muted transition-transform duration-100 ease-out hover:bg-muted active:scale-90"
                 >
-                  {copied === r.value ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                  {copied === r.value ? <Check className="h-4 w-4 text-mint-ink" /> : <Copy className="h-4 w-4" />}
                 </button>
               ) : r.status === "available" ? (
                 <button
@@ -128,7 +128,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
                   onClick={() => toggle(r.kind as ContactKind)}
                   className={cn(
                     "relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200 active:scale-95",
-                    isOn ? "bg-primary" : "bg-muted",
+                    isOn ? "bg-mint" : "bg-muted",
                   )}
                 >
                   <span
@@ -149,7 +149,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
           type="button"
           disabled={busy || maxCost === 0}
           onClick={() => onEnrich(chosen)}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-semibold text-primary-foreground transition-[transform,opacity] duration-100 ease-out active:scale-[0.98] disabled:opacity-40"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-mint text-[15px] font-semibold text-mint-foreground hover:bg-mint-ink transition-[transform,opacity] duration-100 ease-out active:scale-[0.98] disabled:opacity-40"
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
