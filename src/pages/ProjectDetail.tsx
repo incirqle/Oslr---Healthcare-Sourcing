@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ExportMenu } from "@/components/ExportMenu";
 import { LiveSyncDialog } from "@/components/LiveSyncDialog";
+import { ProjectWorkspace } from "@/components/projects/ProjectWorkspace";
 import { SendToSystem } from "@/components/SendToSystem";
 import { BulkEnrichDialog } from "@/components/BulkEnrichDialog";
 import type { AnyCandidate } from "@/lib/candidate-export-adapter";
@@ -326,6 +327,8 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
+
+        <ProjectWorkspace projectId={id!} ownerId={project.created_by} createdAt={project.created_at} />
 
         <ActiveAgentsStrip projectId={id} />
 
