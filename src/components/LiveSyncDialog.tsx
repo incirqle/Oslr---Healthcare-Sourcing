@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { SheetsLogo, SlackLogo, ExcelLogo } from "@/components/agents/AgentConnections";
 import { Check, Copy, ExternalLink, FileSpreadsheet, Loader2, RefreshCw, Slack, Table2, Trash2, Zap } from "lucide-react";
 
 type Destination = {
@@ -107,7 +108,7 @@ export function LiveSyncDialog({ projectId }: { projectId: string }) {
           <div className="space-y-3">
             {/* Google Sheets */}
             <section className="rounded-xl border border-border p-4 space-y-3">
-              <div className="flex items-center gap-2 font-medium text-sm"><FileSpreadsheet className="h-4 w-4 text-primary" />Google Sheets</div>
+              <div className="flex items-center gap-2 font-medium text-sm"><SheetsLogo className="h-5 w-5" />Google Sheets</div>
               {sheet ? (
                 <div className="space-y-2">
                   <a href={sheet.sheet_url ?? "#"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
@@ -145,7 +146,7 @@ export function LiveSyncDialog({ projectId }: { projectId: string }) {
 
             {/* Slack */}
             <section className="rounded-xl border border-border p-4 space-y-3">
-              <div className="flex items-center gap-2 font-medium text-sm"><Slack className="h-4 w-4 text-primary" />Slack</div>
+              <div className="flex items-center gap-2 font-medium text-sm"><SlackLogo className="h-5 w-5" />Slack</div>
               {slacks.map((s) => (
                 <div key={s.id} className="flex items-center justify-between gap-2 text-sm">
                   <div className="min-w-0">
@@ -172,7 +173,7 @@ export function LiveSyncDialog({ projectId }: { projectId: string }) {
 
             {/* Excel */}
             <section className="rounded-xl border border-border p-4 space-y-3">
-              <div className="flex items-center gap-2 font-medium text-sm"><Table2 className="h-4 w-4 text-primary" />Excel</div>
+              <div className="flex items-center gap-2 font-medium text-sm"><ExcelLogo className="h-5 w-5" />Excel</div>
               {excel?.feed_token ? (
                 <div className="space-y-2">
                   <div className="flex gap-2">
