@@ -20,3 +20,5 @@
 - [x] Integrations page (side menu and Settings tab) with curated ATS/CRM list, Pro and Enterprise gate, Send to ATS or CRM on projects; Salesforce logo fixed.
 - [ ] Test a real Merge connection end to end (blocked: needs a Pro workspace and a test ATS or CRM login).
 - [ ] Ask Merge to turn on iCIMS and Bullhorn betas; Greenhouse partner form (blocked: done in Merge/Greenhouse by you).
+- [ ] Rebuild full-width Settings with workspace, teams, shared-credit limits, billing invoices and usage.
+- [ ] Verify Settings signed in, enforced member caps and official invoice delivery without changing existing prices.
