@@ -244,7 +244,11 @@ export default function SearchPage() {
   const displayRows = useMemo(() => {
     const base = analyticsFilter?.kind === "criterion"
       ? ranked.kept.filter((c) => (c.criteria_results?.find((r) => r.criterion_id === analyticsFilter.id)?.status ?? "unknown") === analyticsFilter.status)
-      : ranked.kept;
+      : analyticsFilter?.kind === "state"
+        ? ranked.kept.filter((c) => stateOf(c) === analyticsFilter.state)
+        : analyticsFilter?.kind === "employer"
+          ? ranked.kept.filter((c) => (c.current_employer ?? "").trim() === analyticsFilter.employer)
+          : ranked.kept;
     if (view !== "table" || !tableSort) return base;
     if (tableSort.key === "criterion") return sortByCriterion(base, tableSort.id);
     return tableSort.dir === "desc" ? base : [...base].reverse();
