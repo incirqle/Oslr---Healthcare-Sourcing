@@ -48,11 +48,19 @@ export default function Auth() {
   // Already signed in (including the return trip from Google): go into the app.
   const { user, loading: authLoading } = useAuth();
   useEffect(() => {
-    if (!authLoading && user) navigate("/dashboard", { replace: true });
-  }, [user, authLoading, navigate]);
+    if (authLoading || !user) return;
+    const pending = inviteToken || sessionStorage.getItem("oslr-pending-invite");
+    if (!pending) { navigate("/dashboard", { replace: true }); return; }
+    supabase.rpc("accept_workspace_invite", { _token: pending }).then(({ error }) => {
+      sessionStorage.removeItem("oslr-pending-invite");
+      if (error) { toast.error(error.message); return; }
+      window.location.assign("/settings?tab=team");
+    });
+  }, [user, authLoading, navigate, inviteToken]);
 
   const handleGoogle = async () => {
     setLoading(true);
+    if (inviteToken) sessionStorage.setItem("oslr-pending-invite", inviteToken);
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: `${window.location.origin}/auth`,
     });
@@ -62,7 +70,7 @@ export default function Auth() {
       return;
     }
     if (result.redirected) return;
-    navigate("/dashboard");
+    if (!inviteToken) navigate("/dashboard");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,7 +99,7 @@ export default function Auth() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/dashboard");
+        if (!inviteToken) navigate("/dashboard");
       }
     } catch (error: any) {
       const msg = String(error?.message ?? "");

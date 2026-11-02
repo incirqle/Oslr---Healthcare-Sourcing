@@ -20,3 +20,9 @@
 - [x] Integrations page (side menu and Settings tab) with curated ATS/CRM list, Pro and Enterprise gate, Send to ATS or CRM on projects; Salesforce logo fixed.
 - [ ] Test a real Merge connection end to end (blocked: needs a Pro workspace and a test ATS or CRM login).
 - [ ] Ask Merge to turn on iCIMS and Bullhorn betas; Greenhouse partner form (blocked: done in Merge/Greenhouse by you).
+- [x] Rebuild full-width Settings with workspace, teams, shared-credit limits, billing invoices and usage; existing prices unchanged and catalog read directly from Stripe.
+- [x] Verify Settings signed in and saved zero-credit member cap blocks contact lookups before provider calls; restore original cap. Pricing/agent tests: 14 passed; reporting test: passed.
+- [ ] Verify official invoice PDF download with a real invoice (blocked: requesting workspace has no invoices).
+- [ ] Verify team invitation delivery and acceptance in a paid team (blocked: requesting workspace has one seat and no available teammate seat).
+- [ ] Run atomic credit-cap rollback SQL test (blocked: sandbox database role cannot update profiles; no test data persisted).
+- [ ] Configure per-seat charging (blocked: current Stripe subscriptions charge quantity one; additional-seat price and charge timing have not been agreed).

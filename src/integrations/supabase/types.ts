@@ -1746,6 +1746,35 @@ export type Database = {
           },
         ]
       }
+      member_credit_limits: {
+        Row: {
+          company_id: string
+          monthly_limit: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          monthly_limit: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          monthly_limit?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_credit_limits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oslr_searches: {
         Row: {
           created_at: string | null
@@ -2316,6 +2345,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_workspace_invite: { Args: { _token: string }; Returns: string }
       beta_status: {
         Args: never
         Returns: {
@@ -2326,6 +2356,16 @@ export type Database = {
           search_limit: number
           searches_used: number
         }[]
+      }
+      charge_contact_credits: {
+        Args: {
+          _candidate_name: string
+          _company_id: string
+          _kinds: Json
+          _linkedin_url: string
+          _user_id: string
+        }
+        Returns: number
       }
       claim_export_outbox: {
         Args: { _limit?: number }
@@ -2398,6 +2438,10 @@ export type Database = {
       is_company_member: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
+      }
+      member_credit_remaining: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: number
       }
       redeem_beta_code: { Args: { _code: string }; Returns: boolean }
       reset_monthly_credits: {

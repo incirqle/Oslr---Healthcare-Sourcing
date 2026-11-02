@@ -120,6 +120,13 @@
       "when": 1793485842922,
       "tag": "0016_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793588397150,
+      "tag": "0017_workspace_credit_limits_and_safe_invites",
+      "breakpoints": true
     }
   ]
 }
