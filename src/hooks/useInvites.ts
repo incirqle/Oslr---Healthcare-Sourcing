@@ -22,10 +22,11 @@ export function useInvites() {
     queryKey: ["company_invites", companyId],
     enabled: !!companyId,
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("company_invites")
         .select("*")
-        .eq("company_id", companyId!)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as CompanyInvite[];
@@ -48,14 +49,16 @@ export function useInvites() {
         .single();
       if (error) throw error;
       // Fire-and-forget the email send; surface failure but don't block.
+      let emailSent = false;
       try {
-        await supabase.functions.invoke("send-invite", {
+        const result = await supabase.functions.invoke("send-invite", {
           body: { invite_id: invite.id },
         });
+        emailSent = !result.error && result.data?.emailSent === true;
       } catch (e) {
         // Swallow: invite still exists; admin can resend.
       }
-      return invite as CompanyInvite;
+      return { ...invite, emailSent } as CompanyInvite & { emailSent: boolean };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["company_invites", companyId] });

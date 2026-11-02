@@ -90,6 +90,12 @@ export async function handleEnrichContact(
   if (!canLookupContact(unlimited, balance, maxCost)) {
     return { status: 402, payload: { ...summary(), error: "insufficient_credits", needed: maxCost } };
   }
+  if (!unlimited) {
+    const { data: remaining, error } = await db.rpc("member_credit_remaining", { _company_id: companyId, _user_id: caller.userId });
+    if (error || (typeof remaining === "number" && remaining < maxCost)) {
+      return { status: 402, payload: { ...summary(), error: "Your monthly credit limit has been reached. Ask your workspace admin to raise it." } };
+    }
+  }
 
   // Primary provider: instant lookup first, batch pipeline only if it errors.
   const wanted = toFetch.map((k) => FIELD[k]);
@@ -128,17 +134,13 @@ export async function handleEnrichContact(
 
   const charge = contactCharge(unlimited, found.map((k) => PRICES[k]));
   if (charge > 0) {
-    const { data: newBal, error } = await db.rpc("spend_credits", { _company_id: companyId, _amount: charge });
-    if (error) return { status: 402, payload: { ...summary(), error: "insufficient_credits", needed: charge } };
+    const { data: newBal, error } = await db.rpc("charge_contact_credits", {
+      _company_id: companyId, _user_id: caller.userId,
+      _kinds: found.map((k) => ({ kind: k, cost: PRICES[k] })),
+      _candidate_name: candidateName, _linkedin_url: url,
+    });
+    if (error) return { status: 402, payload: { ...summary(), error: error.message.includes("monthly credit limit") ? "Your monthly credit limit has been reached. Ask your workspace admin to raise it." : "insufficient_credits", needed: charge } };
     balance = newBal as number;
-    await db.from("credit_transactions").insert(found.map((k) => ({
-      company_id: companyId,
-      user_id: caller.userId,
-      kind: k,
-      credits: -PRICES[k],
-      candidate_name: candidateName,
-      linkedin_url: url,
-    })));
   }
 
   await db.from("contact_unlocks").upsert({

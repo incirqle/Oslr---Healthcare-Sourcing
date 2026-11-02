@@ -2,13 +2,11 @@
 // Every paid plan invoice grants its credits exactly once (keyed by invoice id).
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { corsHeaders as cors } from "npm:@supabase/supabase-js@2/cors";
+import { z } from "npm:zod@3";
 
 import { type Account, creditsForSeats, monthIndex, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -26,9 +24,14 @@ Deno.serve(async (req) => {
     const companyId = prof?.company_id as string | undefined;
     if (!companyId) return json({ error: "No workspace found." }, 400);
 
-    const body = await req.json().catch(() => ({}));
+    const parsed = z.object({ action: z.enum(["status", "checkout", "portal", "upgrade", "invoices", "invoice_pdf", "catalog"]).optional(), origin: z.string().url().optional(), plan: z.enum(["starter", "pro", "beta"]).optional(), interval: z.enum(["month", "year"]).optional(), embedded: z.boolean().optional(), invoice_id: z.string().regex(/^in_[A-Za-z0-9]+$/).optional() }).safeParse(await req.json().catch(() => ({})));
+    if (!parsed.success) return json({ error: "Invalid billing request." }, 400);
+    const body = parsed.data;
     const action = body?.action;
-    const origin = typeof body?.origin === "string" && /^https?:\/\//.test(body.origin) ? body.origin : "https://oslr.health";
+    const { data: isAdmin } = await db.rpc("has_company_role", { _user_id: user.id, _company_id: companyId, _role: "admin" });
+    if (["checkout", "portal", "upgrade", "invoices", "invoice_pdf"].includes(action ?? "") && !isAdmin) return json({ error: "Only workspace admins can manage billing." }, 403);
+    const requestedOrigin = body.origin ? new URL(body.origin).origin : "https://oslr.health";
+    const origin = requestedOrigin === "https://oslr.health" || requestedOrigin === "http://localhost:8080" || /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(requestedOrigin) ? requestedOrigin : "https://oslr.health";
     const api = { apiVersion: "2025-08-27.basil" } as const;
     const oslr = new Stripe(Deno.env.get("STRIPE_OSLR_SECRET_KEY")!, api);
     const legacyKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -38,10 +41,14 @@ Deno.serve(async (req) => {
     const findCustomer = async (s: Stripe) => {
       const found = await s.customers.search({ query: `metadata['company_id']:'${companyId}'`, limit: 1 }).catch(() => null);
       let id = found?.data[0]?.id;
-      if (!id) {
+      if (!id && isAdmin) {
         const byEmail = await s.customers.list({ email: user.email, limit: 1 });
         id = byEmail.data[0]?.id;
-        if (id) await s.customers.update(id, { metadata: { company_id: companyId } });
+        if (id) {
+          const customer = byEmail.data[0];
+          if (customer.metadata.company_id && customer.metadata.company_id !== companyId) return undefined;
+          await s.customers.update(id, { metadata: { company_id: companyId } });
+        }
       }
       return id;
     };
@@ -63,6 +70,34 @@ Deno.serve(async (req) => {
     const email = user.email.toLowerCase();
     const { data: betaRow } = await db.from("beta_plan_invites").select("email").eq("email", email).maybeSingle();
     const betaEligible = !!betaRow;
+
+    if (action === "catalog") {
+      const plans = await Promise.all((["starter", "pro", ...(betaEligible ? ["beta"] : [])] as PlanId[]).map(async (plan) => {
+        const prices = await Promise.all((plan === "beta" ? ["month"] : ["month", "year"]).map(async (interval) => {
+          const price = await stripe.prices.retrieve(priceFor(plan, interval as Interval, account));
+          return { interval, amount: price.unit_amount, currency: price.currency };
+        }));
+        return { id: plan, ...PLANS[plan], prices, contact_costs: PLANS[plan].prices };
+      }));
+      return json({ plans });
+    }
+    if (action === "invoices") {
+      if (!customerId) return json({ invoices: [], payment_method: null });
+      const invoices = await stripe.invoices.list({ customer: customerId, limit: 12 });
+      const customer = await stripe.customers.retrieve(customerId, { expand: ["invoice_settings.default_payment_method"] });
+      const method = !customer.deleted ? customer.invoice_settings.default_payment_method : null;
+      const card = typeof method === "object" && method ? method.card : null;
+      return json({ invoices: invoices.data.map((i) => ({ id: i.id, number: i.number, created: i.created, amount: i.total, currency: i.currency, status: i.status, hosted_url: i.hosted_invoice_url, has_pdf: !!i.invoice_pdf })), payment_method: card ? { brand: card.brand, last4: card.last4, exp_month: card.exp_month, exp_year: card.exp_year } : null });
+    }
+    if (action === "invoice_pdf") {
+      if (!customerId || !body.invoice_id) return json({ error: "Invoice not found." }, 404);
+      const invoice = await stripe.invoices.retrieve(body.invoice_id);
+      const invoiceCustomer = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      if (invoiceCustomer !== customerId || !invoice.invoice_pdf) return json({ error: "Invoice not found." }, 404);
+      const file = await fetch(invoice.invoice_pdf);
+      if (!file.ok) return json({ error: "Invoice download is unavailable." }, 502);
+      return new Response(await file.arrayBuffer(), { headers: { ...cors, "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="oslr-invoice-${invoice.id}.pdf"` } });
+    }
 
     if (action === "checkout") {
       if (account === "legacy") return json({ error: "Your workspace already has a plan. Use Manage billing to change it." }, 400);
@@ -107,7 +142,8 @@ Deno.serve(async (req) => {
 
     type Sub = { id: string; status: string; cancel_at_period_end: boolean; items: { data: { id: string; price: { id: string }; current_period_start?: number; current_period_end?: number }[] } };
     const findLive = async () => {
-      const subs = await stripe.subscriptions.list({ customer: customerId!, status: "all", limit: 10 });
+      if (!customerId) return undefined;
+      const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
       return (subs.data as unknown as Sub[]).find((s) =>
         s.items.data.some((i) => PRICE_IDS[i.price.id]) && ["active", "trialing", "past_due"].includes(s.status));
     };
