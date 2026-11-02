@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PaywallChoice, BetaEnded } from "@/components/BetaScreens";
 import { EmbeddedCheckoutDialog } from "@/components/EmbeddedCheckoutDialog";
 import { stripePromise } from "@/lib/stripe";
+import type { PlanSelection } from "@/components/PlanPicker";
 
 const IS_PREVIEW = window.location.hostname.includes("-preview--");
 
@@ -104,8 +105,13 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const { access, msg, checkout, recheck } = usePaidAccess(user?.id, () => { void signOut(); });
   const [embeddedOpen, setEmbeddedOpen] = useState(false);
-  const startCheckout = () => (stripePromise ? setEmbeddedOpen(true) : checkout());
-  const embedded = <EmbeddedCheckoutDialog open={embeddedOpen} onOpenChange={setEmbeddedOpen} />;
+  const [selection, setSelection] = useState<PlanSelection>({ plan: "starter", interval: "month" });
+  const startCheckout = (sel: PlanSelection = selection) => {
+    setSelection(sel);
+    if (stripePromise) setEmbeddedOpen(true);
+    else checkout();
+  };
+  const embedded = <EmbeddedCheckoutDialog open={embeddedOpen} onOpenChange={setEmbeddedOpen} plan={selection.plan} interval={selection.interval} />;
 
   // Editor preview without a sign-in stays open for building.
   if (IS_PREVIEW && !user && !loading) return <>{children}</>;

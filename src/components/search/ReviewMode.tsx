@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Quote, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ListCollapse, ListPlus, Quote, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Candidate, CandidateCriterionResult } from "./SearchResults";
+import type { Candidate, CandidateCriterionResult, CriterionVerdict } from "./SearchResults";
 import { VerdictPill } from "./EngineDetails";
-import { PersonAvatar } from "./Avatars";
-import { cleanDisplayName, LinkedInMark, normalizeLinkedInUrl, toTitleCase } from "./candidate-ui";
+import { faviconUrl, OrgLogo, PersonAvatar } from "./Avatars";
+import { cleanDisplayName, formatDateLabelSmart, LinkedInMark, normalizeLinkedInUrl, toTitleCase } from "./candidate-ui";
 import { useCandidateFits, useSetCandidateFit, type FitStatus } from "@/hooks/useCandidateFit";
 import { sectionLabel, type RankingCriterion } from "@/lib/ranking";
 
@@ -15,7 +15,6 @@ type Tab = "experience" | "education" | "skills";
 type Row = Record<string, any>;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
-const ym = (v: unknown) => str(v).slice(0, 7);
 
 /**
  * Profile lines keyed by the same section ids the grader cites
@@ -46,6 +45,56 @@ function profileSections(c: Candidate) {
 
 const tabOf = (section: string): Tab => (section.startsWith("edu") ? "education" : "experience");
 
+/** Tally of verdicts for the criteria summary card. */
+function verdictCounts(results: CandidateCriterionResult[], total: number) {
+  const counts: Record<CriterionVerdict, number> = { met: 0, partial: 0, unknown: 0, not_met: 0 };
+  for (const r of results) counts[r.status] += 1;
+  const pending = Math.max(0, total - results.length);
+  return { ...counts, pending };
+}
+
+function CriterionCard({
+  rc,
+  r,
+  expanded,
+  onToggle,
+  onJump,
+}: {
+  rc: RankingCriterion;
+  r: CandidateCriterionResult | undefined;
+  expanded: boolean;
+  onToggle: () => void;
+  onJump: (section: string) => void;
+}) {
+  return (
+    <li className={cn("rounded-xl border transition-colors", expanded ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:border-primary/30")}>
+      <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex w-full items-start gap-3 p-3 text-left">
+        <span className="mt-0.5 shrink-0">
+          {rc.pending ? <span className="text-xs text-muted-foreground">…</span> : <VerdictPill status={r?.status ?? "unknown"} />}
+        </span>
+        <span className="min-w-0 flex-1 text-sm text-foreground">
+          {rc.text}
+          {rc.must_have && <span className="ml-1.5 rounded-full border border-primary/40 px-1.5 py-0.5 align-middle text-[10px] font-medium text-primary">must-have</span>}
+        </span>
+        <ChevronDown className={cn("mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden="true" />
+      </button>
+      {expanded && !rc.pending && (
+        <div className="space-y-2 border-t border-border/60 px-3 pb-3 pt-2.5">
+          {r?.evidence && <p className="text-xs italic text-muted-foreground">"{r.evidence}"</p>}
+          {r?.explanation
+            ? <p className="text-xs leading-relaxed text-foreground/85">{r.explanation}</p>
+            : r && <p className="text-xs text-muted-foreground/70">Explaining…</p>}
+          {r?.section && (
+            <button type="button" onClick={() => onJump(r.section!)} className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[11px] text-foreground hover:bg-muted">
+              <Quote className="h-3 w-3" aria-hidden="true" /> {sectionLabel(r.section)}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 export function ReviewMode({
   open,
   onOpenChange,
@@ -67,6 +116,7 @@ export function ReviewMode({
 }) {
   const [index, setIndex] = useState(0);
   const [tab, setTab] = useState<Tab>("experience");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const leftRef = useRef<HTMLDivElement | null>(null);
   const ids = useMemo(() => candidates.map((c) => c.id), [candidates]);
   const { data: fitMap } = useCandidateFits(ids);
@@ -84,6 +134,7 @@ export function ReviewMode({
     if (open && c) {
       onNeedExplanations([c]);
       setTab("experience");
+      setExpanded(new Set());
       leftRef.current?.scrollTo({ top: 0 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,6 +171,8 @@ export function ReviewMode({
   const byId = new Map(results.map((r) => [r.criterion_id, r]));
   const cited = new Set(results.map((r) => r.section).filter(Boolean) as string[]);
   const required = results.filter((r) => r.group === "required");
+  const counts = verdictCounts(results, ranking.length);
+  const allExpanded = ranking.length > 0 && ranking.every((rc) => expanded.has(rc.id));
 
   const jump = (section: string) => {
     setTab(tabOf(section));
@@ -139,9 +192,9 @@ export function ReviewMode({
       <div
         data-section={id ?? undefined}
         tabIndex={hit ? -1 : undefined}
-        className={cn("rounded-md px-3 py-2 outline-none", hit && "border-l-2 border-primary bg-primary/10", className)}
+        className={cn("rounded-lg px-3 py-2 outline-none transition-colors", hit && "border-l-2 border-primary bg-primary/10", className)}
       >
-        {hit && <span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-foreground"><Quote className="h-3 w-3" aria-hidden="true" />Cited as evidence</span>}
+        {hit && <span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary"><Quote className="h-3 w-3" aria-hidden="true" />Cited as evidence</span>}
         {children}
       </div>
     );
@@ -149,9 +202,9 @@ export function ReviewMode({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0 motion-reduce:animate-none sm:rounded-none [&>button.absolute]:hidden">
-        <header className="flex items-center gap-3 border-b border-border px-5 py-3">
-          {c && <PersonAvatar name={name} src={c.profile_pic_url} className="h-9 w-9" />}
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col gap-0 rounded-none border-0 bg-background p-0 motion-reduce:animate-none sm:rounded-none [&>button.absolute]:hidden">
+        <header className="flex items-center gap-3 border-b border-border bg-card/60 px-5 py-3">
+          {c && <PersonAvatar name={name} src={c.profile_pic_url} className="h-10 w-10" />}
           <div className="min-w-0 flex-1">
             <DialogTitle className="flex items-center gap-1.5 truncate font-display text-lg">
               {name}
@@ -165,8 +218,10 @@ export function ReviewMode({
               {[c?.title && toTitleCase(c.title), c?.current_employer && toTitleCase(c.current_employer), c?.location && toTitleCase(c.location)].filter(Boolean).join(" · ")}
             </DialogDescription>
           </div>
-          {typeof c?.match_rate === "number" && <span className="text-sm font-semibold tabular-nums">{c.match_rate}% match</span>}
-          <span className="text-xs tabular-nums text-muted-foreground">{reviewed} of {candidates.length} reviewed</span>
+          {typeof c?.match_rate === "number" && (
+            <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm font-semibold tabular-nums text-primary">{c.match_rate}% match</span>
+          )}
+          <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">{reviewed} of {candidates.length} reviewed</span>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close review">
             <X className="h-4 w-4" />
           </Button>
@@ -190,10 +245,21 @@ export function ReviewMode({
                     {sections.roles.map(({ e, id, desc, primary }, k) => (
                       <div key={k}>
                         <Line id={id}>
-                          <p className="font-medium text-foreground">{toTitleCase(str(e.title)) || "Role"}{primary && <span className="ml-2 text-xs font-normal text-muted-foreground">Current</span>}</p>
-                          <p className="text-xs text-muted-foreground">{[toTitleCase(str(e.company_name)), [ym(e.start_date), ym(e.end_date) || (primary ? "now" : "")].filter(Boolean).join(" to ")].filter(Boolean).join(" · ")}</p>
+                          <div className="flex items-start gap-3">
+                            <OrgLogo
+                              name={toTitleCase(str(e.company_name)) || "?"}
+                              src={str(e.company_logo_url) || (primary ? c.company_logo_url : null)}
+                              fallbackSrc={faviconUrl(str(e.company_domain) || str(e.company_website) || (primary ? c.company_domain : null))}
+                              className="mt-0.5 h-8 w-8"
+                              textClassName="text-[10px]"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground">{toTitleCase(str(e.title)) || "Role"}{primary && <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-medium text-primary">Current</span>}</p>
+                              <p className="text-xs text-muted-foreground">{[toTitleCase(str(e.company_name)), [formatDateLabelSmart(str(e.start_date) || null), primary && !str(e.end_date) ? "Present" : formatDateLabelSmart(str(e.end_date) || null)].filter((v, i, a) => v && a.indexOf(v) === i).join(" – ")].filter(Boolean).join(" · ")}</p>
+                            </div>
+                          </div>
                         </Line>
-                        {str(e.summary) && <Line id={desc} className="ml-3"><p className="whitespace-pre-line text-xs text-foreground/85">{str(e.summary)}</p></Line>}
+                        {str(e.summary) && <Line id={desc} className="ml-9"><p className="whitespace-pre-line text-xs text-foreground/85">{str(e.summary)}</p></Line>}
                       </div>
                     ))}
                     {sections.summary && <Line id="summary"><p className="text-xs text-muted-foreground">About</p><p className="whitespace-pre-line">{sections.summary}</p></Line>}
@@ -203,8 +269,13 @@ export function ReviewMode({
                   ? <p className="text-muted-foreground">No education listed.</p>
                   : sections.edu.map(({ e, id }, k) => (
                     <Line key={k} id={id}>
-                      <p className="font-medium">{toTitleCase(str(e.school_name))}</p>
-                      <p className="text-xs text-muted-foreground">{[(e.degrees ?? []).join(", "), (e.majors ?? []).join(", "), ym(e.end_date) && `ended ${ym(e.end_date)}`].filter(Boolean).join(" · ")}</p>
+                      <div className="flex items-start gap-3">
+                        <OrgLogo name={toTitleCase(str(e.school_name)) || "?"} src={str(e.school_logo_url) || null} className="mt-0.5 h-8 w-8" textClassName="text-[10px]" />
+                        <div className="min-w-0">
+                          <p className="font-medium">{toTitleCase(str(e.school_name))}</p>
+                          <p className="text-xs text-muted-foreground">{[(e.degrees ?? []).join(", "), (e.majors ?? []).join(", "), str(e.end_date) && formatDateLabelSmart(str(e.end_date))].filter(Boolean).join(" · ")}</p>
+                        </div>
+                      </div>
                     </Line>
                   )))}
                 {tab === "skills" && (sections.skills.length === 0
@@ -213,44 +284,64 @@ export function ReviewMode({
               </div>
             </div>
 
-            <aside className="min-h-0 overflow-y-auto px-5 py-4" aria-label="Criteria">
-              <h3 className="mb-3 font-display text-sm font-semibold">Criteria</h3>
-              {ranking.length === 0 && required.length === 0 && <p className="text-sm text-muted-foreground">No criteria for this search.</p>}
-              <ul className="space-y-3">
-                {ranking.map((rc) => {
-                  const r = byId.get(rc.id);
-                  return (
-                    <li key={rc.id} className="rounded-lg border border-border p-3">
-                      <div className="mb-1">{rc.pending ? <span className="text-xs text-muted-foreground">Not checked yet</span> : <VerdictPill status={r?.status ?? "unknown"} />}</div>
-                      <p className="text-sm text-foreground">{rc.text}{rc.must_have && <span className="ml-1 text-xs text-muted-foreground">(must-have)</span>}</p>
-                      {r?.evidence && <p className="mt-1 text-xs text-muted-foreground">"{r.evidence}"</p>}
-                      {!rc.pending && (r?.explanation
-                        ? <p className="mt-1 text-xs text-foreground/85">{r.explanation}</p>
-                        : r && <p className="mt-1 text-xs text-muted-foreground/70">Explaining...</p>)}
-                      {r?.section && (
-                        <button type="button" onClick={() => jump(r.section!)} className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[11px] text-foreground hover:bg-muted">
-                          <Quote className="h-3 w-3" aria-hidden="true" /> {sectionLabel(r.section)}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-                {required.length > 0 && (
-                  <li className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    <p className="mb-1 text-xs font-semibold text-muted-foreground">Required</p>
-                    <ul className="space-y-1">
-                      {required.map((r) => <li key={r.criterion_id} className="flex items-center gap-2 text-xs"><VerdictPill status={r.status} /> {r.title}</li>)}
-                    </ul>
-                  </li>
+            <aside className="flex min-h-0 flex-col overflow-hidden bg-muted/20" aria-label="Criteria">
+              <div className="border-b border-border px-5 py-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="font-display text-sm font-semibold">Criteria</h3>
+                  {ranking.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(allExpanded ? new Set() : new Set(ranking.map((rc) => rc.id)))}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {allExpanded ? <ListCollapse className="h-3.5 w-3.5" /> : <ListPlus className="h-3.5 w-3.5" />}
+                      {allExpanded ? "Collapse all" : "Expand all"}
+                    </button>
+                  )}
+                </div>
+                {ranking.length > 0 && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span><strong className="font-semibold text-foreground">{counts.met}</strong> yes</span>
+                    <span><strong className="font-semibold text-foreground">{counts.partial}</strong> partly</span>
+                    <span><strong className="font-semibold text-foreground">{counts.not_met}</strong> no</span>
+                    <span><strong className="font-semibold text-foreground">{counts.unknown + counts.pending}</strong> not shown</span>
+                  </div>
                 )}
-              </ul>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                {ranking.length === 0 && required.length === 0 && <p className="text-sm text-muted-foreground">No criteria for this search.</p>}
+                <ul className="space-y-2">
+                  {ranking.map((rc) => (
+                    <CriterionCard
+                      key={rc.id}
+                      rc={rc}
+                      r={byId.get(rc.id)}
+                      expanded={expanded.has(rc.id)}
+                      onToggle={() => setExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(rc.id)) next.delete(rc.id); else next.add(rc.id);
+                        return next;
+                      })}
+                      onJump={jump}
+                    />
+                  ))}
+                  {required.length > 0 && (
+                    <li className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                      <p className="mb-1 text-xs font-semibold text-muted-foreground">Required</p>
+                      <ul className="space-y-1">
+                        {required.map((r) => <li key={r.criterion_id} className="flex items-center gap-2 text-xs"><VerdictPill status={r.status} /> {r.title}</li>)}
+                      </ul>
+                    </li>
+                  )}
+                </ul>
+              </div>
             </aside>
           </div>
         ) : (
           <p className="p-6 text-sm text-muted-foreground">Nobody to review.</p>
         )}
 
-        <footer className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3">
+        <footer className="flex flex-wrap items-center gap-2 border-t border-border bg-card/60 px-5 py-3">
           <Button variant="outline" size="sm" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft className="mr-1 h-3.5 w-3.5" />Previous <Kbd>K</Kbd></Button>
           <Button variant="outline" size="sm" onClick={() => go(1)} disabled={index >= candidates.length - 1}>Next <Kbd>J</Kbd><ChevronRight className="ml-1 h-3.5 w-3.5" /></Button>
           <span className="mx-2 text-xs text-muted-foreground tabular-nums">{candidates.length ? index + 1 : 0} / {candidates.length}</span>

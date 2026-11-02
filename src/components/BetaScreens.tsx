@@ -5,11 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { PlanPicker, type PlanSelection } from "@/components/PlanPicker";
 
-/** Shown to signed-in users without a plan: pay, or enter a beta code. */
-export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckout: () => void; onRedeemed: () => void; onSignOut: () => void }) {
+/** Shown to signed-in users without a plan: pick Starter or Pro, or redeem an invite code. */
+export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckout: (sel: PlanSelection) => void; onRedeemed: () => void; onSignOut: () => void }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [selection, setSelection] = useState<PlanSelection>({ plan: "starter", interval: "month" });
 
   const redeem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,21 +26,32 @@ export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckou
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-card p-6">
-        <div className="space-y-1 text-center">
-          <h1 className="font-heading text-xl font-semibold">Start using Oslr</h1>
-          <p className="text-sm text-muted-foreground">Starter plan, $115/month, 150 contact credits.</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,hsl(var(--primary)/0.12),transparent_70%)]" aria-hidden="true" />
+      <div className="relative w-full max-w-2xl space-y-6">
+        <div className="space-y-2 text-center">
+          <p className="font-heading text-sm font-semibold tracking-[0.25em] text-primary">OSLR</p>
+          <h1 className="font-heading text-3xl font-semibold">Choose your plan</h1>
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">
+            Searches, filters and ranking are always free. Credits only spend on contact details you reveal, and you are never charged when nothing is found.
+          </p>
         </div>
-        <Button className="w-full" onClick={onCheckout}>Continue to checkout</Button>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="h-px flex-1 bg-border" />Have a beta code?<div className="h-px flex-1 bg-border" />
+        <PlanPicker value={selection} onChange={setSelection} />
+        <Button className="w-full" size="lg" onClick={() => onCheckout(selection)}>
+          Continue to secure checkout
+        </Button>
+        <div className="text-center">
+          <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowCode((v) => !v)}>
+            Have an invite code?
+          </button>
+          {showCode && (
+            <form onSubmit={redeem} className="mx-auto mt-3 flex max-w-xs gap-2">
+              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Invite code" aria-label="Invite code" />
+              <Button type="submit" variant="outline" disabled={busy || !code.trim()}>{busy ? "Checking…" : "Apply"}</Button>
+            </form>
+          )}
         </div>
-        <form onSubmit={redeem} className="flex gap-2">
-          <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Beta code" aria-label="Beta code" />
-          <Button type="submit" variant="outline" disabled={busy || !code.trim()}>{busy ? "Checking…" : "Apply"}</Button>
-        </form>
-        <button className="w-full text-xs text-muted-foreground hover:text-foreground" onClick={onSignOut}>Sign out</button>
+        <button className="w-full text-center text-xs text-muted-foreground hover:text-foreground" onClick={onSignOut}>Sign out</button>
       </div>
     </div>
   );
@@ -89,7 +103,7 @@ export function BetaEnded({ userId, email, onCheckout, onSignOut }: { userId: st
         {sent ? (
           <div className="space-y-4">
             <p className="text-sm">Feedback sent. Thank you.</p>
-            <Button className="w-full" onClick={onCheckout}>Keep using Oslr · $115/month</Button>
+            <Button className="w-full" onClick={onCheckout}>Choose a plan to keep going</Button>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-5">
