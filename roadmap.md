@@ -26,3 +26,5 @@
 - [ ] Verify team invitation delivery and acceptance in a paid team (blocked: requesting workspace has one seat and no available teammate seat).
 - [ ] Run atomic credit-cap rollback SQL test (blocked: sandbox database role cannot update profiles; no test data persisted).
 - [ ] Configure per-seat charging (blocked: current Stripe subscriptions charge quantity one; additional-seat price and charge timing have not been agreed).
+- [ ] Google sign-in as a pop-up on the auth page: blocked on the Google consent screen / oslr.health OAuth client setup (Google rejected the shared lovable.app domain); code side not started.
+- [ ] Paywall plan screen (PaywallChoice) rebuilt with live Stripe prices but not seen on screen: this account has full access, so the paywall never renders; the shared plan picker was verified inside the checkout window instead.
