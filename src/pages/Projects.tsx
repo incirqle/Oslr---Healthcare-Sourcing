@@ -174,7 +174,7 @@ export default function Projects() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm">
-            <div className="hidden grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)_repeat(3,72px)_96px_40px] items-center gap-3 border-b border-border/60 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)_repeat(3,92px)_72px_40px] items-center gap-3 border-b border-border/60 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid">
               <span>Project</span><span>Agent</span>
               <span className="text-center">Saved</span><span className="text-center">Contacted</span><span className="text-center">Interested</span>
               <span>Owner</span><span />
@@ -189,7 +189,7 @@ export default function Projects() {
                   tabIndex={0}
                   onClick={() => navigate(`/projects/${p.id}`)}
                   onKeyDown={(e) => e.key === "Enter" && navigate(`/projects/${p.id}`)}
-                  className="group grid cursor-pointer grid-cols-1 gap-2 border-b border-border/40 px-5 py-4 transition-colors duration-150 last:border-b-0 hover:bg-mint/[0.04] active:bg-mint/[0.07] md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)_repeat(3,72px)_96px_40px] md:items-center md:gap-3"
+                  className="group grid cursor-pointer grid-cols-1 gap-2 border-b border-border/40 px-5 py-4 transition-colors duration-150 last:border-b-0 hover:bg-mint/[0.04] active:bg-mint/[0.07] md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)_repeat(3,92px)_72px_40px] md:items-center md:gap-3"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mint/10 text-mint-ink">
