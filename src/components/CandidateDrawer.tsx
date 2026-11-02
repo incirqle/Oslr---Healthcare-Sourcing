@@ -938,19 +938,24 @@ export function CandidateDrawer({
             {/* Sticky tabs */}
             <div className="sticky top-0 z-10 shrink-0 border-b border-ui-border-light bg-card px-5 sm:px-6">
               <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-none bg-transparent p-0 text-left">
-                {[
+                {([
                   { value: "overview", label: "Overview" },
                   { value: "experience", label: "Experience" },
                   { value: "education", label: "Education" },
                   { value: "skills", label: "Skills" },
                   { value: "notes", label: `Notes${notes.length > 0 ? ` (${notes.length})` : ""}` },
                   ...(isDoctor(candidate) ? [{ value: "research", label: "Research & Industry" }] : []),
-                  { value: "contact", label: "Contact" },
-                ].map((t) => (
+                  { value: "contact", label: "Contact", accent: true },
+                ] as { value: string; label: string; accent?: boolean }[]).map((t) => (
                   <TabsTrigger
                     key={t.value}
                     value={t.value}
-                    className="rounded-none border-b-2 border-transparent px-3 py-2.5 text-[13px] font-normal text-ui-text-tertiary data-[state=active]:border-ui-info data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ui-info data-[state=active]:shadow-none"
+                    className={cn(
+                      "rounded-none border-b-2 border-transparent px-3 py-2.5 text-[13px] font-normal text-ui-text-tertiary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none",
+                      t.accent
+                        ? "font-semibold text-mint-ink data-[state=active]:border-mint data-[state=active]:text-mint-ink"
+                        : "data-[state=active]:border-ui-info data-[state=active]:text-ui-info",
+                    )}
                   >
                     {t.label}
                   </TabsTrigger>
