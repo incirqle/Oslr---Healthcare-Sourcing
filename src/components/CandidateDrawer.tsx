@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Minimize2,
   Phone,
+  Search,
   Sparkles,
   StickyNote,
   Trash2,
