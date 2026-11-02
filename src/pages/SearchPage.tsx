@@ -14,7 +14,7 @@ import { QueryReadback, type FilterField } from "@/components/search/QueryReadba
 import { CriteriaPanel, newCriterionId } from "@/components/search/CriteriaPanel";
 import { ReviewMode } from "@/components/search/ReviewMode";
 import { SearchAnalytics, type AnalyticsFilter } from "@/components/search/SearchAnalytics";
-import { buildSearchAnalytics } from "@/lib/buildSearchAnalytics";
+import { buildSearchAnalytics, stateOf } from "@/lib/buildSearchAnalytics";
 import type { CriterionCheck } from "@/components/search/ResultsTable";
 import type { ResultsView } from "@/components/search/SearchResults";
 import type { TableSort } from "@/components/search/ResultsTable";

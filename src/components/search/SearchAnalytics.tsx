@@ -6,8 +6,23 @@ import { VERDICT_LABEL } from "./EngineDetails";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toTitleCase } from "./candidate-ui";
+import { TalentMap } from "./TalentMap";
+import { OrgLogo } from "./Avatars";
 
-export type AnalyticsFilter = { kind: "criterion"; id: string; status: CriterionVerdict; label: string };
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-[12.5px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1.5 font-display text-[28px] font-semibold tabular-nums leading-none text-foreground">{value}</p>
+      {hint && <p className="mt-1.5 text-[12.5px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+export type AnalyticsFilter =
+  | { kind: "criterion"; id: string; status: CriterionVerdict; label: string }
+  | { kind: "state"; state: string; label: string }
+  | { kind: "employer"; employer: string; label: string };
 
 /** Verdict colors, same tokens as the results table. Used for verdicts only. */
 export const VERDICT_FILL: Record<CriterionVerdict, string> = {
@@ -61,8 +76,82 @@ export function SearchAnalytics({ data, onFilter, onAddCriteria }: { data: Data;
     <Button size="sm" onClick={onAddCriteria} className="mt-3 h-9 gap-1.5"><Plus className="h-4 w-4" /> Add ranking criteria</Button>
   );
 
+  const kept = data.funnel.met_must_haves;
+  const pct = (n: number) => (kept > 0 ? `${Math.round((n / kept) * 100)}%` : "0%");
+  const yearsKnown = data.years.reduce((a, b) => a + b.count, 0);
+  const senior = (data.years[2]?.count ?? 0) + (data.years[3]?.count ?? 0);
+  const topState = data.states[0];
+
   return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Candidates" value={kept.toLocaleString()} hint={data.funnel.provider_total ? `From ${data.funnel.provider_total.toLocaleString()} matching profiles` : undefined} />
+        <Stat label="States" value={String(data.states.length)} hint={topState ? `Most in ${toTitleCase(topState.name)}` : "No state listed"} />
+        <Stat label="Private practice" value={pct(data.employer.private_practice)} hint={`${pct(data.employer.hospital_employed)} hospital or health system`} />
+        <Stat label="10+ years in practice" value={yearsKnown > 0 ? `${Math.round((senior / yearsKnown) * 100)}%` : "Not listed"} hint={yearsKnown > 0 ? `Of ${yearsKnown} with dates listed` : undefined} />
+      </div>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-display text-[16px] font-semibold text-foreground">Where they are</h3>
+          <p className="text-[13.5px] text-muted-foreground">
+            {data.located > 0 ? `${data.located} of ${kept} list a US state. Click a state to see those candidates.` : "No US state is listed on these profiles."}
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <TalentMap states={data.states} onSelect={(st) => st && onFilter({ kind: "state", state: st, label: `In ${toTitleCase(st)}` })} />
+          <div className="min-w-0">
+            <p className="mb-2 text-[12.5px] font-medium uppercase tracking-wide text-muted-foreground">Top states</p>
+            {data.states.length === 0 ? <Empty>None listed.</Empty> : (
+              <ul className="space-y-1">
+                {data.states.slice(0, 8).map((st) => (
+                  <li key={st.name}>
+                    <button type="button" onClick={() => onFilter({ kind: "state", state: st.name, label: `In ${toTitleCase(st.name)}` })}
+                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-md px-2 py-1.5 text-left text-[14px] hover:bg-muted/50">
+                      <span className="truncate text-foreground">{toTitleCase(st.name)}</span>
+                      <span className="tabular-nums font-medium text-foreground">{st.count}</span>
+                      <span className="col-span-2 h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                        <span className="block h-full origin-left rounded-full bg-primary" style={{ transform: `scaleX(${st.count / data.states[0].count})` }} />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.cities.length > 0 && (
+              <>
+                <p className="mb-2 mt-5 text-[12.5px] font-medium uppercase tracking-wide text-muted-foreground">Top cities</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.cities.slice(0, 6).map((c) => (
+                    <span key={c.name} className="rounded-full border border-border px-2.5 py-1 text-[12.5px] text-foreground">
+                      {toTitleCase(c.name)} <span className="tabular-nums text-muted-foreground">{c.count}</span>
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card title="Where they work now" note={data.employers.length > 0 ? "Click an employer to see those candidates." : undefined}>
+        {data.employers.length === 0 ? <Empty>No current employer is listed on these profiles.</Empty> : (
+          <ul className="space-y-1">
+            {data.employers.map((e) => (
+              <li key={e.name}>
+                <button type="button" onClick={() => onFilter({ kind: "employer", employer: e.name, label: `At ${toTitleCase(e.name)}` })}
+                  className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-[14px] hover:bg-muted/50">
+                  <OrgLogo name={e.name} className="h-7 w-7" />
+                  <span className="min-w-0 flex-1 truncate text-foreground">{toTitleCase(e.name)}</span>
+                  <span className="tabular-nums font-medium text-foreground">{e.count}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       <Card title="How candidates meet your ranking" note={coverageRows.length > 0 ? "Click a bar to see those candidates." : undefined}>
         {coverageRows.length === 0 ? (
           <div>
@@ -133,9 +222,6 @@ export function SearchAnalytics({ data, onFilter, onAddCriteria }: { data: Data;
         )}
       </Card>
 
-      <Card title="Cities">
-        <CountList items={data.cities.map((c) => ({ name: toTitleCase(c.name), count: c.count }))} empty="No city is listed on these profiles." />
-      </Card>
 
       <Card title="Where they trained" note="Residency and fellowship programs.">
         <CountList items={data.training.map((c) => ({ name: toTitleCase(c.name), count: c.count }))} empty="No residency or fellowship is listed on these profiles." />
@@ -146,6 +232,7 @@ export function SearchAnalytics({ data, onFilter, onAddCriteria }: { data: Data;
           <CountList empty="" items={data.military.map((m) => ({ name: MILITARY_LABEL[m.affiliation] ?? toTitleCase(m.affiliation), count: m.count }))} />
         </Card>
       )}
+    </div>
     </div>
   );
 }
