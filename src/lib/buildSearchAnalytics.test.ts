@@ -94,3 +94,16 @@ describe("buildSearchAnalytics (spec 9.7, 12)", () => {
     expect(B.funnel.fetched).toBe(3);
   });
 });
+
+describe("state map counts", () => {
+  it("counts states from region or abbreviation, one per candidate", () => {
+    const S = buildSearchAnalytics([
+      row("m1", { raw: { location_region: "Colorado" } }),
+      row("m2", { location: "Denver, CO" } as never),
+      row("m3", { raw: { location_region: "Texas" } }),
+      row("m4"),
+    ], [], required, []);
+    expect(S.states).toEqual([{ name: "colorado", count: 2 }, { name: "texas", count: 1 }]);
+    expect(S.located).toBe(3);
+  });
+});

@@ -14,7 +14,7 @@ import { QueryReadback, type FilterField } from "@/components/search/QueryReadba
 import { CriteriaPanel, newCriterionId } from "@/components/search/CriteriaPanel";
 import { ReviewMode } from "@/components/search/ReviewMode";
 import { SearchAnalytics, type AnalyticsFilter } from "@/components/search/SearchAnalytics";
-import { buildSearchAnalytics } from "@/lib/buildSearchAnalytics";
+import { buildSearchAnalytics, stateOf } from "@/lib/buildSearchAnalytics";
 import type { CriterionCheck } from "@/components/search/ResultsTable";
 import type { ResultsView } from "@/components/search/SearchResults";
 import type { TableSort } from "@/components/search/ResultsTable";
@@ -244,7 +244,11 @@ export default function SearchPage() {
   const displayRows = useMemo(() => {
     const base = analyticsFilter?.kind === "criterion"
       ? ranked.kept.filter((c) => (c.criteria_results?.find((r) => r.criterion_id === analyticsFilter.id)?.status ?? "unknown") === analyticsFilter.status)
-      : ranked.kept;
+      : analyticsFilter?.kind === "state"
+        ? ranked.kept.filter((c) => stateOf(c) === analyticsFilter.state)
+        : analyticsFilter?.kind === "employer"
+          ? ranked.kept.filter((c) => (c.current_employer ?? "").trim() === analyticsFilter.employer)
+          : ranked.kept;
     if (view !== "table" || !tableSort) return base;
     if (tableSort.key === "criterion") return sortByCriterion(base, tableSort.id);
     return tableSort.dir === "desc" ? base : [...base].reverse();

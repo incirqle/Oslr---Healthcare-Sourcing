@@ -32,6 +32,30 @@ export interface SearchAnalytics {
   cities: { name: string; count: number }[];
   training: { name: string; count: number }[];
   military: { affiliation: string; count: number }[] | null;
+  /** Kept candidates per US state, keyed by full lowercase state name. */
+  states: { name: string; count: number }[];
+  /** Kept candidates whose profile names a US state. */
+  located: number;
+  employers: { name: string; count: number }[];
+}
+
+const STATE_ABBR: Record<string, string> = {
+  al:"alabama",ak:"alaska",az:"arizona",ar:"arkansas",ca:"california",co:"colorado",ct:"connecticut",de:"delaware",fl:"florida",ga:"georgia",hi:"hawaii",id:"idaho",
+  il:"illinois",in:"indiana",ia:"iowa",ks:"kansas",ky:"kentucky",la:"louisiana",me:"maine",md:"maryland",ma:"massachusetts",mi:"michigan",mn:"minnesota",ms:"mississippi",
+  mo:"missouri",mt:"montana",ne:"nebraska",nv:"nevada",nh:"new hampshire",nj:"new jersey",nm:"new mexico",ny:"new york",nc:"north carolina",nd:"north dakota",oh:"ohio",
+  ok:"oklahoma",or:"oregon",pa:"pennsylvania",ri:"rhode island",sc:"south carolina",sd:"south dakota",tn:"tennessee",tx:"texas",ut:"utah",vt:"vermont",va:"virginia",
+  wa:"washington",wv:"west virginia",wi:"wisconsin",wy:"wyoming",dc:"district of columbia",
+};
+
+/** Full lowercase US state name for a candidate, or null. */
+export function stateOf(c: Candidate): string | null {
+  const parts = [str(raw(c).location_region), ...(c.location ?? "").split(",").map((x) => x.trim())].filter(Boolean);
+  for (const p of parts) {
+    const l = p.toLowerCase();
+    if (l !== "united states" && US_STATES.has(l)) return l;
+    if (STATE_ABBR[l]) return STATE_ABBR[l];
+  }
+  return null;
 }
 
 const TRAINING_TITLE = /\b(resident|residency|fellow|fellowship|intern|internship|student|trainee|pgy)\b/i;
@@ -181,7 +205,20 @@ export function buildSearchAnalytics(
   const milCounts = new Map<string, number>();
   for (const c of all) if (c.military_affiliation) milCounts.set(c.military_affiliation, (milCounts.get(c.military_affiliation) ?? 0) + 1);
 
+  const stateCounts = new Map<string, number>();
+  const empCounts = new Map<string, number>();
+  for (const c of results) {
+    const st = stateOf(c);
+    if (st) stateCounts.set(st, (stateCounts.get(st) ?? 0) + 1);
+    const e = str(c.current_employer);
+    if (e) empCounts.set(e, (empCounts.get(e) ?? 0) + 1);
+  }
+  const states = top(stateCounts, 60);
+
   return {
+    states,
+    located: states.reduce((a, b) => a + b.count, 0),
+    employers: top(empCounts, 8),
     funnel,
     coverage,
     match,
