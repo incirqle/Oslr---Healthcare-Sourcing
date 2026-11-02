@@ -26,6 +26,7 @@ import type { ActiveFilter } from "@/components/search/ActiveFilterBar";
 import { buildReasoningLines, classifyFilters } from "@/components/search/reasoning-script";
 import { dropSpecialtyEchoes, locationLabelsFromParsed } from "@/components/search/filter-utils";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
+import { projectNameFromQuery } from "@/hooks/useProjectStats";
 import { useProject, useProjects, useAddCandidates, useProjectCandidates, useCreateProject } from "@/hooks/useProjects";
 import { invokeSearchPeople, fetchSearchUsage, pingEngagement, SearchLimitError, type SearchUsage } from "@/lib/search-meter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -107,7 +108,17 @@ export default function SearchPage() {
     contact?: { email: string | null; phone: string | null };
   } | null>(null);
 
-  const { history, addEntry, clearHistory } = useSearchHistory(projectId);
+  const { addEntry } = useSearchHistory(projectId);
+  /** Every typed search lives in a project: outside one, create it from the query first. */
+  const startSearch = async (q: string) => {
+    if (projectId) { runFullSearch(q); return; }
+    try {
+      const id = await createProject.mutateAsync({ name: projectNameFromQuery(q), description: q });
+      navigate(`/projects/${id}/search?q=${encodeURIComponent(q)}`, { replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start the search");
+    }
+  };
   const [step, setStep] = useState<SearchStep>("hero");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ParsedFilters>(EMPTY_FILTERS);
@@ -722,10 +733,9 @@ export default function SearchPage() {
 
         {step === "hero" && (
           <SearchHero
-            onSearch={runFullSearch}
-            loading={false}
-            history={history}
-            onClearHistory={clearHistory}
+            onSearch={startSearch}
+            loading={createProject.isPending}
+            projectName={project?.name ?? null}
           />
         )}
 
