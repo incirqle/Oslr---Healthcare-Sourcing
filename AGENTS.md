@@ -24,3 +24,4 @@
 - Settings uses workspace-scoped queries, Stripe-backed price and invoice reads, and admin-only billing operations; invoice PDFs are proxied after customer ownership checks. Why: no invented prices or cross-workspace billing documents.
 - Member caps are calendar-month UTC guardrails on the shared pool, enforced by a credit-transaction trigger; contact debits and ledger entries use one atomic service-only RPC, while agent inserts roll back on cap rejection. Why: concurrent spending cannot bypass caps or lose credits on rejection.
 - Team invitations are admin-only, email-bound and reserve seats; authenticated acceptance refuses to move accounts with an active workspace. Why: links cannot grant another email workspace access or strand a working team.
+- AppLayout resolves project context via `project-navigation.ts`; project search, agents and sync use scoped routes, and agent detail resolves its parent. Why: names, destinations and return paths stay consistent.
