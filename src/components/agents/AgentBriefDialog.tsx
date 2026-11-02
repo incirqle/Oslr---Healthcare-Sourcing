@@ -39,6 +39,9 @@ export function AgentBriefDialog({
   const [webhook, setWebhook] = useState("");
   const [busyDest, setBusyDest] = useState<Dest | null>(null);
   useEffect(() => {
+    if (open) setProjectId(defaultProjectId ?? "new");
+  }, [open, defaultProjectId]);
+  useEffect(() => {
     const timer = window.setTimeout(() => setSettledBrief(brief.trim()), 900);
     return () => window.clearTimeout(timer);
   }, [brief]);

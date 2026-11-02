@@ -17,6 +17,8 @@ import { AgentsLocked } from "@/components/agents/AgentsLocked";
 import { fmtWhen, useAgentsEnabled, useDecide, useRoster, useSteer, useUpdateAgent, type PoolItem } from "@/hooks/useAgents";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useProject } from "@/hooks/useProjects";
+import { projectPath } from "@/lib/project-navigation";
 
 type Tab = "review" | "approved" | "passed";
 
@@ -45,6 +47,7 @@ export default function AgentDetail() {
   const navigate = useNavigate();
   const { data: enabled, isLoading: el } = useAgentsEnabled();
   const { data: roster, isLoading, error } = useRoster(enabled ? id : undefined);
+  const { data: project } = useProject(roster?.agent.project_id ?? "");
   const decide = useDecide(id ?? "");
   const steer = useSteer(id ?? "");
   const update = useUpdateAgent(id ?? "");
@@ -111,7 +114,7 @@ export default function AgentDetail() {
           {/* Header */}
           <div className="agent-glow rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Back" onClick={() => navigate("/agents")}><ArrowLeft className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label={agent.project_id ? "Back to project agents" : "Back to all agents"} onClick={() => navigate(agent.project_id ? projectPath(agent.project_id, "agents") : "/agents")}><ArrowLeft className="h-4 w-4" /></Button>
               <AgentStatusDot status={agent.status} waiting={lists.review.length} />
               <h1 className="min-w-0 flex-1 truncate font-display text-xl font-semibold tracking-tight">{agent.name}</h1>
               <span className="hidden rounded-full border border-border px-2.5 py-0.5 text-[12px] text-muted-foreground sm:inline">{STATUS_LABEL[agent.status]}</span>
@@ -126,7 +129,7 @@ export default function AgentDetail() {
                   </DropdownMenuItem>
                   {agent.project_id && <DropdownMenuItem onClick={() => navigate(`/projects/${agent.project_id}`)}>Open project</DropdownMenuItem>}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive" onClick={async () => { await update.mutateAsync({ status: "closed" }); navigate("/agents"); }}>Close agent</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={async () => { await update.mutateAsync({ status: "closed" }); navigate(agent.project_id ? projectPath(agent.project_id, "agents") : "/agents"); }}>Close agent</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -148,7 +151,7 @@ export default function AgentDetail() {
             </div>
           </div>
 
-          {agent.project_id && <AgentConnections projectId={agent.project_id} />}
+          {agent.project_id && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4 text-sm"><p className="text-muted-foreground">Approved clinicians save to <Link className="font-semibold text-primary hover:underline" to={projectPath(agent.project_id)}>{project?.name ?? "this project"}</Link></p><Button asChild variant="outline" size="sm"><Link to={projectPath(agent.project_id, "connections")}>Connections & Sync</Link></Button></div>}
 
 
           {agent.pause_reason && agent.status === "paused" && (
@@ -261,7 +264,7 @@ export default function AgentDetail() {
                 onSubmit={async (b) => {
                   try {
                     await decide.mutateAsync({ pool_id: item.id, ...b });
-                    toast.success(b.decision === "approved" ? "Saved to your project" : "Passed. Your agent will adjust.");
+                    toast.success(b.decision === "approved" ? `Saved to ${project?.name ?? "your project"}` : "Passed. Your agent will adjust.");
                   } catch (e) { toast.error(e instanceof Error ? e.message : "Could not save"); }
                 }}
               />
@@ -292,7 +295,7 @@ export default function AgentDetail() {
           const nextId = visible[openIdx + 1]?.id ?? null;
           try {
             await decide.mutateAsync({ pool_id: openItem.id, ...b });
-            toast.success(b.decision === "approved" ? "Saved to your project" : "Passed. Your agent will adjust.");
+            toast.success(b.decision === "approved" ? `Saved to ${project?.name ?? "your project"}` : "Passed. Your agent will adjust.");
             setOpenId(nextId);
           } catch (e) { toast.error(e instanceof Error ? e.message : "Could not save"); }
         }}

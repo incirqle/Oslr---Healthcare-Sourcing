@@ -85,7 +85,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => navigate("/agents")}
+                onClick={() => navigate(`/projects/${projectId}/agents`)}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
               >
                 <Bot className="h-3.5 w-3.5" /> Agent
@@ -164,7 +164,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt }: Props) {
               </span>
             </Row>
             <Row label="Invite">
-              <button onClick={() => navigate("/settings")} className="inline-flex items-center gap-1 text-mint-ink hover:underline">
+              <button onClick={() => navigate(`/settings?tab=team&project=${projectId}`)} className="inline-flex items-center gap-1 text-mint-ink hover:underline">
                 <Users className="h-3.5 w-3.5" /> Add teammates
               </button>
             </Row>
@@ -187,7 +187,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt }: Props) {
               </Row>
             )) : (
               <Row label="ATS / CRM">
-                <button onClick={() => navigate("/integrations")} className="inline-flex items-center gap-1 text-mint-ink hover:underline">
+                <button onClick={() => navigate(`/integrations?project=${projectId}`)} className="inline-flex items-center gap-1 text-mint-ink hover:underline">
                   <Plug className="h-3.5 w-3.5" /> Connect
                 </button>
               </Row>
@@ -199,7 +199,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt }: Props) {
           <h3 className="pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Agents</h3>
           {agents.length === 0 ? (
             <button
-              onClick={() => navigate("/agents")}
+              onClick={() => navigate(`/projects/${projectId}/agents`)}
               className="my-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-mint/40 px-3 py-2.5 text-[13px] font-medium text-mint-ink transition-colors duration-150 hover:bg-mint/[0.06]"
             >
               <Bot className="h-4 w-4" /> Put an agent on this role
