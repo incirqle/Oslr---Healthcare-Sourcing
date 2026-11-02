@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowUp, Bot, History, Plug, RotateCw, Search, Users, Sheet, MessageSquare } from "lucide-react";
+import { ArrowUp, Bot, History, Plug, RotateCw, Search, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { useProjectSearches, useWorkspaceMembers, timeAgo } from "@/hooks/useProjectStats";
 import { cn } from "@/lib/utils";
+import { LiveSyncDialog } from "@/components/LiveSyncDialog";
 
 const spring = { type: "spring" as const, bounce: 0, duration: 0.35 };
 
@@ -18,11 +19,10 @@ interface Props {
   projectId: string;
   ownerId: string | null;
   createdAt: string;
-  onOpenLiveSync?: () => void;
 }
 
 /** Search composer + search log (left) and the team / connections rail (right). */
-export function ProjectWorkspace({ projectId, ownerId, createdAt, onOpenLiveSync }: Props) {
+export function ProjectWorkspace({ projectId, ownerId, createdAt }: Props) {
   const navigate = useNavigate();
   const reduce = useReducedMotion();
   const [q, setQ] = useState("");
@@ -85,7 +85,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt, onOpenLiveSync
               </span>
               <button
                 type="button"
-                onClick={() => navigate(`/agents/new?project=${projectId}${q.trim() ? `&brief=${encodeURIComponent(q.trim())}` : ""}`)}
+                onClick={() => navigate("/agents")}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
               >
                 <Bot className="h-3.5 w-3.5" /> Agent
@@ -176,9 +176,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt, onOpenLiveSync
           <h3 className="pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Connections</h3>
           <div className="divide-y divide-border/40">
             <Row label="Live sync">
-              <button onClick={onOpenLiveSync} className="inline-flex items-center gap-1.5 text-mint-ink hover:underline">
-                <Sheet className="h-3.5 w-3.5" /><MessageSquare className="h-3.5 w-3.5" /> Sheets, Slack, Excel
-              </button>
+              <LiveSyncDialog projectId={projectId} />
             </Row>
             {systems.length > 0 ? systems.map((s) => (
               <Row key={s.provider} label={s.category === "crm" ? "CRM" : "ATS"}>
@@ -201,7 +199,7 @@ export function ProjectWorkspace({ projectId, ownerId, createdAt, onOpenLiveSync
           <h3 className="pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Agents</h3>
           {agents.length === 0 ? (
             <button
-              onClick={() => navigate(`/agents/new?project=${projectId}`)}
+              onClick={() => navigate("/agents")}
               className="my-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-mint/40 px-3 py-2.5 text-[13px] font-medium text-mint-ink transition-colors duration-150 hover:bg-mint/[0.06]"
             >
               <Bot className="h-4 w-4" /> Put an agent on this role
