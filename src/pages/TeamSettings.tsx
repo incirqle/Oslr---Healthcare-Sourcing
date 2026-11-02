@@ -987,9 +987,12 @@ function Billing({
   const [checkout, setCheckout] = useState(false);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const { companyId } = useCompany();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [prepared, setPrepared] = useState<{ blob: Blob; name: string } | null>(null);
   const invoices = useQuery({
-    queryKey: ["settings-invoices"],
-    enabled: isAdmin,
+    queryKey: ["settings-invoices", companyId],
+    enabled: isAdmin && !!companyId,
     queryFn: () =>
       billingRequest<{
         invoices: Invoice[];
@@ -1028,7 +1031,7 @@ function Billing({
       });
       if (error || !(data instanceof Blob) || data.size === 0)
         throw new Error("Invoice download unavailable");
-      saveInvoice(data, `oslr-invoice-${i.number || i.id}.pdf`);
+      setPrepared({ blob: data, name: `oslr-invoice-${i.number || i.id}.pdf` });
     } catch {
       toast.error("Could not download this invoice. Please try again.");
     } finally {
@@ -1043,10 +1046,13 @@ function Billing({
         action={
           isAdmin &&
           status?.subscribed && (
-            <Button variant="outline" onClick={portal} disabled={busy}>
-              Manage subscription
-              <ArrowUpRight className="h-4 w-4 ml-2" />
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {status.plan !== "pro" && options?.find(p => p.id === "pro") && <Button onClick={() => setUpgradeOpen(true)} disabled={busy}>Upgrade to Pro</Button>}
+              <Button variant="outline" onClick={portal} disabled={busy}>
+                Manage subscription
+                <ArrowUpRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
           )
         }
       >
@@ -1152,6 +1158,8 @@ function Billing({
           plan={pick}
           interval={year && pick !== "beta" ? "year" : "month"}
         />
+        <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}><DialogContent><DialogHeader><DialogTitle>Upgrade to Pro</DialogTitle><DialogDescription>Your current billing interval is retained. Your billing account calculates any prorated charge before issuing the invoice.</DialogDescription></DialogHeader><p className="text-sm">{(() => { const next=options?.find(p=>p.id==='pro')?.prices.find(p=>p.interval===status?.interval); return next?.amount!==null&&next?.amount!==undefined?`${money(next.amount,next.currency)} per ${status?.interval==='year'?'year':'month'}`:'Current price unavailable'; })()}</p><Button disabled={busy} onClick={async()=>{setBusy(true);try{await billingRequest('upgrade',{interval:status?.interval});setUpgradeOpen(false);onChanged();toast.success('Upgraded to Pro');}catch(e){toast.error((e as Error).message);}finally{setBusy(false);}}}>Confirm upgrade</Button></DialogContent></Dialog>
+        <Dialog open={!!prepared} onOpenChange={open=>{if(!open)setPrepared(null);}}><DialogContent><DialogHeader><DialogTitle>Invoice ready</DialogTitle><DialogDescription>Your official invoice PDF is ready to save.</DialogDescription></DialogHeader><Button onClick={()=>{if(!prepared)return;saveInvoice(prepared.blob,prepared.name);setPrepared(null);}}><Download className="h-4 w-4 mr-2"/>Download PDF</Button></DialogContent></Dialog>
       </Section>
       {isAdmin && (
         <>
