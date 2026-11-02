@@ -972,7 +972,10 @@ export function CandidateDrawer({
                   <span className="text-ui-text-muted/50">·</span>
 
                   {!contactEmail && !contactPhone ? (
-                    <button type="button" onClick={() => setActiveTab("contact")} className="font-medium text-primary hover:underline">Find contact info</button>
+                    <button type="button" onClick={() => setActiveTab("contact")} className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3 py-1 text-[12px] font-semibold text-mint-foreground shadow-sm transition-colors duration-150 hover:bg-mint-ink">
+                      <Search className="h-3 w-3" />
+                      Find contact info
+                    </button>
                   ) : contactUnlocked ? (
                     <span className="inline-flex items-center gap-2 truncate">
                       {contactEmail && (

@@ -387,7 +387,7 @@ export default function ProjectDetail() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setBulkEnrichOpen(true)}>
+                  <Button variant="outline" size="sm" className="h-8 border-mint/40 bg-mint text-xs font-semibold text-mint-foreground hover:border-mint-ink hover:bg-mint-ink" onClick={() => setBulkEnrichOpen(true)}>
                     Find contact info
                   </Button>
                   <Button
