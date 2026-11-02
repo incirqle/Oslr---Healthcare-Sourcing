@@ -689,7 +689,7 @@ export default function SearchPage() {
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back
+              Back to candidates
             </button>
           )}
           <div className="flex min-w-0 flex-wrap items-center gap-2">

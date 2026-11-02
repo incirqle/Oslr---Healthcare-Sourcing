@@ -2,8 +2,10 @@ import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { AgentStatusDot, GoalRing, STATUS_LABEL } from "./AgentStatusDot";
 import { fmtWhen, type AgentRow } from "@/hooks/useAgents";
+import { useProject } from "@/hooks/useProjects";
 
 export function AgentCard({ agent }: { agent: AgentRow }) {
+  const { data: project } = useProject(agent.project_id ?? "");
   const s = agent.stats ?? { waiting: 0, approved: 0, passed: 0 };
   return (
     <Link
@@ -28,6 +30,7 @@ export function AgentCard({ agent }: { agent: AgentRow }) {
             ? `Caught up. Next search ${fmtWhen(agent.next_run_at)}`
             : STATUS_LABEL[agent.status]}
         </p>
+        {agent.project_id && <p className="mt-1 truncate text-xs text-primary">Project · {project?.name ?? "Loading…"}</p>}
       </div>
       {s.waiting > 0 && (
         <span className="rounded-full bg-primary px-2.5 py-0.5 text-[12px] font-semibold text-primary-foreground tabular-nums">{s.waiting}</span>

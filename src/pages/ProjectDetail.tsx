@@ -2,7 +2,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
-import { ActiveAgentsStrip } from "@/components/agents/ActiveAgentsStrip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -301,10 +300,10 @@ export default function ProjectDetail() {
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to Projects
           </button>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-2">
               <div>
-                <h1 className="text-2xl font-bold font-display text-foreground">{project.name}</h1>
+                <h1 className="text-2xl font-bold font-display text-foreground">Candidates</h1>
                 {project.description && (
                   <p className="text-muted-foreground text-sm mt-1">{project.description}</p>
                 )}
@@ -330,10 +329,8 @@ export default function ProjectDetail() {
 
         <ProjectWorkspace projectId={id!} ownerId={project.created_by} createdAt={project.created_at} />
 
-        <ActiveAgentsStrip projectId={id} />
-
         {/* Pipeline summary */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {(Object.entries(STATUS_CONFIG) as [CandidateStatus, typeof STATUS_CONFIG.new][]).map(
             ([status, config]) => (
               <Card
@@ -360,11 +357,11 @@ export default function ProjectDetail() {
 
         {/* Candidates table */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
             <CardTitle className="text-base font-display shrink-0">
               Candidates ({filteredCandidates.length}{filteredCandidates.length !== candidates.length ? ` of ${candidates.length}` : ""})
             </CardTitle>
-            <div className="flex items-center gap-2 flex-1 justify-end">
+            <div className="flex flex-wrap items-center gap-2 flex-1 justify-end">
               {/* Bulk actions */}
               {selectedIds.size > 0 && (
                 <div className="flex items-center gap-2 mr-2">

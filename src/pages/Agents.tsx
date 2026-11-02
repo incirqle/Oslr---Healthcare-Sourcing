@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
+import { useProject } from "@/hooks/useProjects";
 import { Loader2, Plus } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -16,8 +18,11 @@ const GROUPS: { title: string; test: (a: AgentRow) => boolean }[] = [
 ];
 
 export default function Agents() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { data: project } = useProject(projectId ?? "");
   const { data: enabled, isLoading: el } = useAgentsEnabled();
-  const { data: agents = [], isLoading } = useAgents(!!enabled);
+  const { data: allAgents = [], isLoading } = useAgents(!!enabled);
+  const agents = projectId ? allAgents.filter((agent) => agent.project_id === projectId) : allAgents;
   const [open, setOpen] = useState(false);
   const { data: metering } = useAgentMetering(!!enabled);
   const waiting = agents.reduce((n, a) => n + (a.stats?.waiting ?? 0), 0);
@@ -34,8 +39,8 @@ export default function Agents() {
         <div className="space-y-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-display text-3xl font-bold tracking-tight">Agents{metering && <span className="ml-3 align-middle rounded-full border agent-sheen-border agent-sheen px-2.5 py-0.5 text-[12px] font-medium text-foreground/80 tabular-nums">{metering.active}{metering.limit !== null ? ` / ${metering.limit}` : ""} active</span>}</h1>
-              <p className="mt-1 text-[15px] text-muted-foreground">Your own researchers, finding clinicians while you sleep.</p>
+              <h1 className="font-display text-3xl font-bold">{projectId ? "Project agents" : "All agents"}{metering && !projectId && <span className="ml-3 align-middle rounded-full border agent-sheen-border agent-sheen px-2.5 py-0.5 text-[12px] font-medium text-foreground/80 tabular-nums">{metering.active}{metering.limit !== null ? ` / ${metering.limit}` : ""} active</span>}</h1>
+              <p className="mt-1 text-[15px] text-muted-foreground">{projectId ? `Approved clinicians save to ${project?.name ?? "this project"}.` : "Across your workspace"}</p>
             </div>
             <Button onClick={() => setOpen(true)} className="h-11 rounded-full px-5"><Plus className="mr-1.5 h-4 w-4" />Start a new agent</Button>
           </div>
@@ -72,7 +77,7 @@ export default function Agents() {
           )}
         </div>
       )}
-      <AgentBriefDialog open={open} onOpenChange={setOpen} />
+      <AgentBriefDialog open={open} onOpenChange={setOpen} defaultProjectId={projectId} />
     </AppLayout>
   );
 }
