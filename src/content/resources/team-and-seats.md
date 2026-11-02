@@ -18,7 +18,7 @@ On Pro, the pool grows by 500 the moment a new teammate joins.
 
 ## Inviting someone (admins)
 
-1. Settings > **Team & seats** > **Invite**.
+1. Settings > **Team & seats** > **Invite teammate**.
 2. Enter their work email.
 3. Pick a role:
    - **Admin**: everything, including billing and invitations
@@ -35,6 +35,6 @@ The link only works for the email it was sent to. Someone who already belongs to
 
 Starter has one seat. Upgrade to Pro to add teammates: Settings > Billing & invoices > **Upgrade to Pro**, or **Review plan** on the Team page.
 
-## Changing roles or removing someone
+## Changing roles
 
-On the member's row, change the role or remove them. Their saved work stays in the workspace.
+Admins can change a member's role from their row. Their saved work always stays in the workspace.

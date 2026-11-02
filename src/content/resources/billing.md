@@ -32,7 +32,7 @@ Settings > Billing & invoices. Use the **Monthly / Yearly** switch or **Manage b
 
 ## Invoices
 
-Every invoice is listed with date, amount and status. Click **Download** for the PDF. Only admins can see billing.
+Every invoice is listed with date, amount and status. Click the download icon for the PDF. Only admins can see billing.
 
 ## A payment failed
 
