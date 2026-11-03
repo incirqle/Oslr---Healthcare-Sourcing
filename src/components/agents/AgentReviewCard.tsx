@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { Check, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Check, Copy, Loader2, Mail, MapPin, Phone, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { OrgLogo, PersonAvatar } from "@/components/search/Avatars";
 import { MatchFacts } from "./MatchFacts";
+import { CONTACT_PRICES, enrichContact } from "@/hooks/useContactEnrich";
 import type { DecisionRow, PoolItem, Tag } from "@/hooks/useAgents";
+
+const ALL_KINDS = ["work_email", "personal_email", "phone"] as const;
+const maxCost = () => ALL_KINDS.reduce((s, k) => s + CONTACT_PRICES[k], 0);
 
 export function cityOf(p: Record<string, unknown>): string {
   return String(p.location ?? "").split(",")[0]?.trim() ?? "";
@@ -21,14 +26,47 @@ interface Props {
   onDraft: (d: "approved" | "passed" | null) => void;
   onOpen: () => void;
   onSubmit: (b: { decision: "approved" | "passed"; tags: string[]; note?: string; skip_city?: string | null }) => Promise<void>;
+  onFound?: (c: { email: string | null; phone: string | null }) => Promise<void> | void;
 }
 
-export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, onOpen, onSubmit }: Props) {
+export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, onOpen, onSubmit, onFound }: Props) {
   const p = item.profile as Record<string, string | null | undefined>;
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [skipCity, setSkipCity] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contact, setContact] = useState<{ email: string | null; phone: string | null } | null>(() => {
+    const email = p.email || p.work_email || null;
+    const phone = (p.phone as string) || null;
+    return email || phone ? { email, phone } : null;
+  });
+
+  const findContact = async () => {
+    if (!p.linkedin_url || contactBusy) return;
+    setContactBusy(true);
+    try {
+      const r = await enrichContact(p.linkedin_url, [...ALL_KINDS], p.full_name ?? undefined);
+      if (r.error === "insufficient_credits") {
+        toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);
+      } else if (r.error) {
+        toast.error(r.error);
+      } else if (r.found?.length) {
+        const email = r.contact.work_email || r.contact.personal_emails?.[0] || null;
+        const phone = r.contact.phone_numbers?.[0] || null;
+        setContact({ email, phone });
+        toast.success(r.unlimited ? "Contact info found" : `Contact info found · ${r.charged} credits used`);
+        await onFound?.({ email, phone });
+      } else {
+        toast("Nothing was found. We're sorry. You aren't charged a credit.");
+      }
+      window.dispatchEvent(new Event("oslr:credits"));
+    } catch {
+      toast.error("Contact lookup failed. Try again shortly.");
+    } finally {
+      setContactBusy(false);
+    }
+  };
   const city = cityOf(item.profile);
   const tagLabel = (id: string) => [...tags.approve, ...tags.pass].find((t) => t.id === id)?.label ?? id;
 
@@ -82,6 +120,33 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
           {item.why && !decision && <p className="mt-2 text-[13px] leading-relaxed text-foreground/70">{item.why}</p>}
           {!decision && <MatchFacts item={item} />}
           <button onClick={onOpen} className="mt-2 text-[13px] font-medium text-mint-ink hover:underline">View full profile</button>
+          <div data-noopen className="mt-2" onClick={(e) => e.stopPropagation()}>
+            {contact ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-mint/30 bg-mint-soft/50 px-3 py-2 text-[13px]">
+                {contact.email && (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-mint-ink" />
+                    <span className="truncate">{contact.email}</span>
+                    <button aria-label="Copy email" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={async () => { await navigator.clipboard.writeText(contact.email!); toast.success("Email copied"); }}><Copy className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {contact.phone && (
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 shrink-0 text-mint-ink" />
+                    <span>{contact.phone}</span>
+                    <button aria-label="Copy phone" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={async () => { await navigator.clipboard.writeText(contact.phone!); toast.success("Phone copied"); }}><Copy className="h-3 w-3" /></button>
+                  </span>
+                )}
+              </div>
+            ) : p.linkedin_url ? (
+              <button onClick={findContact} disabled={contactBusy}
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-mint px-3 py-1 text-[13px] font-semibold text-mint-ink transition-colors hover:bg-mint-soft disabled:opacity-60">
+                {contactBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                Find contact info
+                <span className="font-normal text-muted-foreground">· up to {maxCost()} credits, charged only if found</span>
+              </button>
+            ) : null}
+          </div>
           {decision?.note && <p className="mt-2 border-l-2 border-primary/40 pl-3 text-[13px] italic text-foreground/80">"{decision.note}"</p>}
         </div>
         {!decision && !draft && (
