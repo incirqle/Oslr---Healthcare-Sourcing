@@ -8,6 +8,9 @@ import { OrgLogo, PersonAvatar } from "@/components/search/Avatars";
 import { DoctorIntelTab } from "@/components/DoctorIntelTab";
 import { normalizeEducation, normalizeExperience, type CandidateDrawerProps } from "@/components/CandidateDrawer";
 import { MatchFacts } from "./MatchFacts";
+import { ContactEnrichPanel } from "@/components/ContactEnrichPanel";
+import { useContactEnrich } from "@/hooks/useContactEnrich";
+import { toast } from "sonner";
 import { cityOf } from "./AgentReviewCard";
 import { cn } from "@/lib/utils";
 import type { DecisionRow, PoolItem, Tag } from "@/hooks/useAgents";
@@ -44,6 +47,8 @@ export function AgentProfileDialog({ item, candidate, decision, tags, hasPrev, h
 
   useEffect(() => { setChoice("approved"); setPicked([]); setNote(""); setSkipCity(false); setShowAllExp(false); setReadMore(false); }, [item?.id]);
 
+  const pp = (item?.profile ?? {}) as Record<string, string | null | undefined>;
+  const contactEnrich = useContactEnrich(pp.linkedin_url ?? null, pp.full_name ?? undefined);
   const exp = useMemo(() => (candidate ? normalizeExperience(candidate, null) : []), [candidate]);
   const edu = useMemo(() => (candidate ? normalizeEducation(candidate, null) : []), [candidate]);
   if (!item || !candidate) return null;
@@ -156,6 +161,10 @@ export function AgentProfileDialog({ item, candidate, decision, tags, hasPrev, h
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
               <MatchFacts item={item} />
               {item.why && <p className="text-[13px] leading-relaxed text-foreground/75">{item.why}</p>}
+              {p.linkedin_url && (
+                <ContactEnrichPanel key={item.id} state={contactEnrich.state} busy={contactEnrich.busy} onEnrich={contactEnrich.run}
+                  onCopy={async (v, l) => { await navigator.clipboard.writeText(v); toast.success(`${l} copied`); }} />
+              )}
               {decision ? (
                 <p className="rounded-xl border border-border bg-card px-4 py-3 text-[14px]">
                   {decision.decision === "approved" ? "You saved this person." : "You passed on this person."}
