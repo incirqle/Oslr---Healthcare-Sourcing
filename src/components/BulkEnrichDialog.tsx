@@ -73,9 +73,10 @@ export function BulkEnrichDialog({ open, onOpenChange, people, onDone }: {
             <p className="text-xs text-muted-foreground">{people.length - eligible.length} people have no profile link and will be skipped.</p>
           )}
           {running && <Progress value={(done / Math.max(1, eligible.length)) * 100} />}
-          <p className="text-xs text-muted-foreground">
-            Up to {maxCost} credits. You're only charged for what we find, and people already looked up cost nothing.
+          <p className="text-sm font-medium">
+            {kinds.length ? `${eligible.length} people × ${kinds.reduce((s, k) => s + CONTACT_PRICES[k], 0)} credits = up to ${maxCost} credits` : "Choose at least one"}
           </p>
+          <p className="text-xs text-muted-foreground">You're only charged for what we find, and people already looked up cost nothing.</p>
         </div>
         <DialogFooter>
           <Button variant="outline" disabled={running} onClick={() => onOpenChange(false)}>Cancel</Button>

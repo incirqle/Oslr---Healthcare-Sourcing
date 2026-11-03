@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { CONTACT_PRICES, enrichContact } from "@/hooks/useContactEnrich";
+import { CONTACT_PRICES, enrichContact, type ContactKind } from "@/hooks/useContactEnrich";
+import { ContactKindPicker } from "@/components/ContactKindPicker";
 import type { DecisionRow, PoolItem } from "@/hooks/useAgents";
 
 const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -40,16 +41,19 @@ export function ApprovedTools({ agentName, items, decisions, projectId }: { agen
   };
 
   const eligible = items.filter((i) => (i.profile as Record<string, unknown>).linkedin_url);
-  const maxCost = eligible.length * (CONTACT_PRICES.work_email + CONTACT_PRICES.personal_email + CONTACT_PRICES.phone);
+  const [kinds, setKinds] = useState<ContactKind[]>(["work_email"]);
+  const perPerson = kinds.reduce((s, k) => s + CONTACT_PRICES[k], 0);
+  const maxCost = eligible.length * perPerson;
 
   const enrichAndExport = async () => {
+    if (!kinds.length) return;
     setRunning(true); setDone(0);
     const enriched = new Map<string, { email: string | null; phone: string | null }>();
     let spent = 0, found = 0, stopped = false;
     for (const i of eligible) {
       const p = i.profile as Record<string, unknown>;
       try {
-        const r = await enrichContact(String(p.linkedin_url), ["work_email", "personal_email", "phone"], String(p.full_name ?? ""));
+        const r = await enrichContact(String(p.linkedin_url), kinds, String(p.full_name ?? ""));
         if (r.error === "insufficient_credits") { stopped = true; break; }
         spent += r.charged ?? 0;
         if (r.found?.length) {
@@ -82,9 +86,13 @@ export function ApprovedTools({ agentName, items, decisions, projectId }: { agen
             <div className="rounded-xl border border-mint/40 bg-mint-soft/40 p-3.5">
               <p className="font-medium">Enrich & Export</p>
               <p className="mt-0.5 text-[13px] text-muted-foreground">
-                Look up work email, personal email, and phone for everyone first, then download the filled-in file.
-                Up to {maxCost} credits. You're only charged for what we find, and people already looked up cost nothing.
+                Choose what to look up for everyone, then download the filled-in file.
               </p>
+              <div className="mt-2.5"><ContactKindPicker value={kinds} onChange={setKinds} disabled={running} /></div>
+              <p className="mt-2.5 text-[13px] font-medium">
+                {kinds.length ? `${eligible.length} ${eligible.length === 1 ? "person" : "people"} × ${perPerson} credits = up to ${maxCost} credits` : "Choose at least one"}
+              </p>
+              <p className="text-[12px] text-muted-foreground">Charged only for what we find. People already looked up cost nothing.</p>
               {running && <Progress className="mt-3" value={(done / Math.max(1, eligible.length)) * 100} />}
               {items.length > eligible.length && <p className="mt-1.5 text-xs text-muted-foreground">{items.length - eligible.length} have no profile link and keep their current details.</p>}
             </div>
@@ -95,8 +103,8 @@ export function ApprovedTools({ agentName, items, decisions, projectId }: { agen
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
             <Button variant="outline" disabled={running} onClick={() => { exportCsv(new Map()); setExportOpen(false); }}>Export Current Data</Button>
-            <Button disabled={running || !eligible.length} onClick={enrichAndExport} className="bg-mint text-mint-foreground hover:bg-mint/90">
-              {running ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{done} / {eligible.length}</> : "Enrich & Export"}
+            <Button disabled={running || !eligible.length || !kinds.length} onClick={enrichAndExport} className="bg-mint text-mint-foreground hover:bg-mint/90">
+              {running ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{done} / {eligible.length}</> : `Enrich & Export${kinds.length ? ` · up to ${maxCost}` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
