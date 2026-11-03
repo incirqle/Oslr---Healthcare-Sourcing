@@ -7,11 +7,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { OrgLogo, PersonAvatar } from "@/components/search/Avatars";
 import { MatchFacts } from "./MatchFacts";
-import { CONTACT_PRICES, enrichContact } from "@/hooks/useContactEnrich";
+import { CONTACT_PRICES, enrichContact, type ContactKind } from "@/hooks/useContactEnrich";
+import { ContactKindPicker } from "@/components/ContactKindPicker";
 import type { DecisionRow, PoolItem, Tag } from "@/hooks/useAgents";
-
-const ALL_KINDS = ["work_email", "personal_email", "phone"] as const;
-const maxCost = () => ALL_KINDS.reduce((s, k) => s + CONTACT_PRICES[k], 0);
 
 export function cityOf(p: Record<string, unknown>): string {
   return String(p.location ?? "").split(",")[0]?.trim() ?? "";
@@ -42,11 +40,14 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
     return email || phone ? { email, phone } : null;
   });
 
+  const [pickOpen, setPickOpen] = useState(false);
+  const [kinds, setKinds] = useState<ContactKind[]>(["work_email"]);
   const findContact = async () => {
-    if (!p.linkedin_url || contactBusy) return;
+    if (!p.linkedin_url || contactBusy || !kinds.length) return;
     setContactBusy(true);
     try {
-      const r = await enrichContact(p.linkedin_url, [...ALL_KINDS], p.full_name ?? undefined);
+      const r = await enrichContact(p.linkedin_url, kinds, p.full_name ?? undefined);
+      setPickOpen(false);
       if (r.error === "insufficient_credits") {
         toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);
       } else if (r.error) {
