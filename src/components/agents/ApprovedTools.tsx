@@ -40,16 +40,19 @@ export function ApprovedTools({ agentName, items, decisions, projectId }: { agen
   };
 
   const eligible = items.filter((i) => (i.profile as Record<string, unknown>).linkedin_url);
-  const maxCost = eligible.length * (CONTACT_PRICES.work_email + CONTACT_PRICES.personal_email + CONTACT_PRICES.phone);
+  const [kinds, setKinds] = useState<ContactKind[]>(["work_email"]);
+  const perPerson = kinds.reduce((s, k) => s + CONTACT_PRICES[k], 0);
+  const maxCost = eligible.length * perPerson;
 
   const enrichAndExport = async () => {
+    if (!kinds.length) return;
     setRunning(true); setDone(0);
     const enriched = new Map<string, { email: string | null; phone: string | null }>();
     let spent = 0, found = 0, stopped = false;
     for (const i of eligible) {
       const p = i.profile as Record<string, unknown>;
       try {
-        const r = await enrichContact(String(p.linkedin_url), ["work_email", "personal_email", "phone"], String(p.full_name ?? ""));
+        const r = await enrichContact(String(p.linkedin_url), kinds, String(p.full_name ?? ""));
         if (r.error === "insufficient_credits") { stopped = true; break; }
         spent += r.charged ?? 0;
         if (r.found?.length) {
