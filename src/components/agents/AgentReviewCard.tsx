@@ -140,12 +140,27 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
                 )}
               </div>
             ) : p.linkedin_url ? (
-              <button onClick={findContact} disabled={contactBusy}
-                className="inline-flex items-center gap-1.5 rounded-full border-2 border-mint px-3 py-1 text-[13px] font-semibold text-mint-ink transition-colors hover:bg-mint-soft disabled:opacity-60">
-                {contactBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-                Find contact info
-                <span className="font-normal text-muted-foreground">· up to {maxCost()} credits, charged only if found</span>
-              </button>
+              pickOpen ? (
+                <div className="space-y-2 rounded-xl border border-mint/30 bg-mint-soft/30 p-3">
+                  <p className="text-[13px] font-medium">What would you like to find?</p>
+                  <ContactKindPicker value={kinds} onChange={setKinds} disabled={contactBusy} />
+                  <div className="flex items-center gap-2">
+                    <button onClick={findContact} disabled={contactBusy || !kinds.length}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3.5 py-1.5 text-[13px] font-semibold text-mint-foreground hover:bg-mint-ink disabled:opacity-50">
+                      {contactBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {kinds.length ? `Find · up to ${kinds.reduce((s, k) => s + CONTACT_PRICES[k], 0)} credits` : "Choose at least one"}
+                    </button>
+                    <button onClick={() => setPickOpen(false)} disabled={contactBusy} className="text-[13px] text-muted-foreground hover:text-foreground">Cancel</button>
+                  </div>
+                  <p className="text-[12px] text-muted-foreground">Charged only for what we find.</p>
+                </div>
+              ) : (
+                <button onClick={() => setPickOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-mint px-3 py-1 text-[13px] font-semibold text-mint-ink transition-colors hover:bg-mint-soft">
+                  <Mail className="h-3.5 w-3.5" />
+                  Find contact info
+                </button>
+              )
             ) : null}
           </div>
           {decision?.note && <p className="mt-2 border-l-2 border-primary/40 pl-3 text-[13px] italic text-foreground/80">"{decision.note}"</p>}
