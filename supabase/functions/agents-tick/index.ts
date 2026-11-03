@@ -39,10 +39,24 @@ Deno.serve(async () => {
         results.push({ id: agent.id, stop });
         continue;
       }
+      // Invite pass: one agent, capped at 15 people total across the pass.
+      let serve = agent.per_day;
+      if (inviteOnly) {
+        const { count } = await admin.from("clin_agent_pool").select("id", { count: "exact", head: true })
+          .eq("agent_id", agent.id).not("served_at", "is", null).eq("pruned", false);
+        const remaining = 15 - (count ?? 0);
+        if (remaining <= 0) {
+          await admin.from("clin_agents").update({ status: "completed", pause_reason: "Invite pass limit reached (15 people)" }).eq("id", agent.id);
+          await logEvent(admin, agent, "status_completed", { reason: "Invite pass limit reached (15 people)" });
+          results.push({ id: agent.id, stop: { status: "completed", reason: "Invite pass limit reached (15 people)" } });
+          continue;
+        }
+        serve = Math.min(serve, remaining);
+      }
       // Claim the slot first so a crash never re-runs a paid search within the day.
       const next = nextRunAt(agent.run_hour, agent.timezone, now);
       await admin.from("clin_agents").update({ next_run_at: next, last_run_at: now.toISOString() }).eq("id", agent.id);
-      const r = await sourceAgent(admin, agent, { serve: agent.per_day });
+      const r = await sourceAgent(admin, agent, { serve });
       if (!r.ok) {
         const hard = r.status === 402 || r.status === 403;
         if (hard) {
