@@ -26,14 +26,47 @@ interface Props {
   onDraft: (d: "approved" | "passed" | null) => void;
   onOpen: () => void;
   onSubmit: (b: { decision: "approved" | "passed"; tags: string[]; note?: string; skip_city?: string | null }) => Promise<void>;
+  onFound?: (c: { email: string | null; phone: string | null }) => Promise<void> | void;
 }
 
-export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, onOpen, onSubmit }: Props) {
+export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, onOpen, onSubmit, onFound }: Props) {
   const p = item.profile as Record<string, string | null | undefined>;
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [skipCity, setSkipCity] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contact, setContact] = useState<{ email: string | null; phone: string | null } | null>(() => {
+    const email = p.email || p.work_email || null;
+    const phone = (p.phone as string) || null;
+    return email || phone ? { email, phone } : null;
+  });
+
+  const findContact = async () => {
+    if (!p.linkedin_url || contactBusy) return;
+    setContactBusy(true);
+    try {
+      const r = await enrichContact(p.linkedin_url, [...ALL_KINDS], p.full_name ?? undefined);
+      if (r.error === "insufficient_credits") {
+        toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);
+      } else if (r.error) {
+        toast.error(r.error);
+      } else if (r.found?.length) {
+        const email = r.contact.work_email || r.contact.personal_emails?.[0] || null;
+        const phone = r.contact.phone_numbers?.[0] || null;
+        setContact({ email, phone });
+        toast.success(r.unlimited ? "Contact info found" : `Contact info found · ${r.charged} credits used`);
+        await onFound?.({ email, phone });
+      } else {
+        toast("Nothing was found. We're sorry. You aren't charged a credit.");
+      }
+      window.dispatchEvent(new Event("oslr:credits"));
+    } catch {
+      toast.error("Contact lookup failed. Try again shortly.");
+    } finally {
+      setContactBusy(false);
+    }
+  };
   const city = cityOf(item.profile);
   const tagLabel = (id: string) => [...tags.approve, ...tags.pass].find((t) => t.id === id)?.label ?? id;
 
