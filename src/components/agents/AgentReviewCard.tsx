@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { Check, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Check, Copy, Loader2, Mail, MapPin, Phone, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { OrgLogo, PersonAvatar } from "@/components/search/Avatars";
 import { MatchFacts } from "./MatchFacts";
+import { CONTACT_PRICES, enrichContact } from "@/hooks/useContactEnrich";
 import type { DecisionRow, PoolItem, Tag } from "@/hooks/useAgents";
+
+const ALL_KINDS = ["work_email", "personal_email", "phone"] as const;
+const maxCost = () => ALL_KINDS.reduce((s, k) => s + CONTACT_PRICES[k], 0);
 
 export function cityOf(p: Record<string, unknown>): string {
   return String(p.location ?? "").split(",")[0]?.trim() ?? "";
