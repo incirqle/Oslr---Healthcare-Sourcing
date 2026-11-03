@@ -2420,6 +2420,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_active_invite_pass: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
       has_company_role: {
         Args: {
           _company_id: string

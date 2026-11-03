@@ -95,7 +95,10 @@ export function useAgentsEnabled() {
     queryFn: async () => {
       if (!companyId) return false;
       const { data } = await supabase.from("company_features").select("agents_enabled, plan").eq("company_id", companyId).maybeSingle();
-      return !!data?.agents_enabled || ["starter", "pro", "enterprise"].includes(data?.plan ?? "");
+      if (data?.agents_enabled || ["starter", "pro", "enterprise"].includes(data?.plan ?? "")) return true;
+      const { data: invite } = await supabase.rpc("beta_status");
+      const row = Array.isArray(invite) ? invite[0] : null;
+      return !!row?.active;
     },
     staleTime: 60_000,
   });
