@@ -83,7 +83,7 @@ export function ApprovedTools({ agentName, items, decisions, projectId }: { agen
               <p className="font-medium">Enrich & Export</p>
               <p className="mt-0.5 text-[13px] text-muted-foreground">
                 Look up work email, personal email, and phone for everyone first, then download the filled-in file.
-                Up to {maxCost} credits — you're only charged for what we find, and people already looked up cost nothing.
+                Up to {maxCost} credits. You're only charged for what we find, and people already looked up cost nothing.
               </p>
               {running && <Progress className="mt-3" value={(done / Math.max(1, eligible.length)) * 100} />}
               {items.length > eligible.length && <p className="mt-1.5 text-xs text-muted-foreground">{items.length - eligible.length} have no profile link and keep their current details.</p>}
