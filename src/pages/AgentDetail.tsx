@@ -14,6 +14,8 @@ import { AgentCountdown } from "@/components/agents/AgentCountdown";
 import { ApprovedTools } from "@/components/agents/ApprovedTools";
 import { AgentsLocked } from "@/components/agents/AgentsLocked";
 import { fmtWhen, useAgentsEnabled, useDecide, useRoster, useSteer, useUpdateAgent, type PoolItem } from "@/hooks/useAgents";
+import { AgentConnections } from "@/components/agents/AgentConnections";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useProject } from "@/hooks/useProjects";
@@ -150,7 +152,12 @@ export default function AgentDetail() {
             </div>
           </div>
 
-          {agent.project_id && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4 text-sm"><p className="text-muted-foreground">Approved clinicians save to <Link className="font-semibold text-primary hover:underline" to={projectPath(agent.project_id)}>{project?.name ?? "this project"}</Link></p><Button asChild variant="outline" size="sm"><Link to={projectPath(agent.project_id, "connections")}>Connections & Sync</Link></Button></div>}
+          {agent.project_id && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Approved clinicians save to <Link className="font-semibold text-primary hover:underline" to={projectPath(agent.project_id)}>{project?.name ?? "this project"}</Link></p>
+              <AgentConnections projectId={agent.project_id} />
+            </div>
+          )}
 
 
           {agent.pause_reason && agent.status === "paused" && (
