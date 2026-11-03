@@ -27,7 +27,10 @@ Deno.serve(async (req) => {
     const companyId = prof?.company_id as string | undefined;
     if (!companyId) return json({ error: "No workspace found." }, 400);
     const { data: feat } = await admin.from("company_features").select("agents_enabled, plan").eq("company_id", companyId).maybeSingle();
-    if (!feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "")) return json({ error: "Agents are not turned on for your team.", locked: true }, 403);
+    const { data: invite } = await admin.from("beta_access").select("expires_at").eq("company_id", companyId).maybeSingle();
+    const inviteOnly = !!invite && new Date(invite.expires_at) > new Date()
+      && !feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "");
+    if (!inviteOnly && !feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "")) return json({ error: "Agents are not turned on for your team.", locked: true }, 403);
 
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "");
