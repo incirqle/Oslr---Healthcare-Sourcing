@@ -127,6 +127,13 @@
       "when": 1793588397150,
       "tag": "0017_workspace_credit_limits_and_safe_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793719758853,
+      "tag": "0018_invite_pass_ten_searches",
+      "breakpoints": true
     }
   ]
 }

@@ -21,7 +21,7 @@ export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckou
     setBusy(false);
     if (error) return toast.error("That code couldn't be used right now. Try again.");
     if (!data) return toast.error("That code isn't valid.");
-    toast.success("Beta pass active. Enjoy 5 days on Oslr.");
+    toast.success("Invite pass active. Enjoy 5 days on Oslr.");
     onRedeemed();
   };
 
@@ -97,7 +97,7 @@ export function BetaEnded({ userId, email, onCheckout, onSignOut }: { userId: st
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6 rounded-2xl border border-border bg-card p-6">
         <div className="space-y-1">
-          <h1 className="font-heading text-xl font-semibold">Your beta pass has ended</h1>
+          <h1 className="font-heading text-xl font-semibold">Your invite pass has ended</h1>
           <p className="text-sm text-muted-foreground">Thanks for trying Oslr early. Tell us how it went.</p>
         </div>
         {sent ? (
