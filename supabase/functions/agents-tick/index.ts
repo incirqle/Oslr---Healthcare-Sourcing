@@ -22,10 +22,13 @@ Deno.serve(async () => {
       .order("next_run_at", { ascending: true }).limit(MAX_AGENTS_PER_TICK);
     for (const agent of due ?? []) {
       const { data: feat } = await admin.from("company_features").select("agents_enabled, plan, billing_hold").eq("company_id", agent.company_id).maybeSingle();
+      const { data: invite } = await admin.from("beta_access").select("expires_at").eq("company_id", agent.company_id).maybeSingle();
+      const inviteOnly = !!invite && new Date(invite.expires_at) > now
+        && !feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "");
       const today = now.toISOString().slice(0, 10);
       let stop: { status: string; reason: string } | null = null;
       if (feat?.billing_hold) stop = { status: "paused", reason: "Billing on hold" };
-      else if (!feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "")) stop = { status: "paused", reason: "Agents are turned off for this team" };
+      else if (!inviteOnly && !feat?.agents_enabled && !["starter", "pro", "enterprise"].includes(feat?.plan ?? "")) stop = { status: "paused", reason: "Agents are turned off for this team" };
       else if (agent.finish_date && agent.finish_date < today) stop = { status: "completed", reason: "Finish date reached" };
       else if (agent.last_reviewed_at && now.getTime() - new Date(agent.last_reviewed_at).getTime() > INACTIVE_DAYS * 86400_000) {
         stop = { status: "paused", reason: "Paused after 7 days without review" };
