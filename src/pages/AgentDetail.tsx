@@ -266,6 +266,13 @@ export default function AgentDetail() {
                 active={tab === "review" && i === 0}
                 draft={drafts[item.id] ?? null}
                 onDraft={(d) => setDrafts((x) => ({ ...x, [item.id]: d }))}
+                onFound={async ({ email, phone }) => {
+                  if (!agent.project_id) return;
+                  const patch: Record<string, string> = {};
+                  if (email) patch.email = email;
+                  if (phone) patch.phone = phone;
+                  if (Object.keys(patch).length) await supabase.from("candidates").update(patch).eq("project_id", agent.project_id).eq("person_id", item.person_id);
+                }}
                 onOpen={() => setOpenId(item.id)}
                 onSubmit={async (b) => {
                   try {
