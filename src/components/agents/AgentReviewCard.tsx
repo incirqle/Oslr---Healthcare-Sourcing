@@ -120,6 +120,33 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
           {item.why && !decision && <p className="mt-2 text-[13px] leading-relaxed text-foreground/70">{item.why}</p>}
           {!decision && <MatchFacts item={item} />}
           <button onClick={onOpen} className="mt-2 text-[13px] font-medium text-mint-ink hover:underline">View full profile</button>
+          <div data-noopen className="mt-2" onClick={(e) => e.stopPropagation()}>
+            {contact ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-mint/30 bg-mint-soft/50 px-3 py-2 text-[13px]">
+                {contact.email && (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-mint-ink" />
+                    <span className="truncate">{contact.email}</span>
+                    <button aria-label="Copy email" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={async () => { await navigator.clipboard.writeText(contact.email!); toast.success("Email copied"); }}><Copy className="h-3 w-3" /></button>
+                  </span>
+                )}
+                {contact.phone && (
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 shrink-0 text-mint-ink" />
+                    <span>{contact.phone}</span>
+                    <button aria-label="Copy phone" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={async () => { await navigator.clipboard.writeText(contact.phone!); toast.success("Phone copied"); }}><Copy className="h-3 w-3" /></button>
+                  </span>
+                )}
+              </div>
+            ) : p.linkedin_url ? (
+              <button onClick={findContact} disabled={contactBusy}
+                className="inline-flex items-center gap-1.5 rounded-full border-2 border-mint px-3 py-1 text-[13px] font-semibold text-mint-ink transition-colors hover:bg-mint-soft disabled:opacity-60">
+                {contactBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                Find contact info
+                <span className="font-normal text-muted-foreground">· up to {maxCost()} credits, charged only if found</span>
+              </button>
+            ) : null}
+          </div>
           {decision?.note && <p className="mt-2 border-l-2 border-primary/40 pl-3 text-[13px] italic text-foreground/80">"{decision.note}"</p>}
         </div>
         {!decision && !draft && (
