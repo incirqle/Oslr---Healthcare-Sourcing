@@ -14,6 +14,7 @@ import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist
 import { SuccessBanner } from "@/components/onboarding/SuccessBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSearchUsage } from "@/lib/search-meter";
+import { FirstRunGuide, STARTER_PROMPTS } from "@/components/dashboard/FirstRunGuide";
 
 function metric(value: number) {
   return value === 0 ? "-" : value.toLocaleString();
@@ -65,26 +66,32 @@ export default function Dashboard() {
   const kpis = [
     { title: "Saved Clinicians", value: metric(stats?.candidates.total ?? 0), sub: `+${stats?.candidates.thisWeek ?? 0} this week`, icon: Users, to: "/contacts" },
     { title: "Active Projects", value: metric(stats?.projects.total ?? 0), sub: `${stats?.projects.activeRecent ?? 0} active this week`, icon: FolderKanban, to: "/projects" },
-    { title: "Searches Today", value: metric(stats?.searches.today ?? 0), sub: "of 150 daily", icon: Search, to: "/settings?tab=monitoring" },
-    { title: "Available Credits", value: credits === null ? "-" : credits.toLocaleString(), sub: "Starter · 150 a month", icon: Zap, to: "/settings?tab=billing" },
+    { title: "Searches Today", value: metric(stats?.searches.today ?? 0), sub: "Run by you today", icon: Search, to: "/settings?tab=monitoring" },
+    { title: "Available Credits", value: credits === null ? "-" : credits.toLocaleString(), sub: "Shared workspace pool", icon: Zap, to: "/settings?tab=billing" },
   ];
+  const isNew = !!recent && !recent.searches.length && !recent.projects.length;
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/[0.02] to-transparent p-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/[0.03] to-transparent p-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold font-display text-foreground">Welcome back, {firstName}</h1>
-            <p className="text-base text-foreground/80 mt-1">Your clinical sourcing at a glance</p>
+            <h1 className="text-3xl font-bold font-display text-foreground">
+              {isNew ? <>Welcome to Oslr, {firstName}</> : <>Welcome back, {firstName}</>}
+            </h1>
+            <p className="text-base text-foreground/80 mt-1">
+              {isNew ? "Let's find your first clinician. It takes about a minute." : "Your clinical sourcing at a glance"}
+            </p>
           </div>
-          <Button asChild>
-            <Link to="/projects">
-              <Search className="h-4 w-4 mr-2" /> Find clinicians
+          <Button asChild size="lg">
+            <Link to={isNew ? "/search" : "/projects"}>
+              <Search className="h-4 w-4 mr-2" /> {isNew ? "Start your first search" : "Find clinicians"}
             </Link>
           </Button>
         </div>
 
-        {!isLoading && !isFullyComplete && recent && !recent.searches.length && <OnboardingChecklist />}
+        {isNew && <FirstRunGuide />}
+        {!isNew && !isLoading && !isFullyComplete && recent && !recent.searches.length && <OnboardingChecklist />}
         {showBanner && <SuccessBanner />}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -115,7 +122,16 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {!recent?.searches.length ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">No searches yet. Open a project and describe who you need.</p>
+                <div className="py-4">
+                  <p className="text-sm text-muted-foreground">No searches yet. Try one of these:</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {STARTER_PROMPTS.map((q) => (
+                      <Link key={q} to={`/search?q=${encodeURIComponent(q)}`} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm text-primary hover:bg-primary/20">
+                        {q}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <ul className="divide-y divide-border/60">
                   {recent.searches.map((s) => {
@@ -142,7 +158,12 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {!recent?.projects.length ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">No projects yet. Create one to start saving clinicians.</p>
+                <div className="py-6 text-center">
+                  <p className="text-sm text-muted-foreground">No projects yet. A project holds one role and everyone you save for it.</p>
+                  <Button asChild variant="outline" className="mt-3 border-primary/40 text-primary">
+                    <Link to="/projects"><FolderKanban className="h-4 w-4 mr-2" /> Create project</Link>
+                  </Button>
+                </div>
               ) : (
                 <ul className="divide-y divide-border/60">
                   {recent.projects.map((p) => (
