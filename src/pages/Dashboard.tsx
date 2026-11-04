@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "@/hooks/useCompany";
@@ -70,6 +71,7 @@ export default function Dashboard() {
     { title: "Available Credits", value: credits === null ? "-" : credits.toLocaleString(), sub: "Shared workspace pool", icon: Zap, to: "/settings?tab=billing" },
   ];
   const isNew = !!recent && !recent.searches.length && !recent.projects.length;
+  const [guideHidden, setGuideHidden] = useState(() => typeof window !== "undefined" && localStorage.getItem("oslr_guide_hidden") === "1");
 
   return (
     <AppLayout>
@@ -90,7 +92,19 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {isNew && <FirstRunGuide />}
+        {(isNew || !guideHidden) && (
+          <div className="relative">
+            {!isNew && (
+              <button
+                onClick={() => { localStorage.setItem("oslr_guide_hidden", "1"); setGuideHidden(true); }}
+                className="absolute right-3 top-3 z-10 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary"
+              >
+                Hide guide
+              </button>
+            )}
+            <FirstRunGuide />
+          </div>
+        )}
         {!isNew && !isLoading && !isFullyComplete && recent && !recent.searches.length && <OnboardingChecklist />}
         {showBanner && <SuccessBanner />}
 
