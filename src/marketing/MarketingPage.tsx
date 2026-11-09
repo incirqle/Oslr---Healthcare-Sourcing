@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MARKETING_ROUTES } from "./routes";
 import type { MarketingRoute } from "./routes";
@@ -16,28 +16,37 @@ const CSS_ID = "oslr-site-css";
 const FONT_ID = "oslr-site-font";
 
 function ensureLink(id: string, href: string) {
-  if (document.getElementById(id)) return;
+  const existing = document.getElementById(id);
+  if (existing instanceof HTMLLinkElement) return existing;
   const l = document.createElement("link");
   l.id = id;
   l.rel = "stylesheet";
   l.href = href;
   document.head.appendChild(l);
+  return l;
 }
 
 export default function MarketingPage({ route }: { route: MarketingRoute }) {
   const ref = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string | null>(null);
+  const [stylesReady, setStylesReady] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let alive = true;
+    setStylesReady(false);
+    setHtml(null);
+    const stylesheet = ensureLink(CSS_ID, "/site/assets/css/oslr.css");
+    const onLoad = () => { if (alive) setStylesReady(true); };
+    stylesheet.addEventListener("load", onLoad);
+    if (stylesheet.sheet) onLoad();
     route.load().then((m) => alive && setHtml(m.default));
     applySeo(route);
     ensureLink(FONT_ID, "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap");
-    ensureLink(CSS_ID, "/site/assets/css/oslr.css");
     document.documentElement.classList.add("oslr-site");
     return () => {
       alive = false;
+      stylesheet.removeEventListener("load", onLoad);
       clearSeo();
       setTimeout(() => {
         if (document.querySelector(".oslr-site-root")) return;
@@ -48,7 +57,7 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
   }, [route]);
 
   useEffect(() => {
-    if (html === null || !ref.current) return;
+    if (!stylesReady || html === null || !ref.current) return;
     ref.current.innerHTML = html;
     const root = ref.current;
     const primary = root.querySelector(".nav__links");
@@ -166,7 +175,7 @@ export default function MarketingPage({ route }: { route: MarketingRoute }) {
       root.removeEventListener("click", onNav);
       scripts.forEach((s) => s.remove());
     };
-  }, [html, route.path]);
+  }, [html, route.path, stylesReady]);
 
-  return <div ref={ref} className="oslr-site-root" />;
+  return <div ref={ref} className="oslr-site-root" hidden={!stylesReady || html === null} />;
 }

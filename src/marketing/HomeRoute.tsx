@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import MarketingPage from "./MarketingPage";
 import { MARKETING_ROUTES } from "./routes";
 
-const HOME = MARKETING_ROUTES.find((r) => r.path === "/")!;
+const HOME = MARKETING_ROUTES.find((r) => r.path === "/");
 
 /** The public homepage. Signed-in users go straight to their dashboard, as before. */
 export default function HomeRoute() {
@@ -13,5 +13,6 @@ export default function HomeRoute() {
   useEffect(() => {
     if (!loading && user) navigate("/dashboard", { replace: true });
   }, [user, loading, navigate]);
+  if (loading || user || !HOME) return <div className="oslr-public-loading" />;
   return <MarketingPage route={HOME} />;
 }
