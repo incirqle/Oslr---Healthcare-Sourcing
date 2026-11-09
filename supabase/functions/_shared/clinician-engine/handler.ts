@@ -482,11 +482,24 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
-        const searchRes = await personSearchV2({
+        let searchRes = await personSearchV2({
           filters: treeFilters as unknown as Record<string, unknown>,
           limit: SEARCH_LIMIT,
           fields: CARD_FIELDS,
         });
+        if (!searchRes.ok && /geocode/i.test(searchRes.detail ?? "")) {
+          // Provider could not place the town: retry on city/state text match.
+          const noGeo = buildClinicianQuery(criteria, { noGeo: true });
+          if (noGeo) {
+            console.warn(JSON.stringify({ event: "geocode_fallback", detail: searchRes.detail.slice(0, 200) }));
+            treeFilters = noGeo;
+            searchRes = await personSearchV2({
+              filters: treeFilters as unknown as Record<string, unknown>,
+              limit: SEARCH_LIMIT,
+              fields: CARD_FIELDS,
+            });
+          }
+        }
         if (!searchRes.ok) {
           const err = classifySearchError(searchRes);
           console.error(JSON.stringify({

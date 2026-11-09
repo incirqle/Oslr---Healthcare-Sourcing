@@ -211,6 +211,13 @@ export interface BuildClinicianQueryOptions {
    * of this flag.
    */
   pastSpecialty?: boolean;
+  /** Drop provider-geocoded radius circles (retry after a geocode failure). */
+  noGeo?: boolean;
+}
+
+/** Provider geocoder rejects lowercase place names ("philadelphia, pennsylvania"). */
+export function titleCasePlace(s: string): string {
+  return s.trim().toLowerCase().replace(/(^|[\s\-.'(])([a-z])/g, (_m, p, c) => p + c.toUpperCase());
 }
 
 export function buildClinicianQuery(
@@ -310,11 +317,11 @@ export function buildClinicianQuery(
             or(
               leaf(F.city, "=", v.city),
               leaf(F.locationFull, "[.]", v.city),
-              leaf(F.location, "geo_distance", {
-                location: `${v.city}, ${v.state}`,
+              ...(opts.noGeo ? [] : [leaf(F.location, "geo_distance", {
+                location: titleCasePlace(`${v.city}, ${v.state}`),
                 distance: v.radius_mi ?? 15,
                 unit: "mi",
-              }),
+              })]),
             ),
           ));
         } else if (v.state) {
@@ -327,11 +334,11 @@ export function buildClinicianQuery(
           // stated location stays a hard filter.
           locationAlternatives.push(or(
             leaf(F.locationFull, "[.]", v.city),
-            leaf(F.location, "geo_distance", {
-              location: v.city,
+            ...(opts.noGeo ? [] : [leaf(F.location, "geo_distance", {
+              location: titleCasePlace(v.city),
               distance: v.radius_mi ?? 15,
               unit: "mi",
-            }),
+            })]),
           ));
         }
         break;
