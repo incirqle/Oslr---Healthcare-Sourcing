@@ -30,6 +30,22 @@ Deno.serve(async (req) => {
     const action = body?.action;
     const { data: isAdmin } = await db.rpc("has_company_role", { _user_id: user.id, _company_id: companyId, _role: "admin" });
     if (["checkout", "portal", "upgrade", "invoices", "invoice_pdf"].includes(action ?? "") && !isAdmin) return json({ error: "Only workspace admins can manage billing." }, 403);
+    // Preserve hand-granted Enterprise access without inventing a Stripe subscription or pool.
+    if (!action || action === "status") {
+      const [{ data: exemption }, { data: features }] = await Promise.all([
+        db.from("billing_exemptions").select("company_id").eq("company_id", companyId).maybeSingle(),
+        db.from("company_features").select("plan").eq("company_id", companyId).maybeSingle(),
+      ]);
+      if (exemption && features?.plan === "enterprise") {
+        const [{ count }, { data: credits }] = await Promise.all([
+          db.from("profiles").select("user_id", { count: "exact", head: true }).eq("company_id", companyId),
+          db.from("credit_balances").select("monthly_allowance").eq("company_id", companyId).maybeSingle(),
+        ]);
+        return json({ subscribed: false, exempt: true, plan: "enterprise", status: "granted", interval: null,
+          renews_at: null, cancel_at_period_end: false, seats: null, seats_used: count ?? 0,
+          monthly_credits: credits?.monthly_allowance ?? 0, granted: 0 });
+      }
+    }
     const requestedOrigin = body.origin ? new URL(body.origin).origin : "https://oslr.health";
     const origin = requestedOrigin === "https://oslr.health" || requestedOrigin === "http://localhost:8080" || /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(requestedOrigin) ? requestedOrigin : "https://oslr.health";
     const api = { apiVersion: "2025-08-27.basil" } as const;

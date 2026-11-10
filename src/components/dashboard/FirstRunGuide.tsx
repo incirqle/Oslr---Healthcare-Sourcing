@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { FolderPlus, Search, Sparkles, Phone, BookOpen, ArrowRight, Users, Coins } from "lucide-react";
 
 const steps = [
-  { n: 1, icon: Search, title: "Run your first Talent Search", body: "Describe the clinician you need in plain words. We create a project for it automatically.", to: "/search", cta: "Start a search" },
+  { n: 1, icon: Search, title: "Find clinicians", body: "Doctors, nurses and allied health", to: "/search", cta: "Start a search" },
   { n: 2, icon: FolderPlus, title: "Review and save clinicians", body: "Open a profile, check how each person matches your criteria and save the best fits.", to: "/projects", cta: "Open projects" },
-  { n: 3, icon: Phone, title: "Get contact info", body: "Pick work email, personal email or mobile phone. You only pay when we find something.", to: "/resources/contacts", cta: "How it works" },
+  { n: 3, icon: Phone, title: "Get contact info", body: "Work email, personal email and mobile phone", to: "/search", cta: "Find contacts" },
   { n: 4, icon: Sparkles, title: "Launch an Agent", body: "Let an Agent keep sourcing for a role every day and send you new matches.", to: "/agents", cta: "Meet Agents" },
 ];
 
@@ -17,21 +18,21 @@ const guides = [
 
 export function FirstRunGuide() {
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2 rounded-xl border border-primary/20 bg-card p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">Start here</p>
+    <section aria-label="Start here" className="grid gap-6 border-y border-border py-6 lg:grid-cols-3">
+      <div className="lg:col-span-2">
+        <p className="text-sm font-semibold text-foreground">Start here</p>
         <h2 className="mt-1 text-xl font-semibold font-display text-foreground">Your first hire, in four steps</h2>
         <ol className="mt-4 grid gap-3 sm:grid-cols-2">
           {steps.map((s) => (
             <li key={s.n}>
-              <Link to={s.to} className="group flex h-full flex-col rounded-lg border border-border/60 bg-background/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40">
+              <Link to={s.to} className="group flex h-full flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition-[transform,box-shadow,border-color] hover:border-primary hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:-translate-y-0.5 motion-reduce:transform-none">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">{s.n}</span>
-                  <s.icon className="h-4 w-4 text-primary" />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/25 text-sm font-semibold text-foreground">{s.n}</span>
+                  <s.icon className="h-5 w-5 text-foreground" />
                 </div>
                 <p className="mt-3 font-medium text-foreground">{s.title}</p>
-                <p className="mt-1 flex-1 text-sm text-muted-foreground">{s.body}</p>
-                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                <p className="mt-1 flex-1 text-sm text-foreground/80">{s.body}</p>
+                <span className={buttonVariants({ className: "mt-4 w-full whitespace-normal" })}>
                   {s.cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
@@ -39,23 +40,23 @@ export function FirstRunGuide() {
           ))}
         </ol>
       </div>
-      <div className="rounded-xl border border-border/60 bg-card p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">Guides</p>
+      <div className="lg:border-l lg:border-border lg:pl-6">
+        <p className="text-sm font-semibold text-foreground">Guides</p>
         <h2 className="mt-1 text-xl font-semibold font-display text-foreground">Learn the basics</h2>
         <ul className="mt-4 space-y-2">
           {guides.map((g) => (
             <li key={g.to}>
-              <Link to={g.to} className="group flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-primary/10">
-                <g.icon className="h-4 w-4 text-primary" />
+              <Link to={g.to} className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <g.icon className="h-4 w-4 text-foreground" />
                 <span className="flex-1 text-sm text-foreground">{g.title}</span>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary" />
+                <ArrowRight className="h-3.5 w-3.5 text-foreground" />
               </Link>
             </li>
           ))}
         </ul>
-        <Link to="/resources" className="mt-3 inline-block px-3 text-sm font-medium text-primary hover:underline">All resources</Link>
+        <Button asChild variant="outline" className="mt-3"><Link to="/resources">All resources <ArrowRight /></Link></Button>
       </div>
-    </div>
+    </section>
   );
 }
 

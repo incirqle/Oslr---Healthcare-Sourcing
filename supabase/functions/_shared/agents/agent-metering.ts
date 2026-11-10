@@ -2,6 +2,11 @@
 export const AGENT_BUILD_CREDITS = 15;
 export const ACTIVE_AGENT_STATUSES = ["calibrating", "sourcing"] as const;
 
+// Only the server-resolved unlimited pass bypasses build charges.
+export function agentBuildCredits(unlimitedAccess: boolean) {
+  return unlimitedAccess ? 0 : AGENT_BUILD_CREDITS;
+}
+
 export function agentPolicy(plan: string | null | undefined) {
   if (plan === "enterprise") return { limit: null, scope: "workspace", daily_max: 50 } as const;
   if (plan === "pro") return { limit: 4, scope: "user", daily_max: 25 } as const;

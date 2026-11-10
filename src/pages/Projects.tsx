@@ -110,7 +110,7 @@ export default function Projects() {
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-mint text-mint-foreground hover:bg-mint-ink active:scale-[0.97] transition-[transform,background-color] duration-100">
+                <Button>
                   <Plus className="mr-2 h-4 w-4" /> New project
                 </Button>
               </DialogTrigger>
@@ -170,7 +170,7 @@ export default function Projects() {
             <FolderKanban className="mb-3 h-7 w-7 opacity-40" />
             <p className="text-sm font-medium text-foreground">{projects.length ? "No matching projects" : "No projects yet"}</p>
             <p className="mt-1 text-xs">Run a search and it becomes your first project.</p>
-            <Button size="sm" className="mt-4 bg-mint text-mint-foreground hover:bg-mint-ink" onClick={() => navigate("/search")}>Start a search</Button>
+            <Button size="sm" className="mt-4" onClick={() => navigate("/search")}>Start a search</Button>
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm">

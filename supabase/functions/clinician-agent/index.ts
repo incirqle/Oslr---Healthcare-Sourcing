@@ -1,7 +1,7 @@
 // clinician-agent: create / list / roster / decide / steer / update for Oslr Agents.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
-import { activeAgentCount, agentPolicy, AGENT_BUILD_CREDITS } from "../_shared/agents/agent-metering.ts";
+import { activeAgentCount, agentPolicy, agentBuildCredits } from "../_shared/agents/agent-metering.ts";
 import { APPROVE_TAGS, applyDecision, approvalSignals, PASS_TAGS } from "../_shared/agents/agent-brain.ts";
 import { applyLanguageRules, RULE_FEATURES, RULE_SCHEMA, STEER_SCHEMA, steeringPatch, validateRules } from "../_shared/agents/agent-language.ts";
 import {
@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "list") {
+      const { data: pass } = await admin.from("billing_exemptions").select("unlimited_access").eq("company_id", companyId).maybeSingle();
       const { data: agents } = await admin.from("clin_agents").select("*").eq("company_id", companyId)
         .neq("status", "closed").order("created_at", { ascending: false });
       const ids = (agents ?? []).map((a) => a.id);
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
       }
       const policy = agentPolicy(feat?.plan);
       return json({ agents: (agents ?? []).map((a) => ({ ...a, stats: stats[a.id] ?? { waiting: 0, approved: 0, passed: 0 } })),
-        metering: { ...policy, active: activeAgentCount(agents ?? [], feat?.plan, caller.userId), build_credits: AGENT_BUILD_CREDITS } });
+        metering: { ...policy, active: activeAgentCount(agents ?? [], feat?.plan, caller.userId), build_credits: agentBuildCredits(pass?.unlimited_access === true) } });
     }
 
     if (action === "create") {

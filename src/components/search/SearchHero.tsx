@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowUp, FolderOpen, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 const exampleQueries = [
   "Cardiology fellows in the Midwest",
@@ -87,14 +88,14 @@ export function SearchHero({ onSearch, loading, projectName }: SearchHeroProps) 
                 {projectName ? <>Saves to <span className="font-medium text-foreground">{projectName}</span></> : "A new project is created for this search"}
               </span>
             </span>
-            <button
+            <Button size="icon"
               type="submit"
               aria-label="Search"
               disabled={loading || !query.trim()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mint text-mint-foreground shadow-sm transition-[transform,background-color,opacity] duration-100 ease-out hover:bg-mint-ink active:scale-[0.94] disabled:opacity-30"
+              className="h-9 w-9 shrink-0 shadow-sm"
             >
               <ArrowUp className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </form>
 

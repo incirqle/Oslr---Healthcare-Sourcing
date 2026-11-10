@@ -11,7 +11,6 @@ import { ActiveAgentsStrip } from "@/components/agents/ActiveAgentsStrip";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
-import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
 import { SuccessBanner } from "@/components/onboarding/SuccessBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSearchUsage } from "@/lib/search-meter";
@@ -36,7 +35,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const rawName = (user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "there") as string;
   const firstName = rawName.split(/[ .]/)[0].replace(/^./, (c) => c.toUpperCase());
-  const { isFullyComplete, state, isLoading } = useOnboarding();
+  const { isFullyComplete, state } = useOnboarding();
   const { data: stats } = useDashboardStats();
   // Same counter the search limit uses, so both pages always agree.
   const { data: usage } = useQuery({ queryKey: ["search_usage", user?.id], enabled: !!user, queryFn: fetchSearchUsage });
@@ -46,17 +45,18 @@ export default function Dashboard() {
     queryKey: ["dashboard_recent", companyId, user?.id],
     enabled: !!companyId && !!user,
     queryFn: async () => {
+      if (!user || !companyId) return { searches: [], projects: [] };
       const [searches, projects] = await Promise.all([
         supabase
           .from("search_history")
           .select("id, query_text, result_count, created_at, search_params")
-          .eq("user_id", user!.id)
+          .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(6),
         supabase
           .from("projects")
           .select("id, name, role_title, location, updated_at")
-          .eq("company_id", companyId!)
+          .eq("company_id", companyId)
           .order("updated_at", { ascending: false })
           .limit(5),
       ]);
@@ -76,7 +76,7 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/[0.03] to-transparent p-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold font-display text-foreground">
               {isNew ? <>Welcome to Oslr, {firstName}</> : <>Welcome back, {firstName}</>}
@@ -86,7 +86,7 @@ export default function Dashboard() {
             </p>
           </div>
           <Button asChild size="lg">
-            <Link to={isNew ? "/search" : "/projects"}>
+            <Link to="/search">
               <Search className="h-4 w-4 mr-2" /> {isNew ? "Start your first search" : "Find clinicians"}
             </Link>
           </Button>
@@ -95,17 +95,16 @@ export default function Dashboard() {
         {(isNew || !guideHidden) && (
           <div className="relative">
             {!isNew && (
-              <button
+              <Button variant="ghost" size="sm"
                 onClick={() => { localStorage.setItem("oslr_guide_hidden", "1"); setGuideHidden(true); }}
-                className="absolute right-3 top-3 z-10 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                className="absolute right-0 top-0 z-10 text-foreground hover:bg-primary/15"
               >
                 Hide guide
-              </button>
+              </Button>
             )}
             <FirstRunGuide />
           </div>
         )}
-        {!isNew && !isLoading && !isFullyComplete && recent && !recent.searches.length && <OnboardingChecklist />}
         {showBanner && <SuccessBanner />}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -114,7 +113,7 @@ export default function Dashboard() {
               <Card className="h-full hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-foreground/80">{k.title}</CardTitle>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-foreground">
                     <k.icon className="h-4 w-4" />
                   </div>
                 </CardHeader>
@@ -140,9 +139,9 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground">No searches yet. Try one of these:</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {STARTER_PROMPTS.map((q) => (
-                      <Link key={q} to={`/search?q=${encodeURIComponent(q)}`} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm text-primary hover:bg-primary/20">
-                        {q}
-                      </Link>
+                      <Button key={q} asChild variant="outline" className="h-auto whitespace-normal border-primary/40 bg-primary/10 text-foreground hover:bg-primary/20">
+                        <Link to={`/search?q=${encodeURIComponent(q)}`}>{q}</Link>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -154,7 +153,7 @@ export default function Dashboard() {
                     return (
                       <li key={s.id}>
                         <Link to={href} className="flex items-center justify-between gap-3 py-2.5 group">
-                          <span className="truncate text-sm text-foreground group-hover:text-primary">{s.query_text}</span>
+                          <span className="truncate text-sm text-foreground group-hover:underline">{s.query_text}</span>
                           <span className="shrink-0 text-xs text-muted-foreground">
                             {s.result_count ?? 0} results · {timeAgo(s.created_at)}
                           </span>
@@ -174,7 +173,7 @@ export default function Dashboard() {
               {!recent?.projects.length ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-muted-foreground">No projects yet. A project holds one role and everyone you save for it.</p>
-                  <Button asChild variant="outline" className="mt-3 border-primary/40 text-primary">
+                  <Button asChild variant="outline" className="mt-3 border-primary/40 text-foreground">
                     <Link to="/projects"><FolderKanban className="h-4 w-4 mr-2" /> Create project</Link>
                   </Button>
                 </div>
@@ -184,12 +183,12 @@ export default function Dashboard() {
                     <li key={p.id}>
                       <Link to={`/projects/${p.id}`} className="flex items-center justify-between gap-3 py-2.5 group">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{p.name}</p>
+                          <p className="truncate text-sm font-medium text-foreground group-hover:underline">{p.name}</p>
                           {(p.role_title || p.location) && (
                             <p className="truncate text-xs text-muted-foreground">{[p.role_title, p.location].filter(Boolean).join(" · ")}</p>
                           )}
                         </div>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+                        <ArrowRight className="h-4 w-4 shrink-0 text-foreground" />
                       </Link>
                     </li>
                   ))}

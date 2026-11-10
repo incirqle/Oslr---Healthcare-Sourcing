@@ -126,7 +126,7 @@ export function AgentBriefDialog({
             <DialogDescription className="text-[15px]">Tell it who to find. It brings you fresh matches every day.</DialogDescription>
           </DialogHeader>
           <div className="text-sm text-muted-foreground" aria-live="polite">
-            <p>Build an agent: {metering?.build_credits ?? 15} credits from your shared credits, the same credits used for contact details.</p>
+            <p>{metering?.build_credits === 0 ? "Agent creation is included in your workspace access." : `Build an agent: ${metering?.build_credits ?? 15} credits from your shared credits, the same credits used for contact details.`}</p>
             <p>{metering ? `${metering.active} active · ${metering.limit === null ? "Unlimited" : metering.limit} allowed ${metering.scope === "user" ? "per user" : "per workspace"}` : "Checking your allowance…"}</p>
             {atLimit && <p className="text-destructive">Pause or close an active agent before starting another.</p>}
             {balance !== null && balance !== undefined && balance < (metering?.build_credits ?? 15) && <p className="text-destructive">You need {metering?.build_credits ?? 15} available workspace credits.</p>}
@@ -225,7 +225,7 @@ export function AgentBriefDialog({
         </div>
         <div className="flex items-center justify-between border-t border-border/60 bg-background/40 px-7 py-4">
           <p className="text-[12px] text-muted-foreground">{create.isPending ? "Finding your first matches. This can take a minute." : "Your first 6 matches arrive right away."}</p>
-          <Button onClick={submit} disabled={!ready || (dests.includes("slack") && !webhook.trim().startsWith("https://hooks.slack.com/"))} className="h-11 rounded-full bg-mint px-6 text-mint-foreground hover:bg-mint/90">
+          <Button onClick={submit} disabled={!ready || (dests.includes("slack") && !webhook.trim().startsWith("https://hooks.slack.com/"))} className="h-11 px-6">
             {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Start agent <ArrowUpRight className="ml-1.5 h-4 w-4" />
           </Button>
