@@ -32,3 +32,4 @@
 - [x] Apply the approved dashboard visibility, action tiles, direct search routing and legacy checklist removal; signed-in desktop and phone checks passed without horizontal overflow.
 - [x] Give the founders' shared workspace Enterprise access with no agent capacity or build-credit blocks; live metering returned unlimited slots, 50/day and no build debit, billing preserved Enterprise, and the signed-in creation form was enabled. Four navigation and ten policy/location tests passed.
 - [ ] Run tests/unlimited-agent-builds.sql against a writable disposable transaction (blocked: verification connection is read-only; no test agent or paid sourcing run was submitted).
+- [x] Footer: group legal links into Security column, add LinkedIn badge (https://www.linkedin.com/company/oslr-health/)
