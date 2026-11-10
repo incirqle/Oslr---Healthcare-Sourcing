@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const companyId = prof?.company_id as string | undefined;
     if (!companyId) return json({ error: "No workspace found." }, 400);
 
-    const parsed = z.object({ action: z.enum(["status", "checkout", "portal", "upgrade", "invoices", "invoice_pdf", "catalog"]).optional(), origin: z.string().url().optional(), plan: z.enum(["starter", "pro", "beta"]).optional(), interval: z.enum(["month", "year"]).optional(), embedded: z.boolean().optional(), invoice_id: z.string().regex(/^in_[A-Za-z0-9]+$/).optional() }).safeParse(await req.json().catch(() => ({})));
+    const parsed = z.object({ action: z.enum(["status", "checkout", "portal", "upgrade", "invoices", "invoice_pdf", "catalog", "redeem_code"]).optional(), origin: z.string().url().optional(), plan: z.enum(["starter", "pro", "beta"]).optional(), interval: z.enum(["month", "year"]).optional(), embedded: z.boolean().optional(), invoice_id: z.string().regex(/^in_[A-Za-z0-9]+$/).optional(), code: z.string().max(64).optional() }).safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json({ error: "Invalid billing request." }, 400);
     const body = parsed.data;
     const action = body?.action;
@@ -85,7 +85,19 @@ Deno.serve(async (req) => {
 
     const email = user.email.toLowerCase();
     const { data: betaRow } = await db.from("beta_plan_invites").select("email").eq("email", email).maybeSingle();
-    const betaEligible = !!betaRow;
+    let betaEligible = !!betaRow;
+
+    // "OSLR BETA" unlocks the flat $115/month Starter price for this email. Spaces and case are ignored.
+    if (action === "redeem_code") {
+      const normalized = (body.code ?? "").replace(/[\s_-]+/g, "").toLowerCase();
+      if (normalized !== "oslrbeta") return json({ ok: false });
+      if (!betaEligible) {
+        const { error } = await db.from("beta_plan_invites").upsert({ email, note: "Redeemed OSLR BETA code" }, { onConflict: "email" });
+        if (error) return json({ error: "That code couldn't be used right now. Try again." }, 500);
+        betaEligible = true;
+      }
+      return json({ ok: true });
+    }
 
     if (action === "catalog") {
       const plans = await Promise.all((["starter", "pro", ...(betaEligible ? ["beta"] : [])] as PlanId[]).map(async (plan) => {
@@ -122,7 +134,9 @@ Deno.serve(async (req) => {
       }
       const active = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
       if (active.data.length) return json({ error: "Your workspace already has a plan. Use Manage billing to change it." }, 400);
-      const plan: PlanId = body?.plan === "pro" ? "pro" : body?.plan === "beta" ? "beta" : "starter";
+      let plan: PlanId = body?.plan === "pro" ? "pro" : body?.plan === "beta" ? "beta" : "starter";
+      // Beta code holders always get Starter at the flat $115 monthly price.
+      if (plan === "starter" && betaEligible) plan = "beta";
       if (plan === "beta" && !betaEligible) return json({ error: "This plan is by invitation only." }, 403);
       const interval: Interval = plan !== "beta" && body?.interval === "year" ? "year" : "month";
       if (body?.embedded === true) {

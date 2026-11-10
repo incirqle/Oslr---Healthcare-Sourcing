@@ -26,7 +26,11 @@ export function usePlanCatalog() {
     billingRequest<CatalogResponse>("catalog")
       .then((res) => {
         if (cancelled) return;
-        setPlans((res.plans ?? []).filter((p) => p.id === "starter" || p.id === "pro"));
+        const all = res.plans ?? [];
+        const beta = all.find((p) => p.id === "beta");
+        // Beta code holders see Starter at the flat early-user monthly price.
+        setPlans(all.filter((p) => p.id === "starter" || p.id === "pro").map((p) =>
+          p.id === "starter" && beta ? { ...p, prices: beta.prices, beta: true } as PlanOption : p));
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -52,8 +56,8 @@ export function planPriceLabel(plan: PlanOption | undefined, interval: CheckoutI
 }
 
 const EXTRAS: Record<CheckoutPlan, string[]> = {
-  starter: ["1 active agent, 10 new results a day", "Exports to CSV, Sheets, Excel and Slack"],
-  pro: ["4 active agents each, 25 new results a day", "ATS and CRM connections"],
+  starter: ["1 active agent, 10 new matches a day", "Exports to CSV, Sheets, Excel and Slack"],
+  pro: ["4 active agents per seat, 25 new matches a day", "ATS and CRM connections"],
 };
 
 const PLAN_NAMES: Record<CheckoutPlan, string> = { starter: "Starter", pro: "Pro" };
@@ -117,7 +121,8 @@ export function PlanPicker({
       <div className={cn("grid gap-3", compact ? "grid-cols-2" : "sm:grid-cols-2")}>
         {(["starter", "pro"] as const).map((id) => {
           const option = byId.get(id);
-          const price = planPriceLabel(option, value.interval);
+          const isBeta = !!(option as (PlanOption & { beta?: boolean }) | undefined)?.beta;
+          const price = isBeta ? planPriceLabel(option, "month") && { main: planPriceLabel(option, "month")!.main, sub: "Beta price, billed monthly" } : planPriceLabel(option, value.interval);
           const selected = value.plan === id;
           return (
             <button

@@ -13,10 +13,21 @@ export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckou
   const [busy, setBusy] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [selection, setSelection] = useState<PlanSelection>({ plan: "starter", interval: "month" });
+  const [catalogKey, setCatalogKey] = useState(0);
 
   const redeem = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    if (code.replace(/[\s_-]+/g, "").toLowerCase() === "oslrbeta") {
+      const { data: r, error: e2 } = await supabase.functions.invoke("billing", { body: { action: "redeem_code", code } });
+      setBusy(false);
+      if (e2 || !r?.ok) return toast.error("That code couldn't be used right now. Try again.");
+      toast.success("Beta price applied. Starter is now $115 a month.");
+      setSelection({ plan: "starter", interval: "month" });
+      setCatalogKey((k) => k + 1);
+      setShowCode(false);
+      return;
+    }
     const { data, error } = await supabase.rpc("redeem_beta_code", { _code: code });
     setBusy(false);
     if (error) return toast.error("That code couldn't be used right now. Try again.");
@@ -36,7 +47,7 @@ export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckou
             Searches, filters and ranking are always free. Credits only spend on contact details you reveal, and you are never charged when nothing is found.
           </p>
         </div>
-        <PlanPicker value={selection} onChange={setSelection} />
+        <PlanPicker key={catalogKey} value={selection} onChange={setSelection} />
         <Button className="w-full" size="lg" onClick={() => onCheckout(selection)}>
           Continue to secure checkout
         </Button>

@@ -128,7 +128,7 @@ export function AgentBriefDialog({
           <div className="text-sm text-muted-foreground" aria-live="polite">
             <p>{metering?.build_credits === 0 ? "Agent creation is included in your workspace access." : `Build an agent: ${metering?.build_credits ?? 15} credits from your shared credits, the same credits used for contact details.`}</p>
             <p>{metering ? `${metering.active} active · ${metering.limit === null ? "Unlimited" : metering.limit} allowed ${metering.scope === "user" ? "per user" : "per workspace"}` : "Checking your allowance…"}</p>
-            {atLimit && <p className="text-destructive">Pause or close an active agent before starting another.</p>}
+            {atLimit && <AgentLimitNotice limit={metering!.limit!} scope={metering!.scope} />}
             {balance !== null && balance !== undefined && balance < (metering?.build_credits ?? 15) && <p className="text-destructive">You need {metering?.build_credits ?? 15} available workspace credits.</p>}
           </div>
 
@@ -232,5 +232,23 @@ export function AgentBriefDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Shown when the plan's active agent slots are full: explains the limit and offers the next plan. */
+function AgentLimitNotice({ limit, scope }: { limit: number; scope: string }) {
+  const onPro = scope === "user";
+  return (
+    <div className="mt-3 rounded-xl border border-primary/40 bg-primary/10 p-4 text-foreground">
+      <p className="font-medium">Your plan is limited to {limit} active agent{limit === 1 ? "" : "s"}{onPro ? " per seat" : ""}.</p>
+      <p className="mt-1 text-muted-foreground">
+        {onPro
+          ? "Pause or close an agent to start another, or talk to us about Enterprise for unlimited agents."
+          : "Pause or close your active agent to start another, or upgrade to Pro for 4 active agents per seat and 25 new matches a day."}
+      </p>
+      <a href={onPro ? "mailto:hello@oslr.health" : "/credits?upgrade=pro"} className="mt-3 inline-flex h-9 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground">
+        {onPro ? "Talk to us" : "Upgrade to Pro"}
+      </a>
+    </div>
   );
 }
