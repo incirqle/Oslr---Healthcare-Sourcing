@@ -13,7 +13,7 @@ import { AgentStatusDot, STATUS_LABEL } from "@/components/agents/AgentStatusDot
 import { AgentCountdown } from "@/components/agents/AgentCountdown";
 import { ApprovedTools } from "@/components/agents/ApprovedTools";
 import { AgentsLocked } from "@/components/agents/AgentsLocked";
-import { fmtWhen, useAgentsEnabled, useDecide, useRoster, useSteer, useUpdateAgent, type PoolItem } from "@/hooks/useAgents";
+import { fmtWhen, useAgentsEnabled, useDecide, useRoster, useRunAgentNow, useSteer, useUpdateAgent, type PoolItem } from "@/hooks/useAgents";
 import { AgentConnections } from "@/components/agents/AgentConnections";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,7 @@ export default function AgentDetail() {
   const decide = useDecide(id ?? "");
   const steer = useSteer(id ?? "");
   const update = useUpdateAgent(id ?? "");
+  const runNow = useRunAgentNow(id ?? "");
   const [tab, setTab] = useState<Tab>("review");
   const [drafts, setDrafts] = useState<Record<string, "approved" | "passed" | null>>({});
   const [openId, setOpenId] = useState<string | null>(null);
@@ -125,6 +126,14 @@ export default function AgentDetail() {
                   {agent.status === "paused"
                     ? <DropdownMenuItem onClick={() => update.mutate({ status: "resume" })}>Resume agent</DropdownMenuItem>
                     : (agent.status === "sourcing" || agent.status === "calibrating") && <DropdownMenuItem onClick={() => update.mutate({ status: "paused" })}>Pause agent</DropdownMenuItem>}
+                  {agent.status === "sourcing" && (
+                    <DropdownMenuItem disabled={runNow.isPending} onClick={async () => {
+                      try {
+                        const r = await runNow.mutateAsync();
+                        toast.success(r.served > 0 ? `${r.served} new people ready to review.` : "No new people right now. The agent will keep looking.");
+                      } catch (e) { toast.error(e instanceof Error ? e.message : "Could not run the agent"); }
+                    }}>Find more people now</DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => update.mutate({ email_updates: !agent.email_updates })}>
                     {agent.email_updates ? "Turn off email updates" : "Turn on email updates"}
                   </DropdownMenuItem>

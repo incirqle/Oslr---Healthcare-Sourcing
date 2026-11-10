@@ -506,7 +506,7 @@ Deno.serve(async (req: Request) => {
       cache_hit: data.cache_hit ?? false,
       timing_ms: Date.now() - requestStart,
     };
-    if (respKey && rows.length > 0) {
+    if (respKey && rows.length > 0 && !data.parse_fallback) {
       await setCrustDataCache(respKey, rows.length, [payload], null)
         .catch((e) => console.warn("[search-people] response cache write failed", e));
     }

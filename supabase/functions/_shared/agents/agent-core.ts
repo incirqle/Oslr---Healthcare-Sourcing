@@ -1,7 +1,7 @@
 // Sourcing + AI helpers shared by clinician-agent and agents-tick.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleClinicianSearch } from "../clinician-engine/handler.ts";
-import { parseQuery } from "../clinician-engine/parse-query.ts";
+import { isFallbackParse, parseQuery } from "../clinician-engine/parse-query.ts";
 import { getCrustDataCache, setCrustDataCache } from "../clinician-engine/cache.ts";
 import {
   type AgentPreferences, featuresFor, rerank,
@@ -27,7 +27,7 @@ export async function interpretBrief(brief: string) {
   const key = "clin:parse:" + brief.trim().toLowerCase().replace(/\s+/g, " ");
   const cached = await getCrustDataCache(key);
   const parsed = await parseQuery(brief, cached?.profiles[0] ?? null);
-  if (!cached) await setCrustDataCache(key, 1, [parsed], null);
+  if (!cached && !isFallbackParse(parsed)) await setCrustDataCache(key, 1, [parsed], null);
   return parsed;
 }
 
@@ -113,9 +113,16 @@ export async function sourceAgent(
   agent.preferences = prefs;
   const { error: parseSaveError } = await admin.from("clin_agents").update({ preferences: prefs }).eq("id", agent.id);
   if (parseSaveError) return { ok: false, status: 500, error: "Could not save your search interpretation.", added: 0, served: 0 };
+  // Each scheduled run reaches one page deeper into the market so it finds
+  // people it has not seen yet (deeper pages are free to the meter).
+  const page = opts.authHeader ? 0 : Math.max(1, Number((prefs as Record<string, unknown>).next_page ?? 1));
   const res = await handleClinicianSearch(new Request("http://internal/search", {
-    method: "POST", headers, body: JSON.stringify({ query: agent.brief, cached_parsed: parsed, page: 0, size: 50 }),
+    method: "POST", headers, body: JSON.stringify({ query: agent.brief, cached_parsed: parsed, page, size: 50 }),
   }));
+  if (!opts.authHeader) {
+    (prefs as Record<string, unknown>).next_page = Math.min(page + 1, 40);
+    await admin.from("clin_agents").update({ preferences: prefs }).eq("id", agent.id);
+  }
   // deno-lint-ignore no-explicit-any
   let body: any = {};
   try { body = await res.json(); } catch { /* empty */ }

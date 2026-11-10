@@ -98,7 +98,9 @@ export function useAgentsEnabled() {
       if (data?.agents_enabled || ["starter", "pro", "enterprise"].includes(data?.plan ?? "")) return true;
       const { data: invite } = await supabase.rpc("beta_status");
       const row = Array.isArray(invite) ? invite[0] : null;
-      return !!row?.active;
+      // The invite pass keeps Agents open for its full five days, even after
+      // its searches or contact lookups are used up (matches the server).
+      return !!row?.expires_at && new Date(row.expires_at).getTime() > Date.now();
     },
     staleTime: 60_000,
   });
@@ -177,6 +179,14 @@ export function useUpdateAgent(agentId: string) {
   return useMutation({
     mutationFn: (b: Record<string, unknown>) => call<{ ok: true }>({ action: "update", agent_id: agentId, ...b }),
     onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); qc.invalidateQueries({ queryKey: ["agent-metering"] }); },
+  });
+}
+
+export function useRunAgentNow(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => call<{ ok: true; served: number; added: number }>({ action: "run_now", agent_id: agentId }),
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["agent-roster", agentId] }); qc.invalidateQueries({ queryKey: ["agents"] }); },
   });
 }
 

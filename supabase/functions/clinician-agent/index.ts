@@ -191,7 +191,9 @@ Deno.serve(async (req) => {
       const { error: saveError } = await admin.from("clin_agents").update(patch).eq("id", agent.id);
       if (saveError) return json({ error: saveError.message }, 400);
       if (note) await logEvent(admin, agent, "learning_updated", { rules: learned, note });
-      await rerankAndServe(admin, agent, 0);
+      // Finishing calibration delivers the first daily batch right away.
+      const firstBatch = patch.status === "sourcing" ? await rerankAndServe(admin, agent, agent.per_day) : await rerankAndServe(admin, agent, 0);
+      if (patch.status === "sourcing" && firstBatch > 0) await logEvent(admin, agent, "daily_run", { served: firstBatch, added: 0 });
       if (tags.length > 0 || note) await refreshTasteMemo(admin, agent);
       return json({ ok: true, status: patch.status ?? agent.status, learned });
     }
@@ -237,6 +239,19 @@ Deno.serve(async (req) => {
       await logEvent(admin, agent, "chat", { role: "agent", text: reply, rules: plan.rules, changes: plan.patch });
       await logEvent(admin, agent, "steering_updated", { reason: reply });
       return json({ ok: true, reply, changes: plan.patch });
+    }
+
+    if (action === "run_now") {
+      if (agent.status !== "sourcing") return json({ error: "Only a running agent can look for more people." }, 409);
+      if (agent.last_run_at && Date.now() - new Date(agent.last_run_at).getTime() < 3600_000) {
+        return json({ error: "This agent just looked. Try again in an hour." }, 429);
+      }
+      await admin.from("clin_agents").update({ last_run_at: new Date().toISOString(), next_run_at: nextRunAt(agent.run_hour, agent.timezone) }).eq("id", agent.id);
+      const r = await sourceAgent(admin, agent, { serve: agent.per_day });
+      if (!r.ok) return json({ error: r.error ?? "Search failed" }, r.status ?? 500);
+      await admin.from("clin_agents").update({ empty_runs: 0 }).eq("id", agent.id);
+      await logEvent(admin, agent, "daily_run", { served: r.served, added: r.added, manual: true });
+      return json({ ok: true, served: r.served, added: r.added });
     }
 
     if (action === "update") {

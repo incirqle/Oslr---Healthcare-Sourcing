@@ -272,6 +272,13 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
  * Deliberately leaves job_titles empty and guesses no role class beyond
  * unambiguous whole words — no stated requirement means no requirement.
  */
+// Backup readings made when the AI timed out. Never cached, so the next try
+// gets a fresh AI read instead of a stuck rough one.
+const FALLBACK_PARSES = new WeakSet<object>();
+export function isFallbackParse(p: unknown): boolean {
+  return !!p && typeof p === "object" && FALLBACK_PARSES.has(p as object);
+}
+
 function deterministicFallback(query: string): Record<string, unknown> {
   const q = query.toLowerCase();
   const pastPatterns = /\b(former|formerly|ex-|previously|used to|background)\b/i;
@@ -593,7 +600,9 @@ export async function parseQuery(
 
   if (raw === null) {
     console.warn("[Parser] No usable model output — using the deterministic parse.");
-    return deterministicFallback(query);
+    const fb = deterministicFallback(query);
+    FALLBACK_PARSES.add(fb);
+    return fb;
   }
 
   const parsed = validateAIOutput(raw) as unknown as Record<string, unknown>;

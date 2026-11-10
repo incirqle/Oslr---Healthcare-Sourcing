@@ -14,7 +14,7 @@
  * audit → honest zero (labelled fallback + auto-widen ladder) → respond.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { parseQuery } from "./parse-query.ts";
+import { isFallbackParse, parseQuery } from "./parse-query.ts";
 import { callClaude, CLAUDE_OPUS } from "./ai-router.ts";
 import {
   ENRICHMENT_TTL_MS,
@@ -242,7 +242,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         parsed = await parseQuery(query.trim(), cachedParse.profiles[0]);
       } else {
         parsed = await parseQuery(query.trim(), null);
-        await setCrustDataCache(parseKey, 1, [parsed], null);
+        if (!isFallbackParse(parsed)) await setCrustDataCache(parseKey, 1, [parsed], null);
       }
     }
 
@@ -1401,6 +1401,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         browsable_total: allResults.length,
         page,
         size,
+        parse_fallback: isFallbackParse(parsed),
         audit: auditSummary,
         semantic: { ran: semanticRan, added: semanticAdded },
         company_graph: { added: companyGraphAdded },
