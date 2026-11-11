@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Loader2, Minus, Plus, Target, ArrowUpRight, Slack, FileSpreadsheet, Table2 } from "lucide-react";
+import { Loader2, Minus, Plus, Target, ArrowUpRight, Slack, FileSpreadsheet, Table2 } from "lucide-react";
 import { call as exportsCall, waitForPopup } from "@/components/LiveSyncDialog";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,14 +31,12 @@ export function AgentBriefDialog({
   const [brief, setBrief] = useState("");
   const [perDay, setPerDay] = useState(10);
   const [goal, setGoal] = useState("");
-  const [finish, setFinish] = useState("");
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? "new");
   const [settledBrief, setSettledBrief] = useState("");
   const [dests, setDests] = useState<Dest[]>([]);
   const [webhook, setWebhook] = useState("");
   const [busyDest, setBusyDest] = useState<Dest | null>(null);
   const passEnd = metering?.pass_ends_at ? metering.pass_ends_at.slice(0, 10) : null;
-  const today = new Date().toISOString().slice(0, 10);
   const maxFinish = passEnd ?? new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   const maxGoal = passEnd ? 15 : 1000;
   const lockedProject = defaultProjectId ? projects.find((p) => p.id === defaultProjectId) : undefined;
@@ -48,7 +46,7 @@ export function AgentBriefDialog({
   useEffect(() => {
     if (!open || !metering) return;
     setGoal(passEnd ? "15" : "30");
-    setFinish(maxFinish);
+
   }, [open, !!metering, passEnd]);
   useEffect(() => {
     const timer = window.setTimeout(() => setSettledBrief(brief.trim()), 900);
@@ -69,7 +67,7 @@ export function AgentBriefDialog({
   ].filter(([, v]) => v) : [];
 
   const atLimit = !!metering && metering.limit !== null && metering.active >= metering.limit;
-  const ready = Number(goal) >= 1 && !!finish && name.trim().length > 0 && brief.trim().length >= 8 && !create.isPending && !!metering && !atLimit && (balance ?? 0) >= metering.build_credits;
+  const ready = Number(goal) >= 1 && name.trim().length > 0 && brief.trim().length >= 8 && !create.isPending && !!metering && !atLimit && (balance ?? 0) >= metering.build_credits;
 
   const toggleDest = async (k: Dest | "none") => {
     if (k === "none") { setDests([]); return; }
@@ -110,14 +108,14 @@ export function AgentBriefDialog({
     try {
       const r = await create.mutateAsync({
         request_id: requestId, name: name.trim(), brief: brief.trim(), per_day: perDay,
-        goal: Math.min(maxGoal, Number(goal)), finish_date: finish > maxFinish ? maxFinish : finish,
+        goal: Math.min(maxGoal, Number(goal)), finish_date: maxFinish,
         project_id: projectId === "new" ? null : projectId,
       });
       await connectDestinations(r.agent_id).catch(() => toast.error("Your results destinations did not connect. Use Live sync on the agent."));
       if (r.warning) toast.error(r.warning);
       else toast.success(r.served ? `Your first ${r.served} matches are ready` : "Agent started");
       onOpenChange(false);
-      setName(""); setBrief(""); setGoal(""); setFinish(""); setDests([]); setWebhook("");
+      setName(""); setBrief(""); setGoal("");  setDests([]); setWebhook("");
       setRequestId(crypto.randomUUID());
       navigate(`/agents/${r.agent_id}`);
     } catch (e) {
@@ -181,17 +179,11 @@ export function AgentBriefDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><Target className="h-3.5 w-3.5" />Saving goal</Label>
-              <Input type="number" min={1} max={maxGoal} disabled={!!passEnd} value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Number of people" className="h-11" />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" />Finish date</Label>
-              <Input type="date" min={today} max={maxFinish} disabled={!!passEnd} value={finish} onChange={(e) => setFinish(e.target.value)} className="h-11" />
-            </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5"><Target className="h-3.5 w-3.5" />Saving goal</Label>
+            <Input type="number" min={1} max={maxGoal} disabled={!!passEnd} value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Number of people" className="h-11" />
           </div>
-          <p className="-mt-2 text-[12px] text-muted-foreground">{passEnd ? "Matches your 5-day pass. It stops after 5 days or 15 people, whichever comes first." : "Runs up to 30 days. It stops when it reaches your goal or the finish date."}</p>
+          <p className="-mt-2 text-[12px] text-muted-foreground">{passEnd ? "Matches your 5-day pass. Stops once 15 approved people are saved, or when your pass ends." : "Stops automatically once you reach your goal, or after 30 days."}</p>
 
           <p className="rounded-xl border border-border/70 bg-background/40 px-4 py-3 text-[13px] text-muted-foreground">
             Approved people are saved into <span className="font-medium text-foreground">{lockedProject ? lockedProject.name : defaultProjectId ? "this project" : "a new project named after this agent"}</span>.
