@@ -121,7 +121,7 @@ describe("live failure 2026-10-12: orthopedic surgeons in Miami, Florida", async
 
   it("keeps the Miami location clause intact", () => {
     expect(leaves.some((l) => l.field === "basic_profile.location.state" && l.value === "florida")).toBe(true);
-    expect(leaves.some((l) => l.field === "basic_profile.location" && JSON.stringify(l.value).includes("miami, florida"))).toBe(true);
+    expect(leaves.some((l) => l.field === "basic_profile.location" && JSON.stringify(l.value).toLowerCase().includes("miami, florida"))).toBe(true);
   });
 
   it("the noise filter removes the rows the grader had to reject", () => {

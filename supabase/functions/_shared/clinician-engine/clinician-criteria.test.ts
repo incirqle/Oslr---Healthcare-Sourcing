@@ -506,8 +506,9 @@ Deno.test("subspecialty: joint reconstruction splits from parent and ANDs with i
   // Hyper-local: each city gets a geo_distance circle alternative.
   const geoLeaves = leaves(tree).filter((l) => l.type === "geo_distance");
   const geoLocs = geoLeaves.map((l) => (l.value as { location?: string }).location ?? "");
-  assert(geoLocs.some((s) => s.includes("golden")), "Golden geo circle missing");
-  assert(geoLocs.some((s) => s.includes("boulder")), "Boulder geo circle missing");
+  // Place names are title-cased for the provider, so compare case-insensitively.
+  assert(geoLocs.some((s) => s.toLowerCase().includes("golden")), "Golden geo circle missing");
+  assert(geoLocs.some((s) => s.toLowerCase().includes("boulder")), "Boulder geo circle missing");
 });
 
 Deno.test("specialty asks earn a semantic pass, with or without a named employer", async () => {

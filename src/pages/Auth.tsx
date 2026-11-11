@@ -10,6 +10,7 @@ import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable/index";
+import { describeAuthError } from "@/lib/auth-errors";
 import { useAuth } from "@/hooks/useAuth";
 
 const features = [
@@ -102,19 +103,9 @@ export default function Auth() {
         if (!inviteToken) navigate("/dashboard");
       }
     } catch (error: any) {
-      const msg = String(error?.message ?? "");
-      if (/invalid login credentials/i.test(msg)) {
-        toast.error("Email or password doesn't match. New here? Choose \"Create account\" at the top.");
-      } else if (/already registered|already exists/i.test(msg)) {
-        toast.error("You already have an account with this email. Choose \"Sign in\" at the top.");
-        setIsSignUp(false);
-      } else if (/email not confirmed/i.test(msg)) {
-        toast.error("Please open the confirmation email we sent you, then sign in.");
-      } else if (/password/i.test(msg)) {
-        toast.error("Please use a password with at least 6 characters.");
-      } else {
-        toast.error(msg || "Something went wrong. Please try again.");
-      }
+      const advice = describeAuthError(String(error?.message ?? ""), password.length);
+      toast.error(advice.message);
+      if (advice.showSignIn) setIsSignUp(false);
     } finally {
       setLoading(false);
     }

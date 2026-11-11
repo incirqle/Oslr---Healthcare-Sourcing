@@ -3,7 +3,7 @@
 - [ ] Stop any existing Stripe subscription (blocked: Stripe lookup declined).
 - [x] Oslr Agents: create, first matches, approve/pass with reasons, skip towns, learning summary, steer chat, Dashboard and Project cards, nightly runs, premium switch.
 - [ ] Agents morning email (blocked: needs an Oslr sending email domain set up).
-- [x] Agent metering: Starter 1 active per workspace, Pro 5 per user, Enterprise unlimited; charge 30 workspace credits per new agent and preserve separate contact charges. Tests passed; signed-in Starter limit rejection verified with unchanged credits/projects.
+- [x] Agent metering: Starter 1 active per workspace (10/day), Pro 4 per user (25/day), Enterprise unlimited; charge 15 workspace credits per new agent and preserve separate contact charges. Tests passed; signed-in Starter limit rejection verified with unchanged credits/projects.
 - [ ] Verify successful 30-credit creation, retries and concurrent requests end-to-end (blocked: no authorized disposable funded workspace; existing account is already at its active limit).
 - [x] Live natural-language brief interpretation without sourcing or contact charges; verified signed in with an Arizona pain-physician brief.
 - [x] Apply rejection notes to learned ranking and explicit skip rules; pure rule tests pass. No real candidate decision changed during checks.
@@ -37,3 +37,4 @@
 - [x] Trial badge with days/searches left and Upgrade; trial search count kept on the pass so deleting history can't reset it.
 - [x] Optional monthly credit limit on team invitations, applied on join.
 - [x] Lock workspace membership to signup/invite only; restrict workspace lookups to self/teammates.
+- [x] Sign-up accepts any password (leaked-password check turned off in auth settings) and error messages now tell the truth: length is only mentioned when the password really is short. New auth-errors tests plus the full 161-test suite passed; wrong-credentials message verified on screen.
