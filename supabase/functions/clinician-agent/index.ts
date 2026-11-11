@@ -17,6 +17,20 @@ const cors = {
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
+// deno-lint-ignore no-explicit-any
+async function activePassEnd(admin: any, companyId: string): Promise<string | null> {
+  const { data } = await admin.from("beta_access").select("expires_at").eq("company_id", companyId).maybeSingle();
+  return data && new Date(data.expires_at) > new Date() ? data.expires_at : null;
+}
+
+/** Every agent runs to a goal and an end date: 30 days and 30 people, or the trial pass end and 15 people. */
+function runWindow(passEnd: string | null) {
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const today = day(new Date());
+  if (passEnd) return { today, finish: day(new Date(passEnd)), goal: 15, maxGoal: 15 };
+  return { today, finish: day(new Date(Date.now() + 30 * 86400000)), goal: 30, maxGoal: 1000 };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -64,7 +78,7 @@ Deno.serve(async (req) => {
       }
       const policy = agentPolicy(feat?.plan);
       return json({ agents: (agents ?? []).map((a) => ({ ...a, stats: stats[a.id] ?? { waiting: 0, approved: 0, passed: 0 } })),
-        metering: { ...policy, active: activeAgentCount(agents ?? [], feat?.plan, caller.userId), build_credits: agentBuildCredits(pass?.unlimited_access === true) } });
+        metering: { ...policy, active: activeAgentCount(agents ?? [], feat?.plan, caller.userId), build_credits: agentBuildCredits(pass?.unlimited_access === true), pass_ends_at: await activePassEnd(admin, companyId) } });
     }
 
     if (action === "create") {
@@ -73,8 +87,12 @@ Deno.serve(async (req) => {
       const brief = String(body.brief ?? "").trim().slice(0, 500);
       if (!name || brief.length < 8) return json({ error: "Add a name and describe who to find." }, 400);
       const perDay = Math.max(1, Math.min(createPolicy.daily_max, Number(body.per_day) || 10));
-      const goal = body.goal ? Math.max(1, Math.min(1000, Number(body.goal))) : null;
-      const finish = typeof body.finish_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.finish_date) ? body.finish_date : null;
+      const passEnd = await activePassEnd(admin, companyId);
+      const runLimit = runWindow(passEnd);
+      const askedGoal = Number(body.goal) > 0 ? Math.min(1000, Math.floor(Number(body.goal))) : runLimit.goal;
+      const goal = Math.min(askedGoal, runLimit.maxGoal);
+      const askedFinish = typeof body.finish_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.finish_date) ? body.finish_date : runLimit.finish;
+      const finish = askedFinish > runLimit.finish ? runLimit.finish : askedFinish < runLimit.today ? runLimit.today : askedFinish;
       const tz = typeof body.timezone === "string" && body.timezone.length < 60 ? body.timezone : "America/New_York";
       const requestId = typeof body.request_id === "string" && /^[0-9a-f-]{36}$/i.test(body.request_id) ? body.request_id : crypto.randomUUID();
       const { data: result, error } = await admin.rpc("create_metered_clin_agent", {

@@ -139,7 +139,7 @@ export function useAgentMetering(enabled: boolean) {
   const { companyId } = useCompany();
   return useQuery({
     queryKey: ["agent-metering", companyId], enabled: enabled && !!companyId,
-    queryFn: () => call<{ metering: { limit: number | null; scope: "workspace" | "user"; active: number; build_credits: number; daily_max?: number } }>({ action: "list" }).then((r) => r.metering),
+    queryFn: () => call<{ metering: { limit: number | null; scope: "workspace" | "user"; active: number; build_credits: number; daily_max?: number; pass_ends_at?: string | null } }>({ action: "list" }).then((r) => r.metering),
     refetchInterval: 60_000,
   });
 }
