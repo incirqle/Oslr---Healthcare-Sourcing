@@ -14,7 +14,7 @@
 | Shared credits | 150/mo | 500/mo per seat | Custom |
 | Active agents | 1 (10 matches/day) | 4 per teammate (25/day) | Unlimited |
 | Live sync (Sheets, Slack, Excel) | Yes | Yes | Yes |
-| ATS / CRM integrations | No | Yes | Yes |
+| ATS / CRM integrations | No | No | Yes |
 
 Prices shown in Oslr come straight from our billing system.
 

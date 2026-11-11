@@ -161,12 +161,12 @@ export function IntegrationsPanel() {
       <Dialog open={upsell} onOpenChange={setUpsell}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>ATS and CRM connections are on Pro</DialogTitle>
-            <DialogDescription>Send clinicians straight into Workday, Salesforce and the rest of your systems on Pro and Enterprise. Your current plan keeps Google Sheets, Slack and Excel exports.</DialogDescription>
+            <DialogTitle>ATS and CRM connections are on Enterprise</DialogTitle>
+            <DialogDescription>Send clinicians straight into Workday, Salesforce and the rest of your systems on Enterprise. Google Sheets, Slack and Excel live sync stay included on every plan.</DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setUpsell(false)}>Not now</Button>
-            <Button onClick={() => nav("/settings?tab=billing")}>Upgrade to Pro</Button>
+            <Button asChild><a href="mailto:hello@oslr.health?subject=Oslr%20Enterprise">Talk to sales</a></Button>
           </div>
         </DialogContent>
       </Dialog>

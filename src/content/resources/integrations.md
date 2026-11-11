@@ -1,6 +1,6 @@
 # ATS and CRM integrations
 
-Push clinicians straight into your applicant tracking system or CRM. Available on **Pro** and **Enterprise**. Starter teams can use [Live sync](/resources/live-sync) to Sheets, Slack and Excel.
+Push clinicians straight into your applicant tracking system or CRM. Available on **Enterprise**. Starter and Pro teams can use [Live sync](/resources/live-sync) to Sheets, Slack and Excel.
 
 ![Integrations](/resources/integrations.png)
 
@@ -22,6 +22,6 @@ Your system's login is stored securely on our side and is never shown in the bro
 
 Systems marked **Coming soon** are not available yet.
 
-## On Starter?
+## On Starter or Pro?
 
-You will see an **Upgrade to Pro** prompt. See [Plans and billing](/resources/billing).
+You will see a **Talk to sales** prompt for Enterprise. See [Plans and billing](/resources/billing).

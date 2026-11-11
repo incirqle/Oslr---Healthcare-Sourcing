@@ -1,4 +1,4 @@
-// ATS and CRM connections through Merge.dev. Pro and Enterprise only, checked here on the server.
+// ATS and CRM connections through Merge.dev. Enterprise only, checked here on the server.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { SYSTEMS, plansAllowIntegrations, toAtsCandidate, toCrmContact, type CandidateRow } from "../_shared/merge.ts";
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       return json({ plan, allowed, ready: !!Deno.env.get("MERGE_API_KEY"), connections: data ?? [] });
     }
 
-    if (!allowed) return json({ error: "ATS and CRM connections are included on Pro and Enterprise.", upgrade: true }, 403);
+    if (!allowed) return json({ error: "ATS and CRM connections are included on Enterprise.", upgrade: true }, 403);
 
     if (action === "link_token") {
       const slug = String(body.provider ?? "");

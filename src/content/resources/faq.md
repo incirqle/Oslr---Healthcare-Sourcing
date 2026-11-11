@@ -16,7 +16,7 @@ You may have reached your monthly spending limit, or the shared pool is empty. C
 Only admins can invite, and Starter has one seat. Upgrade to Pro for up to 5 seats.
 
 **I don't see Integrations working.**
-ATS and CRM connections need Pro or Enterprise. Sheets, Slack and Excel work on every plan.
+ATS and CRM connections need Enterprise. Sheets, Slack and Excel work on every plan.
 
 **My agent isn't finding new people.**
 Review its waiting matches first; the next batch starts after you review. Check it isn't paused and that you haven't hit the daily match limit.

@@ -56,8 +56,8 @@ export function planPriceLabel(plan: PlanOption | undefined, interval: CheckoutI
 }
 
 const EXTRAS: Record<CheckoutPlan, string[]> = {
-  starter: ["1 active agent, 10 new matches a day", "Exports to CSV, Sheets, Excel and Slack"],
-  pro: ["4 active agents per seat, 25 new matches a day", "ATS and CRM connections"],
+  starter: ["1 active agent, 10 new matches a day", "Live sync to Sheets, Excel and Slack"],
+  pro: ["4 active agents per seat, 25 new matches a day", "Live sync to Sheets, Excel and Slack"],
 };
 
 const PLAN_NAMES: Record<CheckoutPlan, string> = { starter: "Starter", pro: "Pro" };

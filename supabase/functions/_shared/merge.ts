@@ -18,9 +18,9 @@ export const SYSTEMS: Record<string, { name: string; category: Category }> = {
   "zoho-crm": { name: "Zoho CRM", category: "crm" },
 };
 
-/** ATS and CRM connections are included on Pro and Enterprise only. */
+/** ATS and CRM connections are included on Enterprise only. */
 export function plansAllowIntegrations(plan: string | null | undefined): boolean {
-  return plan === "pro" || plan === "enterprise";
+  return plan === "enterprise";
 }
 
 export type CandidateRow = {
