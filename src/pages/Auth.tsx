@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Users, FolderKanban, Download, Eye, EyeOff, Check } from "lucide-react";
+import { Search, Users, FolderKanban, Download, Eye, EyeOff, Check, Mail } from "lucide-react";
 import oslrWordmark from "@/assets/oslr-wordmark.svg";
 import oslrLogo from "@/assets/oslr-logo.svg";
 import { toast } from "sonner";
@@ -30,6 +30,8 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   const [inviteInfo, setInviteInfo] = useState<{ email: string; companyName: string } | null>(null);
   const navigate = useNavigate();
 
@@ -92,11 +94,7 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast.success(
-          inviteToken
-            ? "Check your email to confirm your account and join the team!"
-            : "Check your email to confirm your account!",
-        );
+        setSentTo(email);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -110,6 +108,49 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  if (sentTo) {
+    const domain = sentTo.split("@")[1]?.toLowerCase() ?? "";
+    const inbox = /gmail|googlemail/.test(domain) ? { label: "Open Gmail", href: "https://mail.google.com/mail/u/0/#search/from%3Aoslr" }
+      : /outlook|hotmail|live|msn/.test(domain) ? { label: "Open Outlook", href: "https://outlook.live.com/mail/" }
+      : /yahoo/.test(domain) ? { label: "Open Yahoo Mail", href: "https://mail.yahoo.com" } : null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-6">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-lg">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/15">
+            <Mail className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="font-heading text-2xl font-bold text-foreground">Check your inbox</h1>
+          <p className="mt-3 text-muted-foreground">We sent a confirmation link to</p>
+          <p className="mt-1 font-semibold text-foreground break-all">{sentTo}</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Click the link in that email to activate your account{inviteToken ? " and join your team" : ""}. Then you'll pick your plan or enter an invite code. It can take a minute, so check your spam folder too.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            {inbox && (
+              <Button asChild size="lg"><a href={inbox.href} target="_blank" rel="noreferrer">{inbox.label}</a></Button>
+            )}
+            <Button
+              variant="outline"
+              disabled={resending}
+              onClick={async () => {
+                setResending(true);
+                const { error } = await supabase.auth.resend({ type: "signup", email: sentTo, options: { emailRedirectTo: `${window.location.origin}/auth` } });
+                setResending(false);
+                if (error) toast.error("We couldn't resend just now. Please wait a minute and try again.");
+                else toast.success("Sent again. Check your inbox.");
+              }}
+            >
+              {resending ? "Sending..." : "Resend confirmation email"}
+            </Button>
+            <button type="button" className="text-sm text-muted-foreground underline-offset-4 hover:underline" onClick={() => setSentTo(null)}>
+              Used the wrong email? Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background">

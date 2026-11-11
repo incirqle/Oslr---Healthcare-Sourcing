@@ -15,7 +15,39 @@ const ok = (b: unknown = { received: true }, s = 200) => new Response(JSON.strin
 
 // Only emails a customer expects because of their own billing event are sent.
 // Abandoned-checkout and win-back reminders are promotional, so they stay queued and are skipped.
-const CUSTOMER_KINDS = new Set(["cancel_scheduled", "payment_failed", "refund"]);
+const CUSTOMER_KINDS = new Set(["cancel_scheduled", "payment_failed", "refund", "trial_ending", "trial_ended"]);
+
+// Has this workspace ever paid, or is it covered by a pass/exemption?
+async function payingStatus(cid: string | null) {
+  if (!cid) return { paid: false, trial: false, exempt: false };
+  const [{ count: paid }, { data: trial }, { data: ex }] = await Promise.all([
+    db.from("billing_events").select("stripe_event_id", { count: "exact", head: true }).eq("company_id", cid).in("type", ["checkout.session.completed", "invoice.paid", "invoice.payment_succeeded"]),
+    db.from("beta_access").select("expires_at").eq("company_id", cid).maybeSingle(),
+    db.from("billing_exemptions").select("company_id").eq("company_id", cid).maybeSingle(),
+  ]);
+  return { paid: (paid ?? 0) > 0, trial: !!trial, exempt: !!ex };
+}
+
+async function ownerNudge(n: Record<string, any>): Promise<boolean> {
+  const s = await payingStatus(n.company_id);
+  const who = n.email;
+  switch (n.kind) {
+    case "owner_signup":
+      await alertOwner("New signup", `${who} just created an Oslr account. They still need to confirm their email and pick a plan.`); return true;
+    case "owner_unpaid":
+      if (s.paid || s.trial || s.exempt) return false;
+      await alertOwner("Signed up, no plan yet (2 hours)", `${who} signed up 2 hours ago but has not paid or used an invite code. Worth a personal note or a demo offer.`); return true;
+    case "owner_unpaid_day":
+      if (s.paid || s.trial || s.exempt) return false;
+      await alertOwner("Still no plan after 1 day", `${who} signed up a day ago and still has not paid or started a pass.`); return true;
+    case "owner_trial_started":
+      await alertOwner("5-day pass started", `${who} redeemed the free invite code. Their pass ends in 5 days.`); return true;
+    case "abandoned_cart":
+      if (s.paid) return false;
+      await alertOwner("Abandoned checkout", `${who} opened checkout but left without paying.`); return true;
+  }
+  return false;
+}
 
 async function sendEmail(kind: string, to: string, key: string): Promise<string | null> {
   try {
@@ -71,7 +103,9 @@ async function handle(stripe: Stripe, ev: Stripe.Event): Promise<string | null> 
   switch (ev.type) {
     case "checkout.session.completed": {
       const cid = await companyFor(stripe, o.metadata, o.customer);
-      if (cid) await cancelNudges(cid, ["abandoned_cart", "winback_3", "winback_14"]);
+      if (cid) await cancelNudges(cid, ["abandoned_cart", "winback_3", "winback_14", "owner_unpaid", "owner_unpaid_day", "trial_ending", "trial_ended"]);
+      const amt = typeof o.amount_total === "number" ? ` for $${(o.amount_total / 100).toFixed(2)}` : "";
+      await alertOwner("New paying customer", `${o.customer_details?.email ?? o.customer_email ?? "A customer"} just paid${amt}.`);
       return cid;
     }
     case "checkout.session.expired": {
@@ -184,6 +218,17 @@ async function tick() {
     if (n.kind.startsWith("winback") && n.company_id) {
       const { data: f } = await db.from("company_features").select("plan").eq("company_id", n.company_id).maybeSingle();
       if (f?.plan && f.plan !== "none") { await db.from("billing_nudges").update({ canceled_at: new Date().toISOString() }).eq("id", n.id); continue; }
+    }
+    if (n.kind.startsWith("owner_") || n.kind === "abandoned_cart") {
+      const done = await ownerNudge(n);
+      await db.from("billing_nudges").update(done ? { sent_at: new Date().toISOString() } : { canceled_at: new Date().toISOString() }).eq("id", n.id);
+      if (done) sent++;
+      continue;
+    }
+    if (n.kind.startsWith("trial_")) {
+      const st = await payingStatus(n.company_id);
+      if (st.paid) { await db.from("billing_nudges").update({ canceled_at: new Date().toISOString() }).eq("id", n.id); continue; }
+      if (n.kind === "trial_ended") await alertOwner("5-day pass ended without upgrading", `${n.email}'s free pass ended and they have not paid yet.`);
     }
     if (!CUSTOMER_KINDS.has(n.kind)) { await db.from("billing_nudges").update({ canceled_at: new Date().toISOString(), error: "promotional_not_sent" }).eq("id", n.id); continue; }
     const err = await sendEmail(n.kind, n.email, n.dedupe_key);

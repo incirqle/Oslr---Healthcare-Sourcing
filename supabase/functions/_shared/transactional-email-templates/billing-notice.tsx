@@ -4,6 +4,18 @@ import { Body, Button, Container, Head, Heading, Html, Preview, Text } from 'npm
 import type { TemplateEntry } from './registry.ts'
 
 const COPY: Record<string, { subject: string; heading: string; body: string; cta: string }> = {
+  trial_ending: {
+    subject: 'Your Oslr pass ends tomorrow',
+    heading: 'Your 5-day pass ends tomorrow',
+    body: 'Your free Oslr pass ends in about a day. Pick a plan in Billing to keep your searches, projects and Agent running without a break.',
+    cta: 'Choose a plan',
+  },
+  trial_ended: {
+    subject: 'Your Oslr pass has ended',
+    heading: 'Your 5-day pass has ended',
+    body: 'Your free pass is over. Your projects and saved people are still here. Pick a plan in Billing to pick up right where you left off.',
+    cta: 'Choose a plan',
+  },
   cancel_scheduled: {
     subject: 'Your Oslr plan is set to end',
     heading: 'Your plan is set to end',

@@ -162,6 +162,13 @@
       "when": 1794412705786,
       "tag": "0022_lock_background_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794428811722,
+      "tag": "0023_signup_trial_owner_alerts",
+      "breakpoints": true
     }
   ]
 }
