@@ -38,12 +38,9 @@ import { buildRoster, type RosterExclusion, type RosterPerson, sitesFromRegions 
 import { GROUP_DEFS, groupFilter, isPullGroup, movementFilters, PULL_GROUPS, PULL_PAGE_SIZE, type PullGroup } from "./groups.ts";
 import { classifyEmploymentModel } from "../_shared/clinician-engine/employment-model.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const SCHEMA_VERSION = 18;
 /** CrustData credits per profile returned by /person/search (verified on every call's credits line, 2026-10-18). */
@@ -414,6 +411,10 @@ const json = (body: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } });
+    const caller = await resolveCaller(supabase, req);
+    if (!caller) return json({ error: "Unauthorized" }, 401);
+
     const body = await req.json().catch(() => ({}));
     const action: string = typeof body?.action === "string" ? body.action : "base";
     const company_name: string | null = typeof body?.company_name === "string" ? body.company_name : null;
@@ -422,8 +423,6 @@ Deno.serve(async (req) => {
     const entity_ids: number[] = Array.isArray(body?.entity_ids)
       ? (body.entity_ids as unknown[]).filter((n): n is number => typeof n === "number" && n > 0)
       : [];
-
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Base first: every other action reads the company's ids, name and state from it.
     let base: (Base & { cached: boolean }) | null = null;

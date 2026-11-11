@@ -23,6 +23,8 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { handleClinicianSearch } from "../_shared/clinician-engine/handler.ts";
 import { callClaude } from "../_shared/clinician-engine/ai-router.ts";
 import {
@@ -39,11 +41,6 @@ import {
   savePermanentEnrichment,
   setCrustDataCache,
 } from "../_shared/clinician-engine/cache.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -216,6 +213,10 @@ Deno.serve(async (req: Request) => {
   const requestStart = Date.now();
 
   try {
+    const adminClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } });
+    const caller = await resolveCaller(adminClient, req);
+    if (!caller) return json({ error: "Unauthorized" }, 401);
+
     const body = (await req.json()) as Row;
     const action = (body.action as string | undefined) ?? null;
 
