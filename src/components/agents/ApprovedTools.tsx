@@ -9,7 +9,10 @@ import { CONTACT_PRICES, enrichContact, type ContactKind } from "@/hooks/useCont
 import { ContactKindPicker } from "@/components/ContactKindPicker";
 import type { DecisionRow, PoolItem } from "@/hooks/useAgents";
 
-const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+const cell = (v: unknown) => {
+  const s = String(v ?? "");
+  return `"${(/^[=+\-@\t\r]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
+};
 const emailOf = (i: PoolItem) => { const p = i.profile as Record<string, unknown>; return (p.email as string) || (p.work_email as string) || ""; };
 
 /** Tools above the Approved list: copy emails, download (with a metered enrich option), open the project. */

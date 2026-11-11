@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     if (action === "google_start") {
       const clientAPIKey = Deno.env.get("GOOGLE_SHEETS_APP_USER_CONNECTOR_CLIENT_API_KEY");
       if (!clientAPIKey) return json({ error: "Google Sheets is not set up for Oslr yet." }, 503);
-      const origin = typeof body.origin === "string" && /^https?:\/\/[^/]+$/.test(body.origin) ? body.origin : null;
+      const origin = typeof body.origin === "string" && /^https:\/\/((www\.)?oslr\.health|oslr\.lovable\.app|[a-z0-9-]+\.lovable\.app)$/.test(body.origin) ? body.origin : null;
       if (!origin) return json({ error: "Bad origin" }, 400);
       const existing = await getConnection(admin, user.id, "google_sheets").catch(() => null);
       const { authorizationUrl } = await authorizeAppUserOAuth({

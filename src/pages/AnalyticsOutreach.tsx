@@ -160,7 +160,7 @@ export default function AnalyticsOutreach() {
         r.interested,
         new Date(r.createdAt).toISOString().slice(0, 10),
       ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .map((v) => { const t = String(v); return `"${(/^[=+\-@\t\r]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"`; })
         .join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");

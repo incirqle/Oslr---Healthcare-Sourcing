@@ -21,7 +21,8 @@ const HEADERS = [
 ];
 
 function csvCell(value: string | number | null | undefined): string {
-  const s = value == null ? "" : String(value);
+  let s = value == null ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
