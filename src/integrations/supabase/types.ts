@@ -224,6 +224,7 @@ export type Database = {
           enrich_limit: number
           expires_at: string
           search_limit: number
+          searches_used: number
           user_id: string
         }
         Insert: {
@@ -232,6 +233,7 @@ export type Database = {
           enrich_limit?: number
           expires_at?: string
           search_limit?: number
+          searches_used?: number
           user_id: string
         }
         Update: {
@@ -240,6 +242,7 @@ export type Database = {
           enrich_limit?: number
           expires_at?: string
           search_limit?: number
+          searches_used?: number
           user_id?: string
         }
         Relationships: [
@@ -1096,6 +1099,7 @@ export type Database = {
           email: string
           id: string
           invited_by: string | null
+          monthly_limit: number | null
           role: Database["public"]["Enums"]["app_role"]
           token: string
         }
@@ -1106,6 +1110,7 @@ export type Database = {
           email: string
           id?: string
           invited_by?: string | null
+          monthly_limit?: number | null
           role?: Database["public"]["Enums"]["app_role"]
           token?: string
         }
@@ -1116,6 +1121,7 @@ export type Database = {
           email?: string
           id?: string
           invited_by?: string | null
+          monthly_limit?: number | null
           role?: Database["public"]["Enums"]["app_role"]
           token?: string
         }
@@ -2346,6 +2352,10 @@ export type Database = {
     }
     Functions: {
       accept_workspace_invite: { Args: { _token: string }; Returns: string }
+      apply_invite_limit: {
+        Args: { _company: string; _limit: number; _user: string }
+        Returns: undefined
+      }
       beta_status: {
         Args: never
         Returns: {

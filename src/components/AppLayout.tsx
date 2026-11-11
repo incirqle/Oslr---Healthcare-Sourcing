@@ -8,6 +8,7 @@ import { projectNavigation, projectPath } from "@/lib/project-navigation";
 import { ProjectNavigation } from "@/components/projects/ProjectNavigation";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { TrialBadge } from "@/components/TrialBadge";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -71,6 +72,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
+            <TrialBadge />
           </header>
           {projectId && <ProjectNavigation projectId={projectId} name={project?.name} section={context.section} />}
           <div className="min-w-0 flex-1 p-4 sm:p-6">

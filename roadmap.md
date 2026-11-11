@@ -34,3 +34,6 @@
 - [ ] Run tests/unlimited-agent-builds.sql against a writable disposable transaction (blocked: verification connection is read-only; no test agent or paid sourcing run was submitted).
 - [x] Footer: group legal links into Security column, add LinkedIn badge (https://www.linkedin.com/company/oslr-health/)
 - [x] Authenticate company-enrichment and all search-people actions; deployed both, confirmed live invalid-token requests return 401, passed 62 automated checks, and verified signed-in candidate enrichment, AI summary and company panel return 200 through the app.
+- [x] Trial badge with days/searches left and Upgrade; trial search count kept on the pass so deleting history can't reset it.
+- [x] Optional monthly credit limit on team invitations, applied on join.
+- [x] Lock workspace membership to signup/invite only; restrict workspace lookups to self/teammates.

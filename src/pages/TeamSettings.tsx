@@ -533,6 +533,8 @@ function Team({
     "recruiter",
   );
   const [sending, setSending] = useState<string | null>(null);
+  const [limit, setLimit] = useState("");
+  const limitValid = limit.trim() === "" || /^\d+$/.test(limit.trim());
   const pending = (list.data ?? []).filter((i) => !i.accepted_at);
   const cap =
     plan === "enterprise"
@@ -552,9 +554,14 @@ function Team({
   };
   const invite = async () => {
     try {
-      const i = await create.mutateAsync({ email, role });
+      const i = await create.mutateAsync({
+        email,
+        role,
+        monthlyLimit: limit.trim() === "" ? null : Number(limit.trim()),
+      });
       setOpen(false);
       setEmail("");
+      setLimit("");
       toast[i.emailSent ? "success" : "warning"](
         i.emailSent
           ? "Invitation emailed"
@@ -742,14 +749,29 @@ function Team({
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {plan === "pro"
-                ? "When accepted, this seat adds 500 credits to the shared pool. Set a spending limit in Shared credits & limits after they join."
-                : "Credit limits can be set once your teammate joins."}
-            </p>
+            <div className="space-y-2">
+              <Label htmlFor="invite-limit">Monthly credit limit (optional)</Label>
+              <Input
+                id="invite-limit"
+                inputMode="numeric"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+                placeholder="No limit"
+              />
+              <p className="text-xs text-muted-foreground">
+                {limitValid
+                  ? "Applied the moment they join. Leave blank to let them use the shared pool freely. You can change it anytime."
+                  : "Enter a whole number, or leave blank."}
+              </p>
+            </div>
+            {plan === "pro" && (
+              <p className="text-sm text-muted-foreground">
+                When accepted, this seat adds 500 credits to the shared pool.
+              </p>
+            )}
             <Button
               className="w-full"
-              disabled={create.isPending || !/^\S+@\S+\.\S+$/.test(email)}
+              disabled={create.isPending || !limitValid || !/^\S+@\S+\.\S+$/.test(email)}
               onClick={invite}
             >
               {create.isPending ? (

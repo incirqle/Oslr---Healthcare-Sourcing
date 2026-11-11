@@ -10,6 +10,7 @@ export interface CompanyInvite {
   role: "admin" | "recruiter" | "viewer";
   token: string;
   accepted_at: string | null;
+  monthly_limit?: number | null;
   created_at: string;
 }
 
@@ -34,7 +35,7 @@ export function useInvites() {
   });
 
   const create = useMutation({
-    mutationFn: async (input: { email: string; role: "admin" | "recruiter" | "viewer" }) => {
+    mutationFn: async (input: { email: string; role: "admin" | "recruiter" | "viewer"; monthlyLimit?: number | null }) => {
       if (!companyId || !user) throw new Error("Not ready");
       // Insert the invite row first so an admin can copy the link even if email send fails.
       const { data: invite, error } = await supabase
@@ -44,6 +45,7 @@ export function useInvites() {
           email: input.email.toLowerCase().trim(),
           role: input.role,
           invited_by: user.id,
+          monthly_limit: input.monthlyLimit ?? null,
         })
         .select("*")
         .single();
