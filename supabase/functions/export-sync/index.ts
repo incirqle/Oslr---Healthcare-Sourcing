@@ -1,12 +1,14 @@
 // export-sync: runs every minute. Pushes queued project changes to Google Sheets and Slack.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isInternalJob, unauthorized } from "../_shared/job-auth.ts";
 import { decrypt, postSlack, slackMessage, upsertSheetRows } from "../_shared/exports.ts";
 
 const APP_URL = "https://oslr.health";
 const MAX_ATTEMPTS = 5;
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await isInternalJob(req, admin))) return unauthorized();
   const { data: pending } = await admin.rpc("claim_export_outbox", { _limit: 300 });
   if (!pending?.length) return Response.json({ processed: 0 });
 

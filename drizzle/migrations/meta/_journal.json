@@ -155,6 +155,13 @@
       "when": 1794410776597,
       "tag": "0021_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794412705786,
+      "tag": "0022_lock_background_jobs",
+      "breakpoints": true
     }
   ]
 }

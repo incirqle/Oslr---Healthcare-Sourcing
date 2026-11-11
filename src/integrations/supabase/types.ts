@@ -1752,6 +1752,21 @@ export type Database = {
           },
         ]
       }
+      internal_job_token: {
+        Row: {
+          id: number
+          token: string
+        }
+        Insert: {
+          id?: number
+          token: string
+        }
+        Update: {
+          id?: number
+          token?: string
+        }
+        Relationships: []
+      }
       member_credit_limits: {
         Row: {
           company_id: string
@@ -2449,6 +2464,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      internal_job_headers: { Args: never; Returns: Json }
       is_company_member: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

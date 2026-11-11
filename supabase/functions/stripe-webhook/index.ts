@@ -1,3 +1,4 @@
+import { isInternalJob, isServiceKey } from "../_shared/job-auth.ts";
 // Stripe lifecycle: abandoned checkouts, cancellations, win-backs, failed payments, refunds, disputes.
 // POST from Stripe (signed) records + reacts to the event. POST {"tick":true} sends nudges that are due.
 // Every event is stored once by Stripe event id, so retries never double-act.
@@ -200,8 +201,12 @@ Deno.serve(async (req) => {
   if (!sig) {
     let b: Record<string, unknown> = {};
     try { b = JSON.parse(raw); } catch { /* ignore */ }
-    if (b?.tick) return ok(await tick());
-    if (b?.setup) return ok(await setup());
+    if (b?.tick || b?.setup) {
+      if (!(await isInternalJob(req, db))) return ok({ error: "Unauthorized" }, 401);
+      if (b.tick) return ok(await tick());
+      if (!isServiceKey(req)) return ok({ error: "Unauthorized" }, 401);
+      return ok(await setup());
+    }
     return ok({ error: "Missing signature" }, 400);
   }
   const accounts: { name: string; key?: string; secret?: string }[] = [

@@ -1,13 +1,15 @@
 // agents-tick: hourly. Runs each due agent at most once per ~24h, bounded per tick.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isInternalJob, unauthorized } from "../_shared/job-auth.ts";
 import { logEvent, nextRunAt, sourceAgent } from "../_shared/agents/agent-core.ts";
 
 const MAX_AGENTS_PER_TICK = 5;
 const INACTIVE_DAYS = 7;
 const MAX_EMPTY_RUNS = 3;
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await isInternalJob(req, admin))) return unauthorized();
   const now = new Date();
   // Single-flight lease.
   const { data: lease } = await admin.from("clin_agent_lease")
