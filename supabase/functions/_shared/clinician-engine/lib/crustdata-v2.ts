@@ -674,6 +674,28 @@ export function pickHasContact(p: Record<string, unknown>): BatchEnrichResult {
   };
 }
 
+export const BATCH_MAX_PROFILES = 300;
+export const BATCH_MAX_CONCURRENT = 5;
+const BATCH_SUBMIT_WAIT_MS = 5_000;
+const BATCH_SUBMIT_BUDGET_MS = 60_000;
+
+/** Resubmit after a 429 (job slots full) until a slot frees or the budget runs out. */
+export async function submitWithWait<T>(
+  exec: () => Promise<V2Result<T>>,
+  waitMs = BATCH_SUBMIT_WAIT_MS,
+  budgetMs = BATCH_SUBMIT_BUDGET_MS,
+): Promise<V2Result<T>> {
+  const start = Date.now();
+  for (;;) {
+    const r = await exec();
+    if (r.ok || r.status !== 429) return r;
+    const wait = Math.max(waitMs, r.retryAfterMs ?? 0);
+    if (Date.now() - start + wait > budgetMs) return { ...r, busy: true };
+    console.warn(`[batch-contact] job slots full (429), waiting ${wait}ms to resubmit`);
+    await new Promise((res) => setTimeout(res, wait));
+  }
+}
+
 /**
  * Submit a batch contact enrich and poll until complete (or 30s timeout).
  * Resolves to an array of BatchEnrichResult aligned by linkedin_url match.
@@ -696,13 +718,28 @@ export async function batchContactEnrich(
     phone_numbers: "personal_contact_info.phone_numbers",
   };
   const fields = [...new Set(requiredFields.map((f) => FIELD_MAP[f] ?? f))];
-  const submit = await call<BatchSubmitResponse>("/batch/person/contact/enrich", {
-    method: "POST",
-    body: JSON.stringify({
-      professional_network_profile_urls: inputs.map((i) => i.linkedin_url),
-      fields,
-    }),
+  // Provider guidance (call with CrustData, 2026-11): up to 300 profiles per
+  // job, 5 jobs at once. Larger lists are split; each chunk runs on its own.
+  if (inputs.length > BATCH_MAX_PROFILES) {
+    const chunks: BatchEnrichInput[][] = [];
+    for (let i = 0; i < inputs.length; i += BATCH_MAX_PROFILES) chunks.push(inputs.slice(i, i + BATCH_MAX_PROFILES));
+    const out: BatchEnrichResult[] = [];
+    for (let i = 0; i < chunks.length; i += BATCH_MAX_CONCURRENT) {
+      const results = await Promise.all(chunks.slice(i, i + BATCH_MAX_CONCURRENT).map((c) => batchContactEnrich(c, requiredFields)));
+      for (const r of results) { if (!r.ok) return r; out.push(...r.data); }
+    }
+    return { ok: true, data: out };
+  }
+  const submitBody = JSON.stringify({
+    professional_network_profile_urls: inputs.map((i) => i.linkedin_url),
+    fields,
+    verified: true, // only business emails that pass a deliverability check
   });
+  // A 429 on submit means five jobs are already running: wait for one to
+  // finish and resubmit (never fall back to another path).
+  const submit = await submitWithWait(() =>
+    call<BatchSubmitResponse>("/batch/person/contact/enrich", { method: "POST", body: submitBody })
+  );
   if (!submit.ok) return submit;
 
   const batchId = submit.data?.batch_id ?? submit.data?.id;
@@ -787,7 +824,7 @@ async function fetchBatchOutput(url: string): Promise<V2Result<Record<string, un
 // NOTE (Oslr fork): the reference repo's enrichSingleV2 helper is not ported —
 // it lazy-imports a facility-crustdata module that is outside this engine's
 // fork set, and nothing in this engine calls it. Single-profile contact
-// enrichment routes through batchContactEnrich above.
+// enrichment runs syncContactEnrich first; only misses go to batchContactEnrich.
 
 /**
  * Synchronous single-request contact enrich (POST /person/contact/enrich).
@@ -814,7 +851,7 @@ export async function syncContactEnrich(
   };
   const r = await call<Row[]>("/person/contact/enrich", {
     method: "POST",
-    body: JSON.stringify({ professional_network_profile_urls: linkedinUrls.slice(0, 25), fields }),
+    body: JSON.stringify({ professional_network_profile_urls: linkedinUrls.slice(0, 25), fields, verified: true }),
   });
   if (!r.ok) return r;
   const rows = Array.isArray(r.data) ? r.data : [];
@@ -828,5 +865,65 @@ export async function syncContactEnrich(
         personal_contact_info: { personal_emails: c.personal_emails ?? [], phone_numbers: c.phone_numbers ?? [] },
       });
     }),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Research profiles (person enrich add-on, 2 credits only when matched)
+// ─────────────────────────────────────────────────────────────────────
+export interface ResearchProfileSummary {
+  profile_url: string | null;
+  designation: string | null;
+  organisation: string | null;
+  interests: string[];
+  article_count: number;
+  co_author_count: number;
+  citations: number;
+  citations_recent: number;
+  recent_since_year: number | null;
+  h_index: number;
+  i10_index: number;
+  top_articles: { title: string; url: string | null; year: string | null; citations: number; publication: string | null }[];
+}
+
+export const RESEARCH_PROFILE_FIELDS = [
+  "research_profiles.profile_url",
+  "research_profiles.designation",
+  "research_profiles.affiliated_organisation",
+  "research_profiles.research_interests",
+  "research_profiles.article_count",
+  "research_profiles.co_author_count",
+  "research_profiles.citations_count",
+  "research_profiles.h_index",
+  "research_profiles.i10_index",
+  "research_profiles.articles",
+] as const;
+
+/** Best-match research profile, trimmed to what the profile panel shows. */
+export function summarizeResearchProfile(personData: Record<string, unknown> | null | undefined): ResearchProfileSummary | null {
+  const list = personData?.research_profiles;
+  if (!Array.isArray(list) || !list.length) return null;
+  const p = (list[0] ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const metric = (v: unknown, k: string) => num((v as Record<string, unknown> | null)?.[k]);
+  const articles = (Array.isArray(p.articles) ? p.articles : []) as Record<string, unknown>[];
+  return {
+    profile_url: str(p.profile_url),
+    designation: str(p.designation),
+    organisation: str(p.affiliated_organisation),
+    interests: (Array.isArray(p.research_interests) ? p.research_interests : []).filter((x): x is string => typeof x === "string").slice(0, 8),
+    article_count: num(p.article_count) || articles.length,
+    co_author_count: num(p.co_author_count),
+    citations: metric(p.citations_count, "all"),
+    citations_recent: metric(p.citations_count, "recent"),
+    recent_since_year: metric(p.citations_count, "recent_since_year") || null,
+    h_index: metric(p.h_index, "all"),
+    i10_index: metric(p.i10_index, "all"),
+    top_articles: articles
+      .filter((a) => str(a.title))
+      .sort((a, b) => num(b.total_citations) - num(a.total_citations))
+      .slice(0, 5)
+      .map((a) => ({ title: str(a.title)!, url: str(a.url), year: str(a.publication_year), citations: num(a.total_citations), publication: str(a.publication) })),
   };
 }

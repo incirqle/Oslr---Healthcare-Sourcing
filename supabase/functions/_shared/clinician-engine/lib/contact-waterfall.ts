@@ -35,6 +35,29 @@ export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult
   });
 }
 
+/** Combine the instant lookup with the batch retry: the instant answer wins
+ *  per field, the batch only fills fields the instant lookup left empty. */
+export function combinePrimary(
+  sync: BatchEnrichResult | null | undefined,
+  batch: BatchEnrichResult | null | undefined,
+): BatchEnrichResult | null {
+  if (!sync) return batch ?? null;
+  if (!batch) return sync;
+  const be = sync.business_email && isEmail(clean(sync.business_email));
+  const personal = sync.personal_emails.length ? sync.personal_emails : batch.personal_emails;
+  const phones = sync.phones.length ? sync.phones : batch.phones;
+  const mobile = sync.mobile_phone ?? (sync.phones.length ? null : batch.mobile_phone);
+  return {
+    ...sync,
+    business_email: be ? sync.business_email : batch.business_email,
+    business_email_verified: be ? sync.business_email_verified : batch.business_email_verified,
+    personal_emails: personal,
+    phones,
+    mobile_phone: mobile,
+    has_contact: !!((be ? sync.business_email : batch.business_email) || personal.length || mobile || phones.length),
+  };
+}
+
 /**
  * Merge rules (agreed with the founder from weekly side-by-side tests):
  * - Work email: primary always wins (fresher employer data). Secondary only

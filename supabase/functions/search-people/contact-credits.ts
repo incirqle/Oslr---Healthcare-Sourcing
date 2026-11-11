@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
-import { mergeContacts, missingAfterPrimary, pdlEnrichContact } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
+import { combinePrimary, mergeContacts, missingAfterPrimary, pdlEnrichContact } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
 
 import { contactPrices, type ContactKind } from "../_shared/plans.ts";
@@ -97,14 +97,20 @@ export async function handleEnrichContact(
     }
   }
 
-  // Primary provider: instant lookup first, batch pipeline only if it errors.
+  // Primary provider: instant lookup first (verified work emails only). Only
+  // the kinds it missed (or all, if it errored) go to the batch pipeline.
   const wanted = toFetch.map((k) => FIELD[k]);
-  let res = await syncContactEnrich([url], wanted);
-  if (!res.ok && !res.insufficientCredits) {
-    console.warn(`[enrich_contact] sync lookup failed (${res.status}): ${res.detail.slice(0, 200)} — falling back to batch`);
-    res = await batchContactEnrich([{ linkedin_url: url }], wanted);
+  const syncRes = await syncContactEnrich([url], wanted);
+  const syncHit = syncRes.ok ? syncRes.data[0] ?? null : null;
+  let primary = syncHit;
+  let res: { ok: boolean } = syncRes;
+  const syncMissing = syncRes.ok ? missingAfterPrimary(toFetch, syncHit) : (syncRes.insufficientCredits ? [] : toFetch);
+  if (syncMissing.length) {
+    if (!syncRes.ok) console.warn(`[enrich_contact] sync lookup failed (${syncRes.status}): ${syncRes.detail.slice(0, 200)}; sending to batch`);
+    const batchRes = await batchContactEnrich([{ linkedin_url: url }], syncMissing.map((k) => FIELD[k]));
+    if (batchRes.ok) { primary = combinePrimary(syncHit, batchRes.data[0] ?? null); res = { ok: true }; }
+    else console.warn(`[enrich_contact] batch lookup failed (${batchRes.status}): ${batchRes.detail.slice(0, 200)}`);
   }
-  const primary = res.ok ? res.data[0] ?? null : null;
 
   // Secondary provider only for what the primary left empty.
   const missing = missingAfterPrimary(toFetch, primary);

@@ -30,6 +30,8 @@ import { callClaude } from "../_shared/clinician-engine/ai-router.ts";
 import {
   batchContactEnrich,
   personEnrichV2,
+  RESEARCH_PROFILE_FIELDS,
+  summarizeResearchProfile,
 } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 import { handleEnrichContact } from "./contact-credits.ts";
 import { applyEditorFilters, type EditorFilters } from "./refine-filters.ts";
@@ -248,19 +250,25 @@ Deno.serve(async (req: Request) => {
         return json({ data: stripContact(stored), likelihood: null, cached: true });
       }
 
-      const [profileRes, contactRes] = await Promise.all([
-        personEnrichV2(linkedinUrl, [
-          "basic_profile.name",
-          "basic_profile.summary",
-          "experience.employment_details.current",
-          "experience.employment_details.past",
-          "education",
-          "honors",
-          "skills",
-          "certifications",
-        ]).catch(() => null),
-        Promise.resolve(null as Awaited<ReturnType<typeof batchContactEnrich>> | null),
-      ]);
+      const PROFILE_FIELDS = [
+        "basic_profile.name",
+        "basic_profile.summary",
+        "experience.employment_details.current",
+        "experience.employment_details.past",
+        "education",
+        "honors",
+        "skills",
+        "certifications",
+      ];
+      // Academic research profile rides on the same enrich call (add-on is
+      // billed only when a profile matches). If the account lacks the grant,
+      // the provider answers 403 for that field; retry without it.
+      let profileRes = await personEnrichV2(linkedinUrl, [...PROFILE_FIELDS, ...RESEARCH_PROFILE_FIELDS]).catch(() => null);
+      if (profileRes && !profileRes.ok && /research_profiles/i.test(profileRes.detail ?? "")) {
+        console.warn("[enrich] research profiles not enabled on the account; loading profile without them");
+        profileRes = await personEnrichV2(linkedinUrl, PROFILE_FIELDS).catch(() => null);
+      }
+      const contactRes = null as Awaited<ReturnType<typeof batchContactEnrich>> | null;
 
       const person = (profileRes && profileRes.ok
         ? (profileRes.data[0]?.matches?.[0]?.person_data ?? {})
@@ -320,6 +328,7 @@ Deno.serve(async (req: Request) => {
         phone_numbers: contact?.phones ?? [],
         experience,
         education,
+        research_profile: summarizeResearchProfile(person),
         linkedin_url: linkedinUrl,
       };
       await setCrustDataCache(cacheKey, 1, [shaped], null);

@@ -46,3 +46,47 @@ Deno.test("only missing kinds are sent to the secondary", () => {
 Deno.test("PDL id is kept for future lookups", () => {
   assertEquals(pdl.pdl_id, "pdl123");
 });
+
+import { combinePrimary } from "./contact-waterfall.ts";
+import { submitWithWait, summarizeResearchProfile, BATCH_MAX_PROFILES, BATCH_MAX_CONCURRENT } from "./crustdata-v2.ts";
+
+Deno.test("batch retry only fills what the instant lookup missed", () => {
+  const c = combinePrimary(
+    primary({ business_email: "dr@novant.org", has_contact: true }),
+    primary({ business_email: "other@x.org", personal_emails: ["me@gmail.com"], phones: ["+17045551234"], mobile_phone: "+17045551234" }),
+  )!;
+  assertEquals(c.business_email, "dr@novant.org");
+  assertEquals(c.personal_emails, ["me@gmail.com"]);
+  assertEquals(c.mobile_phone, "+17045551234");
+  assertEquals(missingAfterPrimary(["work_email", "personal_email", "phone"], c), []);
+});
+
+Deno.test("batch jobs are capped at 300 profiles, 5 at once", () => {
+  assertEquals(BATCH_MAX_PROFILES, 300);
+  assertEquals(BATCH_MAX_CONCURRENT, 5);
+});
+
+Deno.test("a 429 on batch submit waits and resubmits instead of giving up", async () => {
+  let calls = 0;
+  const r = await submitWithWait(async () => {
+    calls++;
+    return calls < 3
+      ? { ok: false as const, status: 429, insufficientCredits: false, detail: "busy" }
+      : { ok: true as const, data: { batch_id: "b1" } };
+  }, 1, 1000);
+  assertEquals(calls, 3);
+  assertEquals(r.ok, true);
+});
+
+Deno.test("research profile keeps metrics and the most cited papers", () => {
+  const s = summarizeResearchProfile({ research_profiles: [{
+    profile_url: "https://scholar.example/u1", designation: "Professor of Surgery",
+    citations_count: { all: 5400, recent: 2100, recent_since_year: 2021 }, h_index: { all: 38 }, i10_index: { all: 90 },
+    article_count: 120, co_author_count: 40, research_interests: ["Trauma"],
+    articles: [{ title: "Low", total_citations: 3 }, { title: "High", total_citations: 900, publication_year: "2019" }],
+  }] })!;
+  assertEquals(s.h_index, 38);
+  assertEquals(s.citations, 5400);
+  assertEquals(s.top_articles[0].title, "High");
+  assertEquals(summarizeResearchProfile({}), null);
+});

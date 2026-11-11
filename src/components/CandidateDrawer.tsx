@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DoctorIntelTab } from "@/components/DoctorIntelTab";
+import { ResearchProfileCard, type ResearchProfile } from "@/components/research/ResearchProfileCard";
 import { isDoctor } from "@/lib/doctorIntel";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -125,6 +126,7 @@ interface EnrichedData {
   skills: string[];
   summary: string;
   certifications: string[];
+  research_profile?: ResearchProfile | null;
   inferred_salary?: string;
   profile_pic_url?: string;
   inferred_years_experience?: number;
@@ -945,7 +947,7 @@ export function CandidateDrawer({
                   { value: "education", label: "Education" },
                   { value: "skills", label: "Skills" },
                   { value: "notes", label: `Notes${notes.length > 0 ? ` (${notes.length})` : ""}` },
-                  ...(isDoctor(candidate) ? [{ value: "research", label: "Research & Industry" }] : []),
+                  ...(isDoctor(candidate) || enriched?.research_profile ? [{ value: "research", label: "Research & Industry" }] : []),
                   { value: "contact", label: "Contact", accent: true },
                 ] as { value: string; label: string; accent?: boolean }[]).map((t) => (
                   <TabsTrigger
@@ -1473,9 +1475,10 @@ export function CandidateDrawer({
                 )}
               </TabsContent>
 
-              {isDoctor(candidate) && (
-                <TabsContent value="research" className="mt-0 px-5 py-5 pb-24 sm:px-6">
-                  <DoctorIntelTab person={candidate} />
+              {(isDoctor(candidate) || enriched?.research_profile) && (
+                <TabsContent value="research" className="mt-0 space-y-6 px-5 py-5 pb-24 sm:px-6">
+                  {enriched?.research_profile && <ResearchProfileCard profile={enriched.research_profile} />}
+                  {isDoctor(candidate) && <DoctorIntelTab person={candidate} />}
                 </TabsContent>
               )}
 
