@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Minus, Plus, Target, ArrowUpRight, Slack, FileSpreadsheet, Table2 } from "lucide-react";
+import { Loader2, Minus, Plus, Target, ArrowUpRight } from "lucide-react";
+import { SlackLogo, SheetsLogo, ExcelLogo } from "./AgentConnections";
 import { call as exportsCall, waitForPopup } from "@/components/LiveSyncDialog";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -194,9 +195,9 @@ export function AgentBriefDialog({
             <p className="text-[12px] text-muted-foreground">Everyone you approve is sent there right away. You can change this later.</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {([
-                ["slack", "Slack", Slack],
-                ["sheets", "Google Sheets", FileSpreadsheet],
-                ["excel", "Excel", Table2],
+                ["slack", "Slack", SlackLogo],
+                ["sheets", "Google Sheets", SheetsLogo],
+                ["excel", "Excel", ExcelLogo],
                 ["none", "Just here", Minus],
               ] as const).map(([k, label, Icon]) => {
                 const on = k === "none" ? dests.length === 0 : dests.includes(k);
