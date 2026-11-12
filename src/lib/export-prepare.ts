@@ -18,7 +18,7 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>)
 }
 
 export async function prepareForExport(list: AnyCandidate[], includeContactInfo: boolean): Promise<AnyCandidate[]> {
-  const rows = list.map((c) => ({ ...(c as Row), raw: { ...((c as Row).raw ?? {}) } }));
+  const rows: Row[] = list.map((c) => ({ ...(c as Row), raw: { ...((c as Row).raw ?? {}) } }));
 
   if (includeContactInfo) {
     await pool(rows.slice(0, 200), 5, async (row) => {
