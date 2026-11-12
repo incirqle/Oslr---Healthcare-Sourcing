@@ -435,6 +435,7 @@ export function CandidateDrawer({
     candidate?.full_name,
     savedContactId,
     !savedContactId && !isSaved && onSaveCandidate ? (c) => onSaveCandidate(c) : undefined,
+    { company: candidate?.current_employer, location: candidate?.location },
   );
   const doctorIntelEntry = useDoctorIntel(candidate?.id);
   const [loading, setLoading] = useState(false);

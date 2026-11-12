@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { emailMatchesName, mergeContacts, missingAfterPrimary, parsePdlPerson, pdlRequired } from "./contact-waterfall.ts";
+import { emailMatchesName, mergeContacts, missingAfterPrimary, parsePdlPerson, pdlQuery, pdlRequired } from "./contact-waterfall.ts";
 import type { BatchEnrichResult } from "./crustdata-v2.ts";
 
 const primary = (o: Partial<BatchEnrichResult>): BatchEnrichResult => ({
@@ -100,4 +100,31 @@ Deno.test("name check accepts first+last, initial+last and rejects another perso
   assertEquals(emailMatchesName("leesa.galatz@gmail.com", "Leesa Galatz"), true);
   assertEquals(emailMatchesName("lgalatz@gmail.com", "Leesa Galatz"), true);
   assertEquals(emailMatchesName("deleonjohana@aol.com", "Leesa Galatz"), false);
+});
+
+Deno.test("an unconfirmed personal email is discarded, never guessed", () => {
+  const m = mergeContacts(["personal_email"], primary({ personal_emails: ["deleonjohana@aol.com"] }), null, "Leesa Galatz");
+  assertEquals(m.personal_email, undefined);
+});
+
+Deno.test("a nickname address is kept when the record matched on their own LinkedIn profile", () => {
+  const s = parsePdlPerson({ recommended_personal_email: "mountainrunner@yahoo.com" }, ["profile", "name"]);
+  const m = mergeContacts(["personal_email"], primary({ personal_emails: ["deleonjohana@aol.com"] }), s, "Leesa Galatz");
+  assertEquals(m.personal_email, "mountainrunner@yahoo.com");
+});
+
+Deno.test("a nickname address is dropped when the record matched on name only", () => {
+  const s = parsePdlPerson({ recommended_personal_email: "mountainrunner@yahoo.com" }, ["name"]);
+  assertEquals(mergeContacts(["personal_email"], null, s, "Leesa Galatz").personal_email, undefined);
+});
+
+Deno.test("fallback lookup sends profile, name, employer and city, and reports what matched", () => {
+  const q = pdlQuery("linkedin.com/in/leesa", ["personal_email"], null, { name: "Leesa Galatz, MD", company: "Mount Sinai", location: "New York" });
+  assertEquals(q.get("profile"), "linkedin.com/in/leesa");
+  assertEquals(q.get("name"), "Leesa Galatz");
+  assertEquals(q.get("company"), "Mount Sinai");
+  assertEquals(q.get("location"), "New York");
+  assertEquals(q.get("include_if_matched"), "true");
+  assertEquals(q.get("min_likelihood"), "6");
+  assertEquals(pdlQuery("x", ["phone"], "abc").get("profile"), null);
 });

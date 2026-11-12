@@ -15,9 +15,14 @@ export interface ContactState {
 
 const EMPTY: ContactState = { contact: {}, checked: {}, balance: null };
 
-export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], candidateName?: string) {
+export interface ContactAnchors { company?: string | null; location?: string | null }
+
+export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], candidateName?: string, anchors: ContactAnchors = {}) {
   const { data, error } = await supabase.functions.invoke("search-people", {
-    body: { action: "enrich_contact", linkedin_url: linkedinUrl, kinds, candidate_name: candidateName },
+    body: {
+      action: "enrich_contact", linkedin_url: linkedinUrl, kinds, candidate_name: candidateName,
+      candidate_company: anchors.company ?? undefined, candidate_location: anchors.location ?? undefined,
+    },
   });
   // 402 comes back as an error with the body in context
   let payload = data as Record<string, unknown> | null;
@@ -32,7 +37,7 @@ export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], c
   return payload as unknown as ContactState & { charged?: number; found?: ContactKind[]; error?: string; needed?: number };
 }
 
-export function useContactEnrich(linkedinUrl: string | null | undefined, candidateName?: string, savedContactId?: string | null, onAutoSave?: (c: { email: string | null; phone: string | null }) => Promise<void> | void) {
+export function useContactEnrich(linkedinUrl: string | null | undefined, candidateName?: string, savedContactId?: string | null, onAutoSave?: (c: { email: string | null; phone: string | null }) => Promise<void> | void, anchors: ContactAnchors = {}) {
   const [state, setState] = useState<ContactState>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -50,7 +55,7 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     if (!linkedinUrl || !kinds.length) return;
     setBusy(true);
     try {
-      const r = await enrichContact(linkedinUrl, kinds, candidateName);
+      const r = await enrichContact(linkedinUrl, kinds, candidateName, anchors);
       setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null, unlimited: r.unlimited === true });
       if (r.error === "insufficient_credits") {
         toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);

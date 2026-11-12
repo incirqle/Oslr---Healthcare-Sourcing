@@ -93,7 +93,7 @@ class PdfWriter {
 function contactBox(w: PdfWriter, d: Dossier) {
   const fields = [
     { label: "Work email", value: d.workEmail },
-    { label: "Personal email", value: d.personalEmail ? (d.personalEmailUnconfirmed ? `${d.personalEmail} (name not confirmed)` : d.personalEmail) : "" },
+    { label: "Personal email", value: d.personalEmail || "" },
     { label: "Phone", value: d.phone },
     { label: "LinkedIn", value: d.linkedin ? "Open LinkedIn profile" : "", url: d.linkedin },
   ].filter((field) => field.value);

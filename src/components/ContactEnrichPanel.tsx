@@ -3,7 +3,6 @@ import { Check, Copy, Loader2, Mail, Phone, Briefcase, Zap } from "lucide-react"
 import { cn } from "@/lib/utils";
 import type { ContactKind, ContactState } from "@/hooks/useContactEnrich";
 import { CONTACT_PRICES } from "@/hooks/useContactEnrich";
-import { emailMatchesName } from "@/lib/candidate-export-adapter";
 
 const OPTIONS: { kind: ContactKind; label: string; icon: typeof Mail }[] = [
   { kind: "work_email", label: "Work email", icon: Briefcase },
@@ -104,9 +103,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
                     {r.value}
                   </a>
                 ) : null}
-                {r.status === "found" && r.value && r.kind === "personal_email" && candidateName && !emailMatchesName(r.value, candidateName) ? (
-                  <p className="text-[12px] text-ui-text-tertiary">This address does not include their name. Confirm before reaching out.</p>
-                ) : r.status === "found" && r.value ? (
+                {r.status === "found" && r.value ? (
                   null
                 ) : r.status === "missing" ? (
                   <p className="text-[14px] text-ui-text-tertiary">

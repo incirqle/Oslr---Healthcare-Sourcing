@@ -13,6 +13,9 @@ export interface SecondaryContact {
   personal_emails: string[];
   mobile_phone: string | null;
   phone_numbers: string[];
+  /** True when the record was matched on the person's LinkedIn profile or a stored id
+   *  (include_if_matched), so its addresses are confirmed to belong to them. */
+  identity_confirmed: boolean;
 }
 
 export interface MergedContact {
@@ -99,13 +102,16 @@ export function mergeContacts(
       else if (isEmail(s) && secondary?.work_domain_ok) { out.work_email = s; out.sources.work_email = "secondary"; }
     }
     if (k === "personal_email") {
-      // Name-matching addresses from either source beat ones that may belong
-      // to someone else; only fall back to an unmatched address when nothing matches.
+      // "If true" rule: an address is kept only when something confirms it is theirs.
+      // Primary: the address carries their name. Secondary: carries their name, or
+      // the record was matched on their own LinkedIn profile / stored id (then its
+      // recommended address first). Anything else is discarded, never guessed.
       const pList = (primary?.personal_emails ?? []).map(clean).filter(isEmail);
       const sList = [secondary?.recommended_personal_email, ...(secondary?.personal_emails ?? [])].map(clean).filter(isEmail);
       const named = (l: string[]) => l.find((e) => emailMatchesName(e, fullName));
       const pick: [string | undefined, "primary" | "secondary"][] = [
-        [named(pList), "primary"], [named(sList), "secondary"], [pList[0], "primary"], [sList[0], "secondary"],
+        [named(pList), "primary"], [named(sList), "secondary"],
+        [secondary?.identity_confirmed ? sList[0] : undefined, "secondary"],
       ];
       const hit = pick.find(([e]) => e);
       if (hit) { out.personal_email = hit[0]; out.sources.personal_email = hit[1]; }
@@ -123,7 +129,7 @@ export function mergeContacts(
 const domainOf = (s: string) => s.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
 /** Normalize a People Data Labs person record into SecondaryContact. */
-export function parsePdlPerson(d: Record<string, unknown>): SecondaryContact {
+export function parsePdlPerson(d: Record<string, unknown>, matched: string[] = []): SecondaryContact {
   const str = (v: unknown) => (typeof v === "string" && v ? v : null);
   const arr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
   const work = str(d.work_email);
@@ -139,6 +145,7 @@ export function parsePdlPerson(d: Record<string, unknown>): SecondaryContact {
     personal_emails: arr(d.personal_emails),
     mobile_phone: str(d.mobile_phone),
     phone_numbers: arr(d.phone_numbers),
+    identity_confirmed: matched.some((m) => m === "profile" || m === "pdl_id" || m === "lid"),
   };
 }
 
@@ -157,19 +164,35 @@ export type PdlLookup =
   | { ok: true; contact: SecondaryContact | null }
   | { ok: false; reason: "not_configured" | "unavailable" };
 
+export interface PdlAnchors { name?: string | null; company?: string | null; location?: string | null }
+
+/** Build the enrich query: a stored id is exact; otherwise the LinkedIn profile plus
+ *  name/employer/location anchors, a likelihood floor and the matched-on report. */
+export function pdlQuery(linkedinUrl: string, missing: WaterfallKind[], pdlId?: string | null, anchors: PdlAnchors = {}): URLSearchParams {
+  const q = new URLSearchParams({
+    min_likelihood: "6", titlecase: "false", include_if_matched: "true", required: pdlRequired(missing),
+  });
+  if (pdlId) { q.set("pdl_id", pdlId); return q; }
+  q.set("profile", linkedinUrl);
+  const name = anchors.name?.replace(/,.*$/, "").replace(/\b(dr|md|do|dpm)\.?\b/gi, "").replace(/\s+/g, " ").trim();
+  if (name) q.set("name", name);
+  if (anchors.company?.trim()) q.set("company", anchors.company.trim());
+  if (anchors.location?.trim()) q.set("location", anchors.location.trim());
+  return q;
+}
+
 /** One People Data Labs enrich by LinkedIn URL (or a known PDL id). 404 = no match, not billed. */
 export async function pdlEnrichContact(
   linkedinUrl: string,
   missing: WaterfallKind[],
   pdlId?: string | null,
   fetcher: typeof fetch = fetch,
+  anchors: PdlAnchors = {},
 ): Promise<PdlLookup> {
   const key = Deno.env.get("PDL_API_KEY");
   if (!key) return { ok: false, reason: "not_configured" };
   if (!missing.length) return { ok: true, contact: null };
-  const q = new URLSearchParams({ min_likelihood: "6", titlecase: "false", required: pdlRequired(missing) });
-  if (pdlId) q.set("pdl_id", pdlId);
-  else q.set("profile", linkedinUrl);
+  const q = pdlQuery(linkedinUrl, missing, pdlId, anchors);
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetcher(`https://api.peopledatalabs.com/v5/person/enrich?${q}`, {
@@ -182,8 +205,10 @@ export async function pdlEnrichContact(
         console.warn(`[contact-waterfall] secondary lookup ${res.status}`);
         return { ok: false, reason: "unavailable" };
       }
-      const body = await res.json() as { data?: Record<string, unknown> };
-      return { ok: true, contact: body.data ? parsePdlPerson(body.data) : null };
+      const body = await res.json() as { data?: Record<string, unknown>; matched?: unknown };
+      const matched = Array.isArray(body.matched) ? body.matched.filter((m): m is string => typeof m === "string") : [];
+      if (pdlId) matched.push("pdl_id");
+      return { ok: true, contact: body.data ? parsePdlPerson(body.data, matched) : null };
     } catch (e) {
       if (attempt === 2) { console.warn("[contact-waterfall] secondary lookup failed", String(e).slice(0, 200)); return { ok: false, reason: "unavailable" }; }
     }

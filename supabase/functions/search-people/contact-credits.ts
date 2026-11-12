@@ -63,6 +63,8 @@ export async function handleEnrichContact(
     typeof k === "string" && (KINDS as string[]).includes(k)
   );
   const candidateName = typeof body.candidate_name === "string" ? body.candidate_name.slice(0, 200) : null;
+  const anchorStr = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 200) : null);
+  const anchors = { name: candidateName, company: anchorStr(body.candidate_company), location: anchorStr(body.candidate_location) };
 
   const { data: unlock } = await db.from("contact_unlocks").select("data, checked")
     .eq("company_id", companyId).eq("linkedin_url", url).maybeSingle();
@@ -117,7 +119,7 @@ export async function handleEnrichContact(
   let secondary = null;
   let secondaryFailed = false;
   if (missing.length) {
-    const s = await pdlEnrichContact(url, missing, stored.pdl_id ?? null);
+    const s = await pdlEnrichContact(url, missing, stored.pdl_id ?? null, fetch, anchors);
     if (s.ok) secondary = s.contact;
     else secondaryFailed = s.reason === "unavailable";
   }
