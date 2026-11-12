@@ -30,10 +30,12 @@ import { callClaude } from "../_shared/clinician-engine/ai-router.ts";
 import {
   batchContactEnrich,
   personEnrichV2,
+  parseDeniedFields,
   RESEARCH_PROFILE_FIELDS,
   summarizeResearchProfile,
 } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 import { handleEnrichContact } from "./contact-credits.ts";
+import { hasUsableProfileEnrichment, withoutDeniedFields } from "./profile-quality.ts";
 import { applyEditorFilters, type EditorFilters } from "./refine-filters.ts";
 import {
   ENRICHMENT_TTL_MS,
@@ -241,12 +243,13 @@ Deno.serve(async (req: Request) => {
       }
       const cacheKey = "clin:drawer:" + linkedinUrl.toLowerCase();
       const cached = await getCrustDataCache(cacheKey, ENRICHMENT_TTL_MS);
-      if (cached && cached.profiles[0]) {
+      if (cached?.profiles[0] && hasUsableProfileEnrichment(cached.profiles[0])) {
         return json({ data: stripContact(cached.profiles[0]), likelihood: null, cached: true });
       }
-      // Permanent store: once paid for, a profile is never re-purchased.
+      // Permanent store: once paid for, a real profile is never re-purchased.
+      // Legacy blank shells are ignored so a failed request is not permanent.
       const stored = await getPermanentEnrichment(linkedinUrl);
-      if (stored) {
+      if (hasUsableProfileEnrichment(stored)) {
         return json({ data: stripContact(stored), likelihood: null, cached: true });
       }
 
@@ -260,19 +263,32 @@ Deno.serve(async (req: Request) => {
         "skills",
         "certifications",
       ];
-      // Academic research profile rides on the same enrich call (add-on is
-      // billed only when a profile matches). If the account lacks the grant,
-      // the provider answers 403 for that field; retry without it.
-      let profileRes = await personEnrichV2(linkedinUrl, [...PROFILE_FIELDS, ...RESEARCH_PROFILE_FIELDS]).catch(() => null);
-      if (profileRes && !profileRes.ok && /research_profiles/i.test(profileRes.detail ?? "")) {
-        console.warn("[enrich] research profiles not enabled on the account; loading profile without them");
-        profileRes = await personEnrichV2(linkedinUrl, PROFILE_FIELDS).catch(() => null);
+      // Academic research rides on the same enrich call. A field-level 403
+      // must not blank the whole profile: remove only the denied sections and
+      // retry, preserving research whenever that section itself is available.
+      let requestedFields = [...PROFILE_FIELDS, ...RESEARCH_PROFILE_FIELDS];
+      let profileRes = await personEnrichV2(linkedinUrl, requestedFields).catch(() => null);
+      for (let attempt = 0; attempt < 3 && profileRes && !profileRes.ok && profileRes.status === 403; attempt++) {
+        const detail = profileRes.detail ?? "";
+        const denied = parseDeniedFields(detail);
+        const nextFields = denied.length
+          ? withoutDeniedFields(requestedFields, denied)
+          : withoutDeniedFields(requestedFields, /research_profiles/i.test(detail) ? ["research_profiles"] : ["honors", "certifications"]);
+        if (nextFields.length === requestedFields.length) break;
+        console.warn(`[enrich] retrying without ${requestedFields.length - nextFields.length} unavailable field(s)`);
+        requestedFields = nextFields;
+        profileRes = await personEnrichV2(linkedinUrl, requestedFields).catch(() => null);
+      }
+      if (!profileRes) {
+        return json({ error: "Profile details are temporarily unavailable. Please try again." }, 503);
+      }
+      if (!profileRes.ok) {
+        console.warn(`[enrich] profile request failed: HTTP ${profileRes.status}: ${(profileRes.detail ?? "").slice(0, 300)}`);
+        return json({ error: "Profile details are temporarily unavailable. Please try again.", retryable: true }, 503);
       }
       const contactRes = null as Awaited<ReturnType<typeof batchContactEnrich>> | null;
 
-      const person = (profileRes && profileRes.ok
-        ? (profileRes.data[0]?.matches?.[0]?.person_data ?? {})
-        : {}) as Row;
+      const person = (profileRes.data[0]?.matches?.[0]?.person_data ?? {}) as Row;
       const basic = (person.basic_profile ?? {}) as Row;
       const contact = contactRes && contactRes.ok ? (contactRes.data[0] ?? null) : null;
 
@@ -331,6 +347,12 @@ Deno.serve(async (req: Request) => {
         research_profile: summarizeResearchProfile(person),
         linkedin_url: linkedinUrl,
       };
+      // A no-match or malformed response is returned for this view only. It
+      // must never replace a real profile or become a permanent blank cache.
+      if (!hasUsableProfileEnrichment(shaped)) {
+        console.warn("[enrich] provider returned no usable profile; skipping cache writes");
+        return json({ data: shaped, likelihood: null, incomplete: true });
+      }
       await setCrustDataCache(cacheKey, 1, [shaped], null);
       await savePermanentEnrichment(
         linkedinUrl,

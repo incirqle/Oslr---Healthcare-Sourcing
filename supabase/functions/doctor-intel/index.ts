@@ -3,9 +3,10 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
+import { clinicalTrialsNameQuery, doctorIntelCacheComplete, extractClinicalTrials } from "./research.ts";
 
 const TTL_MS = 365 * 24 * 60 * 60 * 1000;
-const VERSION = "v3";
+const VERSION = "v4";
 const OP_DATASETS: Record<string, string> = {
   "2025": "fb0b1734-1410-429d-92f6-3f4b35218e5e",
   "2024": "e6b17c6a-2534-4207-a4a1-6746a14911ff",
@@ -35,17 +36,58 @@ const clean = (s: string) => s.replace(/[,.].*$/, "").replace(/[^A-Za-z' -]/g, "
 export const keyOf = (p: P) =>
   [VERSION, clean(p.first).toLowerCase(), clean(p.last).toLowerCase(), stateCode(p.state) ?? "", (p.employer ?? "").toLowerCase().trim()].join("|");
 
-async function getJson(url: string, ms = 8000): Promise<any> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try {
-    const r = await fetch(url, { signal: ctl.signal, headers: { "User-Agent": "Oslr/1.0 (oslr.health)" } });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
-  } finally { clearTimeout(t); }
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+let ncbiQueue: Promise<void> = Promise.resolve();
+let nextNcbiRequestAt = 0;
+
+/** NCBI permits three requests per second without an API key. Serialize its
+ * traffic across every concurrent doctor in this isolate, with headroom. */
+function fetchNcbi(url: string, signal: AbortSignal): Promise<Response> {
+  const run = ncbiQueue.then(async () => {
+    const wait = Math.max(0, nextNcbiRequestAt - Date.now());
+    if (wait) await sleep(wait);
+    nextNcbiRequestAt = Date.now() + 350;
+    return fetch(url, { signal, headers: { "User-Agent": "Oslr/1.0 (oslr.health)" } });
+  });
+  ncbiQueue = run.then(() => undefined, () => undefined);
+  return run;
 }
 
-const tokens = (s?: string | null) => (s ?? "").toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 3);
+async function getJson(url: string, ms = 8000): Promise<any> {
+  const isNcbi = new URL(url).hostname === "eutils.ncbi.nlm.nih.gov";
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = isNcbi
+        ? await fetchNcbi(url, ctl.signal)
+        : await fetch(url, { signal: ctl.signal, headers: { "User-Agent": "Oslr/1.0 (oslr.health)" } });
+      if (!r.ok) {
+        lastError = new Error(`HTTP ${r.status}`);
+        if ((r.status === 429 || r.status >= 500) && attempt < 2) {
+          const retryAfter = Number(r.headers.get("retry-after"));
+          await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 750 * (2 ** attempt));
+          continue;
+        }
+        throw lastError;
+      }
+      return await r.json();
+    } catch (e) {
+      lastError = e;
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      if (!aborted && attempt < 2) await sleep(750 * (2 ** attempt));
+      else if (aborted || attempt === 2) throw e;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  throw lastError ?? new Error("Request failed");
+}
+
+const tokens = (s?: string | null) => (s ?? "").toLowerCase().split(/[^a-z]+/)
+  .filter((w) => w.length > 3)
+  .map((w) => w === "orthopaedic" || w === "orthopaedics" || w === "orthopedics" ? "orthopedic" : w);
 
 async function resolveNpi(p: P) {
   const first = clean(p.first), last = clean(p.last), st = stateCode(p.state);
@@ -141,24 +183,15 @@ async function pubmed(p: P) {
 }
 
 async function trials(p: P) {
-  const name = `${clean(p.first)} ${clean(p.last)}`;
-  const q = new URLSearchParams({ "query.term": `AREA[OverallOfficialName]"${name}"`, pageSize: "20", fields: "NCTId,BriefTitle,OverallStatus,Phase,LeadSponsorName,OverallOfficialName,LocationState,StartDate" });
+  const q = new URLSearchParams({
+    "query.term": clinicalTrialsNameQuery(clean(p.first), clean(p.last)),
+    pageSize: "20",
+    fields: "NCTId,BriefTitle,OverallStatus,Phase,LeadSponsorName,OverallOfficialName,OverallOfficialRole,LocationContactName,LocationContactRole,LocationState,StartDate",
+  });
   const d = await getJson(`https://clinicaltrials.gov/api/v2/studies?${q}`);
   const st = stateCode(p.state);
   const stName = st ? Object.entries(STATES).find(([, c]) => c === st)?.[0] : null;
-  const list = (d?.studies ?? []).map((s: any) => {
-    const ps = s.protocolSection ?? {};
-    const states: string[] = (ps.contactsLocationsModule?.locations ?? []).map((l: any) => String(l.state ?? "").toLowerCase());
-    const officials = (ps.contactsLocationsModule?.overallOfficials ?? []).map((o: any) => String(o.name ?? "").toLowerCase());
-    return {
-      nctId: ps.identificationModule?.nctId, title: ps.identificationModule?.briefTitle,
-      status: ps.statusModule?.overallStatus, phase: (ps.designModule?.phases ?? []).join(", ") || null,
-      sponsor: ps.sponsorCollaboratorsModule?.leadSponsor?.name ?? null, start: ps.statusModule?.startDateStruct?.date ?? null,
-      url: `https://clinicaltrials.gov/study/${ps.identificationModule?.nctId}`,
-      _ok: officials.some((o: string) => o.includes(clean(p.last).toLowerCase())) && (!stName || states.length === 0 || states.includes(stName)),
-    };
-  }).filter((t: any) => t._ok).map(({ _ok, ...t }: any) => t);
-  return { count: list.length, studies: list.slice(0, 10) };
+  return extractClinicalTrials(d ?? {}, p, stName);
 }
 
 async function build(p: P) {
@@ -195,8 +228,9 @@ Deno.serve(async (req) => {
       const built = await Promise.all(chunk.map(build));
       const rows = chunk.map((p, j) => ({ cache_key: keyOf(p), data: built[j], created_at: new Date().toISOString() }));
       rows.forEach((r) => { out[r.cache_key] = r.data; });
-      // Cache only when at least one source answered.
-      const ok = rows.filter((r) => (r.data as any).npi || (r.data as any).publications || (r.data as any).trials);
+      // Never turn a temporary PubMed, trials, NPI or payments failure into a
+      // year-long blank answer. Successful empty results remain cacheable.
+      const ok = rows.filter((r) => doctorIntelCacheComplete(r.data as Record<string, unknown>));
       if (ok.length) await admin.from("doctor_intel_cache").upsert(ok);
     }
     return json({ results: keys.map((k) => out[k] ?? null) });

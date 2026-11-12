@@ -69,6 +69,7 @@ import {
 } from "@/components/search/candidate-insights";
 import { ExportMenu } from "@/components/ExportMenu";
 import type { AnyCandidate } from "@/lib/candidate-export-adapter";
+import { hasUsableProfileEnrichment } from "@/lib/profile-enrichment";
 
 
 export interface CandidateDrawerProps {
@@ -520,7 +521,7 @@ export function CandidateDrawer({
       // Already-purchased enrichment stored on the saved contact — reuse it
       // instead of paying for the same profile again.
       const stored = (candidate.raw as { enriched?: unknown } | undefined)?.enriched;
-      if (stored && typeof stored === "object") {
+      if (hasUsableProfileEnrichment(stored)) {
         setEnriched(stored as EnrichedData);
         return;
       }
@@ -556,7 +557,7 @@ export function CandidateDrawer({
           setEnriched(profile);
 
           // Persist onto the saved contact so it is kept forever.
-          if (savedContactId) {
+          if (savedContactId && hasUsableProfileEnrichment(profile)) {
             const email = profile.work_email || profile.personal_emails?.[0] || null;
             const phone = profile.mobile_phone || profile.phone_numbers?.[0] || null;
             const patch: Record<string, unknown> = {

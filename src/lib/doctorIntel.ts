@@ -10,7 +10,7 @@ export interface DoctorIntel {
     byType: { name: string; amount: number }[];
   } | null;
   publications: { count: number; match: "affiliation" | "name"; articles: { pmid: string; title: string; journal: string; year: string; url: string }[] } | null;
-  trials: { count: number; studies: { nctId: string; title: string; status: string; phase: string | null; sponsor: string | null; start: string | null; url: string }[] } | null;
+  trials: { count: number; studies: { nctId: string; title: string; status: string; phase: string | null; sponsor: string | null; start: string | null; url: string; role?: string | null; location?: string | null }[] } | null;
   fetched_at: string;
 }
 

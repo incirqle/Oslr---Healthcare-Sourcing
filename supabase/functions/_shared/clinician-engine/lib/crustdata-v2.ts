@@ -344,7 +344,7 @@ export interface PersonSearchV2Result {
 // stop asking for locked fields at all.
 const deniedFields = new Set<string>();
 
-function parseDeniedFields(detail: string): string[] {
+export function parseDeniedFields(detail: string): string[] {
   const out = new Set<string>();
   try {
     const parsed = JSON.parse(detail);
@@ -886,18 +886,9 @@ export interface ResearchProfileSummary {
   top_articles: { title: string; url: string | null; year: string | null; citations: number; publication: string | null }[];
 }
 
-export const RESEARCH_PROFILE_FIELDS = [
-  "research_profiles.profile_url",
-  "research_profiles.designation",
-  "research_profiles.affiliated_organisation",
-  "research_profiles.research_interests",
-  "research_profiles.article_count",
-  "research_profiles.co_author_count",
-  "research_profiles.citations_count",
-  "research_profiles.h_index",
-  "research_profiles.i10_index",
-  "research_profiles.articles",
-] as const;
+// Provider guidance: request the research section itself on Person Enrich.
+// Narrow subpaths can be rejected even when the account has the research grant.
+export const RESEARCH_PROFILE_FIELDS = ["research_profiles"] as const;
 
 /** Best-match research profile, trimmed to what the profile panel shows. */
 export function summarizeResearchProfile(personData: Record<string, unknown> | null | undefined): ResearchProfileSummary | null {

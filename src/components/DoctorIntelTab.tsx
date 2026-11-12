@@ -146,6 +146,7 @@ export function DoctorIntelTab({ person }: { person: IntelPerson }) {
                   {t.status && <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[t.status] ?? "bg-muted text-foreground"}`}>{statusLabel(t.status)}</span>}
                   {phaseLabel(t.phase) && <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-ui-text-secondary">{phaseLabel(t.phase)}</span>}
                   <span className="text-[11px] text-ui-text-tertiary">{t.nctId}</span>
+                  {t.role && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{t.role}</span>}
                 </div>
                 <div className="text-[14px] font-medium text-foreground group-hover:text-primary">{t.title}</div>
                 <div className="mt-2 flex items-center justify-between gap-2 text-[12px] text-ui-text-tertiary">
