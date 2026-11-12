@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DoctorIntelTab } from "@/components/DoctorIntelTab";
 import { ResearchProfileCard, type ResearchProfile } from "@/components/research/ResearchProfileCard";
-import { isDoctor } from "@/lib/doctorIntel";
+import { isDoctor, useDoctorIntel } from "@/lib/doctorIntel";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -435,6 +435,7 @@ export function CandidateDrawer({
     savedContactId,
     !savedContactId && !isSaved && onSaveCandidate ? (c) => onSaveCandidate(c) : undefined,
   );
+  const doctorIntelEntry = useDoctorIntel(candidate?.id);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contactUnlocked, setContactUnlocked] = useState(true);
@@ -1509,10 +1510,20 @@ export function CandidateDrawer({
               </Button>
               {candidate && (
                 <ExportMenu
-                  getCandidates={() => [candidate as unknown as AnyCandidate]}
+                  getCandidates={() => [{
+                    ...candidate,
+                    work_email: cd.work_email ?? null,
+                    personal_email: cd.personal_emails?.[0] ?? null,
+                    phone: cd.phone_numbers?.[0] ?? candidate.phone,
+                    raw: {
+                      ...(candidate.raw ?? {}),
+                      ...(enriched ? { enriched } : {}),
+                      ...(doctorIntelEntry?.status === "ready" && doctorIntelEntry.data ? { doctor_intel: doctorIntelEntry.data } : {}),
+                    },
+                  } as unknown as AnyCandidate]}
                   size="default"
                   className="h-12 sm:w-auto"
-                  align="end"
+                  scopeLabel="Individual profile"
                 />
               )}
             </div>

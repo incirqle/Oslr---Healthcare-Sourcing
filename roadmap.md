@@ -1,3 +1,4 @@
+- [x] Contacts export: selected/all scope dialog, contact-detail toggle, CSV and LinkedIn-ready CSV, polished clinical PDF dossiers, and unclipped responsive table; verified real two-person CSV/ZIP downloads and desktop/phone layouts; 166 tests passed.
 - [x] Activate Jeff's permanent unlimited workspace pass.
 - [x] Implement and verify unlimited contact access without changing ordinary workspaces.
 - [ ] Stop any existing Stripe subscription (blocked: Stripe lookup declined).

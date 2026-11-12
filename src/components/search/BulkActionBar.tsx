@@ -79,7 +79,7 @@ export function BulkActionBar({
         getCandidates={getSelectedCandidates}
         size="sm"
         className="h-8"
-        align="start"
+        scopeLabel={`${count} selected`}
       />
 
       <button

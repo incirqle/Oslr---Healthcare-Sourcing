@@ -407,9 +407,10 @@ export default function ProjectDetail() {
                     ? (filteredCandidates.filter((c) => selectedIds.has(c.id)) as unknown as AnyCandidate[])
                     : (filteredCandidates as unknown as AnyCandidate[])
                 }
-                pdfDisabled
                 size="sm"
                 className="h-8"
+                label={selectedIds.size > 0 ? `Export (${selectedIds.size})` : "Export"}
+                scopeLabel={selectedIds.size > 0 ? `${selectedIds.size} selected` : `${filteredCandidates.length} matching candidates`}
               />
               {id && <LiveSyncDialog projectId={id} />}
               {id && <SendToSystem projectId={id} />}
