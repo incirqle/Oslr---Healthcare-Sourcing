@@ -5,7 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 
 const TTL_MS = 365 * 24 * 60 * 60 * 1000;
-const VERSION = "v2";
+const VERSION = "v3";
 const OP_DATASETS: Record<string, string> = {
   "2025": "fb0b1734-1410-429d-92f6-3f4b35218e5e",
   "2024": "e6b17c6a-2534-4207-a4a1-6746a14911ff",
@@ -116,21 +116,18 @@ async function pubmed(p: P) {
     const d = await getJson(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax=8&sort=pub_date&term=${encodeURIComponent(term)}`);
     return { count: Number(d?.esearchresult?.count ?? 0), ids: (d?.esearchresult?.idlist ?? []) as string[] };
   };
-  // PubMed indexes authors as "Last FirstInitial" (e.g. "Brandon J"), so the
-  // full-name search alone misses most papers.
+  // Strict matching to avoid name collisions: initials only with the exact
+  // employer; full name with employer or city; no state-wide or loose fallback.
   const initials = `${clean(p.last)} ${clean(p.first).charAt(0)}`;
-  const stName = (() => { const c = stateCode(p.state); return c ? Object.entries(STATES).find(([, v]) => v === c)?.[0] : null; })();
-  const affAll = [...aff, ...(stName ? [`"${stName}"[ad]`] : [])];
+  const emp = p.employer ? `"${String(p.employer).replace(/"/g, "")}"[ad]` : null;
   let match: "affiliation" | "name" = "affiliation";
-  let res = aff.length ? await run(`("${name}"[au] OR "${initials}"[au]) AND (${aff.join(" OR ")})`) : { count: 0, ids: [] as string[] };
+  let res = { count: 0, ids: [] as string[] };
+  if (emp) res = await run(`("${name}"[au] OR "${initials}"[au]) AND ${emp}`);
+  if (res.count === 0 && aff.length) res = await run(`"${name}"[au] AND (${aff.join(" OR ")})`);
   if (res.count === 0) {
     const nameOnly = await run(`"${name}"[au]`);
-    // Name-only is only trusted when small (uncommon name); otherwise shown as zero.
-    if (nameOnly.count > 0 && nameOnly.count <= 60) { res = nameOnly; match = "name"; }
-  }
-  if (res.count === 0 && affAll.length) {
-    const byState = await run(`"${initials}"[au] AND (${affAll.join(" OR ")})`);
-    if (byState.count > 0 && byState.count <= 15) { res = byState; match = "name"; }
+    // Name-only only for very rare full names.
+    if (nameOnly.count > 0 && nameOnly.count <= 10) { res = nameOnly; match = "name"; }
   }
   let articles: any[] = [];
   if (res.ids.length) {
