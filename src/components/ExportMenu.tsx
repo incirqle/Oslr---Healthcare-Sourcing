@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { downloadCandidatesCsv, downloadLinkedInRecruiterCsv } from "@/lib/export-csv";
 import { downloadCandidatePdfs } from "@/lib/export-pdf";
 import type { AnyCandidate } from "@/lib/candidate-export-adapter";
+import { prepareForExport } from "@/lib/export-prepare";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -61,10 +62,11 @@ export function ExportMenu({
     setBusy(null);
   };
 
-  const handleCsv = () => {
+  const handleCsv = async () => {
     setBusy("csv");
     try {
-      downloadCandidatesCsv(candidates, undefined, { includeContactInfo });
+      const ready = await prepareForExport(candidates, includeContactInfo);
+      downloadCandidatesCsv(ready, undefined, { includeContactInfo });
       toast.success(`Exported ${candidates.length} profile${candidates.length === 1 ? "" : "s"} to CSV`);
       finish();
     } catch {
@@ -73,10 +75,11 @@ export function ExportMenu({
     }
   };
 
-  const handleLinkedIn = () => {
+  const handleLinkedIn = async () => {
     setBusy("linkedin");
     try {
-      downloadLinkedInRecruiterCsv(candidates, { includeContactInfo });
+      const ready = await prepareForExport(candidates, includeContactInfo);
+      downloadLinkedInRecruiterCsv(ready, { includeContactInfo });
       toast.success(`Prepared ${candidates.length} profile${candidates.length === 1 ? "" : "s"} for LinkedIn Recruiter`);
       finish();
     } catch {
@@ -88,7 +91,8 @@ export function ExportMenu({
   const handlePdf = async () => {
     setBusy("pdf");
     try {
-      await downloadCandidatePdfs(candidates, { includeContactInfo });
+      const ready = await prepareForExport(candidates, includeContactInfo);
+      await downloadCandidatePdfs(ready, { includeContactInfo });
       toast.success(candidates.length === 1 ? "Clinical profile PDF downloaded" : `Bundled ${candidates.length} clinical profiles into a ZIP`);
       finish();
     } catch (error) {
@@ -128,7 +132,7 @@ export function ExportMenu({
                   Include saved contact information
                 </label>
                 <p className="mt-1 text-[12px] leading-5 text-ui-text-tertiary">
-                  Work email, personal email and phone numbers already on each profile.
+                  Work email, personal email and phone numbers you already found for each profile.
                 </p>
               </div>
               <Switch
@@ -147,7 +151,7 @@ export function ExportMenu({
                 description="Clinical role, organization, location, experience and education."
                 busy={busy === "csv"}
                 disabled={!!busy}
-                onClick={handleCsv}
+                onClick={() => void handleCsv()}
               />
               <ExportOption
                 icon={<Linkedin className="h-5 w-5" />}
@@ -155,7 +159,7 @@ export function ExportMenu({
                 description="A simplified file with profile URLs and current role details."
                 busy={busy === "linkedin"}
                 disabled={!!busy}
-                onClick={handleLinkedIn}
+                onClick={() => void handleLinkedIn()}
               />
               <ExportOption
                 icon={<FileText className="h-5 w-5" />}
@@ -172,7 +176,7 @@ export function ExportMenu({
 
             <div className="flex items-start gap-2.5 text-[11px] leading-5 text-ui-text-tertiary">
               <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <p>Exports use only information already saved on each profile. They never run a new contact lookup or use credits.</p>
+              <p>Exports use only contact details you already found, plus free public records like NPI and industry payments. They never run a new contact lookup or use credits.</p>
             </div>
           </div>
         </DialogContent>

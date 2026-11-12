@@ -84,3 +84,17 @@ export function useDoctorIntel(id: string | null | undefined): Entry | undefined
     () => (id ? store.get(id) : undefined),
   );
 }
+
+/** Load federal doctor records (NPI, Open Payments, PubMed, trials) for an export. Free public data, cached. */
+export async function loadDoctorIntel(people: IntelPerson[]): Promise<Map<string, DoctorIntel | null>> {
+  const doctors = people.filter((p) => p.id && isDoctor(p));
+  const todo = doctors.filter((p) => { const e = store.get(p.id); return !e || e.status === "error"; });
+  for (let i = 0; i < todo.length; i += 5) await fetchBatch(todo.slice(i, i + 5));
+  // Wait briefly for any lookups already in flight from the page.
+  for (let t = 0; t < 40 && doctors.some((p) => store.get(p.id)?.status === "loading"); t += 1) {
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  const out = new Map<string, DoctorIntel | null>();
+  doctors.forEach((p) => { const e = store.get(p.id); out.set(p.id, e?.status === "ready" ? e.data : null); });
+  return out;
+}

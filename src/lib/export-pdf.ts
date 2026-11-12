@@ -34,6 +34,8 @@ function dateRange(start: string | null, end: string | null, current: boolean): 
   return [from, to].filter(Boolean).join(" - ");
 }
 
+const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
 function safeSlug(name: string): string {
   return (name || "candidate").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "candidate";
 }
@@ -91,7 +93,7 @@ class PdfWriter {
 function contactBox(w: PdfWriter, d: Dossier) {
   const fields = [
     { label: "Work email", value: d.workEmail },
-    { label: "Personal email", value: d.personalEmail },
+    { label: "Personal email", value: d.personalEmail ? (d.personalEmailUnconfirmed ? `${d.personalEmail} (name not confirmed)` : d.personalEmail) : "" },
     { label: "Phone", value: d.phone },
     { label: "LinkedIn", value: d.linkedin ? "Open LinkedIn profile" : "", url: d.linkedin },
   ].filter((field) => field.value);
@@ -126,6 +128,8 @@ function snapshot(w: PdfWriter, d: Dossier) {
   const items = [
     d.yearsExperience ? { label: "CLINICAL EXPERIENCE", value: d.yearsExperience } : null,
     d.npi ? { label: "NPI", value: d.npi } : null,
+    d.industry ? { label: "INDUSTRY PAYMENTS", value: money(d.industry.total) } : null,
+    d.trials.length ? { label: "CLINICAL TRIALS", value: String(d.trials.length) } : null,
     d.research?.articleCount ? { label: "PUBLICATIONS", value: d.research.articleCount.toLocaleString() } : null,
     d.research?.citations ? { label: "CITATIONS", value: d.research.citations.toLocaleString() } : null,
     d.research?.hIndex ? { label: "H-INDEX", value: d.research.hIndex.toLocaleString() } : null,
@@ -164,10 +168,10 @@ function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
   w.doc.text(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), PAGE_W - X, 29, { align: "right" });
 
   w.y = 72;
-  w.text(d.fullName || "Unnamed clinician", { size: 25, bold: true, gap: 4, lineHeight: 30 });
+  w.text(d.displayName || d.fullName || "Unnamed clinician", { size: 25, bold: true, gap: 4, lineHeight: 30 });
   const role = [d.currentTitle, d.currentOrg].filter(Boolean).join(" at ");
   if (role) w.text(role, { size: 12, color: TEXT, gap: 3, lineHeight: 16 });
-  const meta = [d.specialty, d.location].filter(Boolean).join(" · ");
+  const meta = [d.specialty || d.classification.specialty, d.location].filter(Boolean).join(" · ");
   if (meta) w.text(meta, { size: 10, color: MUTED, gap: 10 });
   w.doc.setDrawColor(...MINT);
   w.doc.setLineWidth(2);
@@ -207,7 +211,7 @@ function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
     });
   }
   if (d.research) {
-    w.heading("Academic research");
+    w.heading("Academic research profile");
     const designation = [d.research.designation, d.research.organisation].filter(Boolean).join(" · ");
     if (designation) w.text(designation, { size: 10, bold: true, gap: 4 });
     const metrics = [
@@ -225,6 +229,61 @@ function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
       const meta = [article.publication, article.year, article.citations ? `${article.citations.toLocaleString()} citations` : ""].filter(Boolean).join(" · ");
       if (meta) w.text(meta, { size: 9, color: MUTED });
       w.y += 8;
+    });
+  }
+  if (d.industry) {
+    const ind = d.industry;
+    w.heading("Industry ties");
+    w.text(`${money(ind.total)} across ${ind.count.toLocaleString()} payments`, { size: 11, bold: true, gap: 2 });
+    w.text("Source: CMS Open Payments", { size: 8.5, color: MUTED, gap: 6 });
+    if (ind.byYear.length) w.text(ind.byYear.map((y) => `${y.year}: ${money(y.total)}`).join("   ·   "), { size: 9.5, gap: 6 });
+    if (ind.topCompanies.length) {
+      w.text("Top companies", { size: 9, bold: true, color: MUTED, gap: 2 });
+      ind.topCompanies.slice(0, 8).forEach((co) => {
+        w.ensure(16);
+        w.doc.setFont("helvetica", "normal"); w.doc.setFontSize(9.5); w.doc.setTextColor(...TEXT);
+        w.doc.text(co.name, X, w.y);
+        w.doc.text(money(co.amount), X + WIDTH, w.y, { align: "right" });
+        w.y += 14;
+      });
+      w.y += 4;
+    }
+    if (ind.byType.length) w.text(`By type: ${ind.byType.map((t) => `${t.name} ${money(t.amount)}`).join(" · ")}`, { size: 9.5, color: TEXT });
+  }
+  if (d.trials.length) {
+    w.heading("Clinical trials");
+    d.trials.slice(0, 10).forEach((t) => {
+      w.ensure(40);
+      w.text(t.title, { size: 10, bold: true, gap: 1 });
+      const meta = [t.role ? `Role: ${t.role}` : "", t.nctId, t.phase, t.status, t.sponsor].filter(Boolean).join(" · ");
+      if (meta) w.text(meta, { size: 9, color: MUTED });
+      w.y += 7;
+    });
+  }
+  if (d.pubmed.length) {
+    w.heading("PubMed publications");
+    d.pubmed.slice(0, 10).forEach((a) => {
+      w.ensure(36);
+      w.text(a.title, { size: 10, bold: true, gap: 1 });
+      const meta = [a.journal, a.year].filter(Boolean).join(" · ");
+      if (meta) w.text(meta, { size: 9, color: MUTED });
+      w.y += 7;
+    });
+  }
+  const cls = d.classification;
+  const clsRows = [
+    ["Credential", cls.credential], ["NPI", cls.npi], ["Specialty (NPI taxonomy)", cls.specialty],
+    ["NPI practice city", cls.practiceCity], ["Organization industry", cls.industry],
+  ].filter(([, v]) => v);
+  if (clsRows.length) {
+    w.heading("Clinical classification");
+    clsRows.forEach(([label, value]) => {
+      w.ensure(16);
+      w.doc.setFont("helvetica", "normal"); w.doc.setFontSize(8.5); w.doc.setTextColor(...MUTED);
+      w.doc.text(label, X, w.y);
+      w.doc.setFontSize(9.5); w.doc.setTextColor(...TEXT);
+      w.doc.text(value, X + 150, w.y, { maxWidth: WIDTH - 150 });
+      w.y += 15;
     });
   }
   if (d.certifications.length) {

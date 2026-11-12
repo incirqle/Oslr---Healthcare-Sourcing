@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { mergeContacts, missingAfterPrimary, parsePdlPerson, pdlRequired } from "./contact-waterfall.ts";
+import { emailMatchesName, mergeContacts, missingAfterPrimary, parsePdlPerson, pdlRequired } from "./contact-waterfall.ts";
 import type { BatchEnrichResult } from "./crustdata-v2.ts";
 
 const primary = (o: Partial<BatchEnrichResult>): BatchEnrichResult => ({
@@ -89,4 +89,15 @@ Deno.test("research profile keeps metrics and the most cited papers", () => {
   assertEquals(s.citations, 5400);
   assertEquals(s.top_articles[0].title, "High");
   assertEquals(summarizeResearchProfile({}), null);
+});
+
+Deno.test("personal email that matches the person's name beats one that does not", () => {
+  const m = mergeContacts(["personal_email"], primary({ personal_emails: ["deleonjohana@aol.com"] }), parsePdlPerson({ personal_emails: ["lgalatz@gmail.com"] }), "Leesa Galatz");
+  assertEquals(m.personal_email, "lgalatz@gmail.com");
+});
+
+Deno.test("name check accepts first+last, initial+last and rejects another person's name", () => {
+  assertEquals(emailMatchesName("leesa.galatz@gmail.com", "Leesa Galatz"), true);
+  assertEquals(emailMatchesName("lgalatz@gmail.com", "Leesa Galatz"), true);
+  assertEquals(emailMatchesName("deleonjohana@aol.com", "Leesa Galatz"), false);
 });

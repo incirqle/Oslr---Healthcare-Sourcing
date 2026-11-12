@@ -3,6 +3,7 @@ import { Check, Copy, Loader2, Mail, Phone, Briefcase, Zap } from "lucide-react"
 import { cn } from "@/lib/utils";
 import type { ContactKind, ContactState } from "@/hooks/useContactEnrich";
 import { CONTACT_PRICES } from "@/hooks/useContactEnrich";
+import { emailMatchesName } from "@/lib/candidate-export-adapter";
 
 const OPTIONS: { kind: ContactKind; label: string; icon: typeof Mail }[] = [
   { kind: "work_email", label: "Work email", icon: Briefcase },
@@ -18,6 +19,8 @@ interface Props {
   /** Contact info already on the saved record (shown only if not duplicated). */
   fallbackEmail?: string | null;
   fallbackPhone?: string | null;
+  /** Used to flag a personal email that does not carry the person's name. */
+  candidateName?: string | null;
 }
 
 function valueFor(state: ContactState, k: ContactKind): string | null {
@@ -28,7 +31,7 @@ function valueFor(state: ContactState, k: ContactKind): string | null {
   return c.phone_numbers?.[0] || null;
 }
 
-export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmail, fallbackPhone }: Props) {
+export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmail, fallbackPhone, candidateName }: Props) {
   const [picked, setPicked] = useState<ContactKind[]>(["work_email"]);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -64,11 +67,11 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
       <header className="flex items-end justify-between px-1">
         <div>
           <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ui-text-primary">Contact</h3>
-          <p className="text-[13px] text-ui-text-muted">{state.unlimited ? "Included in your unlimited pass. Saved forever." : "Charged only when we find it. Saved forever."}</p>
+          <p className="text-[13px] text-ui-text-muted">{state.unlimited ? "Covered by your unlimited pass. Credit costs shown are what other plans pay." : "Charged only when we find it. Saved forever."}</p>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-mint/10 px-2.5 py-1 text-[12px] font-medium tabular-nums text-mint-ink">
           <Zap className="h-3 w-3" />
-          {state.unlimited ? "Unlimited" : `${state.balance ?? "-"} credits`}
+          {state.unlimited ? "Unlimited pass" : `${state.balance ?? "-"} credits`}
         </span>
       </header>
 
@@ -100,12 +103,17 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
                   <a href={href} className="block truncate text-[15px] text-ui-text-primary hover:text-mint-ink">
                     {r.value}
                   </a>
+                ) : null}
+                {r.status === "found" && r.value && r.kind === "personal_email" && candidateName && !emailMatchesName(r.value, candidateName) ? (
+                  <p className="text-[12px] text-ui-text-tertiary">This address does not include their name. Confirm before reaching out.</p>
+                ) : r.status === "found" && r.value ? (
+                  null
                 ) : r.status === "missing" ? (
                   <p className="text-[14px] text-ui-text-tertiary">
                     {r.kind === "phone" ? "No phone number was found" : "No email was found"} · you will not be charged
                   </p>
                 ) : (
-                  <p className="text-[14px] text-ui-text-tertiary">{state.unlimited ? "Included" : `${CONTACT_PRICES[r.kind as ContactKind]} credits if found`}</p>
+                  <p className="text-[14px] text-ui-text-tertiary">{`${CONTACT_PRICES[r.kind as ContactKind]} credits if found`}{state.unlimited ? " · covered by your pass" : ""}</p>
                 )}
               </div>
 
@@ -156,7 +164,7 @@ export function ContactEnrichPanel({ state, busy, onEnrich, onCopy, fallbackEmai
           ) : maxCost === 0 ? (
             "Choose what to find"
           ) : (
-            `Find ${chosen.length === 1 ? OPTIONS.find((o) => o.kind === chosen[0])?.label.toLowerCase() : `${chosen.length} items`}${state.unlimited ? "" : ` · up to ${maxCost} credits`}`
+            `Find ${chosen.length === 1 ? OPTIONS.find((o) => o.kind === chosen[0])?.label.toLowerCase() : `${chosen.length} items`} · up to ${maxCost} credits${state.unlimited ? " (covered)" : ""}`
           )}
         </button>
       )}

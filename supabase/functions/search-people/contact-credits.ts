@@ -104,7 +104,7 @@ export async function handleEnrichContact(
   const syncHit = syncRes.ok ? syncRes.data[0] ?? null : null;
   let primary = syncHit;
   let res: { ok: boolean } = syncRes;
-  const syncMissing = syncRes.ok ? missingAfterPrimary(toFetch, syncHit) : (syncRes.insufficientCredits ? [] : toFetch);
+  const syncMissing = syncRes.ok ? missingAfterPrimary(toFetch, syncHit, candidateName) : (syncRes.insufficientCredits ? [] : toFetch);
   if (syncMissing.length) {
     if (!syncRes.ok) console.warn(`[enrich_contact] sync lookup failed (${syncRes.status}): ${syncRes.detail.slice(0, 200)}; sending to batch`);
     const batchRes = await batchContactEnrich([{ linkedin_url: url }], syncMissing.map((k) => FIELD[k]));
@@ -113,7 +113,7 @@ export async function handleEnrichContact(
   }
 
   // Secondary provider only for what the primary left empty.
-  const missing = missingAfterPrimary(toFetch, primary);
+  const missing = missingAfterPrimary(toFetch, primary, candidateName);
   let secondary = null;
   let secondaryFailed = false;
   if (missing.length) {
@@ -125,7 +125,7 @@ export async function handleEnrichContact(
     return { status: 502, payload: { ...summary(), error: "Contact lookup is unavailable right now. Try again shortly." } };
   }
   if (secondary?.pdl_id) stored.pdl_id = secondary.pdl_id;
-  const merged = mergeContacts(toFetch, primary, secondary);
+  const merged = mergeContacts(toFetch, primary, secondary, candidateName);
 
   const found: ContactKind[] = [];
   const now = new Date().toISOString();

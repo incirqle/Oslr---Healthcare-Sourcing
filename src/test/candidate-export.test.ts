@@ -79,3 +79,28 @@ describe("candidate exports", () => {
     expect(buildLinkedInRecruiterCsv(malicious)).toContain("'=HYPERLINK");
   });
 });
+
+import { toDossier as toDossier2, clinicalCredential } from "@/lib/candidate-export-adapter";
+import { describe as d2, it as it2, expect as ex2 } from "vitest";
+d2("clinical profile export completeness", () => {
+  it2("empty enrichment never wipes saved experience and education", () => {
+    const dz = toDossier2({ full_name: "Leesa Galatz", raw: {
+      experience_history: [{ title: "Chair of Orthopedic Surgery", company_name: "Mount Sinai" }],
+      education: [{ school_name: "GWU School of Medicine", degrees: ["M.D."] }],
+      enriched: { experience: [], education: [] },
+    } });
+    ex2(dz.experience.length).toBe(1);
+    ex2(dz.education.length).toBe(1);
+  });
+  it2("names carry MD, DO or DPM and never Dr.", () => {
+    ex2(clinicalCredential("", ["M.D."])).toBe("MD");
+    ex2(clinicalCredential("D.O.", [])).toBe("DO");
+    ex2(clinicalCredential("", ["Doctor of Podiatric Medicine"])).toBe("DPM");
+    const dz = toDossier2({ full_name: "Dr. Jane Smith", raw: { education: [{ school_name: "X", degrees: ["MD"] }] } });
+    ex2(dz.displayName).toBe("Jane Smith, MD");
+  });
+  it2("flags a personal email that does not carry the person's name", () => {
+    const dz = toDossier2({ full_name: "Leesa Galatz", personal_email: "deleonjohana@aol.com", raw: {} });
+    ex2(dz.personalEmailUnconfirmed).toBe(true);
+  });
+});

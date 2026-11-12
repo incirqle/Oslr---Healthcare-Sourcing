@@ -1493,6 +1493,7 @@ export function CandidateDrawer({
                   onCopy={(v, l) => void handleCopy(v, l)}
                   fallbackEmail={allEmails.find((e) => e.label === "Other")?.address ?? null}
                   fallbackPhone={cd.phone_numbers?.length ? null : allPhones[0]?.number ?? null}
+                  candidateName={candidate.full_name}
                 />
               </TabsContent>
             </div>

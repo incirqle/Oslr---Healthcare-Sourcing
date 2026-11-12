@@ -27,10 +27,10 @@ const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const isPhone = (s: unknown): s is string => typeof s === "string" && !s.includes("@") && s.replace(/\D/g, "").length >= 10;
 
 /** Which kinds the primary result left empty. */
-export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult | null | undefined): WaterfallKind[] {
+export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult | null | undefined, fullName?: string | null): WaterfallKind[] {
   return kinds.filter((k) => {
     if (k === "work_email") return !(p?.business_email && isEmail(clean(p.business_email)));
-    if (k === "personal_email") return !(p?.personal_emails ?? []).some((e) => isEmail(clean(e)));
+    if (k === "personal_email") return !(p?.personal_emails ?? []).some((e) => isEmail(clean(e)) && emailMatchesName(clean(e), fullName));
     return ![p?.mobile_phone, ...(p?.phones ?? [])].some(isPhone);
   });
 }
@@ -66,10 +66,29 @@ export function combinePrimary(
  *   (its deliverability pick), else its first personal address. One address only.
  * - Phone: primary if present, else secondary mobile first, then other numbers.
  */
+/**
+ * True when an email's local part carries part of the person's name
+ * (first name, last name, or first initial + last name). Used to prefer the
+ * address that is actually theirs over one that belongs to someone else.
+ */
+export function emailMatchesName(email: string, fullName: string | null | undefined): boolean {
+  if (!fullName) return true;
+  const local = email.split("@")[0].toLowerCase().replace(/[^a-z]/g, "");
+  const parts = fullName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/,.*$/, "").split(/[\s-]+/).map((t) => t.replace(/[^a-z]/g, ""))
+    .filter((t) => t && !["dr", "md", "do", "dpm", "jr", "sr", "ii", "iii"].includes(t));
+  if (!parts.length || !local) return true;
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  if (parts.some((t) => t.length >= 3 && local.includes(t))) return true;
+  return local.includes(first[0] + last) || local.includes(last + first[0]);
+}
+
 export function mergeContacts(
   kinds: WaterfallKind[],
   primary: BatchEnrichResult | null | undefined,
   secondary: SecondaryContact | null | undefined,
+  fullName?: string | null,
 ): MergedContact {
   const out: MergedContact = { sources: {} };
   for (const k of kinds) {
@@ -80,10 +99,16 @@ export function mergeContacts(
       else if (isEmail(s) && secondary?.work_domain_ok) { out.work_email = s; out.sources.work_email = "secondary"; }
     }
     if (k === "personal_email") {
-      const p = (primary?.personal_emails ?? []).map(clean).find(isEmail);
-      const s = [secondary?.recommended_personal_email, ...(secondary?.personal_emails ?? [])].map(clean).find(isEmail);
-      if (p) { out.personal_email = p; out.sources.personal_email = "primary"; }
-      else if (s) { out.personal_email = s; out.sources.personal_email = "secondary"; }
+      // Name-matching addresses from either source beat ones that may belong
+      // to someone else; only fall back to an unmatched address when nothing matches.
+      const pList = (primary?.personal_emails ?? []).map(clean).filter(isEmail);
+      const sList = [secondary?.recommended_personal_email, ...(secondary?.personal_emails ?? [])].map(clean).filter(isEmail);
+      const named = (l: string[]) => l.find((e) => emailMatchesName(e, fullName));
+      const pick: [string | undefined, "primary" | "secondary"][] = [
+        [named(pList), "primary"], [named(sList), "secondary"], [pList[0], "primary"], [sList[0], "secondary"],
+      ];
+      const hit = pick.find(([e]) => e);
+      if (hit) { out.personal_email = hit[0]; out.sources.personal_email = hit[1]; }
     }
     if (k === "phone") {
       const p = [...new Set([primary?.mobile_phone, ...(primary?.phones ?? [])].filter(isPhone))];

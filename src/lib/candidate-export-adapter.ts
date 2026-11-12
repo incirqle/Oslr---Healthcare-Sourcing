@@ -57,8 +57,35 @@ export interface DossierResearch {
   topArticles: { title: string; publication: string; year: string; citations: number; url: string }[];
 }
 
+export interface DossierClassification {
+  credential: string;
+  npi: string;
+  specialty: string;
+  practiceCity: string;
+  industry: string;
+}
+
+export interface DossierIndustry {
+  total: number;
+  count: number;
+  byYear: { year: string; total: number }[];
+  topCompanies: { name: string; amount: number }[];
+  byType: { name: string; amount: number }[];
+}
+
+export interface DossierTrial { nctId: string; title: string; status: string; phase: string; sponsor: string; role: string; url: string }
+export interface DossierArticle { title: string; journal: string; year: string; url: string }
+
 export interface Dossier {
   fullName: string;
+  /** Name with clinical credential, e.g. "Jane Smith, MD". Never "Dr." */
+  displayName: string;
+  credential: string;
+  classification: DossierClassification;
+  industry: DossierIndustry | null;
+  trials: DossierTrial[];
+  pubmed: DossierArticle[];
+  personalEmailUnconfirmed: boolean;
   currentTitle: string;
   currentOrg: string;
   location: string;
@@ -113,7 +140,20 @@ const oneDecimal = (n: number) => (n > 0 ? (Math.round(n * 10) / 10).toFixed(1) 
 function profileRaw(c: AnyCandidate): Record<string, unknown> {
   const raw = (c as Candidate).raw ?? {};
   const enriched = isObj(raw.enriched) ? raw.enriched : {};
-  return { ...raw, ...enriched };
+  const merged: Record<string, unknown> = { ...raw };
+  // Enrichment wins only where it actually has data: an empty list or blank
+  // field must never wipe out experience or education saved on the profile.
+  for (const [key, value] of Object.entries(enriched)) {
+    if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) continue;
+    merged[key] = value;
+  }
+  // Both shapes describe the same jobs; keep whichever list is richer.
+  const hist = asArray(raw.experience_history);
+  const exp = asArray(merged.experience);
+  if (hist.length && exp.length) {
+    if (exp.length >= hist.length) delete merged.experience_history; else delete merged.experience;
+  }
+  return merged;
 }
 
 function extractRawExperience(raw: Record<string, unknown> | undefined): DossierExperience[] {
@@ -187,18 +227,11 @@ function pickPhones(c: AnyCandidate): string {
 }
 
 function extractResearch(raw: Record<string, unknown>, originalRaw: Record<string, unknown>): DossierResearch | null {
-  const doctorIntel = isObj(originalRaw.doctor_intel) ? originalRaw.doctor_intel : {};
-  const publications = isObj(doctorIntel.publications) ? doctorIntel.publications : {};
+  void originalRaw;
+  const publications: Record<string, unknown> = {};
   const value = isObj(raw.research_profile) ? raw.research_profile : null;
-  if (!value && !isObj(doctorIntel.publications)) return null;
+  if (!value) return null;
   const profile = value ?? {};
-  const pubmedArticles = asArray<Record<string, unknown>>(publications.articles).map((article) => ({
-    title: asString(article.title),
-    publication: asString(article.journal),
-    year: asString(article.year),
-    citations: 0,
-    url: asString(article.url),
-  }));
   const topArticles = asArray<Record<string, unknown>>(profile.top_articles).map((article) => ({
     title: asString(article.title),
     publication: asString(article.publication),
@@ -215,17 +248,85 @@ function extractResearch(raw: Record<string, unknown>, originalRaw: Record<strin
     i10Index: asNumber(profile.i10_index),
     coAuthorCount: asNumber(profile.co_author_count),
     interests: asArray<string>(profile.interests).filter(Boolean),
-    topArticles: topArticles.length ? topArticles : pubmedArticles,
+    topArticles: topArticles.length ? topArticles : [],
   };
 }
 
-function extractNpi(raw: Record<string, unknown>): { npi: string; specialty: string } {
+function extractNpi(raw: Record<string, unknown>): { npi: string; specialty: string; credential: string; city: string } {
   const intel = isObj(raw.doctor_intel) ? raw.doctor_intel : {};
   const nested = isObj(intel.npi) ? intel.npi : isObj(raw.npi) ? raw.npi : {};
   return {
     npi: asString(nested.npi ?? (typeof raw.npi === "string" ? raw.npi : "")),
     specialty: asString(nested.specialty),
+    credential: asString(nested.credential),
+    city: asString(nested.city),
   };
+}
+
+const CREDENTIALS: [RegExp, string][] = [
+  [/\bm\.?\s?d\.?\b|doctor of medicine/i, "MD"],
+  [/\bd\.?\s?o\.?\b|doctor of osteopathic/i, "DO"],
+  [/\bd\.?\s?p\.?\s?m\.?\b|doctor of podiatric/i, "DPM"],
+];
+
+/** Clinical credential from the NPI record first, then medical degrees on the profile. */
+export function clinicalCredential(npiCredential: string, degrees: string[]): string {
+  const found = new Set<string>();
+  for (const source of [npiCredential, ...degrees]) {
+    for (const [re, label] of CREDENTIALS) if (source && re.test(source)) found.add(label);
+    if (found.size && source === npiCredential) break;
+  }
+  return ["MD", "DO", "DPM"].filter((c) => found.has(c)).join(", ");
+}
+
+function extractIndustry(raw: Record<string, unknown>): DossierIndustry | null {
+  const intel = isObj(raw.doctor_intel) ? raw.doctor_intel : {};
+  const p = isObj(intel.payments) ? intel.payments : null;
+  if (!p || !asNumber(p.total)) return null;
+  // Merge the same company listed under different capitalization.
+  const companies = new Map<string, { name: string; amount: number }>();
+  asArray<Record<string, unknown>>(p.topCompanies).forEach((c) => {
+    const name = toTitleCase(asString(c.name)).replace(/\bInc\b\.?/i, "Inc.").trim();
+    const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const prev = companies.get(key);
+    companies.set(key, { name: prev?.name ?? name, amount: (prev?.amount ?? 0) + asNumber(c.amount) });
+  });
+  return {
+    total: asNumber(p.total),
+    count: asNumber(p.count),
+    byYear: asArray<Record<string, unknown>>(p.byYear).map((y) => ({ year: asString(y.year), total: asNumber(y.total) })),
+    topCompanies: [...companies.values()].sort((a, b) => b.amount - a.amount),
+    byType: asArray<Record<string, unknown>>(p.byType).map((t) => ({ name: asString(t.name), amount: asNumber(t.amount) })),
+  };
+}
+
+function extractTrials(raw: Record<string, unknown>): DossierTrial[] {
+  const intel = isObj(raw.doctor_intel) ? raw.doctor_intel : {};
+  const t = isObj(intel.trials) ? intel.trials : {};
+  return asArray<Record<string, unknown>>(t.studies).map((s) => ({
+    nctId: asString(s.nctId), title: asString(s.title), status: toTitleCase(asString(s.status).replace(/_/g, " ")),
+    phase: asString(s.phase).replace(/_/g, " ").replace(/PHASE\s?(\d)/gi, "Phase $1"), sponsor: asString(s.sponsor), role: toTitleCase(asString(s.role).replace(/_/g, " ")), url: asString(s.url),
+  })).filter((s) => s.title);
+}
+
+function extractPubmed(raw: Record<string, unknown>): DossierArticle[] {
+  const intel = isObj(raw.doctor_intel) ? raw.doctor_intel : {};
+  const pubs = isObj(intel.publications) ? intel.publications : {};
+  return asArray<Record<string, unknown>>(pubs.articles).map((a) => ({
+    title: asString(a.title), journal: asString(a.journal), year: asString(a.year), url: asString(a.url),
+  })).filter((a) => a.title);
+}
+
+/** Mirrors the server rule: the address should carry part of the person's name. */
+export function emailMatchesName(email: string, fullName: string): boolean {
+  if (!email || !fullName) return true;
+  const local = email.split("@")[0].toLowerCase().replace(/[^a-z]/g, "");
+  const parts = fullName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/,.*$/, "")
+    .split(/[\s-]+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t && !["dr", "md", "do", "dpm", "jr", "sr"].includes(t));
+  if (!parts.length || !local) return true;
+  const first = parts[0], last = parts[parts.length - 1];
+  if (parts.some((t) => t.length >= 3 && local.includes(t))) return true;
+  return local.includes(first[0] + last) || local.includes(last + first[0]);
 }
 
 export function toExportRow(c: AnyCandidate): ExportRow {
@@ -269,14 +370,31 @@ export function toDossier(c: AnyCandidate): Dossier {
   const education = extractRawEducation(raw);
   const npi = extractNpi(raw);
   const fromCandidate = asArray<string>(c.skills).filter(Boolean);
-  const skills = fromCandidate.length ? fromCandidate : asArray<string>(raw.skills).filter(Boolean);
+  const skillSource = [raw.skills, raw.clinical_skills, raw.all_skills].map((v) => asArray<unknown>(v).map((x) => typeof x === "string" ? x : isObj(x) ? asString(x.name) : "").filter(Boolean)).find((l) => l.length) ?? [];
+  const skills = fromCandidate.length ? fromCandidate : skillSource;
   const certifications = [...asArray<unknown>(raw.certifications), ...asArray<unknown>(raw.licenses)]
     .map((item) => typeof item === "string" ? item : isObj(item) ? asString(item.name ?? item.title ?? item.state) : "")
     .filter(Boolean);
   const totalYears = asNumber((c as Candidate).years_experience ?? raw.inferred_years_experience);
 
+  const fullName = toTitleCase(asString(c.full_name ?? raw.full_name)).replace(/^dr\.?\s+/i, "").replace(/,\s*(md|do|dpm)\b.*$/i, "");
+  const credential = clinicalCredential(npi.credential, education.map((e) => e.degree));
+
   return {
-    fullName: toTitleCase(asString(c.full_name ?? raw.full_name)),
+    fullName,
+    displayName: credential ? `${fullName}, ${credential}` : fullName,
+    credential,
+    classification: {
+      credential,
+      npi: npi.npi,
+      specialty: toTitleCase(npi.specialty),
+      practiceCity: toTitleCase(npi.city),
+      industry: asString(raw.job_company_industry),
+    },
+    industry: extractIndustry(raw),
+    trials: extractTrials(raw),
+    pubmed: extractPubmed(raw),
+    personalEmailUnconfirmed: !!emails.personal && !emailMatchesName(emails.personal, fullName),
     currentTitle: toTitleCase(asString(c.title ?? raw.job_title)),
     currentOrg: toTitleCase(asString(c.current_employer ?? raw.job_company_name)),
     location: toTitleCase(asString(c.location ?? [raw.location_locality, raw.location_region].filter(Boolean).join(", "))),
