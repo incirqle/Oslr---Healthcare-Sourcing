@@ -111,7 +111,7 @@ export function mergeContacts(
       const named = (l: string[]) => l.find((e) => emailMatchesName(e, fullName));
       const pick: [string | undefined, "primary" | "secondary"][] = [
         [named(pList), "primary"], [named(sList), "secondary"],
-        [secondary?.identity_confirmed ? sList[0] : undefined, "secondary"],
+        [secondary?.identity_confirmed ? clean(secondary?.recommended_personal_email) || undefined : undefined, "secondary"],
       ];
       const hit = pick.find(([e]) => e);
       if (hit) { out.personal_email = hit[0]; out.sources.personal_email = hit[1]; }
