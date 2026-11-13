@@ -180,7 +180,15 @@ Deno.serve(async (req) => {
         const p = row.profile ?? {};
         const { data: dup } = await admin.from("candidates").select("id").eq("project_id", agent.project_id).eq("person_id", row.person_id).maybeSingle();
         if (!dup) {
+          // Reuse contact details this workspace already found for this person.
+          let known: { email: string | null; phone: string | null } = { email: null, phone: null };
+          if (p.linkedin_url) {
+            const { data: u } = await admin.from("contact_unlocks").select("data").eq("company_id", companyId).eq("linkedin_url", p.linkedin_url).maybeSingle();
+            const d = (u?.data ?? {}) as { work_email?: string; personal_emails?: string[]; phone_numbers?: string[] };
+            known = { email: d.work_email || d.personal_emails?.[0] || null, phone: d.phone_numbers?.[0] || null };
+          }
           const { error: cErr } = await admin.from("candidates").insert({
+            email: known.email, phone: known.phone,
             company_id: companyId, project_id: agent.project_id, person_id: row.person_id,
             full_name: p.full_name ?? "Unknown", title: p.title ?? null, current_employer: p.current_employer ?? null,
             location: p.location ?? null, linkedin_url: p.linkedin_url ?? null, skills: p.skills ?? null,

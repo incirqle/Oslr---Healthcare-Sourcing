@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { CONTACT_PRICES, enrichContact, type ContactKind } from "@/hooks/useContactEnrich";
 import { ContactKindPicker } from "@/components/ContactKindPicker";
 import type { DecisionRow, PoolItem } from "@/hooks/useAgents";
@@ -61,7 +62,16 @@ export function ApprovedTools({ agentName, items, decisions, projectId }: { agen
         spent += r.charged ?? 0;
         if (r.found?.length) {
           found++;
-          enriched.set(i.id, { email: r.contact.work_email || r.contact.personal_emails?.[0] || null, phone: r.contact.phone_numbers?.[0] || null });
+          const email = r.contact.work_email || r.contact.personal_emails?.[0] || null;
+          const phone = r.contact.phone_numbers?.[0] || null;
+          enriched.set(i.id, { email, phone });
+          // Save onto the project row so live Excel / Sheets / Slack exports pick it up.
+          const patch: Record<string, string> = {};
+          if (email) patch.email = email;
+          if (phone) patch.phone = phone;
+          if (projectId && Object.keys(patch).length) {
+            await supabase.from("candidates").update(patch).eq("project_id", projectId).eq("person_id", i.person_id);
+          }
         }
       } catch { /* skip this person */ }
       setDone((d) => d + 1);
