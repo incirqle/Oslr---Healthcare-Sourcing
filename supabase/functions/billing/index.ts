@@ -6,6 +6,7 @@ import { corsHeaders as cors } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 
 import { type Account, creditsForSeats, monthIndex, PLANS, PRICE_IDS, priceFor, type Interval, type PlanId } from "../_shared/plans.ts";
+import { redeemPaidInviteCode } from "../_shared/invite-policy.ts";
 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -85,18 +86,11 @@ Deno.serve(async (req) => {
 
     const email = user.email.toLowerCase();
     const { data: betaRow } = await db.from("beta_plan_invites").select("email").eq("email", email).maybeSingle();
-    let betaEligible = !!betaRow;
+    const betaEligible = !!betaRow;
 
-    // "OSLR BETA" unlocks the flat $115/month Starter price for this email. Spaces and case are ignored.
+    // The shared code never grants access by itself: this email must already be invited.
     if (action === "redeem_code") {
-      const normalized = (body.code ?? "").replace(/[\s_-]+/g, "").toLowerCase();
-      if (normalized !== "oslrbeta") return json({ ok: false });
-      if (!betaEligible) {
-        const { error } = await db.from("beta_plan_invites").upsert({ email, note: "Redeemed OSLR BETA code" }, { onConflict: "email" });
-        if (error) return json({ error: "That code couldn't be used right now. Try again." }, 500);
-        betaEligible = true;
-      }
-      return json({ ok: true });
+      return json(redeemPaidInviteCode(body.code ?? "", betaEligible));
     }
 
     if (action === "catalog") {

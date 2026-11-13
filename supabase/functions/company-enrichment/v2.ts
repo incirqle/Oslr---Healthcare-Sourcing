@@ -60,7 +60,7 @@ export async function cdPostV2(path: string, body: Record<string, unknown>): Pro
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
+        Authorization: `Token ${key}`,
         "Content-Type": "application/json",
         Accept: "application/json",
         "x-api-version": API_VERSION,

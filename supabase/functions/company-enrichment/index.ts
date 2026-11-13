@@ -37,6 +37,7 @@ import { classifyAll, type ExclusionCounts, type TalentFlowPerson } from "./tale
 import { buildRoster, type RosterExclusion, type RosterPerson, sitesFromRegions } from "./roster.ts";
 import { GROUP_DEFS, groupFilter, isPullGroup, movementFilters, PULL_GROUPS, PULL_PAGE_SIZE, type PullGroup } from "./groups.ts";
 import { classifyEmploymentModel } from "../_shared/clinician-engine/employment-model.ts";
+import { hasCompanyBaseEvidence } from "./cache-quality.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -217,6 +218,7 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
   const raw = await cdPostV2("/company/enrich", { crustdata_company_ids: [identified.company_id], fields: [...ENRICH_FIELDS] });
   const match = matchesOf(firstResult(raw))[0];
   const e = match ? mapEnrichment(match.company_data, preferDomain) : null;
+  if (!match || !e) throw new Error("Company details are temporarily unavailable. Please try again.");
   // Hand-mapped sibling pages (HSS Florida, UCHealth arms) carry their own
   // region footprint; enrich them once and merge so "where staff work" is complete.
   let siblingRegions: Record<string, number> | null = null;
@@ -241,6 +243,7 @@ async function buildBase(identified: Identified, preferDomain: string | null) {
   const matcher = buildMatcher(identified.all_ids, legal, e?.hq_state ?? null);
   return {
     schema_version: SCHEMA_VERSION,
+    source_complete: true,
     company_id: identified.company_id,
     crustdata_entity_ids: identified.all_ids,
     legal_name: legal,
@@ -385,17 +388,19 @@ async function buildMovement(base: Base) {
 /* ------------------------------------------------------------------ */
 
 // deno-lint-ignore no-explicit-any
-async function cached<T>(supabase: any, key: string, ttl: number, companyId: number, build: () => Promise<T>): Promise<T & { cached: boolean }> {
+async function cached<T>(supabase: any, key: string, ttl: number, companyId: number, build: () => Promise<T>, usable: (value: unknown) => boolean = () => true): Promise<T & { cached: boolean }> {
   try {
     const { data } = await supabase.from("company_enrichment_cache").select("data, created_at").eq("cache_key", key).maybeSingle();
-    if (data?.data && Date.now() - new Date(data.created_at as string).getTime() < ttl) {
+    if (data?.data && usable(data.data) && Date.now() - new Date(data.created_at as string).getTime() < ttl) {
       return { ...(data.data as T), cached: true };
     }
   } catch { /* miss */ }
   const fresh = await build();
-  try {
-    await supabase.from("company_enrichment_cache").upsert({ cache_key: key, company_id: companyId, data: fresh, created_at: new Date().toISOString() });
-  } catch { /* non-fatal */ }
+  if (usable(fresh)) {
+    try {
+      await supabase.from("company_enrichment_cache").upsert({ cache_key: key, company_id: companyId, data: fresh, created_at: new Date().toISOString() });
+    } catch { /* non-fatal */ }
+  }
   return { ...fresh, cached: false };
 }
 
@@ -429,7 +434,7 @@ Deno.serve(async (req) => {
     if (entity_ids.length) {
       try {
         const { data } = await supabase.from("company_enrichment_cache").select("data").eq("cache_key", `v${SCHEMA_VERSION}:base:${idsKey(entity_ids)}`).maybeSingle();
-        if (data?.data) base = { ...(data.data as Base), cached: true };
+        if (data?.data && hasCompanyBaseEvidence(data.data)) base = { ...(data.data as Base), cached: true };
       } catch { /* rebuild below */ }
     }
     if (!base) {
@@ -437,7 +442,7 @@ Deno.serve(async (req) => {
         ? (await identifyById(company_id)) ?? (company_name ? await identifyByName(company_name, company_domain) : null)
         : company_name ? await identifyByName(company_name, company_domain) : null;
       if (!identified) return json({ company: null, error: "Company not found" });
-      base = await cached(supabase, `v${SCHEMA_VERSION}:base:${idsKey(identified.all_ids)}`, TTL.base, identified.company_id, () => buildBase(identified, cleanDomain(company_domain)));
+      base = await cached(supabase, `v${SCHEMA_VERSION}:base:${idsKey(identified.all_ids)}`, TTL.base, identified.company_id, () => buildBase(identified, cleanDomain(company_domain)), hasCompanyBaseEvidence);
     }
     const key = idsKey(base.crustdata_entity_ids);
 

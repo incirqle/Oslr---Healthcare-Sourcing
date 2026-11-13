@@ -261,7 +261,6 @@ Deno.serve(async (req: Request) => {
         "education",
         "honors",
         "skills",
-        "certifications",
       ];
       // Academic research rides on the same enrich call. A field-level 403
       // must not blank the whole profile: remove only the denied sections and

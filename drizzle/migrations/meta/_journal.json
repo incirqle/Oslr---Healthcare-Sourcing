@@ -169,6 +169,13 @@
       "when": 1794428811722,
       "tag": "0023_signup_trial_owner_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794536620182,
+      "tag": "0024_repair_signup_nudges_and_invite_redemption",
+      "breakpoints": true
     }
   ]
 }

@@ -21,7 +21,10 @@ export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckou
     if (code.replace(/[\s_-]+/g, "").toLowerCase() === "oslrbeta") {
       const { data: r, error: e2 } = await supabase.functions.invoke("billing", { body: { action: "redeem_code", code } });
       setBusy(false);
-      if (e2 || !r?.ok) return toast.error("That code couldn't be used right now. Try again.");
+      if (e2) return toast.error("That code couldn't be used right now. Try again.");
+      if (!r?.ok) return toast.error(r?.reason === "invite_required"
+        ? "This code is available only for an invited email address. Ask the person who invited you to approve this email."
+        : "That code isn't valid.");
       toast.success("Beta price applied. Starter is now $115 a month.");
       setSelection({ plan: "starter", interval: "month" });
       setCatalogKey((k) => k + 1);
@@ -30,7 +33,9 @@ export function PaywallChoice({ onCheckout, onRedeemed, onSignOut }: { onCheckou
     }
     const { data, error } = await supabase.rpc("redeem_beta_code", { _code: code });
     setBusy(false);
-    if (error) return toast.error("That code couldn't be used right now. Try again.");
+    if (error) return toast.error(error.message.includes("invite_required")
+      ? "This code is available only for an invited email address. Ask the person who invited you to approve this email."
+      : "That code couldn't be used right now. Try again.");
     if (!data) return toast.error("That code isn't valid.");
     toast.success("Invite pass active. Enjoy 5 days on Oslr.");
     onRedeemed();

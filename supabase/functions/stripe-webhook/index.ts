@@ -5,6 +5,7 @@ import { isInternalJob, isServiceKey } from "../_shared/job-auth.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sendTemplateEmail } from "../_shared/transactional-email-templates/send-email.ts";
+import { companyForNudge, shouldSendOwnerNudge } from "./nudge-rules.ts";
 
 const api = { apiVersion: "2025-08-27.basil" } as const;
 const DAY = 86400_000;
@@ -29,21 +30,30 @@ async function payingStatus(cid: string | null) {
 }
 
 async function ownerNudge(n: Record<string, any>): Promise<boolean> {
-  const s = await payingStatus(n.company_id);
+  const cid = await companyForNudge(n as { company_id?: string | null; email: string }, async (email) => {
+    const { data: profile } = await db.from("profiles").select("company_id")
+      .ilike("email", email).not("company_id", "is", null)
+      .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    return (profile?.company_id as string | undefined) ?? null;
+  });
+  if (cid && cid !== n.company_id) {
+    await db.from("billing_nudges").update({ company_id: cid }).eq("id", n.id).is("company_id", null);
+  }
+  const s = await payingStatus(cid);
   const who = n.email;
   switch (n.kind) {
     case "owner_signup":
       await alertOwner("New signup", `${who} just created an Oslr account. They still need to confirm their email and pick a plan.`); return true;
     case "owner_unpaid":
-      if (s.paid || s.trial || s.exempt) return false;
+      if (!shouldSendOwnerNudge(n.kind, s)) return false;
       await alertOwner("Signed up, no plan yet (2 hours)", `${who} signed up 2 hours ago but has not paid or used an invite code. Worth a personal note or a demo offer.`); return true;
     case "owner_unpaid_day":
-      if (s.paid || s.trial || s.exempt) return false;
+      if (!shouldSendOwnerNudge(n.kind, s)) return false;
       await alertOwner("Still no plan after 1 day", `${who} signed up a day ago and still has not paid or started a pass.`); return true;
     case "owner_trial_started":
       await alertOwner("5-day pass started", `${who} redeemed the free invite code. Their pass ends in 5 days.`); return true;
     case "abandoned_cart":
-      if (s.paid) return false;
+      if (!shouldSendOwnerNudge(n.kind, s)) return false;
       await alertOwner("Abandoned checkout", `${who} opened checkout but left without paying.`); return true;
   }
   return false;
@@ -74,9 +84,18 @@ async function queue(companyId: string | null, email: string | null | undefined,
   );
 }
 
-async function cancelNudges(companyId: string, kinds: string[]) {
-  await db.from("billing_nudges").update({ canceled_at: new Date().toISOString() })
-    .eq("company_id", companyId).in("kind", kinds).is("sent_at", null).is("canceled_at", null);
+async function cancelNudges(companyId: string | null, kinds: string[], email?: string | null) {
+  const canceledAt = new Date().toISOString();
+  const writes = [];
+  if (companyId) {
+    writes.push(db.from("billing_nudges").update({ canceled_at: canceledAt })
+      .eq("company_id", companyId).in("kind", kinds).is("sent_at", null).is("canceled_at", null));
+  }
+  if (email) {
+    writes.push(db.from("billing_nudges").update({ canceled_at: canceledAt })
+      .is("company_id", null).ilike("email", email).in("kind", kinds).is("sent_at", null).is("canceled_at", null));
+  }
+  await Promise.all(writes);
 }
 
 async function setFeatures(companyId: string, patch: Record<string, unknown>) {
@@ -103,9 +122,10 @@ async function handle(stripe: Stripe, ev: Stripe.Event): Promise<string | null> 
   switch (ev.type) {
     case "checkout.session.completed": {
       const cid = await companyFor(stripe, o.metadata, o.customer);
-      if (cid) await cancelNudges(cid, ["abandoned_cart", "winback_3", "winback_14", "owner_unpaid", "owner_unpaid_day", "trial_ending", "trial_ended"]);
+      const email = o.customer_details?.email ?? o.customer_email ?? await emailFor(stripe, o.customer);
+      await cancelNudges(cid, ["abandoned_cart", "winback_3", "winback_14", "owner_unpaid", "owner_unpaid_day", "trial_ending", "trial_ended"], email);
       const amt = typeof o.amount_total === "number" ? ` for $${(o.amount_total / 100).toFixed(2)}` : "";
-      await alertOwner("New paying customer", `${o.customer_details?.email ?? o.customer_email ?? "A customer"} just paid${amt}.`);
+      await alertOwner("New paying customer", `${email ?? "A customer"} just paid${amt}.`);
       return cid;
     }
     case "checkout.session.expired": {
@@ -148,7 +168,8 @@ async function handle(stripe: Stripe, ev: Stripe.Event): Promise<string | null> 
     }
     case "invoice.paid": {
       const cid = await companyFor(stripe, o.parent?.subscription_details?.metadata ?? o.metadata, o.customer);
-      if (cid) await cancelNudges(cid, ["payment_failed", "winback_3", "winback_14", "abandoned_cart"]);
+      const email = o.customer_email ?? await emailFor(stripe, o.customer);
+      await cancelNudges(cid, ["payment_failed", "winback_3", "winback_14", "abandoned_cart", "owner_unpaid", "owner_unpaid_day", "trial_ending", "trial_ended"], email);
       return cid;
     }
     case "charge.refunded": {
