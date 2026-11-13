@@ -392,6 +392,7 @@ export type SetAsideReason =
   | "thin_profile"
   | "duplicates"
   | "role_class_noise"
+  | "practice_modality"
   | "must_have";
 
 /** The reason line for a set-aside row (spec 8). */

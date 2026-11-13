@@ -463,20 +463,27 @@ export function buildClinicianQuery(
         break;
       }
       case "training_stage": {
-        // Hard gate = title triangulation over the stage's live spellings.
-        // The YEAR is deliberately NOT a text filter (PGY-pharmacy trap) and
-        // start_date range filtering ships only after a live probe (port
-        // plan, known gaps) — the deterministic layer + grader do year math
-        // from the dates already on the rows.
+        // Training identity often lives in a headline, role description or
+        // education record rather than the literal current title. role_class
+        // still requires a resident/fellow title or headline, so these extra
+        // surfaces broaden evidence without admitting attendings. PGY years
+        // stay date-verified rather than becoming pharmacy-prone text terms.
         const v = c.value as TrainingStageValue;
+        const surfaces = [F.curTitle, F.headline, F.curDescription, F.summary, F.eduFieldOfStudy, F.eduDegree];
         const clauses: V2FilterNode[] = [];
         for (const t of v.title_terms) {
           for (const variant of lexicalVariants(t)) {
-            clauses.push(leaf(F.curTitle, "[.]", variant));
+            for (const surface of surfaces) clauses.push(leaf(surface, "[.]", variant));
           }
         }
         if (clauses.length === 0) break;
         hard.push(clauses.length === 1 ? clauses[0] : or(...clauses));
+        break;
+      }
+      case "practice_modality": {
+        // The role-class terms provide the positive provider gate. This hard
+        // criterion keeps the modality explicit in the contract/cache key;
+        // the handler removes operative identities before grading.
         break;
       }
       case "specialty": {

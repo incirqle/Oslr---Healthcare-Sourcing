@@ -62,6 +62,7 @@ import { buildClinicianQuery, CARD_FIELDS, safeTitleTerms } from "./build-clinic
 import { rankByMatchScope, rankByStageFit } from "./match-scope.ts";
 import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
+import { splitNonoperativeRows } from "./clinical-intent.ts";
 import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
 import { expandStatedTitles } from "./title-vocabulary.ts";
 import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
@@ -1053,6 +1054,9 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           full_name: p.name ?? "Unknown",
           headline: p.headline ?? null,
           summary: p.summary ?? null,
+          research_text: p.research_profiles || p.research_profile || p.google_scholar_profiles
+            ? JSON.stringify(p.research_profiles ?? p.research_profile ?? p.google_scholar_profiles).slice(0, 12000)
+            : null,
           profile_picture_url: p.basic_profile?.profile_picture_permalink ?? null,
           job_title: primaryEmployer?.title ?? null,
           job_company_name: primaryEmployer?.name ?? null,
@@ -1107,6 +1111,12 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       const noiseSplit = splitRoleClassNoise(allResults as Array<Record<string, unknown>>, criteria);
       let noiseRows = noiseSplit.noise as typeof allResults;
       allResults = noiseSplit.clean as typeof allResults;
+      let modalityRows: typeof allResults = [];
+      if (criteria.some((c) => c.kind === "practice_modality" && c.enforcement === "hard")) {
+        const modality = splitNonoperativeRows(allResults as Array<Record<string, unknown>>);
+        allResults = modality.clean as typeof allResults;
+        modalityRows = modality.rejected as typeof allResults;
+      }
       if (noiseRows.length > 0) {
         console.log(JSON.stringify({ event: "role_class_noise", filtered: noiseRows.length, kept: allResults.length }));
       }
@@ -1305,9 +1315,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       tagSetAside(thinRows as Array<Record<string, unknown>>, "thin_profile");
       tagSetAside(duplicateRows as Array<Record<string, unknown>>, "duplicates");
       tagSetAside(noiseRows as Array<Record<string, unknown>>, "role_class_noise");
+      tagSetAside(modalityRows as Array<Record<string, unknown>>, "practice_modality");
       const criteriaTokensEst = 40 * rankingCriteria.length * (allResults.length + graderRows.length + mustHaveRows.length);
 
-      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows];
+      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows, ...modalityRows];
       const rejectedFiltered = hiddenResults.length;
       const filteredBreakdown = {
         grader: graderRows.length,
@@ -1316,6 +1327,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         thin_profile: thinRows.length,
         duplicates: duplicateRows.length,
         role_class_noise: noiseRows.length,
+        practice_modality: modalityRows.length,
         must_have: mustHaveRows.length,
       };
 

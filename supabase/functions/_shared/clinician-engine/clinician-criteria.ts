@@ -46,6 +46,7 @@ import {
   MILITARY_FACILITIES,
   type MilitaryFacilityDef,
 } from "./employer-groups.ts";
+import { normalizeClinicalIntent } from "./clinical-intent.ts";
 
 export type CriterionKind =
   | "location"
@@ -70,6 +71,10 @@ export type CriterionKind =
    *  deterministic layer and grader (date math), never a hard filter until
    *  start_date range filtering is live-probed (port plan, known gaps). */
   | "training_stage"
+  /** Explicit non-operative / non-surgical clinical practice. Positive
+   *  non-operative titles gate recall; operative identities are excluded
+   *  deterministically before grading. */
+  | "practice_modality"
   /** Practice setting ("hospital", "ASC", "home health"). SOFT as a
    *  preference; HARD (employer-name gate) when the query makes the setting
    *  the WORKPLACE ("nurses that work in surgery centers") — US facilities
@@ -561,13 +566,25 @@ export interface CredentialValue {
 }
 
 export interface TrainingStageValue {
-  /** "podiatric", "orthopedic surgery", null when unstated. */
+  /** First parent program, retained for backwards-compatible ranking. */
   profession: string | null;
+  /** All clinically plausible parent programs for a subspecialty ask. */
+  professions?: string[];
   stage: "residency" | "fellowship" | "internship" | "medical_school";
-  /** PGY year / program year, null when unstated. */
+  /** Explicit resident/fellow union; omitted on older cached parses. */
+  stages?: Array<"residency" | "fellowship" | "internship" | "medical_school">;
+  /** PGY year / program year, null when unstated or several years were asked. */
   year: number | null;
+  /** Every explicit year in PGY-4/5 or PGY4 and PGY5. */
+  years?: number[];
   /** Title match terms for the hard gate (probed variants; see vocabulary). */
   title_terms: string[];
+}
+
+export interface PracticeModalityValue {
+  mode: "nonoperative";
+  include_terms: string[];
+  exclude_terms: string[];
 }
 
 export interface CareSettingValue {
@@ -636,6 +653,7 @@ export type CriterionValue =
   | RoleClassValue
   | CredentialValue
   | TrainingStageValue
+  | PracticeModalityValue
   | CareSettingValue
   | FellowshipValue
   | EmploymentModelValue
@@ -832,7 +850,9 @@ export function reconcileParsedClinicianIntent(
       }
     }
   }
-  return reconciled;
+  // Deterministic clinical-language backstop. It also runs on cached parses,
+  // so an older Agent cannot keep a broken non-operative or PGY meaning.
+  return normalizeClinicalIntent(reconciled, originalQuery);
 }
 
 function seniorityLabel(levels: string[]): string {
@@ -1131,6 +1151,18 @@ export function mapParsedToCriteria(
     let label = defs.map((d) => d.label).join(" / ");
     let note = defs.map((d) => d.note).filter(Boolean).join(" ") || undefined;
     const value: RoleClassValue = { class: roleClassKeys.join("+"), terms };
+    const modality = parsed.practice_modality && typeof parsed.practice_modality === "object" && !Array.isArray(parsed.practice_modality)
+      ? parsed.practice_modality as Record<string, unknown>
+      : null;
+    if (modality?.mode === "nonoperative") {
+      // A non-operative ask is a different physician population, not an
+      // orthopedic surgeon with a keyword attached. These are real clinical
+      // titles; the modality filter below separately rejects operative text.
+      terms = dedupe(strArr(modality.include_terms));
+      value.terms = terms;
+      label = "Non-operative Physicians";
+      note = "Matched on non-operative sports medicine, physiatry, pain or spine physician titles. Operative surgeon identities are excluded before grading.";
+    }
 
     // SURGEON COMPOSITION (live failure 2026-10-12, orthopedic surgeons in
     // Miami): "<specialty> surgeons" names the SURGICAL population of that
@@ -1187,38 +1219,68 @@ export function mapParsedToCriteria(
     if (stage && TRAINING_STAGES[stage]) {
       const stageDef = TRAINING_STAGES[stage];
       const profession = str(row.profession);
-      const yearNum = typeof row.year === "number"
-        ? row.year
-        : typeof row.year === "string"
-        ? Number(row.year)
-        : NaN;
+      const professions = dedupe([
+        ...strArr(row.professions).filter((p) => !!p),
+        ...(profession ? [profession] : []),
+      ]);
+      const stages = dedupe([
+        ...strArr(row.stages).filter((s) => !!TRAINING_STAGES[s]),
+        stage,
+      ]) as TrainingStageValue["stages"];
+      const yearNum = typeof row.year === "number" ? row.year : Number(row.year);
       const year = Number.isFinite(yearNum) && yearNum > 0 ? Math.floor(yearNum) : null;
-      // Title terms: profession-qualified variants when the profession is
-      // stated (probe log: 4 podiatric resident spellings live), else the
-      // stage's generic variants. All whole-phrase; the builder adds
-      // connector variants.
-      const title_terms = profession
-        ? stageDef.professionTerms(profession)
-        : [...stageDef.genericTerms];
+      const years = Array.isArray(row.years)
+        ? [...new Set(row.years.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 10))].sort((a, b) => a - b)
+        : year ? [year] : [];
+      const title_terms = dedupe((stages ?? [stage as TrainingStageValue["stage"]]).flatMap((stageName) => {
+        const def = TRAINING_STAGES[stageName];
+        if (!def) return [];
+        return professions.length > 0
+          ? [...professions.flatMap((p) => def.professionTerms(p)), ...def.genericTerms]
+          : [...def.genericTerms];
+      }));
+      const yearLabel = years.length > 0 ? years.map((y) => `PGY-${y}`).join(" / ") : null;
+      const professionLabel = professions.length > 0 ? professions.map(titleCase).join(" / ") : null;
+      const stageLabel = (stages ?? []).map((s) => TRAINING_STAGES[s]?.label).filter(Boolean).join(" / ") || stageDef.label;
       push({
         kind: "training_stage",
-        label: [
-          year ? `PGY-${year}` : null,
-          profession ? titleCase(profession) : null,
-          stageDef.label,
-        ].filter(Boolean).join(" "),
+        label: [yearLabel, professionLabel, stageLabel].filter(Boolean).join(" "),
         value: {
           profession,
+          professions,
           stage: stage as TrainingStageValue["stage"],
+          stages,
           year,
+          years,
           title_terms,
         },
         enforcement: "hard",
         source: "user",
         evidenceSource: "search",
-        note: year
-          ? "Stage is filtered on real index titles; the year is verified from role start dates by the ranking layer and the AI grader, not by a text filter."
+        note: years.length > 0
+          ? "Stage is matched across titles, headlines, role descriptions and education. Each stated year is verified from role start dates by the ranking layer and AI grader."
           : undefined,
+      });
+    }
+  }
+
+  /* ---- practice modality (hard) ---- */
+  const practiceModality = parsed.practice_modality;
+  if (practiceModality && typeof practiceModality === "object" && !Array.isArray(practiceModality)) {
+    const row = practiceModality as Record<string, unknown>;
+    if (row.mode === "nonoperative") {
+      push({
+        kind: "practice_modality",
+        label: "Non-operative / non-surgical care",
+        value: {
+          mode: "nonoperative",
+          include_terms: strArr(row.include_terms),
+          exclude_terms: strArr(row.exclude_terms),
+        },
+        enforcement: "hard",
+        source: "user",
+        evidenceSource: "search",
+        note: "Non-operative titles are required and operative surgeon identities are excluded before grading.",
       });
     }
   }

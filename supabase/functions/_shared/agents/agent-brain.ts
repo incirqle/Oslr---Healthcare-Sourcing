@@ -13,8 +13,45 @@ export interface PoolRowLike {
   id: string;
   features: string[];
   base_score: number;
+  pruned?: boolean;
   city?: string | null;
   employer?: string | null;
+}
+
+/**
+ * Agents are a sniper queue, not a quota filler. Weak/rejected audit rows and
+ * explicit modality failures never enter or re-enter the review queue.
+ * Unaudited rows remain eligible because deterministic rules still ran.
+ */
+export function agentBaseScore(profile: Record<string, unknown> | null | undefined): number {
+  if (!profile) return 0.5;
+  const raw = profile.raw && typeof profile.raw === "object" && !Array.isArray(profile.raw)
+    ? profile.raw as Record<string, unknown>
+    : profile;
+  // An all-hard search can legitimately have match_rate=0 (there are no
+  // preferred criteria to score). The absolute audit score is the real fit
+  // signal and must win over that structural zero.
+  const value = typeof raw.audit_score === "number" ? raw.audit_score
+    : typeof raw.match_rate === "number" ? raw.match_rate
+    : typeof profile.match_rate === "number" ? profile.match_rate
+    : 50;
+  return Math.max(0.05, Math.min(1, value / 100));
+}
+
+export function agentMatchQuality(profile: Record<string, unknown> | null | undefined): { eligible: boolean; reason: string | null } {
+  if (!profile) return { eligible: true, reason: null };
+  const raw = profile.raw && typeof profile.raw === "object" && !Array.isArray(profile.raw)
+    ? profile.raw as Record<string, unknown>
+    : profile;
+  const verdict = raw.audit_verdict ?? profile.audit_verdict;
+  if (verdict === "weak") return { eligible: false, reason: "Partial match withheld" };
+  if (verdict === "reject") return { eligible: false, reason: "Poor match withheld" };
+  if (raw.modality_filtered === true || profile.modality_filtered === true) {
+    return { eligible: false, reason: "Does not meet the requested practice type" };
+  }
+  const score = raw.audit_score ?? profile.audit_score;
+  if (typeof score === "number" && score < 40) return { eligible: false, reason: "Low-confidence match withheld" };
+  return { eligible: true, reason: null };
 }
 
 export const APPROVE_TAGS = [
@@ -132,7 +169,7 @@ export function rerank<T extends PoolRowLike>(prefs: AgentPreferences, rows: T[]
   return rows
     .map((r) => {
       const boost = boostFor(prefs, r.features);
-      const pruned = isSkipped(prefs, r.features);
+      const pruned = r.pruned === true || isSkipped(prefs, r.features);
       return { ...r, boost, final_score: r.base_score * boost, pruned };
     })
     .sort((a, b) => Number(a.pruned) - Number(b.pruned) || b.final_score - a.final_score);

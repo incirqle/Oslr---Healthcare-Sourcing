@@ -45,6 +45,8 @@ export interface SoftRankRow {
     degrees?: string[];
     majors?: string[];
   }> | null;
+  /** Already-returned research text; no research provider call is made. */
+  research_text?: string | null;
   /** Written by this module. */
   soft_score?: number;
   soft_matches?: string[];
@@ -63,6 +65,7 @@ function surfaces(row: SoftRankRow): Array<{ name: string; text: string }> {
     { name: "current title", text: s(row.job_title) },
     { name: "employer", text: s(row.job_company_name) },
     { name: "about", text: s(row.summary) },
+    { name: "research", text: s(row.research_text) },
   ];
   for (const e of row.experience_history ?? []) {
     if (s(e?.title)) out.push({ name: "role title", text: s(e!.title) });
@@ -81,7 +84,7 @@ export function findEvidence(
   terms: readonly string[],
 ): { term: string; snippet: string } | null {
   const raw: string[] = [
-    s(row.headline), s(row.job_title), s(row.summary),
+    s(row.headline), s(row.job_title), s(row.summary), s(row.research_text),
     ...(row.experience_history ?? []).flatMap((e) => [s(e?.title), s(e?.summary)]),
     ...(row.education ?? []).flatMap((ed) => [
       [s(ed?.school_name), ...(ed?.degrees ?? []), ...(ed?.majors ?? [])].join(", "),

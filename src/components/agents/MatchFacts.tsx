@@ -14,7 +14,11 @@ export function MatchFacts({ item }: { item: PoolItem }) {
     { icon: Building2, text: SETTING[get("setting") ?? ""] },
     { icon: MapPin, text: typeof p.location === "string" ? p.location : undefined },
   ].filter((x): x is { icon: typeof Briefcase; text: string } => !!x.text);
-  const fit = item.final_score >= 0.75 ? "Strong match" : item.final_score >= 0.5 ? "Good match" : "Possible match";
+  // Clinical fit comes from the absolute base score. final_score also
+  // includes learned employer/city preferences and is for queue ordering;
+  // those preferences must not make a 95/100 clinical match look "possible".
+  const fitScore = typeof item.base_score === "number" ? item.base_score : item.final_score;
+  const fit = fitScore >= 0.75 ? "Strong match" : fitScore >= 0.5 ? "Good match" : "Possible match";
   if (!facts.length) return null;
   return (
     <div className="mt-3 rounded-xl agent-sheen border agent-sheen-border px-3 py-2.5">

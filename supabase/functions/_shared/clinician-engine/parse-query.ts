@@ -90,7 +90,19 @@ export interface ParsedClinicianPayload {
   /** Multi-class asks ("CRNAs and SRNAs"): every class is an alternative. */
   role_classes: string[];
   credentials: string[];
-  training_stage: { profession: string | null; stage: string | null; year: number | null } | null;
+  training_stage: {
+    profession: string | null;
+    professions?: string[];
+    stage: string | null;
+    stages?: string[];
+    year: number | null;
+    years?: number[];
+  } | null;
+  practice_modality?: {
+    mode: "nonoperative";
+    include_terms: string[];
+    exclude_terms: string[];
+  } | null;
   care_setting: string | null;
   /** True when the setting is the WORKPLACE ("work in surgery centers"). */
   care_setting_is_workplace: boolean;
@@ -195,8 +207,13 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
       const yearNum = typeof row.year === "number" ? row.year : typeof row.year === "string" ? Number(row.year) : NaN;
       trainingStage = {
         profession: toStr(row.profession),
+        professions: toStrArr(row.professions),
         stage,
+        stages: toStrArr(row.stages).filter((s) => VALID_STAGES.has(s)),
         year: Number.isFinite(yearNum) && yearNum > 0 && yearNum <= 10 ? Math.floor(yearNum) : null,
+        years: Array.isArray(row.years)
+          ? row.years.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 10)
+          : [],
       };
     }
   }
@@ -217,6 +234,14 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
     role_classes: roleClasses,
     credentials: toStrArr(r.credentials),
     training_stage: trainingStage,
+    practice_modality: r.practice_modality && typeof r.practice_modality === "object" &&
+        (r.practice_modality as Record<string, unknown>).mode === "nonoperative"
+      ? {
+        mode: "nonoperative" as const,
+        include_terms: toStrArr((r.practice_modality as Record<string, unknown>).include_terms),
+        exclude_terms: toStrArr((r.practice_modality as Record<string, unknown>).exclude_terms),
+      }
+      : null,
     care_setting: careSetting,
     care_setting_is_workplace: r.care_setting_is_workplace === true && careSetting !== null,
     fellowship_trained: r.fellowship_trained === true,
@@ -444,6 +469,19 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    role_class: "resident", training_stage: {"profession":"podiatric","stage":"residency","year":3},
    job_titles: [], credentials: [], specialty: "podiatry", specialties: ["podiatry"],
    specialty_tense: "current", location: {"state":"texas", ...}
+
+1b) "PGY-4/5 spine-focused residents or fellows in New York City."
+   role_class: null, role_classes: ["resident","fellow"],
+   training_stage: {"profession":"orthopedic surgery","professions":["orthopedic surgery","neurosurgery","physical medicine and rehabilitation"],"stage":"residency","stages":["residency","fellowship"],"year":null,"years":[4,5]},
+   specialties: ["spine"], specialty_tense: "current", location: {"city":"new york city","state":"new york", ...}
+
+1c) "Pediatric non-operative orthopedic physicians in Austin, Texas."
+   role_class: "physician", specialties: ["pediatric orthopedic","pediatric sports medicine","pediatric rehabilitation medicine"],
+   required_keywords: ["pediatric","orthopedic","orthopaedic"],
+   current_role_only: true, location: {"city":"austin","state":"texas", ...}
+   // Non-operative is a PRACTICE MODALITY, never a specialty or a standalone
+   // keyword. Operative surgeons are excluded; keep pediatric and orthopedic
+   // as separate clinical requirements.
 
 2) "Find me nurses with a cardiovascular background with 5 years of experience."
    role_class: "nurse", job_titles: [], specialty: "cardiovascular",

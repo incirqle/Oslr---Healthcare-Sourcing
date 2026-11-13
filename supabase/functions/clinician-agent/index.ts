@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
 
     if (action === "roster") {
       const [{ data: pool }, { data: decisions }, { data: events }] = await Promise.all([
-        admin.from("clin_agent_pool").select("id, person_id, profile, features, why, final_score, served_at, decision, decided_at, pruned")
+        admin.from("clin_agent_pool").select("id, person_id, profile, features, why, base_score, final_score, served_at, decision, decided_at, pruned")
           .eq("agent_id", agent.id).or("served_at.not.is.null,decision.not.is.null").order("final_score", { ascending: false }),
         admin.from("clin_agent_decisions").select("pool_id, decision, tags, note, skip_city, created_at")
           .eq("agent_id", agent.id).order("created_at", { ascending: false }),
@@ -293,7 +293,7 @@ Deno.serve(async (req) => {
       if (updateError) return json({ error: updateError.message }, updateError.message.includes("active agent") ? 409 : 400);
       // Resuming an agent that never got its first matches retries calibration.
       if (patch.status === "sourcing") {
-        const { count } = await admin.from("clin_agent_pool").select("id", { count: "exact", head: true }).eq("agent_id", agent.id);
+        const { count } = await admin.from("clin_agent_pool").select("id", { count: "exact", head: true }).eq("agent_id", agent.id).eq("pruned", false);
         if (!count) {
           const r = await sourceAgent(admin, agent, {
             authHeader: req.headers.get("Authorization")!,

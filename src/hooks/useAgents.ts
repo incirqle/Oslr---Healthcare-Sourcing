@@ -30,6 +30,7 @@ export interface PoolItem {
   profile: Record<string, unknown>;
   features: string[];
   why: string | null;
+  base_score: number;
   final_score: number;
   served_at: string | null;
   decision: "approved" | "passed" | null;

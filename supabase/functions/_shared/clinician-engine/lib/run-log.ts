@@ -9,7 +9,9 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // every run-log row and every cache key, so the log proves WHICH BUILD
 // answered — a push does not redeploy a Lovable edge function, and the
 // 2026-10-13 00:29 Miami run was answered by v3 code under a v4 UI.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v4";
+// v5: deterministic clinical-language normalization, PGY ranges, resident +
+// fellow unions, full-profile training evidence and non-operative hard gates.
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v5";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

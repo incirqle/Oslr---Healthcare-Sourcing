@@ -153,7 +153,8 @@ export function stageFit(
   stage: TrainingStageValue,
   now: Date = new Date(),
 ): StageFit {
-  if (!stage.year) return "unknown";
+  const years = stage.years && stage.years.length > 0 ? stage.years : stage.year ? [stage.year] : [];
+  if (years.length === 0) return "unknown";
   const emp = primaryEmployment(profile);
   // The stage-matching role may be a secondary entry; check every current
   // employment whose title matches a stage term, preferring the primary.
@@ -168,26 +169,30 @@ export function stageFit(
     internship: "intern",
     medical_school: "student",
   };
-  const root = STAGE_ROOT[stage.stage] ?? "";
+  const roots = (stage.stages && stage.stages.length > 0 ? stage.stages : [stage.stage])
+    .map((stageName) => STAGE_ROOT[stageName] ?? "");
   const stageTitleHit = (e: EmploymentLike) => {
     const t = typeof e.title === "string" ? e.title.toLowerCase() : "";
-    if (root && t.includes(root)) return true;
+    if (roots.some((root) => root && t.includes(root))) return true;
     return stage.title_terms.some((term) => t.includes(term.toLowerCase()));
   };
   const candidates = [emp, ...cur].filter(
     (e): e is EmploymentLike => !!e && stageTitleHit(e),
   );
   if (candidates.length === 0) return "unknown";
-  const { from, to } = stageStartWindow(stage.year, now);
+  let sawDate = false;
   for (const e of candidates) {
     const raw = typeof e.start_date === "string" ? e.start_date : null;
     if (!raw) continue;
     const started = new Date(raw);
     if (Number.isNaN(started.getTime())) continue;
-    if (started >= from && started <= to) return "in_window";
-    return "out_of_window";
+    sawDate = true;
+    if (years.some((year) => {
+      const { from, to } = stageStartWindow(year, now);
+      return started >= from && started <= to;
+    })) return "in_window";
   }
-  return "unknown";
+  return sawDate ? "out_of_window" : "unknown";
 }
 
 /**
@@ -204,7 +209,7 @@ export function rankByStageFit<R extends Record<string, unknown>>(
     (c) => c.kind === "training_stage" && c.enforcement === "hard",
   );
   const stage = stageCriterion?.value as TrainingStageValue | undefined;
-  if (!stage || !stage.year) return rows;
+  if (!stage || (!stage.year && (!stage.years || stage.years.length === 0))) return rows;
 
   const tierOf = (fit: StageFit) => (fit === "in_window" ? 0 : fit === "unknown" ? 1 : 2);
   return rows

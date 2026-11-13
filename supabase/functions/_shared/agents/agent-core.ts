@@ -4,7 +4,7 @@ import { handleClinicianSearch } from "../clinician-engine/handler.ts";
 import { isFallbackParse, parseQuery } from "../clinician-engine/parse-query.ts";
 import { getCrustDataCache, setCrustDataCache } from "../clinician-engine/cache.ts";
 import {
-  type AgentPreferences, featuresFor, rerank,
+  type AgentPreferences, agentBaseScore, agentMatchQuality, featuresFor, rerank,
 } from "./agent-brain.ts";
 
 export const CALIBRATION_SIZE = 6;
@@ -135,11 +135,11 @@ export async function sourceAgent(
   const rows: Record<string, unknown>[] = Array.isArray(body.results) ? body.results : [];
   const { data: existing } = await admin.from("clin_agent_pool").select("person_id").eq("agent_id", agent.id);
   const seen = new Set((existing ?? []).map((r) => r.person_id));
-  const fresh = rows.map(flattenRow).filter((r) => r.id && !seen.has(String(r.id)));
+  const fresh = rows.map(flattenRow).filter((r) => r.id && !seen.has(String(r.id)) && agentMatchQuality(r).eligible);
+  const withheld = rows.length - rows.map(flattenRow).filter((r) => agentMatchQuality(r).eligible).length;
   if (fresh.length > 0) {
     const inserts = fresh.map((r) => {
-      const mr = typeof r.match_rate === "number" ? r.match_rate : typeof r.audit_score === "number" ? r.audit_score : 50;
-      const base = Math.max(0.05, Math.min(1, mr / 100));
+      const base = agentBaseScore(r);
       return {
         agent_id: agent.id, company_id: agent.company_id, person_id: String(r.id),
         profile: r, features: featuresFor(r),
@@ -151,7 +151,7 @@ export async function sourceAgent(
     if (error) return { ok: false, status: 500, error: "Could not save matches: " + error.message, added: 0, served: 0 };
   }
   const served = await rerankAndServe(admin, agent, opts.serve);
-  await logEvent(admin, agent, "batch_sourced", { added: fresh.length, served, total_seen: rows.length });
+  await logEvent(admin, agent, "batch_sourced", { added: fresh.length, served, total_seen: rows.length, withheld });
   return { ok: true, added: fresh.length, served };
 }
 
@@ -159,8 +159,15 @@ export async function sourceAgent(
 export async function rerankAndServe(admin: SupabaseClient, agent: Agent, serve: number): Promise<number> {
   const prefs = prefsOf(agent);
   const { data: rows } = await admin.from("clin_agent_pool")
-    .select("id, features, base_score, served_at").eq("agent_id", agent.id).is("decision", null);
-  const ranked = rerank(prefs, (rows ?? []).map((r) => ({ ...r, features: r.features ?? [] })));
+    .select("id, features, base_score, served_at, pruned, profile").eq("agent_id", agent.id).is("decision", null);
+  const ranked = rerank(prefs, (rows ?? []).map((r) => ({
+    ...r,
+    features: r.features ?? [],
+    base_score: agentBaseScore(r.profile as Record<string, unknown>),
+    // Recompute quality from evidence, then let rerank apply the CURRENT
+    // skip rules. Preserving the old flag here would make unskip_city useless.
+    pruned: !agentMatchQuality(r.profile as Record<string, unknown>).eligible,
+  })));
   const now = new Date().toISOString();
   let toServe = serve;
   let served = 0;
