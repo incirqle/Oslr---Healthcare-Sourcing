@@ -1414,6 +1414,23 @@ export function mapParsedToCriteria(
   const mainSpecialtyTerms = decomposeSpecialtyTerms(
     specialtyTense === "past" ? modifierAdjustedStated : dedupe([...modifierAdjustedStated, ...residualKeywords]),
   );
+  // UNIT LANE SPLIT: a care unit (OR/perioperative, ED, ICU...) named with a
+  // service line ("OR nurse specializing in orthopedics") is two
+  // requirements. In one OR-group any general OR nurse or any ortho clinic
+  // nurse would satisfy it; split, they intersect (AND).
+  const unitSplit = splitUnitLane(mainSpecialtyTerms);
+  if (unitSplit) {
+    mainSpecialtyTerms.splice(0, mainSpecialtyTerms.length, ...unitSplit.rest);
+    push({
+      kind: "specialty",
+      label: unitSplit.label + (specialtyTense === "past" ? " (past role)" : ""),
+      value: { terms: unitSplit.unit, tense: specialtyTense },
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note: "Care unit is its own requirement, matched alongside the clinical focus.",
+    });
+  }
   if (mainSpecialtyTerms.length > 0) {
     push({
       kind: "specialty",
@@ -1628,7 +1645,9 @@ export function mapParsedToCriteria(
   }
 
   /* ---- seniority (hard, explicit leadership asks only) ---- */
-  const seniorityLevels = canonicalizeSeniorityLevels(parsed.seniority_levels);
+  const seniorityLevels = isBedsideLeadAsk(parsed)
+    ? []
+    : canonicalizeSeniorityLevels(parsed.seniority_levels);
   if (seniorityLevels.length > 0) {
     push({
       kind: "seniority",
@@ -1684,4 +1703,35 @@ export function mapParsedToCriteria(
   }
 
   return criteria;
+}
+
+/* ---- unit lanes & bedside leads ---- */
+export const UNIT_LANES: { label: string; words: string[] }[] = [
+  { label: "Operating Room / Perioperative", words: ["operating room", "perioperative", "periop", "pacu", "circulating", "scrub nurse", "surgical services"] },
+  { label: "Emergency Department", words: ["emergency department", "emergency room", "er nurse", "ed nurse", "trauma bay"] },
+  { label: "Intensive Care", words: ["icu", "intensive care", "critical care", "micu", "sicu", "cvicu"] },
+];
+
+/** Splits unit terms from service-line terms when both are present. */
+export function splitUnitLane(terms: string[]): { label: string; unit: string[]; rest: string[] } | null {
+  for (const lane of UNIT_LANES) {
+    const hasUnit = (t: string) => lane.words.some((w) => t.toLowerCase().includes(w));
+    const unit = terms.filter((t) => hasUnit(t) && lane.words.some((w) => t.toLowerCase().trim() === w || t.toLowerCase().replace(w, "").trim().split(/\s+/).every((x) => ["", "nurse", "nursing", "rn", "unit", "department"].includes(x))));
+    const compound = terms.filter((t) => hasUnit(t) && !unit.includes(t));
+    const rest = terms.filter((t) => !hasUnit(t));
+    if (rest.length === 0 || (unit.length === 0 && compound.length === 0)) continue;
+    const unitTerms = unit.length > 0 ? unit : [lane.words[0]];
+    return { label: lane.label, unit: dedupe([...unitTerms, ...lane.words.slice(0, 2)]), rest };
+  }
+  return null;
+}
+
+const BEDSIDE_LEAD = /\b(charge nurse|charge rn|shift (lead|supervisor)|team lead|preceptor|clinical lead|lead nurse)\b/i;
+const EXEC_WORD = /\b(director|chief|vp|vice president|cno|head of|executive|manager)\b/i;
+
+/** A bedside lead ask (charge nurse) is not an executive seniority level. */
+export function isBedsideLeadAsk(parsed: Record<string, unknown>): boolean {
+  const titles = [...strArr(parsed.job_titles), ...strArr(parsed.titles)];
+  if (!titles.some((t) => BEDSIDE_LEAD.test(t))) return false;
+  return !titles.some((t) => EXEC_WORD.test(t));
 }
