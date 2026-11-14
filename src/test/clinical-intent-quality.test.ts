@@ -81,6 +81,8 @@ describe("clinical terminology normalization", () => {
     expect(parsed.min_years_experience).toBe(0);
     expect(parsed.max_years_experience).toBe(5);
     expect(parsed.recently_changed_jobs).toBe(false);
+    expect(parsed.unmapped_concepts).toEqual([]);
+    expect(parsed.search_notes).toContain("current residents and fellows are excluded");
   });
 
   it("keeps explicit current fellows in the current training stage", () => {
@@ -108,6 +110,11 @@ describe("clinical terminology normalization", () => {
     expect(parsed.training_institutions).toEqual(["johns hopkins hospital"]);
     expect(parsed.current_companies).toEqual([]);
     expect(parsed.companies).toEqual([]);
+  });
+
+  it("does not turn the OR abbreviation into a surgery-center preference", () => {
+    expect(normalizeClinicalIntent({ care_setting: "asc" }, "Circulating OR nurses with 12 years of experience").care_setting).toBeNull();
+    expect(normalizeClinicalIntent({ care_setting: "asc" }, "OR nurses in ambulatory surgery centers").care_setting).toBe("asc");
   });
 
   it("does not move a plain workplace into training history", () => {

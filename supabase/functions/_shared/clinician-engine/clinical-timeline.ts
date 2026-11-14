@@ -260,6 +260,22 @@ export function assessCurrentTraining(
   };
 }
 
+/** A completed-fellowship ask must never serve someone still in training. */
+export function currentClinicalTrainingReason(row: TimelineRow, now: Date = new Date()): string | null {
+  const current = currentEmployers(row);
+  const training = current.filter((e) => stageOf(e) !== null && isTrainingEmployment(e));
+  if (training.length === 0) return null;
+  const practice = current.filter(isPracticeEmployment);
+  const primary = current.find((e) => e.is_primary === true || e.is_default === true) ?? current[0];
+  const newestPractice = practice.map((e) => dateValue(e.start_date) ?? 0).reduce((a, b) => Math.max(a, b), 0);
+  const newestTraining = training.map((e) => dateValue(e.start_date) ?? 0).reduce((a, b) => Math.max(a, b), 0);
+  // A stale open fellowship beside a later attending role is history, not a
+  // reason to exclude a practicing fellowship-trained clinician.
+  if (practice.length > 0 && ((primary ? isPracticeEmployment(primary) : false) || newestPractice >= newestTraining)) return null;
+  const stage = stageOf(training[0]);
+  return stage ? `Currently in ${stage}; the request is for a clinician who has completed training` : null;
+}
+
 export function splitCurrentTrainingRows<R extends TimelineRow>(
   input: R[],
   stage: TrainingStageRequest | null | undefined,

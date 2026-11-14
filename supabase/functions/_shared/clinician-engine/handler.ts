@@ -63,7 +63,7 @@ import { rankByMatchScope, rankByStageFit } from "./match-scope.ts";
 import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
 import { splitNonoperativeRows } from "./clinical-intent.ts";
-import { splitCurrentTrainingRows, splitExperienceRows, type TrainingStageRequest } from "./clinical-timeline.ts";
+import { currentClinicalTrainingReason, splitCurrentTrainingRows, splitExperienceRows, type TrainingStageRequest } from "./clinical-timeline.ts";
 import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
 import { expandStatedTitles } from "./title-vocabulary.ts";
 import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
@@ -1109,7 +1109,19 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       const trainingStage = criteria.find((c) => c.kind === "training_stage" && c.enforcement === "hard")?.value as TrainingStageRequest | undefined;
       const trainingSplit = splitCurrentTrainingRows(allResults as Array<Record<string, unknown>>, trainingStage);
       allResults = trainingSplit.clean as unknown as typeof allResults;
-      const trainingRows = trainingSplit.rejected as unknown as typeof allResults;
+      const stillTraining: typeof allResults = [];
+      if (parsed.fellowship_trained) {
+        allResults = allResults.filter((row) => {
+          const reason = currentClinicalTrainingReason(row as unknown as Record<string, unknown>);
+          if (!reason) return true;
+          (row as unknown as Record<string, unknown>).training_filtered = true;
+          (row as unknown as Record<string, unknown>).audit_verdict = "reject";
+          (row as unknown as Record<string, unknown>).audit_reason = reason;
+          stillTraining.push(row);
+          return false;
+        });
+      }
+      const trainingRows = [...trainingSplit.rejected, ...stillTraining] as unknown as typeof allResults;
       const experienceRange = criteria.find((c) => c.kind === "experience" && c.enforcement === "hard")?.value as { min?: number; max?: number } | undefined;
       const experienceSplit = splitExperienceRows(allResults as Array<Record<string, unknown>>, experienceRange);
       allResults = experienceSplit.clean as unknown as typeof allResults;

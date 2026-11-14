@@ -622,6 +622,7 @@ CAREER STAGE AND TRAINING GRAMMAR:
   - An exact "N years of experience" = N-1 through N+1 active practice years. Explicit ranges and minimums stay as stated.
   - "current fellow/resident" = training_stage. "Fellowship-trained", "trained fellows" and "recent graduate fellows" = completed fellowship; training_stage null and no resident/fellow role_class.
   - "trained at X" / "residency at X" / "fellowship at X" = training_institutions ["x"]. Plain "works at X" remains current_companies.
+  - "OR nurse" means operating-room nursing. It does NOT imply an ambulatory surgery center; care_setting stays null unless the user names that workplace.
 
 COMPANY EXTRACTION:
   Each employer appears in EXACTLY ONE company field.

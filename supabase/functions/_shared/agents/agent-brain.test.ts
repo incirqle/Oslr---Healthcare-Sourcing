@@ -88,6 +88,15 @@ Deno.test("agents apply recent-graduate practice limits from old pinned briefs",
   assertEquals(agentMatchQuality(experienced, intent).eligible, false);
   assertEquals(intent.training_stage, null);
   assertEquals(intent.recently_changed_jobs, false);
+  const currentFellow = {
+    raw: {
+      audit_verdict: "strong",
+      audit_score: 90,
+      job_title: "Foot and Ankle Fellow",
+      current_employers: [{ title: "Foot and Ankle Fellow", start_date: "2025-07-01", end_date: null, is_primary: true }],
+    },
+  };
+  assertEquals(agentMatchQuality(currentFellow, intent).eligible, false);
 });
 
 import { stripCredentialClaims } from "./agent-core.ts";

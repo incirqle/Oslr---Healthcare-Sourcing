@@ -38,6 +38,7 @@ import { handleEnrichContact } from "./contact-credits.ts";
 import { hasUsableProfileEnrichment, withoutDeniedFields } from "./profile-quality.ts";
 import { applyEditorFilters, type EditorFilters } from "./refine-filters.ts";
 import { clinicalTimeline } from "../_shared/clinician-engine/clinical-timeline.ts";
+import { CLINICIAN_ENGINE_VERSION } from "../_shared/clinician-engine/lib/run-log.ts";
 import {
   ENRICHMENT_TTL_MS,
   getCrustDataCache,
@@ -428,7 +429,7 @@ Deno.serve(async (req: Request) => {
         const norm = query.toLowerCase().replace(/\s+/g, " ");
         const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(norm))))
           .map((b) => b.toString(16).padStart(2, "0")).join("");
-        respKey = `clin:resp:v1:${uid}:${hash}`;
+        respKey = `clin:resp:v2:${CLINICIAN_ENGINE_VERSION}:${uid}:${hash}`;
         const hit = await getCrustDataCache(respKey);
         const saved = hit?.profiles?.[0] as Row | undefined;
         if (saved && Array.isArray(saved.results)) {

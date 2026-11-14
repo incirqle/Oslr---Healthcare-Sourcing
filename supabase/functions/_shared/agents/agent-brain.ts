@@ -1,5 +1,5 @@
 // Pure learning model for clinician agents. No I/O.
-import { assessCurrentTraining, experienceFit, type TrainingStageRequest } from "../clinician-engine/clinical-timeline.ts";
+import { assessCurrentTraining, currentClinicalTrainingReason, experienceFit, type TrainingStageRequest } from "../clinician-engine/clinical-timeline.ts";
 // Approvals boost the decided person's features (+15% to +40%), passes cut
 // them (-30% to -80%), city skips become hard rules. Unreviewed people are
 // re-ranked as base_score x product(feature weights).
@@ -52,6 +52,10 @@ export function agentMatchQuality(
   if (verdict === "reject") return { eligible: false, reason: "Poor match withheld" };
   if (raw.training_filtered === true || profile.training_filtered === true) {
     return { eligible: false, reason: String(raw.audit_reason ?? "Not currently in the requested training stage") };
+  }
+  if (intent?.fellowship_trained === true) {
+    const reason = currentClinicalTrainingReason(raw);
+    if (reason) return { eligible: false, reason };
   }
   const requestedStage = intent?.training_stage;
   if (requestedStage && typeof requestedStage === "object" && !Array.isArray(requestedStage)) {

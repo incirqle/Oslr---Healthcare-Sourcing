@@ -183,6 +183,8 @@ export function normalizeClinicalIntent(
     parsed.role_classes = strings(parsed.role_classes).filter((role) => role !== "fellow" && role !== "resident");
     parsed.fellowship_trained = true;
     parsed.current_role_only = true;
+    parsed.unmapped_concepts = strings(parsed.unmapped_concepts).filter((concept) => !/recent(?:ly)?[\s-]*(?:graduate|graduated|grad)/i.test(concept));
+    if (recentGraduate) parsed.search_notes = "Completed fellowship with 0–5 years of active post-training clinical practice; current residents and fellows are excluded.";
   }
 
   if (TRAINING_WORD.test(query) && !completedFellowship) {
@@ -225,6 +227,13 @@ export function normalizeClinicalIntent(
       parsed.specialties = specialties;
     }
     parsed.required_keywords = strings(parsed.required_keywords).filter((term) => !/\bpgy\b/i.test(term));
+  }
+
+  // OR is the operating-room abbreviation, not an ambulatory surgery center.
+  // Keep an ASC only when the recruiter actually named that workplace.
+  if (parsed.care_setting === "asc" && /\bOR\s+(?:nurses?|rns?|techs?|technicians?)\b/.test(query) &&
+    !/\b(?:ambulatory\s+surgery|surgery\s+centers?|surgical\s+centers?|ASCS?)\b/i.test(query)) {
+    parsed.care_setting = null;
   }
 
   const institutions = unique([
