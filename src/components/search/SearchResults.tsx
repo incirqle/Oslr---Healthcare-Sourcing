@@ -80,6 +80,8 @@ export interface Candidate {
   /** Independent clinical practice; residency/fellowship time is separate. */
   active_practice_years?: number | null;
   training_years?: number | null;
+  active_practice_since?: string | null;
+  training_since?: string | null;
   experience_basis?: "post_training_clinical_roles" | string;
   experience_evidence?: string | null;
   clinical_skills?: string[];

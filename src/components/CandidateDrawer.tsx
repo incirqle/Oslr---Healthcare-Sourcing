@@ -355,7 +355,7 @@ function buildSummaryPrompt(
   const currentRole = enriched?.job_title || candidate.title || "Unknown";
   const company = enriched?.job_company_name || candidate.current_employer || "Unknown";
   const location = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location || "Unknown";
-  const yearsExperience = enriched?.inferred_years_experience ?? candidate.active_practice_years ?? candidate.years_experience ?? "Not shown";
+  const yearsExperience = candidate.active_practice_years ?? candidate.years_experience ?? enriched?.inferred_years_experience ?? "Not shown";
   const career = experience
     .slice(0, 3)
     .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} to ${formatDateLabelSmart(entry.endDate)})`)
@@ -706,7 +706,7 @@ export function CandidateDrawer({
 
   if (!candidate) return null;
 
-  const yearsExperience = enriched?.inferred_years_experience ?? candidate.active_practice_years ?? candidate.years_experience;
+  const yearsExperience = candidate.active_practice_years ?? candidate.years_experience ?? enriched?.inferred_years_experience;
   const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
   const companyName = enriched?.job_company_name || candidate.current_employer;
   const title = enriched?.job_title || candidate.title;

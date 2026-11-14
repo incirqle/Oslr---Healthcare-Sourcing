@@ -104,7 +104,8 @@ Deno.test("archetype 2: nurses with cardiovascular background, 5 years experienc
   const fields = fieldsUsed(tree);
   // Background phrasing licenses history: past surfaces present.
   assert(fields.has("experience.employment_details.past.title"), "tense 'any' must include past titles");
-  assert(fields.has("years_of_experience_raw"));
+  assert(!fields.has("years_of_experience_raw"), "provider career length must not reject practice-only matches");
+  assertEquals(exp!.enforcement, "hard");
   // Inferred US default appended when no location stated.
   assert(criteria.some((c) => c.kind === "location" && c.source === "inferred"));
 });
@@ -343,7 +344,7 @@ Deno.test("multi-location: Dallas or Houston ORs, never ANDs to zero", () => {
   assert(stateValues.includes("oklahoma"));
 });
 
-Deno.test("experience and tenure ranges emit floor and cap", () => {
+Deno.test("practice experience stays in-process while tenure uses the provider", () => {
   const parsed = validateAIOutput({
     role_class: "nurse",
     specialties: ["critical care"],
@@ -358,9 +359,7 @@ Deno.test("experience and tenure ranges emit floor and cap", () => {
   assertEquals(exp!.label, "5–10 years experience");
   const tree = buildClinicianQuery(criteria);
   const yoe = leaves(tree).filter((l) => l.field === "years_of_experience_raw");
-  assertEquals(yoe.length, 2);
-  assert(yoe.some((l) => l.type === "=>" && l.value === 5));
-  assert(yoe.some((l) => l.type === "=<" && l.value === 10));
+  assertEquals(yoe.length, 0);
   const tenure = leaves(tree).filter((l) => l.field === "experience.employment_details.current.years_at_company_raw");
   assertEquals(tenure.length, 1);
   assertEquals(tenure[0].type, "=<");

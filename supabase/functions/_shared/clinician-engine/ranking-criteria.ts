@@ -390,6 +390,7 @@ export type SetAsideReason =
   | "role_class_noise"
   | "practice_modality"
   | "training_stage"
+  | "experience"
   | "must_have";
 
 /** The reason line for a set-aside row (spec 8). */

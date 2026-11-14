@@ -13,10 +13,11 @@ export type TimelineRow = Record<string, unknown>;
 export type ExperienceFit = "met" | "partial" | "not_met" | "unknown";
 
 const YEAR_MS = 365.25 * 86_400_000;
-const TRAINING = /\b(?:residen(?:t|cy)|clinical\s+fellow|fellow(?:ship)?|medical\s+intern|intern\s+physician|house\s+officer|registrar|trainee)\b/i;
+const TRAINING = /\b(?:residen(?:t|cy)|clinical\s+fellow|fellow(?:ship)?|medical\s+intern|(?:general\s+)?surgery\s+intern|surgical\s+intern|intern\s+physician|house\s+officer|registrar|trainee)\b/i;
 const NON_CLINICAL_TRAINING = /\b(?:research|post[\s-]?doctoral|postdoc|teaching|laboratory|lab)\s+(?:fellow|fellowship|resident|residency)\b/i;
 const FORMER = /\b(?:former|previous|prior|graduated|completed|alumn(?:us|a)|ex[-\s])\b/i;
 const STUDENT = /\b(?:student|undergraduate|internship|summer\s+intern|medical\s+assistant\s+intern)\b/i;
+const NON_LICENSED_CLINICAL_SUPPORT = /\b(?:nurse'?s?\s+(?:attendant|attendent|aide|assistant)|nursing\s+(?:assistant|aide|attendant|attendent)|medical\s+assistant|patient\s+care\s+(?:assistant|technician|tech)|volunteer|observer(?:ship)?|shadow(?:ing)?)\b/i;
 const PRACTICE = /\b(?:physician|surgeon|surgery|doctor|attending|podiatrist|podiatric|hospitalist|clinician|medical\s+director|chief\s+medical|nurse|nursing|\brn\b|nurse\s+practitioner|\bnp\b|physician\s+assistant|\bpa\b|physiatrist|anesthetist|midwife|dentist|therapist|pharmacist)\b/i;
 
 function text(value: unknown): string {
@@ -60,9 +61,10 @@ export function isTrainingEmployment(e: TimelineRow): boolean {
   const title = text(e.title);
   if (!title || FORMER.test(title)) return false;
   if (NON_CLINICAL_TRAINING.test(title)) return false;
-  if (/\bmedical\s+student\b/i.test(title)) return false;
+  if (/\bfellow(?:ship)?\b/i.test(title) && /\b(?:research|post[\s-]?baccalaureate|intramural|laboratory|nih\s+academy)\b/i.test(title)) return false;
+  if (/\bmedical\s+student\b/i.test(title) || /\bresident\s+(?:advisor|assistant)\b/i.test(title)) return false;
   if (/\bfellowship[-\s]+trained\b/i.test(title) && !/\bfellow\b/i.test(title)) return false;
-  if (/\bintern\b/i.test(title) && !/\b(?:medical|physician|resident|podiatric|surgical|clinical)\b/i.test(title)) return false;
+  if (/\bintern\b/i.test(title) && !/\b(?:medical|physician|resident|podiatric|surgical|surgery|clinical)\b/i.test(title)) return false;
   if (TRAINING.test(title)) return true;
   const program = /\b(?:residency|fellowship)(?:\s+program)?\b/i.test(company(e));
   const genericDoctor = /\b(?:physician|doctor|clinician)\b/i.test(title) && !/\b(?:surgeon|attending|director|chief)\b/i.test(title);
@@ -71,7 +73,7 @@ export function isTrainingEmployment(e: TimelineRow): boolean {
 
 export function isPracticeEmployment(e: TimelineRow): boolean {
   const title = text(e.title);
-  if (!title || isTrainingEmployment(e) || STUDENT.test(title) || FORMER.test(title)) return false;
+  if (!title || isTrainingEmployment(e) || STUDENT.test(title) || FORMER.test(title) || NON_LICENSED_CLINICAL_SUPPORT.test(title)) return false;
   if (/\b(?:research|teaching|lab|laboratory)\s+(?:assistant|associate|coordinator|fellow|intern)\b/i.test(title)) return false;
   return PRACTICE.test(title);
 }
@@ -116,7 +118,7 @@ export function clinicalTimeline(profile: TimelineRow, now: Date = new Date()): 
   const practice = elapsedYears(fallback.filter(isPracticeEmployment), now.getTime());
   const training = elapsedYears(fallback.filter(isTrainingEmployment), now.getTime());
   const evidence = practice.earliest !== null
-    ? `${practice.years} years in post-training clinical roles since ${monthLabel(practice.earliest)}; education and training are separate`
+    ? `${practice.years} completed years across dated post-training clinical roles; earliest listed role began ${monthLabel(practice.earliest)}; education and training are separate`
     : training.earliest !== null
     ? "No dated post-training clinical role is listed; residency and fellowship time are not counted as practice experience"
     : "No dated post-training clinical role is listed";
@@ -187,8 +189,8 @@ function currentEmployers(profile: TimelineRow): TimelineRow[] {
 function stageOf(e: TimelineRow): TrainingStageRequest["stage"] | null {
   const value = `${text(e.title)} ${company(e)}`.toLowerCase();
   if (/\b(?:fellow|fellowship)\b/.test(value)) return "fellowship";
-  if (/\b(?:resident|residency)\b/.test(value)) return "residency";
-  if (/\b(?:medical intern|intern physician)\b/.test(value)) return "internship";
+  if (/\b(?:resident|residency|house officer|registrar)\b/.test(value)) return "residency";
+  if (/\b(?:medical intern|intern physician|general surgery intern|surgery intern|surgical intern)\b/.test(value)) return "internship";
   if (/\bmedical student\b/.test(value)) return "medical_school";
   return null;
 }
@@ -230,15 +232,26 @@ export function assessCurrentTraining(
     return { eligible: false, reason: "A later or primary independent clinical role is listed, so the training role is not current", current_stage: null };
   }
 
+  const requestedYears = (stage.years ?? []).filter((y) => Number.isFinite(y) && y > 0);
   let undated = false;
+  let outsideYear: number | null = null;
   for (const e of training) {
     const roleStage = stageOf(e)!;
     const started = dateValue(e.start_date);
     if (started === null) { undated = true; continue; }
+    const elapsed = Math.max(0, now.getTime() - started) / YEAR_MS;
+    const trainingYear = Math.floor(elapsed) + 1;
+    if (requestedYears.length > 0 && !requestedYears.includes(trainingYear)) {
+      outsideYear = trainingYear;
+      continue;
+    }
     const limitMs = (typicalYears(stage, roleStage) * 365.25 + 183) * 86_400_000;
     if (now.getTime() - started <= limitMs) return { eligible: true, reason: null, current_stage: roleStage };
   }
   if (undated) return { eligible: true, reason: null, current_stage: stageOf(training[0]) };
+  if (outsideYear !== null) {
+    return { eligible: false, reason: `Current role is PGY-${outsideYear}, outside the requested PGY-${requestedYears.join("/")} window`, current_stage: null };
+  }
   const first = training[0];
   return {
     eligible: false,
@@ -264,6 +277,31 @@ export function splitCurrentTrainingRows<R extends TimelineRow>(
       row.audit_score = 0;
       row.audit_reason = assessment.reason;
       row.training_filtered = true;
+      rejected.push(row);
+    }
+  }
+  return { clean, rejected };
+}
+
+/** Enforce explicit practice ranges only when the dates support a decision. */
+export function splitExperienceRows<R extends TimelineRow>(
+  input: R[],
+  range: { min?: number | null; max?: number | null } | null | undefined,
+  now: Date = new Date(),
+): { clean: Array<R & TimelineAnnotated>; rejected: Array<R & TimelineAnnotated> } {
+  if (!range || (typeof range.min !== "number" && typeof range.max !== "number")) {
+    return { clean: input.map((row) => annotateClinicalTimeline(row, now)), rejected: [] };
+  }
+  const clean: Array<R & TimelineAnnotated> = [];
+  const rejected: Array<R & TimelineAnnotated> = [];
+  for (const original of input) {
+    const row = annotateClinicalTimeline(original, now) as R & TimelineAnnotated;
+    const fit = experienceFit(row, range, now);
+    if (fit.status === "met" || fit.status === "unknown") clean.push(row);
+    else {
+      row.audit_verdict = "reject";
+      row.audit_score = 0;
+      row.audit_reason = fit.evidence;
       rejected.push(row);
     }
   }

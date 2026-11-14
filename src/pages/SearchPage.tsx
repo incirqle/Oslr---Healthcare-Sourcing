@@ -65,7 +65,7 @@ function suggestionsFor(roleClass: string | null | undefined, specialties: strin
  * drift (2026-10-13: a v4 UI ran a v3 engine and every number on the page
  * was wrong). When the response names a different build, say so.
  */
-const EXPECTED_ENGINE_VERSION = "crustdata_clin_v4";
+const EXPECTED_ENGINE_VERSION = "crustdata_clin_v5";
 
 const EMPTY_FILTERS: ParsedFilters = {
   job_titles: [],
@@ -493,7 +493,13 @@ export default function SearchPage() {
       military_affiliation: (r.military_affiliation as string | null | undefined) ?? null,
       location_note: (r.location_note as string | null | undefined) ?? null,
       inferred_salary: null,
-      years_experience: r.years_experience || r.inferred_years_experience || 0,
+      years_experience: r.active_practice_years ?? r.years_experience ?? r.inferred_years_experience ?? null,
+      active_practice_years: r.active_practice_years ?? r.years_experience ?? null,
+      training_years: r.training_years ?? null,
+      active_practice_since: r.active_practice_since ?? null,
+      training_since: r.training_since ?? null,
+      experience_basis: r.experience_basis ?? null,
+      experience_evidence: r.experience_evidence ?? null,
       clinical_skills: r.clinical_skills || [],
       has_contact_info: r.has_contact_info || false,
       summary: r.summary || r.headline || null,

@@ -63,7 +63,7 @@ import { rankByMatchScope, rankByStageFit } from "./match-scope.ts";
 import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
 import { splitNonoperativeRows } from "./clinical-intent.ts";
-import { splitCurrentTrainingRows, type TrainingStageRequest } from "./clinical-timeline.ts";
+import { splitCurrentTrainingRows, splitExperienceRows, type TrainingStageRequest } from "./clinical-timeline.ts";
 import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
 import { expandStatedTitles } from "./title-vocabulary.ts";
 import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
@@ -1109,6 +1109,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       const trainingSplit = splitCurrentTrainingRows(allResults as Array<Record<string, unknown>>, trainingStage);
       allResults = trainingSplit.clean as unknown as typeof allResults;
       const trainingRows = trainingSplit.rejected as unknown as typeof allResults;
+      const experienceRange = criteria.find((c) => c.kind === "experience" && c.enforcement === "hard")?.value as { min?: number; max?: number } | undefined;
+      const experienceSplit = splitExperienceRows(allResults as Array<Record<string, unknown>>, experienceRange);
+      allResults = experienceSplit.clean as unknown as typeof allResults;
+      const experienceRows = experienceSplit.rejected as unknown as typeof allResults;
       allResults = rankDeterministic(allResults, criteria);
 
       // ── Deterministic role-class noise, BEFORE the grader ───────────
@@ -1325,9 +1329,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       tagSetAside(noiseRows as Array<Record<string, unknown>>, "role_class_noise");
       tagSetAside(modalityRows as Array<Record<string, unknown>>, "practice_modality");
       tagSetAside(trainingRows as Array<Record<string, unknown>>, "training_stage");
+      tagSetAside(experienceRows as Array<Record<string, unknown>>, "experience");
       const criteriaTokensEst = 40 * rankingCriteria.length * (allResults.length + graderRows.length + mustHaveRows.length);
 
-      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows, ...modalityRows, ...trainingRows];
+      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows, ...modalityRows, ...trainingRows, ...experienceRows];
       const rejectedFiltered = hiddenResults.length;
       const filteredBreakdown = {
         grader: graderRows.length,
@@ -1338,6 +1343,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         role_class_noise: noiseRows.length,
         practice_modality: modalityRows.length,
         training_stage: trainingRows.length,
+        experience: experienceRows.length,
         must_have: mustHaveRows.length,
       };
 

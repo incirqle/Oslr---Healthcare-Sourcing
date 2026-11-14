@@ -21,7 +21,6 @@ import type {
   EmployerGroupValue,
   EmployerSizeValue,
   EmploymentModelValue,
-  ExperienceValue,
   JobChangeValue,
   LocationValue,
   RoleClassValue,
@@ -75,7 +74,6 @@ const F = {
   locationFull: "basic_profile.location.full_location",
   country: "basic_profile.location.country",
   skills: "skills.professional_network_skills",
-  yoe: "years_of_experience_raw",
   curCompanyId: "experience.employment_details.current.company_id",
   curCompanyName: "experience.employment_details.current.company_name",
   curCompanyDomain: "experience.employment_details.current.company_website_domain",
@@ -344,9 +342,9 @@ export function buildClinicianQuery(
         break;
       }
       case "experience": {
-        const v = c.value as ExperienceValue;
-        if (typeof v.min === "number") hard.push(leaf(F.yoe, "=>", v.min));
-        if (typeof v.max === "number") hard.push(leaf(F.yoe, "=<", v.max));
+        // Provider years start at the earliest listed job, including college
+        // and training. Keep recall open and enforce the requested range with
+        // the in-process post-training clinical timeline instead.
         break;
       }
       case "employment_model": {
