@@ -359,6 +359,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         "care_setting",
         "fellowship",
         "training_stage",
+        "training_institution",
         "seniority",
         "keyword",
         "employment_model",

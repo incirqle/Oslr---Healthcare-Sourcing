@@ -5,6 +5,7 @@ import {
   normalizeClinicalIntent,
   pgyYears,
   splitNonoperativeRows,
+  trainingInstitutions,
 } from "../../supabase/functions/_shared/clinician-engine/clinical-intent";
 
 const austinParse = {
@@ -66,5 +67,52 @@ describe("clinical terminology normalization", () => {
       years: [4, 5],
     });
     expect(parsed.specialties).toContain("spine");
+  });
+
+  it("reads recent graduate trained fellows as completed fellowship and 0-5 practice years", () => {
+    const parsed = normalizeClinicalIntent({
+      role_class: "fellow",
+      training_stage: { profession: "orthopedic surgery", stage: "fellowship", year: null },
+      recently_changed_jobs: true,
+    }, "Find me recent graduate foot and ankle-trained fellows in the United States");
+    expect(parsed.training_stage).toBeNull();
+    expect(parsed.role_class).toBeNull();
+    expect(parsed.fellowship_trained).toBe(true);
+    expect(parsed.min_years_experience).toBe(0);
+    expect(parsed.max_years_experience).toBe(5);
+    expect(parsed.recently_changed_jobs).toBe(false);
+  });
+
+  it("keeps explicit current fellows in the current training stage", () => {
+    const parsed = normalizeClinicalIntent({}, "Current foot and ankle fellows in the United States");
+    expect(parsed.training_stage).toMatchObject({ stage: "fellowship" });
+    expect(parsed.role_class).toBe("fellow");
+    expect(parsed.min_years_experience).toBeUndefined();
+  });
+
+  it("uses one shared career-stage grammar", () => {
+    expect(normalizeClinicalIntent({}, "new graduate nurses")).toMatchObject({ min_years_experience: 0, max_years_experience: 2 });
+    expect(normalizeClinicalIntent({}, "mid-career nurses")).toMatchObject({ min_years_experience: 5, max_years_experience: 10 });
+    expect(normalizeClinicalIntent({}, "seasoned nurses")).toMatchObject({ min_years_experience: 10, max_years_experience: null });
+  });
+
+  it("turns exact experience into a bounded practice range and preserves explicit ranges", () => {
+    expect(normalizeClinicalIntent({}, "circulating nurses with 12 years of experience")).toMatchObject({ min_years_experience: 11, max_years_experience: 13 });
+    expect(normalizeClinicalIntent({ min_years_experience: 5, max_years_experience: 10 }, "nurses with 5 to 10 years of experience")).toMatchObject({ min_years_experience: 5, max_years_experience: 10 });
+  });
+
+  it("moves a training hospital out of current employers", () => {
+    const query = "Circulating OR nurses with 12 years of experience who trained at Johns Hopkins Hospital";
+    expect(trainingInstitutions(query)).toEqual(["johns hopkins hospital"]);
+    const parsed = normalizeClinicalIntent({ current_companies: ["johns hopkins hospital"], companies: ["johns hopkins hospital"] }, query);
+    expect(parsed.training_institutions).toEqual(["johns hopkins hospital"]);
+    expect(parsed.current_companies).toEqual([]);
+    expect(parsed.companies).toEqual([]);
+  });
+
+  it("does not move a plain workplace into training history", () => {
+    const parsed = normalizeClinicalIntent({ current_companies: ["johns hopkins hospital"] }, "OR nurses at Johns Hopkins Hospital");
+    expect(parsed.current_companies).toEqual(["johns hopkins hospital"]);
+    expect(parsed.training_institutions).toBeUndefined();
   });
 });

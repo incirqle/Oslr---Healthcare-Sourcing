@@ -96,7 +96,7 @@ export function widenOptions(criteria: SearchCriteria[]): WidenOption[] {
  */
 const REMARK_FIELD_TO_KINDS: ReadonlyArray<{ pattern: RegExp; kinds: string[] }> = [
   { pattern: /skills|summary|headline|description/, kinds: ["specialty"] },
-  { pattern: /education\./, kinds: ["fellowship", "credential"] },
+  { pattern: /education\./, kinds: ["fellowship", "credential", "training_institution"] },
   { pattern: /company_headcount/, kinds: ["employer_size"] },
   { pattern: /company_name|company_website_domain/, kinds: ["care_setting"] },
   { pattern: /current\.title|past\.title/, kinds: ["title", "specialty"] },

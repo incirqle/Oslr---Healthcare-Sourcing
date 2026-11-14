@@ -11,7 +11,9 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // 2026-10-13 00:29 Miami run was answered by v3 code under a v4 UI.
 // v5: deterministic clinical-language normalization, PGY ranges, resident +
 // fellow unions, full-profile training evidence and non-operative hard gates.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v5";
+// v6: career-stage grammar, completed-fellowship intent and training-institution
+// evidence shared by fresh/cached searches and Agents.
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v6";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

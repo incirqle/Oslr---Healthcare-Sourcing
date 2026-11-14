@@ -3,6 +3,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleClinicianSearch } from "../clinician-engine/handler.ts";
 import { isFallbackParse, parseQuery } from "../clinician-engine/parse-query.ts";
 import { getCrustDataCache, setCrustDataCache } from "../clinician-engine/cache.ts";
+import { normalizeClinicalIntent } from "../clinician-engine/clinical-intent.ts";
 import {
   type AgentPreferences, agentBaseScore, agentMatchQuality, featuresFor, rerank,
 } from "./agent-brain.ts";
@@ -113,7 +114,9 @@ export async function sourceAgent(
 
   const prefs = prefsOf(agent);
   const cachedParsed = prefs.query?.brief === agent.brief ? prefs.query?.parsed : null;
-  const parsed = cachedParsed ?? await interpretBrief(agent.brief);
+  // Pinned briefs predating the grammar upgrade must not bypass it on later
+  // runs; the same normalized object drives sourcing and Agent eligibility.
+  const parsed = normalizeClinicalIntent(cachedParsed ?? await interpretBrief(agent.brief), agent.brief);
   prefs.query = { brief: agent.brief, parsed };
   agent.preferences = prefs;
   const { error: parseSaveError } = await admin.from("clin_agents").update({ preferences: prefs }).eq("id", agent.id);

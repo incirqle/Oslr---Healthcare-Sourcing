@@ -58,6 +58,8 @@ export type CriterionKind =
   | "tenure"
   | "job_change"
   | "education"
+  /** Hospital/school named as a training site, distinct from an employer. */
+  | "training_institution"
   | "specialty"
   | "title"
   /** License-class population ("nurses", "physicians") — match terms grounded
@@ -1480,7 +1482,7 @@ export function mapParsedToCriteria(
   /* ---- experience (hard, RANGE) ---- */
   const num = (v: unknown): number | null => {
     const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
   };
   const minYears = num(parsed.min_years_experience);
   const maxYears = num(parsed.max_years_experience);
@@ -1595,6 +1597,20 @@ export function mapParsedToCriteria(
       enforcement: "hard",
       source: "user",
       evidenceSource: "search",
+    });
+  }
+
+  /* ---- training institution (hard): education or clinical training role ---- */
+  const trainingInstitutions = dedupe(strArr(parsed.training_institutions));
+  if (trainingInstitutions.length > 0) {
+    push({
+      kind: "training_institution",
+      label: `Trained at ${trainingInstitutions.map(titleCase).join(" or ")}`,
+      value: trainingInstitutions,
+      enforcement: "hard",
+      source: "user",
+      evidenceSource: "search",
+      note: "Matched on the named school or a residency/fellowship role at the named hospital. Current employment alone does not prove training there.",
     });
   }
 

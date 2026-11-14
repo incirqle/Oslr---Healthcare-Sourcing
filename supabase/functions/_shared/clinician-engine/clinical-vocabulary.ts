@@ -36,6 +36,8 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
   "orthopedics": { specialties: ["orthopedic"], keywords: ["orthopedic", "orthopaedic"] },
   "orthopaedic": { specialties: ["orthopedic"], keywords: ["orthopaedic", "orthopedic"] },
   "spine": { specialties: ["spine"], keywords: ["spine"] },
+  "foot and ankle": { specialties: ["foot and ankle"], keywords: ["foot and ankle", "foot & ankle"] },
+  "foot & ankle": { specialties: ["foot and ankle"], keywords: ["foot and ankle", "foot & ankle"] },
   "sports med": { specialties: ["sports medicine"], keywords: ["sports medicine"] },
   // Emergency / critical care
   "er": { specialties: ["emergency medicine"], keywords: ["emergency", "emergency department"] },
@@ -48,6 +50,11 @@ export const KEYWORD_EXPANSIONS: Record<string, { specialties: string[]; keyword
   // Perioperative
   "or": { specialties: ["perioperative"], keywords: ["operating room", "perioperative"] },
   "operating room": { specialties: ["perioperative"], keywords: ["operating room", "perioperative"] },
+  "operating room nurse": { specialties: ["perioperative"], keywords: ["operating room nurse", "perioperative nurse", "circulating nurse", "scrub nurse"] },
+  "circulating nurse": { specialties: ["perioperative"], keywords: ["circulating nurse", "circulator", "operating room", "perioperative"] },
+  "circulating room nurse": { specialties: ["perioperative"], keywords: ["circulating nurse", "circulator", "operating room", "perioperative"] },
+  "circulator": { specialties: ["perioperative"], keywords: ["circulator", "circulating nurse", "perioperative"] },
+  "scrub nurse": { specialties: ["perioperative"], keywords: ["scrub nurse", "scrub", "operating room", "perioperative"] },
   "perioperative": { specialties: ["perioperative"], keywords: ["perioperative", "operating room"] },
   "pacu": { specialties: ["perioperative"], keywords: ["pacu", "post anesthesia"] },
   "med surg": { specialties: ["medical surgical"], keywords: ["med surg", "medical surgical"] },

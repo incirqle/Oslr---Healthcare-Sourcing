@@ -65,7 +65,7 @@ function suggestionsFor(roleClass: string | null | undefined, specialties: strin
  * drift (2026-10-13: a v4 UI ran a v3 engine and every number on the page
  * was wrong). When the response names a different build, say so.
  */
-const EXPECTED_ENGINE_VERSION = "crustdata_clin_v5";
+const EXPECTED_ENGINE_VERSION = "crustdata_clin_v6";
 
 const EMPTY_FILTERS: ParsedFilters = {
   job_titles: [],

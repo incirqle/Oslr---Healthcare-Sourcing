@@ -16,6 +16,7 @@
 import { callClaude, CLAUDE_HAIKU } from "./ai-router.ts";
 import { MULTI_STATE_REGIONS, SENIORITY_LEVELS, SUB_STATE_REGIONS } from "./clinician-criteria.ts";
 import { CARE_SETTINGS, EMPLOYMENT_MODELS, KEYWORD_EXPANSIONS, ROLE_CLASSES } from "./clinical-vocabulary.ts";
+import { normalizeClinicalIntent } from "./clinical-intent.ts";
 
 /* ------------------------------------------------------------------ */
 /*  Post-AI keyword expansion — catches shorthand the AI might miss    */
@@ -26,10 +27,16 @@ export function expandParsedKeywords(parsed: Record<string, unknown>, originalQu
   const requiredKeywords = (parsed.required_keywords as string[]) || [];
   const queryLower = originalQuery.toLowerCase().trim();
 
-  const words = queryLower.split(/\s+/);
-  const phrasesToCheck = [queryLower, ...words];
-  for (let i = 0; i < words.length - 1; i++) {
-    phrasesToCheck.push(`${words[i]} ${words[i + 1]}`);
+  const lexicalQuery = queryLower.replace(/([a-z])-(?=[a-z])/g, "$1 ");
+  const words = lexicalQuery.split(/\s+/);
+  const phrasesToCheck = [queryLower, lexicalQuery, ...words];
+  // Recruiter phrases are often three to five words ("circulating room
+  // nurse", "foot and ankle"). Checking only bigrams made recognition depend
+  // on the model instead of the shared clinical vocabulary.
+  for (let length = 2; length <= 5; length++) {
+    for (let i = 0; i <= words.length - length; i++) {
+      phrasesToCheck.push(words.slice(i, i + length).join(" "));
+    }
   }
 
   // "or" is both the operating-room abbreviation and the English
@@ -41,7 +48,12 @@ export function expandParsedKeywords(parsed: Record<string, unknown>, originalQu
 
   for (const phrase of phrasesToCheck) {
     if (phrase === "or" && !orIsAbbreviation) continue;
-    const expansion = KEYWORD_EXPANSIONS[phrase];
+    const singular = phrase.replace(/\b(?:nurses|physicians|surgeons|fellows|residents|therapists|pharmacists|technicians|techs)\b/g, (word) => ({
+      nurses: "nurse", physicians: "physician", surgeons: "surgeon", fellows: "fellow",
+      residents: "resident", therapists: "therapist", pharmacists: "pharmacist",
+      technicians: "technician", techs: "tech",
+    }[word] ?? word));
+    const expansion = KEYWORD_EXPANSIONS[phrase] ?? KEYWORD_EXPANSIONS[singular];
     if (expansion) {
       for (const spec of expansion.specialties) {
         if (!specialties.includes(spec)) specialties.push(spec);
@@ -108,6 +120,8 @@ export interface ParsedClinicianPayload {
   care_setting_is_workplace: boolean;
   /** "Fellowship trained X" qualifier. */
   fellowship_trained: boolean;
+  /** Education/residency/fellowship sites named by "trained at X". */
+  training_institutions: string[];
   companies: string[];
   current_companies: string[];
   past_companies: string[];
@@ -157,7 +171,7 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
 
   const posInt = (v: unknown): number | null => {
     const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
   };
   const minYearsExperience = posInt(r.min_years_experience);
   const maxYearsExperience = posInt(r.max_years_experience);
@@ -245,6 +259,7 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
     care_setting: careSetting,
     care_setting_is_workplace: r.care_setting_is_workplace === true && careSetting !== null,
     fellowship_trained: r.fellowship_trained === true,
+    training_institutions: toStrArr(r.training_institutions),
     companies: toStrArr(r.companies),
     current_companies: current,
     past_companies: past,
@@ -415,6 +430,7 @@ RETURN THIS EXACT SHAPE:
   "care_setting":      string|null,  // one of: ${careSettings}. "hospital nurses" -> "hospital"; "home health PTs" -> "home_health". null when unstated.
   "care_setting_is_workplace": boolean,  // true when the setting is WHERE THEY WORK ("nurses that work in surgery centers", "PTs at ASCs") — becomes a hard employer requirement. false for a soft preference.
   "fellowship_trained": boolean,  // "fellowship trained X" / "fellowship-trained" -> true. A hard qualifier matched on fellowship education, fellow-titled roles, and self-description.
+  "training_institutions": string[],  // schools/hospitals after "trained at", "residency at" or "fellowship at". NEVER also put these in company fields.
   "companies":           string[],   // legacy mirror of current_companies
   "current_companies":   string[],   // employers they work at now ("at Baylor", "at the VA")
   "past_companies":      string[],   // employers they worked at before
@@ -440,8 +456,8 @@ RETURN THIS EXACT SHAPE:
   "current_role_only":   boolean,
   "keywords":            string[],
   "required_keywords":   string[],
-  "min_years_experience": number|null,  // CAREER years floor: "5 years of experience" -> 5; "5-10 years" -> 5
-  "max_years_experience": number|null,  // CAREER years cap: "5-10 years" -> 10; "under 3 years" / "early-career" -> 3
+  "min_years_experience": number|null,  // ACTIVE POST-TRAINING PRACTICE years floor. Exact "12 years of experience" -> 11; "5-10 years" -> 5; "recent graduate" -> 0; "new graduate" -> 0; "mid-career" -> 5; "seasoned" -> 10.
+  "max_years_experience": number|null,  // ACTIVE PRACTICE cap. Exact "12 years" -> 13; "5-10 years" -> 10; "recent graduate" -> 5; "new graduate" -> 2; "mid-career" -> 10. Residency/fellowship years NEVER count.
   "tenure_min_years":     number|null,  // years at the CURRENT employer/role: "5 years at Baylor" -> 5
   "tenure_max_years":     number|null,  // cap on current-role years: "less than 2 years in their current job" -> 2
   "practice_size":        "small"|"midsize"|"large"|null,
@@ -454,7 +470,7 @@ RETURN THIS EXACT SHAPE:
                          // null when the query says nothing about the employer type. Never infer it from
                          // the specialty or the role; "private practice" and "small" are different asks
                          // (set practice_size only when a SIZE word is used).
-  "recently_changed_jobs": boolean,
+  "recently_changed_jobs": boolean,  // ONLY an explicit job-change ask. NEVER for "recent graduate", "recent grad", career stage, experience, or training.
   "education_terms":     string[],   // degree/program phrases ("bsn", "doctor of nursing practice", "podiatric medicine")
   "seniority_levels":    string[],   // ONLY explicit leadership-class asks, verbatim from: ${enumList}. "nurse leaders / CNOs" -> ["CXO","Vice President","Director"]. NEVER for trainees or bedside roles. [] otherwise.
   "unmapped_concepts":   string[],   // stated requirements no field expresses ("level 1 trauma center", "magnet hospital", "night shift", "open to relocating"). NEVER silently drop a stated requirement.
@@ -588,6 +604,25 @@ WORKED EXAMPLES (the three archetypes + the tense query):
    specialties: ["orthopedic"], specialty_tense: "current",
    current_role_only: true, location: {"state":"tennessee", ...}
 
+14) "Recent graduate foot and ankle-trained fellows in the United States."
+   role_class: null, role_classes: [], training_stage: null, fellowship_trained: true,
+   specialties: ["foot and ankle"], min_years_experience: 0, max_years_experience: 5,
+   recently_changed_jobs: false
+   // COMPLETED fellowship + early practice. NEVER current fellows and NEVER a job-hop flag.
+
+15) "Circulating OR nurses with 12 years of experience who trained at Johns Hopkins."
+   role_class: "nurse", specialties: ["perioperative"],
+   required_keywords: ["circulating nurse", "operating room"],
+   min_years_experience: 11, max_years_experience: 13,
+   training_institutions: ["johns hopkins"], current_companies: [], recently_changed_jobs: false
+
+CAREER STAGE AND TRAINING GRAMMAR:
+  - "recent graduate" / "recent grad" / "recently graduated" = 0-5 years of active post-training practice.
+  - "new graduate" / "new grad" = 0-2 years; "mid-career" = 5-10; "seasoned" = 10+.
+  - An exact "N years of experience" = N-1 through N+1 active practice years. Explicit ranges and minimums stay as stated.
+  - "current fellow/resident" = training_stage. "Fellowship-trained", "trained fellows" and "recent graduate fellows" = completed fellowship; training_stage null and no resident/fellow role_class.
+  - "trained at X" / "residency at X" / "fellowship at X" = training_institutions ["x"]. Plain "works at X" remains current_companies.
+
 COMPANY EXTRACTION:
   Each employer appears in EXACTLY ONE company field.
    "at [X]" / "works at [X]"                          -> current_companies
@@ -625,7 +660,7 @@ export async function parseQuery(
     // Re-validate: cached parses came from this validator, but never trust
     // the wire.
     const revalidated = validateAIOutput(clientParsed) as unknown as Record<string, unknown>;
-    return revalidated;
+    return normalizeClinicalIntent(revalidated, query);
   }
 
   const raw = await callClaude<unknown>(
@@ -639,12 +674,14 @@ export async function parseQuery(
   if (raw === null) {
     console.warn("[Parser] No usable model output — using the deterministic parse.");
     const fb = deterministicFallback(query);
-    FALLBACK_PARSES.add(fb);
-    return fb;
+    const normalized = normalizeClinicalIntent(fb, query);
+    FALLBACK_PARSES.add(normalized);
+    return normalized;
   }
 
   const parsed = validateAIOutput(raw) as unknown as Record<string, unknown>;
   expandParsedKeywords(parsed, query);
-  console.log("[Parser] Parsed:", JSON.stringify(parsed));
-  return parsed;
+  const normalized = normalizeClinicalIntent(parsed, query);
+  console.log("[Parser] Parsed:", JSON.stringify(normalized));
+  return normalized;
 }

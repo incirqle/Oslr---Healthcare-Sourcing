@@ -97,3 +97,17 @@ Deno.test("8. missing criteria key -> every Preferred result unknown, row kept",
   assertEquals(results.map((r) => r.status), ["unknown", "unknown", "unknown", "unknown"]);
   assertEquals(scoreRow(results, ranking).must_have_failed, []);
 });
+
+Deno.test("9. training institution resolver requires school or clinical training evidence", () => {
+  const c = crit("training_institution", ["johns hopkins hospital"]);
+  const education = resolveCriterion(c, { education: [{ school_name: "Johns Hopkins Hospital" }] });
+  assertEquals(education?.status, "met");
+  const fellowship = resolveCriterion(c, {
+    experience_history: [{ title: "Surgical Fellow", company_name: "Johns Hopkins Hospital", start_date: "2023-07-01", end_date: "2024-06-30" }],
+  });
+  assertEquals(fellowship?.status, "met");
+  const attendingOnly = resolveCriterion(c, {
+    experience_history: [{ title: "Attending Surgeon", company_name: "Johns Hopkins Hospital", start_date: "2020-01-01", end_date: null }],
+  });
+  assertEquals(attendingOnly, null);
+});

@@ -21,7 +21,7 @@ import {
   type V2FilterLeaf,
   type V2FilterNode,
 } from "./build-clinician-query.ts";
-import { expandParsedKeywords, validateAIOutput } from "./parse-query.ts";
+import { expandParsedKeywords, parseQuery, validateAIOutput } from "./parse-query.ts";
 import { containsWholePhrase, matchSubspecialty } from "./clinical-vocabulary.ts";
 import { widenOptions } from "./widen-criteria.ts";
 import { computeMatchScope, stageFit, stageStartWindow } from "./match-scope.ts";
@@ -1473,4 +1473,62 @@ Deno.test("employment model: decided on the PRIMARY employer; hospital privilege
   // A SOFT (auto-widened) ask annotates but never hides.
   const soft = criteria.map((c) => c.kind === "employment_model" ? { ...c, enforcement: "soft" as const } : c);
   assertEquals(applyEmploymentModel(rows.map((r) => ({ ...r })), soft).rejected.length, 0);
+});
+
+Deno.test("recent graduate fellows build completed-training and practice-range gates, never job change or current fellow", () => {
+  const parsed = reconcileParsedClinicianIntent({
+    role_class: "fellow",
+    training_stage: { profession: "orthopedic surgery", stage: "fellowship" },
+    specialties: ["foot and ankle"],
+    recently_changed_jobs: true,
+  }, "Find me recent graduate foot and ankle-trained fellows in the United States");
+  const criteria = mapParsedToCriteria(parsed);
+  assertEquals(criteria.some((c) => c.kind === "training_stage"), false);
+  assertEquals(criteria.some((c) => c.kind === "job_change"), false);
+  assertEquals(criteria.some((c) => c.kind === "role_class"), false);
+  assertExists(criteria.find((c) => c.kind === "fellowship"));
+  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 0, max: 5 });
+  const allLeaves = leaves(buildClinicianQuery(criteria));
+  assert(allLeaves.some((l) => l.field === "experience.employment_details.past.title" && l.value === "fellow"));
+  assert(allLeaves.every((l) => l.field !== "recently_changed_jobs"));
+});
+
+Deno.test("trained-at hospital searches school and past training surfaces, not current employer", () => {
+  const parsed = reconcileParsedClinicianIntent({
+    role_class: "nurse",
+    specialties: ["perioperative"],
+    current_companies: ["johns hopkins hospital"],
+    min_years_experience: 12,
+  }, "Circulating OR nurses with 12 years of experience who trained at Johns Hopkins Hospital");
+  const criteria = mapParsedToCriteria(parsed);
+  assertEquals(criteria.some((c) => c.kind === "company"), false);
+  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 11, max: 13 });
+  const training = criteria.find((c) => c.kind === "training_institution");
+  assertExists(training);
+  const allLeaves = leaves(buildClinicianQuery(criteria));
+  assert(allLeaves.some((l) => l.field === "education.schools.school" && l.value === "johns hopkins hospital"));
+  assert(allLeaves.some((l) => l.field === "experience.employment_details.past.company_name" && l.value === "johns hopkins hospital"));
+  assert(allLeaves.every((l) => l.field !== "experience.employment_details.current.company_name" || l.value !== "johns hopkins hospital"));
+});
+
+Deno.test("multiword perioperative nursing vocabulary survives the deterministic expansion", () => {
+  const parsed = validateAIOutput({ role_class: "nurse" }) as unknown as Record<string, unknown>;
+  expandParsedKeywords(parsed, "circulating room nurses with 12 years of experience");
+  assert((parsed.specialties as string[]).includes("perioperative"));
+  assert((parsed.required_keywords as string[]).includes("circulating nurse"));
+});
+
+Deno.test("cached parses are normalized before Search or Agent reuse", async () => {
+  const parsed = await parseQuery("Find me recent graduate foot and ankle-trained fellows in the United States", {
+    role_class: "fellow",
+    training_stage: { profession: "orthopedic surgery", stage: "fellowship" },
+    specialties: ["foot and ankle"],
+    recently_changed_jobs: true,
+  });
+  assertEquals(parsed.training_stage, null);
+  assertEquals(parsed.role_class, null);
+  assertEquals(parsed.fellowship_trained, true);
+  assertEquals(parsed.min_years_experience, 0);
+  assertEquals(parsed.max_years_experience, 5);
+  assertEquals(parsed.recently_changed_jobs, false);
 });

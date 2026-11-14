@@ -88,6 +88,7 @@ const F = {
   recentlyChangedJobs: "recently_changed_jobs",
   eduDegree: "education.schools.degree",
   eduFieldOfStudy: "education.schools.field_of_study",
+  eduSchool: "education.schools.school",
   curSeniority: "experience.employment_details.current.seniority_level",
 } as const;
 
@@ -548,6 +549,27 @@ export function buildClinicianQuery(
       case "job_change": {
         const v = c.value as JobChangeValue;
         hard.push(leaf(F.recentlyChangedJobs, "=", v.recent));
+        break;
+      }
+      case "training_institution": {
+        const terms = Array.isArray(c.value)
+          ? (c.value as string[]).filter((t) => typeof t === "string" && t.trim())
+          : [];
+        if (terms.length === 0) break;
+        const currentTraining = criteria.some((item) => item.kind === "training_stage" && item.enforcement === "hard");
+        const clauses: V2FilterNode[] = [];
+        for (const t of terms) {
+          for (const variant of lexicalVariants(t)) {
+            clauses.push(leaf(F.eduSchool, "[.]", variant));
+            clauses.push(leaf(F.pastCompanyName, "[.]", variant));
+            clauses.push(leaf(F.pastDescription, "[.]", variant));
+            if (currentTraining) {
+              clauses.push(leaf(F.curCompanyName, "[.]", variant));
+              clauses.push(leaf(F.curDescription, "[.]", variant));
+            }
+          }
+        }
+        hard.push(or(...clauses));
         break;
       }
       case "education": {

@@ -10,6 +10,10 @@
 const NON_OPERATIVE = /\b(?:non[\s-]?operative|non[\s-]?op(?:erative)?|non[\s-]?surgical|conservative(?:\s+(?:care|management|treatment))?)\b/i;
 const NON_OPERATIVE_GLOBAL = /\b(?:non[\s-]?operative|non[\s-]?op(?:erative)?|non[\s-]?surgical|conservative(?:\s+(?:care|management|treatment))?)\b/gi;
 const TRAINING_WORD = /\b(?:residents?|fellows?|pgy[\s-]*\d+)\b/i;
+const RECENT_GRADUATE = /\brecent(?:ly)?[\s-]*(?:graduate|graduated|grad)\b/i;
+const NEW_GRADUATE = /\bnew(?:ly)?[\s-]*(?:graduate|graduated|grad)\b/i;
+const COMPLETED_FELLOWSHIP = /\b(?:fellowship[\s-]*trained|trained\s+fellows?|fellow(?:ship)?\s+graduates?)\b/i;
+const EXPLICIT_JOB_CHANGE = /\b(?:recently\s+(?:changed|left)\s+(?:jobs?|employers?|roles?)|job\s+changers?|new\s+job\s+in\s+the\s+last\s+\d+\s+days?)\b/i;
 
 export const NON_OPERATIVE_INCLUDE_TERMS = [
   "non-operative orthopedic physician",
@@ -44,6 +48,34 @@ function unique(values: string[]): string[] {
 
 function has(query: string, pattern: RegExp): boolean {
   return pattern.test(query);
+}
+
+/**
+ * Institutions named as places of training, not places of current work.
+ * The model supplies the same field; this backstop also repairs old cached
+ * parses that put the hospital in current_companies.
+ */
+export function trainingInstitutions(query: string): string[] {
+  const out: string[] = [];
+  const tail = String.raw`(.+?)(?=\s+(?:with|who|that|currently|now)\b|\s+in\s+(?:\d{4}|the\s+united\s+states|usa\b)|\s+in\s+(?=[A-Z])|,|;|\.|$)`;
+  const patterns = [
+    new RegExp(String.raw`\b(?:trained|training)\s+(?:at|through)\s+${tail}`, "gi"),
+    new RegExp(String.raw`\b(?:completed|did)\s+(?:their\s+)?(?:residency|fellowship|training)\s+(?:at|through)\s+${tail}`, "gi"),
+  ];
+  for (const pattern of patterns) {
+    for (const match of query.matchAll(pattern)) {
+      const value = match[1]?.trim().replace(/^(?:the)\s+/i, "").toLowerCase();
+      if (value) out.push(value);
+    }
+  }
+  return unique(out);
+}
+
+function setPracticeRange(parsed: Record<string, unknown>, min: number | null, max: number | null): void {
+  parsed.min_years_experience = min;
+  parsed.max_years_experience = max;
+  // Clinical career-stage words say nothing about a 90-day employer change.
+  parsed.recently_changed_jobs = false;
 }
 
 export function isNonOperativeQuery(query: string): boolean {
@@ -124,7 +156,36 @@ export function normalizeClinicalIntent(
     };
   }
 
-  if (TRAINING_WORD.test(query)) {
+  const recentGraduate = RECENT_GRADUATE.test(query);
+  const newGraduate = NEW_GRADUATE.test(query);
+  const completedFellowship = COMPLETED_FELLOWSHIP.test(query) ||
+    (recentGraduate && /\bfellows?\b/i.test(query));
+
+  // Career-stage language describes time AFTER clinical training. It never
+  // means CrustData's commercial ~90-day job-change flag.
+  if (recentGraduate) setPracticeRange(parsed, 0, 5);
+  else if (newGraduate) setPracticeRange(parsed, 0, 2);
+  else if (/\bmid[\s-]?career\b/i.test(query)) setPracticeRange(parsed, 5, 10);
+  else if (/\bseasoned\b/i.test(query)) setPracticeRange(parsed, 10, null);
+  else if (!/\b\d+\s*(?:-|–|—|to)\s*\d+\s+years?/i.test(query)) {
+    const exact = query.match(/\b(\d{1,2})\s+years?\s+(?:of\s+)?(?:clinical\s+|post[\s-]?training\s+|practice\s+)?experience\b/i);
+    if (exact) {
+      const years = Number(exact[1]);
+      setPracticeRange(parsed, Math.max(0, years - 1), years + 1);
+    }
+  }
+
+  if (completedFellowship) {
+    // "Recent graduate foot-and-ankle-trained fellows" are practicing
+    // clinicians with completed fellowship evidence, not current fellows.
+    parsed.training_stage = null;
+    if (parsed.role_class === "fellow" || parsed.role_class === "resident") parsed.role_class = null;
+    parsed.role_classes = strings(parsed.role_classes).filter((role) => role !== "fellow" && role !== "resident");
+    parsed.fellowship_trained = true;
+    parsed.current_role_only = true;
+  }
+
+  if (TRAINING_WORD.test(query) && !completedFellowship) {
     const years = pgyYears(query);
     const previous = parsed.training_stage && typeof parsed.training_stage === "object" && !Array.isArray(parsed.training_stage)
       ? parsed.training_stage as Record<string, unknown>
@@ -166,6 +227,21 @@ export function normalizeClinicalIntent(
     parsed.required_keywords = strings(parsed.required_keywords).filter((term) => !/\bpgy\b/i.test(term));
   }
 
+  const institutions = unique([
+    ...strings(parsed.training_institutions),
+    ...trainingInstitutions(query),
+  ]);
+  if (institutions.length > 0) {
+    parsed.training_institutions = institutions;
+    // Repair the old model reading without touching a plain "at X" employer
+    // ask. Only names explicitly used after "trained at" are moved.
+    for (const key of ["companies", "current_companies", "past_companies", "any_companies"]) {
+      const remaining = strings(parsed[key]).filter((name) => !institutions.includes(name));
+      parsed[key] = remaining;
+    }
+  }
+
+  if (!EXPLICIT_JOB_CHANGE.test(query)) parsed.recently_changed_jobs = false;
   return parsed;
 }
 

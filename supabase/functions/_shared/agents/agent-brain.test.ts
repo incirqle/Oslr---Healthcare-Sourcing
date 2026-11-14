@@ -71,6 +71,25 @@ Deno.test("agents do not count residency and fellowship toward requested practic
   assertEquals(agentMatchQuality(profile, { min_years_experience: 2, max_years_experience: 5 }).eligible, true);
 });
 
+import { normalizeClinicalIntent } from "../clinician-engine/clinical-intent.ts";
+Deno.test("agents apply recent-graduate practice limits from old pinned briefs", () => {
+  const intent = normalizeClinicalIntent({
+    role_class: "fellow",
+    training_stage: { stage: "fellowship", profession: "orthopedic surgery" },
+    recently_changed_jobs: true,
+  }, "recent graduate foot and ankle-trained fellows in the United States");
+  const experienced = {
+    raw: {
+      audit_verdict: "strong",
+      audit_score: 90,
+      experience_history: [{ title: "Orthopedic Surgeon", start_date: "2015-07-01", end_date: null, is_primary: true }],
+    },
+  };
+  assertEquals(agentMatchQuality(experienced, intent).eligible, false);
+  assertEquals(intent.training_stage, null);
+  assertEquals(intent.recently_changed_jobs, false);
+});
+
 import { stripCredentialClaims } from "./agent-core.ts";
 Deno.test("board certification is never shown as a reason", () => {
   const out = stripCredentialClaims("Double-board certified interventional pain physician in Arizona with pain fellowship training.");

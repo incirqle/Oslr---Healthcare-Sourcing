@@ -22,7 +22,7 @@ import type {
   SpecialtyValue,
   TenureValue,
 } from "./clinician-criteria.ts";
-import { experienceFit } from "./clinical-timeline.ts";
+import { experienceFit, isTrainingEmployment } from "./clinical-timeline.ts";
 
 /* ------------------------------------------------------------------ */
 /*  Types (spec 3.1, 3.2)                                              */
@@ -271,6 +271,20 @@ export function resolveCriterion(c: SearchCriteria, row: Row, id: string = c.id,
       const any = (v.any_of ?? []).map(low);
       const hit = (term && any.includes(term)) || any.some((a) => a && new RegExp(`\\b${a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(snippet));
       return hit ? rule(id, "met", snippet, null) : null;
+    }
+    case "training_institution": {
+      const wanted = Array.isArray(c.value) ? c.value as string[] : [];
+      if (wanted.length === 0) return null;
+      const edu: Row[] = Array.isArray(row.education) ? row.education : [];
+      const ei = edu.findIndex((e) => nameMatches(String(e.school_name ?? e.institute_name ?? ""), wanted));
+      if (ei >= 0) return rule(id, "met", String(edu[ei].school_name ?? edu[ei].institute_name), `edu${ei}`);
+      const history: Row[] = Array.isArray(row.experience_history) ? row.experience_history : [];
+      const hi = history.findIndex((e) => isTrainingEmployment(e) && nameMatches(String(e.company_name ?? e.name ?? ""), wanted));
+      if (hi >= 0) {
+        const e = history[hi];
+        return rule(id, "met", `${e.title ?? "Clinical training"} @ ${e.company_name ?? e.name}`, `exp${hi}`);
+      }
+      return null;
     }
     case "fellowship": {
       const edu: Row[] = Array.isArray(row.education) ? row.education : [];
