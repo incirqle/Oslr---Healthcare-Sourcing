@@ -63,6 +63,7 @@ import { rankByMatchScope, rankByStageFit } from "./match-scope.ts";
 import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
 import { splitNonoperativeRows } from "./clinical-intent.ts";
+import { splitCurrentTrainingRows, type TrainingStageRequest } from "./clinical-timeline.ts";
 import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
 import { expandStatedTitles } from "./title-vocabulary.ts";
 import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
@@ -838,6 +839,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       let pastHoldersFallback = false;
       if (
         totalCount === 0 && !preview && normalized.length === 0 &&
+        !criteria.some((c) => c.kind === "training_stage" && c.enforcement === "hard") &&
         criteria.some((c) => c.kind === "specialty" && c.enforcement === "hard")
       ) {
         const pastKey = cacheKey + ":pastrole";
@@ -1015,7 +1017,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // deno-lint-ignore no-explicit-any
       let allResults = normalized.map((p: any, idx: number) => {
         // deno-lint-ignore no-explicit-any
-        const mapEmployer = (e: any, isPrimary: boolean) => ({
+        const mapEmployer = (e: any, isPrimary: boolean, isCurrent: boolean) => ({
           name: e.company ?? e.name ?? null,
           title: e.title ?? null,
           industry: e.company_industries?.[0] ?? null,
@@ -1028,16 +1030,17 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           end_date: e.end_date ?? null,
           summary: e.description ?? e.summary ?? null,
           is_primary: isPrimary,
+          is_current: isCurrent,
         });
         const rawCurrentList = Array.isArray(p.current_employers) ? p.current_employers : [];
         // deno-lint-ignore no-explicit-any
         const defaultIdx = rawCurrentList.findIndex((e: any) => e?.is_default === true);
         const primaryIdx = defaultIdx >= 0 ? defaultIdx : 0;
         // deno-lint-ignore no-explicit-any
-        const currentEmployers = rawCurrentList.map((e: any, i: number) => mapEmployer(e, i === primaryIdx));
+        const currentEmployers = rawCurrentList.map((e: any, i: number) => mapEmployer(e, i === primaryIdx, true));
         const pastEmployers = (Array.isArray(p.past_employers) ? p.past_employers : [])
           // deno-lint-ignore no-explicit-any
-          .map((e: any) => mapEmployer(e, false));
+          .map((e: any) => mapEmployer(e, false, false));
         const primaryEmployer = currentEmployers[primaryIdx] ?? null;
         const education = (Array.isArray(p.education_background) ? p.education_background : [])
           // deno-lint-ignore no-explicit-any
@@ -1083,6 +1086,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
               end_date: e.end_date,
               summary: e.summary,
               is_primary: e.is_primary,
+              is_current: e.is_current,
               industry: e.industry,
               company_logo_url: e.company_logo_url,
               company_domain: e.company_domain,
@@ -1101,6 +1105,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // makes a "ranked" chip true. Runs before the audit so a degraded
       // audit still leaves a genuinely ranked page.
       allResults = rankByStageFit(allResults, criteria); // annotates stage_fit
+      const trainingStage = criteria.find((c) => c.kind === "training_stage" && c.enforcement === "hard")?.value as TrainingStageRequest | undefined;
+      const trainingSplit = splitCurrentTrainingRows(allResults as Array<Record<string, unknown>>, trainingStage);
+      allResults = trainingSplit.clean as unknown as typeof allResults;
+      const trainingRows = trainingSplit.rejected as unknown as typeof allResults;
       allResults = rankDeterministic(allResults, criteria);
 
       // ── Deterministic role-class noise, BEFORE the grader ───────────
@@ -1316,9 +1324,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       tagSetAside(duplicateRows as Array<Record<string, unknown>>, "duplicates");
       tagSetAside(noiseRows as Array<Record<string, unknown>>, "role_class_noise");
       tagSetAside(modalityRows as Array<Record<string, unknown>>, "practice_modality");
+      tagSetAside(trainingRows as Array<Record<string, unknown>>, "training_stage");
       const criteriaTokensEst = 40 * rankingCriteria.length * (allResults.length + graderRows.length + mustHaveRows.length);
 
-      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows, ...modalityRows];
+      const hiddenResults = [...graderRows, ...mustHaveRows, ...employmentRows, ...militaryRows, ...thinRows, ...duplicateRows, ...noiseRows, ...modalityRows, ...trainingRows];
       const rejectedFiltered = hiddenResults.length;
       const filteredBreakdown = {
         grader: graderRows.length,
@@ -1328,6 +1337,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         duplicates: duplicateRows.length,
         role_class_noise: noiseRows.length,
         practice_modality: modalityRows.length,
+        training_stage: trainingRows.length,
         must_have: mustHaveRows.length,
       };
 

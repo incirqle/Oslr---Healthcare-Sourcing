@@ -463,13 +463,12 @@ export function buildClinicianQuery(
         break;
       }
       case "training_stage": {
-        // Training identity often lives in a headline, role description or
-        // education record rather than the literal current title. role_class
-        // still requires a resident/fellow title or headline, so these extra
-        // surfaces broaden evidence without admitting attendings. PGY years
-        // stay date-verified rather than becoming pharmacy-prone text terms.
+        // Current training evidence stays on current-role surfaces. Education
+        // and a general summary often say "fellowship" for attendings who
+        // finished years ago; the timeline gate verifies current status and
+        // duration after recall. PGY years remain date-verified, never text.
         const v = c.value as TrainingStageValue;
-        const surfaces = [F.curTitle, F.headline, F.curDescription, F.summary, F.eduFieldOfStudy, F.eduDegree];
+        const surfaces = [F.curTitle, F.headline, F.curCompanyName, F.curDescription];
         const clauses: V2FilterNode[] = [];
         for (const t of v.title_terms) {
           for (const variant of lexicalVariants(t)) {

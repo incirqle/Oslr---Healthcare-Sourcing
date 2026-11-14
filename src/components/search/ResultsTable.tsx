@@ -144,7 +144,7 @@ export function ResultsTable({
                 <th className={th}>Company</th>
                 <th className={th}>Education</th>
                 <th className={th}>Location</th>
-                <th className={th}>Experience</th>
+                <th className={th} title="Post-training clinical practice; residency and fellowship are separate">Practice experience</th>
                 <th className={th}>Practice type</th>
                 <th className={cn(th, "sticky right-0 z-20 border-l border-border")}>Shortlist</th>
               </tr>
@@ -242,7 +242,9 @@ export function ResultsTable({
                     <td className={cn(td, "max-w-[160px]")}>
                       <span className={cellText}>{c.location ? toTitleCase(c.location) : "-"}</span>
                     </td>
-                    <td className={cn(td, "tabular-nums")}>{c.years_experience ? `${c.years_experience} yrs` : "-"}</td>
+                    <td className={cn(td, "tabular-nums")} title={c.experience_evidence ?? "Post-training clinical roles only; training is separate"}>
+                      {typeof c.active_practice_years === "number" ? `${c.active_practice_years} yrs` : c.training_years !== null && c.training_years !== undefined ? "In training" : "Not shown"}
+                    </td>
                     <td className={td}>{practice ?? <span className="text-muted-foreground">Not listed</span>}</td>
 
                     <td className={cn(td, "sticky right-0 z-10 border-l border-border", rowBg)} onClick={(e) => e.stopPropagation()}>

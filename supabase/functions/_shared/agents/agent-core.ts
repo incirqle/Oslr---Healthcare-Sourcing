@@ -71,6 +71,10 @@ export function flattenRow(r: Record<string, unknown>): Record<string, unknown> 
     summary: r.summary ?? r.headline ?? null,
     match_rate: r.match_rate ?? null,
     audit_score: r.audit_score ?? null,
+    active_practice_years: r.active_practice_years ?? null,
+    training_years: r.training_years ?? null,
+    experience_basis: r.experience_basis ?? null,
+    experience_evidence: r.experience_evidence ?? null,
     raw: r,
   };
 }
@@ -108,19 +112,20 @@ export async function sourceAgent(
   else { headers.Authorization = `Bearer ${serviceKey}`; headers["x-oslr-internal-user"] = agent.owner_id; }
 
   const prefs = prefsOf(agent);
-  const parsed = prefs.query?.brief === agent.brief ? prefs.query.parsed : await interpretBrief(agent.brief);
+  const cachedParsed = prefs.query?.brief === agent.brief ? prefs.query?.parsed : null;
+  const parsed = cachedParsed ?? await interpretBrief(agent.brief);
   prefs.query = { brief: agent.brief, parsed };
   agent.preferences = prefs;
   const { error: parseSaveError } = await admin.from("clin_agents").update({ preferences: prefs }).eq("id", agent.id);
   if (parseSaveError) return { ok: false, status: 500, error: "Could not save your search interpretation.", added: 0, served: 0 };
   // Each scheduled run reaches one page deeper into the market so it finds
   // people it has not seen yet (deeper pages are free to the meter).
-  const page = opts.authHeader ? 0 : Math.max(1, Number((prefs as Record<string, unknown>).next_page ?? 1));
+  const page = opts.authHeader ? 0 : Math.max(1, Number((prefs as unknown as Record<string, unknown>).next_page ?? 1));
   const res = await handleClinicianSearch(new Request("http://internal/search", {
     method: "POST", headers, body: JSON.stringify({ query: agent.brief, cached_parsed: parsed, page, size: 50 }),
   }));
   if (!opts.authHeader) {
-    (prefs as Record<string, unknown>).next_page = Math.min(page + 1, 40);
+    (prefs as unknown as Record<string, unknown>).next_page = Math.min(page + 1, 40);
     await admin.from("clin_agents").update({ preferences: prefs }).eq("id", agent.id);
   }
   // deno-lint-ignore no-explicit-any
@@ -135,8 +140,10 @@ export async function sourceAgent(
   const rows: Record<string, unknown>[] = Array.isArray(body.results) ? body.results : [];
   const { data: existing } = await admin.from("clin_agent_pool").select("person_id").eq("agent_id", agent.id);
   const seen = new Set((existing ?? []).map((r) => r.person_id));
-  const fresh = rows.map(flattenRow).filter((r) => r.id && !seen.has(String(r.id)) && agentMatchQuality(r).eligible);
-  const withheld = rows.length - rows.map(flattenRow).filter((r) => agentMatchQuality(r).eligible).length;
+  const flattened = rows.map(flattenRow);
+  const eligible = flattened.filter((r) => agentMatchQuality(r, parsed).eligible);
+  const fresh = eligible.filter((r) => r.id && !seen.has(String(r.id)));
+  const withheld = rows.length - eligible.length;
   if (fresh.length > 0) {
     const inserts = fresh.map((r) => {
       const base = agentBaseScore(r);
@@ -166,7 +173,7 @@ export async function rerankAndServe(admin: SupabaseClient, agent: Agent, serve:
     base_score: agentBaseScore(r.profile as Record<string, unknown>),
     // Recompute quality from evidence, then let rerank apply the CURRENT
     // skip rules. Preserving the old flag here would make unskip_city useless.
-    pruned: !agentMatchQuality(r.profile as Record<string, unknown>).eligible,
+    pruned: !agentMatchQuality(r.profile as Record<string, unknown>, prefs.query?.parsed).eligible,
   })));
   const now = new Date().toISOString();
   let toServe = serve;

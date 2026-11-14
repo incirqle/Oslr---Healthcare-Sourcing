@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
-  applyDecision, decisionDeltas, emptyPreferences, featuresFor, rerank,
+  agentMatchQuality, applyDecision, decisionDeltas, emptyPreferences, featuresFor, rerank,
 } from "./agent-brain.ts";
 
 const row = { title: "Owner, Pain Physician", current_employer: "Desert Spine Clinic", location: "Phoenix, Arizona, United States" };
@@ -37,6 +37,38 @@ Deno.test("practice owner approval lifts owners above others", () => {
     { id: "owner", base_score: 0.5, features: featuresFor({ title: "Founder", location: "Denver, Colorado" }) },
   ]);
   assertEquals(ranked[0].id, "owner");
+});
+
+Deno.test("agents withhold graduated fellows from current-fellow briefs", () => {
+  const profile = {
+    raw: {
+      audit_verdict: "strong",
+      audit_score: 92,
+      current_employers: [{ title: "Orthopedic Surgeon", start_date: "2022-08-01", end_date: null, is_primary: true }],
+      experience_history: [
+        { title: "Orthopedic Surgeon", start_date: "2022-08-01", end_date: null, is_primary: true },
+        { title: "Hand Surgery Fellow", start_date: "2021-07-01", end_date: "2022-07-31" },
+      ],
+    },
+  };
+  const quality = agentMatchQuality(profile, { training_stage: { stage: "fellowship", stages: ["fellowship"], profession: "orthopedic surgery" } });
+  assertEquals(quality.eligible, false);
+});
+
+Deno.test("agents do not count residency and fellowship toward requested practice experience", () => {
+  const profile = {
+    raw: {
+      audit_verdict: "strong",
+      audit_score: 92,
+      experience_history: [
+        { title: "Orthopedic Surgeon", start_date: "2024-07-01", end_date: null, is_primary: true },
+        { title: "Sports Medicine Fellow", start_date: "2023-07-01", end_date: "2024-06-30" },
+        { title: "Orthopedic Surgery Resident", start_date: "2018-07-01", end_date: "2023-06-30" },
+      ],
+    },
+  };
+  assertEquals(agentMatchQuality(profile, { min_years_experience: 5 }).eligible, false);
+  assertEquals(agentMatchQuality(profile, { min_years_experience: 2, max_years_experience: 5 }).eligible, true);
 });
 
 import { stripCredentialClaims } from "./agent-core.ts";

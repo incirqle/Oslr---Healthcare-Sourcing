@@ -22,6 +22,7 @@ import type {
   SpecialtyValue,
   TenureValue,
 } from "./clinician-criteria.ts";
+import { experienceFit } from "./clinical-timeline.ts";
 
 /* ------------------------------------------------------------------ */
 /*  Types (spec 3.1, 3.2)                                              */
@@ -292,15 +293,10 @@ export function resolveCriterion(c: SearchCriteria, row: Row, id: string = c.id,
     }
     case "experience": {
       const v = c.value as ExperienceValue | null;
-      const starts = (Array.isArray(row.experience_history) ? row.experience_history : [])
-        .map((e: Row) => (typeof e?.start_date === "string" ? Date.parse(e.start_date) : NaN))
-        .filter((t: number) => Number.isFinite(t));
-      if (!v || starts.length === 0) return null;
-      const earliest = Math.min(...starts);
-      const years = (now - earliest) / (365.25 * 86_400_000);
-      const fit = inRange(years, v);
-      const evidence = `${Math.floor(years)} years since the first listed role (${monthLabel(new Date(earliest).toISOString())})`;
-      return rule(id, fit === "in" ? "met" : fit === "near" ? "partial" : "not_met", evidence, null);
+      if (!v) return null;
+      const fit = experienceFit(row, v, new Date(now));
+      if (fit.status === "unknown") return null;
+      return rule(id, fit.status, fit.evidence, null);
     }
     case "tenure": {
       const v = c.value as TenureValue | null;
@@ -393,6 +389,7 @@ export type SetAsideReason =
   | "duplicates"
   | "role_class_noise"
   | "practice_modality"
+  | "training_stage"
   | "must_have";
 
 /** The reason line for a set-aside row (spec 8). */

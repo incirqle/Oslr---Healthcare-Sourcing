@@ -37,7 +37,11 @@ function toCandidate(item: PoolItem) {
     skills: (p.skills as string[]) ?? [],
     avg_tenure_months: (p.avg_tenure_months as number) ?? null,
     profile_pic_url: (p.profile_pic_url as string) ?? null,
-    years_experience: p.years_experience as number | undefined,
+    years_experience: (p.active_practice_years ?? p.years_experience) as number | null | undefined,
+    active_practice_years: (p.active_practice_years ?? p.years_experience) as number | null | undefined,
+    training_years: p.training_years as number | null | undefined,
+    experience_basis: p.experience_basis as string | undefined,
+    experience_evidence: p.experience_evidence as string | null | undefined,
     summary: (p.summary as string) ?? null,
     raw: (p.raw as Record<string, unknown>) ?? p,
   };

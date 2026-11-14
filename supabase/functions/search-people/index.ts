@@ -37,6 +37,7 @@ import {
 import { handleEnrichContact } from "./contact-credits.ts";
 import { hasUsableProfileEnrichment, withoutDeniedFields } from "./profile-quality.ts";
 import { applyEditorFilters, type EditorFilters } from "./refine-filters.ts";
+import { clinicalTimeline } from "../_shared/clinician-engine/clinical-timeline.ts";
 import {
   ENRICHMENT_TTL_MS,
   getCrustDataCache,
@@ -59,23 +60,7 @@ function json(payload: unknown, status = 200): Response {
 
 type Row = Record<string, unknown>;
 
-function firstYear(dateish: unknown): number | null {
-  if (typeof dateish !== "string") return null;
-  const m = dateish.match(/^(\d{4})/);
-  return m ? Number(m[1]) : null;
-}
 
-/** Years of experience from the earliest employment start date on the row. */
-function inferYearsExperience(row: Row): number {
-  const hist = Array.isArray(row.experience_history) ? row.experience_history : [];
-  let earliest: number | null = null;
-  for (const e of hist as Row[]) {
-    const y = firstYear(e.start_date);
-    if (y !== null && (earliest === null || y < earliest)) earliest = y;
-  }
-  if (earliest === null) return 0;
-  return Math.max(0, new Date().getFullYear() - earliest);
-}
 
 /** Relevance for the UI: audit score when the grader ran, verdict tier
  *  fallback, deterministic soft score floor otherwise. */
@@ -90,6 +75,7 @@ function relevanceScore(row: Row): number {
 }
 
 function toSearchPageRow(row: Row): Row {
+  const timeline = clinicalTimeline(row);
   const primary = (Array.isArray(row.current_employers)
     ? (row.current_employers as Row[]).find((e) => e.is_primary === true) ??
       (row.current_employers as Row[])[0]
@@ -106,8 +92,13 @@ function toSearchPageRow(row: Row): Row {
     linkedin_url: row.linkedin_url ?? null,
     relevance_score: relevanceScore(row),
     profile_pic_url: row.profile_picture_url ?? null,
-    years_experience: inferYearsExperience(row),
-    inferred_years_experience: inferYearsExperience(row),
+    years_experience: timeline.active_practice_years,
+    inferred_years_experience: timeline.active_practice_years,
+    active_practice_years: timeline.active_practice_years,
+    training_years: timeline.training_years,
+    active_practice_since: timeline.active_practice_since,
+    experience_basis: timeline.experience_basis,
+    experience_evidence: timeline.experience_evidence,
     summary: row.summary ?? row.headline ?? null,
     headline: row.headline ?? null,
     // Contact data comes from enrich-on-expand, never the search row.

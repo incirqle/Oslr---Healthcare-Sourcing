@@ -1,4 +1,5 @@
 // Pure learning model for clinician agents. No I/O.
+import { assessCurrentTraining, experienceFit, type TrainingStageRequest } from "../clinician-engine/clinical-timeline.ts";
 // Approvals boost the decided person's features (+15% to +40%), passes cut
 // them (-30% to -80%), city skips become hard rules. Unreviewed people are
 // re-ranked as base_score x product(feature weights).
@@ -38,7 +39,10 @@ export function agentBaseScore(profile: Record<string, unknown> | null | undefin
   return Math.max(0.05, Math.min(1, value / 100));
 }
 
-export function agentMatchQuality(profile: Record<string, unknown> | null | undefined): { eligible: boolean; reason: string | null } {
+export function agentMatchQuality(
+  profile: Record<string, unknown> | null | undefined,
+  intent?: Record<string, unknown> | null,
+): { eligible: boolean; reason: string | null } {
   if (!profile) return { eligible: true, reason: null };
   const raw = profile.raw && typeof profile.raw === "object" && !Array.isArray(profile.raw)
     ? profile.raw as Record<string, unknown>
@@ -46,6 +50,22 @@ export function agentMatchQuality(profile: Record<string, unknown> | null | unde
   const verdict = raw.audit_verdict ?? profile.audit_verdict;
   if (verdict === "weak") return { eligible: false, reason: "Partial match withheld" };
   if (verdict === "reject") return { eligible: false, reason: "Poor match withheld" };
+  if (raw.training_filtered === true || profile.training_filtered === true) {
+    return { eligible: false, reason: String(raw.audit_reason ?? "Not currently in the requested training stage") };
+  }
+  const requestedStage = intent?.training_stage;
+  if (requestedStage && typeof requestedStage === "object" && !Array.isArray(requestedStage)) {
+    const current = assessCurrentTraining(raw, requestedStage as TrainingStageRequest);
+    if (!current.eligible) return { eligible: false, reason: current.reason };
+  }
+  const min = typeof intent?.min_years_experience === "number" ? intent.min_years_experience : null;
+  const max = typeof intent?.max_years_experience === "number" ? intent.max_years_experience : null;
+  if (min !== null || max !== null) {
+    const fit = experienceFit(raw, { min, max });
+    if (fit.status === "not_met" || fit.status === "partial") {
+      return { eligible: false, reason: fit.evidence };
+    }
+  }
   if (raw.modality_filtered === true || profile.modality_filtered === true) {
     return { eligible: false, reason: "Does not meet the requested practice type" };
   }

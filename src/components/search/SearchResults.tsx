@@ -76,7 +76,12 @@ export interface Candidate {
   /** Facility-recall rows that list another location than the base asked for. */
   location_note?: string | null;
   inferred_salary?: string | null;
-  years_experience?: number;
+  years_experience?: number | null;
+  /** Independent clinical practice; residency/fellowship time is separate. */
+  active_practice_years?: number | null;
+  training_years?: number | null;
+  experience_basis?: "post_training_clinical_roles" | string;
+  experience_evidence?: string | null;
   clinical_skills?: string[];
   has_contact_info?: boolean;
   summary?: string | null;

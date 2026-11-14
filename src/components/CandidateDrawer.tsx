@@ -93,7 +93,11 @@ export interface CandidateDrawerProps {
     notes?: string | null;
     profile_pic_url?: string | null;
     inferred_salary?: string | null;
-    years_experience?: number;
+    years_experience?: number | null;
+    active_practice_years?: number | null;
+    training_years?: number | null;
+    experience_basis?: string;
+    experience_evidence?: string | null;
     clinical_skills?: string[];
     has_contact_info?: boolean;
     summary?: string | null;
@@ -351,7 +355,7 @@ function buildSummaryPrompt(
   const currentRole = enriched?.job_title || candidate.title || "Unknown";
   const company = enriched?.job_company_name || candidate.current_employer || "Unknown";
   const location = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location || "Unknown";
-  const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience || "Unknown";
+  const yearsExperience = enriched?.inferred_years_experience ?? candidate.active_practice_years ?? candidate.years_experience ?? "Not shown";
   const career = experience
     .slice(0, 3)
     .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} to ${formatDateLabelSmart(entry.endDate)})`)
@@ -366,7 +370,7 @@ function buildSummaryPrompt(
 Name: ${candidate.full_name}
 Current Role: ${currentRole} at ${company}
 Location: ${location}
-Years of Experience: ${yearsExperience}
+Post-Training Clinical Practice Experience: ${yearsExperience}${typeof yearsExperience === "number" ? " years" : ""}. Do not count residency, fellowship, education, research assistant roles, or early non-clinical jobs as active practice experience.
 Career: ${career || "Not available"}
 Education: ${educationSummary || "Not available"}
 Skills: ${skills.join(", ") || "Not available"}
@@ -636,7 +640,7 @@ export function CandidateDrawer({
 
         throw new Error("Summary not available");
       } catch {
-        const fallback = `${candidate.full_name} is ${candidate.title ? `a ${candidate.title}` : "a healthcare professional"}${candidate.current_employer ? ` at ${candidate.current_employer}` : ""}${candidate.location ? ` based in ${candidate.location}` : ""}. ${(candidate.years_experience ?? 0) > 0 ? `They bring approximately ${candidate.years_experience} years of experience.` : ""}`.trim();
+        const fallback = `${candidate.full_name} is ${candidate.title ? `a ${candidate.title}` : "a healthcare professional"}${candidate.current_employer ? ` at ${candidate.current_employer}` : ""}${candidate.location ? ` based in ${candidate.location}` : ""}. ${(candidate.active_practice_years ?? candidate.years_experience ?? 0) > 0 ? `They bring approximately ${candidate.active_practice_years ?? candidate.years_experience} years of post-training clinical practice experience.` : ""}`.trim();
         setAiSummary(fallback);
         summaryCache.current.set(candidate.id, fallback);
       } finally {
@@ -690,10 +694,6 @@ export function CandidateDrawer({
     return (en.getFullYear() - s.getFullYear()) * 12 + (en.getMonth() - s.getMonth());
   }
 
-  const totalMonthsAll = useMemo(
-    () => experienceEntries.reduce((sum, e) => sum + tenureMonths(e.startDate, e.endDate), 0),
-    [experienceEntries],
-  );
   const currentTenureMonths = useMemo(() => {
     const cur = experienceEntries.find((e) => e.isCurrent);
     return cur ? tenureMonths(cur.startDate, cur.endDate) : 0;
@@ -706,7 +706,7 @@ export function CandidateDrawer({
 
   if (!candidate) return null;
 
-  const yearsExperience = enriched?.inferred_years_experience || candidate.years_experience;
+  const yearsExperience = enriched?.inferred_years_experience ?? candidate.active_practice_years ?? candidate.years_experience;
   const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
   const companyName = enriched?.job_company_name || candidate.current_employer;
   const title = enriched?.job_title || candidate.title;
@@ -1099,8 +1099,8 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                {/* 3-card stat strip — Avg tenure / Current tenure / Total experience */}
-                {(avgTenureMonths > 0 || currentTenureMonths > 0 || totalMonthsAll > 0 || yearsExperience) && (
+                {/* Tenure is role-specific; practice experience excludes education and training. */}
+                {(avgTenureMonths > 0 || currentTenureMonths > 0 || typeof yearsExperience === "number") && (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
                       <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Avg tenure</p>
@@ -1115,13 +1115,9 @@ export function CandidateDrawer({
                       </p>
                     </div>
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
-                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Total exp.</p>
-                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary">
-                        {totalMonthsAll > 0
-                          ? formatMonths(totalMonthsAll)
-                          : yearsExperience
-                            ? `${yearsExperience} yrs`
-                            : "-"}
+                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Practice exp.</p>
+                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary" title={candidate.experience_evidence ?? "Post-training clinical practice only"}>
+                        {typeof yearsExperience === "number" ? `${yearsExperience} yrs` : "Not shown"}
                       </p>
                     </div>
                   </div>

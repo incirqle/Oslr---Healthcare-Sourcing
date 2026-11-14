@@ -34,6 +34,14 @@ describe("clinical intent reaches the real provider query", () => {
     expect(training.title_terms).toContain("orthopedic surgery fellow");
   });
 
+  it("does not use education history to recall current fellows", () => {
+    const parsed = normalizeClinicalIntent({}, "Current hand surgery fellows in New York");
+    const criteria = mapParsedToCriteria(parsed);
+    const nodes = leaves(buildClinicianQuery(criteria));
+    expect(nodes.some((n) => n.field === "experience.employment_details.current.title")).toBe(true);
+    expect(nodes.every((n) => !String(n.field).startsWith("education."))).toBe(true);
+  });
+
   it("accepts any stated PGY year and any current resident/fellow role", () => {
     const fit = stageFit({
       current_employers: [
