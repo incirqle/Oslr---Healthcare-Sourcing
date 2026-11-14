@@ -10,9 +10,9 @@ export function AgentCard({ agent }: { agent: AgentRow }) {
   return (
     <Link
       to={`/agents/${agent.id}`}
-      className="agent-enter group flex items-center gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 hover:shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.6)] backdrop-blur transition-all duration-200 hover:border-primary/40 hover:bg-card active:scale-[0.99]"
+      className="agent-enter group flex w-full min-w-0 max-w-full items-center gap-3 sm:gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 hover:shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.6)] backdrop-blur transition-all duration-200 hover:border-primary/40 hover:bg-card active:scale-[0.99]"
     >
-      <div className="relative flex items-center justify-center">
+      <div className="relative flex shrink-0 items-center justify-center">
         <GoalRing value={s.approved} max={agent.goal} size={44} />
         <span className="absolute text-[12px] font-semibold tabular-nums">{s.approved}</span>
       </div>
@@ -33,9 +33,9 @@ export function AgentCard({ agent }: { agent: AgentRow }) {
         {agent.project_id && <p className="mt-1 truncate text-xs text-primary">Project · {project?.name ?? "Loading…"}</p>}
       </div>
       {s.waiting > 0 && (
-        <span className="rounded-full bg-primary px-2.5 py-0.5 text-[12px] font-semibold text-primary-foreground tabular-nums">{s.waiting}</span>
+        <span className="shrink-0 rounded-full bg-primary px-2.5 py-0.5 text-[12px] font-semibold text-primary-foreground tabular-nums">{s.waiting}</span>
       )}
-      <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </Link>
   );
 }

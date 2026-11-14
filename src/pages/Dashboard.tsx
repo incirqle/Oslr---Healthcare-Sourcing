@@ -107,7 +107,7 @@ export default function Dashboard() {
         )}
         {showBanner && <SuccessBanner />}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0 md:grid-cols-2 lg:grid-cols-4">
           {kpis.map((k) => (
             <Link key={k.title} to={k.to}>
               <Card className="h-full hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
@@ -128,7 +128,7 @@ export default function Dashboard() {
 
         <ActiveAgentsStrip />
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0 md:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-xl font-semibold font-display text-foreground">Recent Searches</CardTitle>
@@ -153,7 +153,7 @@ export default function Dashboard() {
                     return (
                       <li key={s.id}>
                         <Link to={href} className="flex items-center justify-between gap-3 py-2.5 group">
-                          <span className="truncate text-sm text-foreground group-hover:underline">{s.query_text}</span>
+                          <span className="min-w-0 truncate text-sm text-foreground group-hover:underline">{s.query_text}</span>
                           <span className="shrink-0 text-xs text-muted-foreground">
                             {s.result_count ?? 0} results · {timeAgo(s.created_at)}
                           </span>

@@ -60,7 +60,7 @@ export default function Agents() {
               return (
                 <section key={g.title} className="space-y-3">
                   <h2 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">{g.title} <span className="ml-1 tabular-nums">{list.length}</span></h2>
-                  <div className="grid gap-3 md:grid-cols-2">{list.map((a) => <AgentCard key={a.id} agent={a} />)}</div>
+                  <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">{list.map((a) => <AgentCard key={a.id} agent={a} />)}</div>
                 </section>
               );
             })}
