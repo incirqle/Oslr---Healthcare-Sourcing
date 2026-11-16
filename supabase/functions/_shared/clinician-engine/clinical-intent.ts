@@ -171,7 +171,10 @@ export function normalizeClinicalIntent(
     const exact = query.match(/\b(\d{1,2})\s+years?\s+(?:of\s+)?(?:clinical\s+|post[\s-]?training\s+|practice\s+)?experience\b/i);
     if (exact) {
       const years = Number(exact[1]);
-      setPracticeRange(parsed, Math.max(0, years - 1), years + 1);
+      // "12 years of experience" means at least 12; caps come only from
+      // explicit ranges ("under 4", "3 to 5") or career-stage words.
+      const capped = /\b(?:under|less\s+than|no\s+more\s+than|at\s+most|up\s+to|max(?:imum)?)\s+\d{1,2}\s+years?/i.test(query);
+      if (!capped) setPracticeRange(parsed, years, null);
     }
   }
 

@@ -456,8 +456,8 @@ RETURN THIS EXACT SHAPE:
   "current_role_only":   boolean,
   "keywords":            string[],
   "required_keywords":   string[],
-  "min_years_experience": number|null,  // ACTIVE POST-TRAINING PRACTICE years floor. Exact "12 years of experience" -> 11; "5-10 years" -> 5; "recent graduate" -> 0; "new graduate" -> 0; "mid-career" -> 5; "seasoned" -> 10.
-  "max_years_experience": number|null,  // ACTIVE PRACTICE cap. Exact "12 years" -> 13; "5-10 years" -> 10; "recent graduate" -> 5; "new graduate" -> 2; "mid-career" -> 10. Residency/fellowship years NEVER count.
+  "min_years_experience": number|null,  // ACTIVE POST-TRAINING PRACTICE years floor. Plain "12 years of experience" -> 12 (a floor); "5-10 years" -> 5; "recent graduate" -> 0; "new graduate" -> 0; "mid-career" -> 5; "seasoned" -> 10.
+  "max_years_experience": number|null,  // ACTIVE PRACTICE cap. plain "12 years" -> null (no ceiling); "5-10 years" -> 10; "recent graduate" -> 5; "new graduate" -> 2; "mid-career" -> 10. Residency/fellowship years NEVER count.
   "tenure_min_years":     number|null,  // years at the CURRENT employer/role: "5 years at Baylor" -> 5
   "tenure_max_years":     number|null,  // cap on current-role years: "less than 2 years in their current job" -> 2
   "practice_size":        "small"|"midsize"|"large"|null,
@@ -613,7 +613,7 @@ WORKED EXAMPLES (the three archetypes + the tense query):
 15) "Circulating OR nurses with 12 years of experience who trained at Johns Hopkins."
    role_class: "nurse", specialties: ["perioperative"],
    required_keywords: ["circulating nurse", "operating room"],
-   min_years_experience: 11, max_years_experience: 13,
+   min_years_experience: 12, max_years_experience: null,
    training_institutions: ["johns hopkins"], current_companies: [], recently_changed_jobs: false
 
 CAREER STAGE AND TRAINING GRAMMAR:

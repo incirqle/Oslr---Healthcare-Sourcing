@@ -16,7 +16,8 @@ const YEAR_MS = 365.25 * 86_400_000;
 const TRAINING = /\b(?:residen(?:t|cy)|clinical\s+fellow|fellow(?:ship)?|medical\s+intern|(?:general\s+)?surgery\s+intern|surgical\s+intern|intern\s+physician|house\s+officer|registrar|trainee)\b/i;
 const NON_CLINICAL_TRAINING = /\b(?:research|post[\s-]?doctoral|postdoc|teaching|laboratory|lab)\s+(?:fellow|fellowship|resident|residency)\b/i;
 const FORMER = /\b(?:former|previous|prior|graduated|completed|alumn(?:us|a)|ex[-\s])\b/i;
-const STUDENT = /\b(?:student|undergraduate|internship|summer\s+intern|medical\s+assistant\s+intern)\b/i;
+const STUDENT = /\b(?:student|undergraduate|internship|summer\s+intern|medical\s+assistant\s+intern|nurse\s+tech(?:nician)?|nursing\s+tech(?:nician)?|ms[1-4]|ms-[1-4]|m[1-4]\s+student|candidate\s+for\s+(?:md|do|bsn|msn))\b/i;
+const NURSE_TITLE = /\b(?:nurse|nursing|rn|bsn|lpn|lvn)\b/i;
 const NON_LICENSED_CLINICAL_SUPPORT = /\b(?:nurse'?s?\s+(?:attendant|attendent|aide|assistant)|nursing\s+(?:assistant|aide|attendant|attendent)|medical\s+assistant|patient\s+care\s+(?:assistant|technician|tech)|volunteer|observer(?:ship)?|shadow(?:ing)?)\b/i;
 const PRACTICE = /\b(?:physician|surgeon|surgery|doctor|attending|podiatrist|podiatric|hospitalist|clinician|medical\s+director|chief\s+medical|nurse|nursing|\brn\b|nurse\s+practitioner|\bnp\b|physician\s+assistant|\bpa\b|physiatrist|anesthetist|midwife|dentist|therapist|pharmacist)\b/i;
 
@@ -65,6 +66,8 @@ export function isTrainingEmployment(e: TimelineRow): boolean {
   if (/\bmedical\s+student\b/i.test(title) || /\bresident\s+(?:advisor|assistant)\b/i.test(title)) return false;
   if (/\bfellowship[-\s]+trained\b/i.test(title) && !/\bfellow\b/i.test(title)) return false;
   if (/\bintern\b/i.test(title) && !/\b(?:medical|physician|resident|podiatric|surgical|surgery|clinical)\b/i.test(title)) return false;
+  // New-graduate nurse residencies are paid, licensed RN jobs, not training.
+  if (NURSE_TITLE.test(title) && !/\b(?:physician|doctor|md|do)\b/i.test(title)) return false;
   if (TRAINING.test(title)) return true;
   const program = /\b(?:residency|fellowship)(?:\s+program)?\b/i.test(company(e));
   const genericDoctor = /\b(?:physician|doctor|clinician)\b/i.test(title) && !/\b(?:surgeon|attending|director|chief)\b/i.test(title);
@@ -150,6 +153,18 @@ export function experienceFit(
 ): { status: ExperienceFit; years: number | null; evidence: string } {
   const timeline = clinicalTimeline(profile, now);
   const years = timeline.active_practice_years;
+  const stage = careerStage(profile);
+  // Experience asks are for practicing clinicians. A current resident, fellow
+  // or student is a decided mismatch, never "unknown".
+  if (stage === "trainee" || stage === "student") {
+    return {
+      status: "not_met",
+      years,
+      evidence: stage === "trainee"
+        ? "Currently in residency or fellowship; training years are not practice experience"
+        : "Currently a student; no licensed practice years yet",
+    };
+  }
   if (years === null) return { status: "unknown", years, evidence: timeline.experience_evidence ?? "Practice dates are not listed" };
   const below = range.min !== null && range.min !== undefined && years < range.min;
   const above = range.max !== null && range.max !== undefined && years > range.max;
@@ -160,6 +175,21 @@ export function experienceFit(
     years,
     evidence: timeline.experience_evidence ?? `${years} years in post-training clinical roles`,
   };
+}
+
+export type CareerStage = "student" | "trainee" | "practicing" | "undated";
+
+/** Where the clinician is today, from their current roles only. */
+export function careerStage(profile: TimelineRow): CareerStage {
+  const current = currentEmployers(profile);
+  const practice = current.filter(isPracticeEmployment);
+  if (practice.length > 0) return "practicing";
+  if (current.some((e) => isTrainingEmployment(e))) return "trainee";
+  if (current.some((e) => STUDENT.test(text(e.title)) || /\bmedical\s+student\b/i.test(text(e.title)))) return "student";
+  const headline = text(profile.headline);
+  if (headline && /\b(?:resident|fellow|pgy[-\s]?\d)\b/i.test(headline) && !PRACTICE.test(headline.replace(/\b(?:physician|surgeon)\b/gi, ""))) return "trainee";
+  if (headline && STUDENT.test(headline)) return "student";
+  return "undated";
 }
 
 export interface TrainingStageRequest {
@@ -313,7 +343,8 @@ export function splitExperienceRows<R extends TimelineRow>(
   for (const original of input) {
     const row = annotateClinicalTimeline(original, now) as R & TimelineAnnotated;
     const fit = experienceFit(row, range, now);
-    if (fit.status === "met" || fit.status === "unknown") clean.push(row);
+    // Partial (one year off) and undated stay visible; ranking sorts them below met.
+    if (fit.status !== "not_met") clean.push(row);
     else {
       row.audit_verdict = "reject";
       row.audit_score = 0;

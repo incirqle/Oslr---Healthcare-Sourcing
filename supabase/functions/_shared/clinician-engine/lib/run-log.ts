@@ -15,7 +15,7 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // evidence shared by fresh/cached searches and Agents.
 // v7: completed-fellowship searches exclude current trainees deterministically.
 // v8: the operating-room abbreviation does not imply a surgery-center setting.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v8";
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v9";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

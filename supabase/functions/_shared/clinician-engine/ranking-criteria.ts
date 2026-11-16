@@ -309,7 +309,8 @@ export function resolveCriterion(c: SearchCriteria, row: Row, id: string = c.id,
       const v = c.value as ExperienceValue | null;
       if (!v) return null;
       const fit = experienceFit(row, v, new Date(now));
-      if (fit.status === "unknown") return null;
+      // Undated profiles rank below confirmed matches instead of mixing in.
+      if (fit.status === "unknown") return rule(id, "partial", fit.evidence, null);
       return rule(id, fit.status, fit.evidence, null);
     }
     case "tenure": {

@@ -172,9 +172,10 @@ Deno.test("hard practice ranges reject known misses but retain unknown timelines
     practicing("2010-07-01"),
     { experience_history: [role("Orthopedic Surgeon", null, null, true)] },
   ], { min: 2, max: 5 }, NOW);
-  assertEquals(split.clean.length, 3);
-  assertEquals(split.rejected.length, 2);
-  assertEquals(split.rejected.map((r) => r.active_practice_years), [1, 16]);
+  // One year short is a visible partial match; far misses are rejected.
+  assertEquals(split.clean.length, 4);
+  assertEquals(split.rejected.length, 1);
+  assertEquals(split.rejected.map((r) => r.active_practice_years), [16]);
 });
 
 Deno.test("current training with an unlisted start date remains reviewable", () => {
@@ -186,4 +187,46 @@ Deno.test("residency duration uses the requested profession rather than a univer
   const residency: TrainingStageRequest = { ...fellowship, stage: "residency", stages: ["residency"] };
   const row = { current_employers: [role("Orthopedic Surgery Resident", "2021-07-01", null, true)] };
   assertEquals(assessCurrentTraining(row, residency, NOW).eligible, true);
+});
+
+// ---- Career stage: experience asks never serve trainees or students ----
+import { careerStage as __stage, experienceFit as __fit } from "./clinical-timeline.ts";
+const __now = new Date("2026-11-01T00:00:00Z");
+Deno.test("resident with 12 years of total history fails a 12-year experience ask", () => {
+  const p = { current_employers: [{ title: "Orthopaedic Surgery Resident PGY-4", company_name: "NYU Langone", start_date: "2022-07-01" }],
+    past_employers: [{ title: "Research Assistant", company_name: "Columbia", start_date: "2014-06-01", end_date: "2018-05-01" }] };
+  if (__stage(p) !== "trainee") throw new Error("expected trainee");
+  if (__fit(p, { min: 12 }, __now).status !== "not_met") throw new Error("resident must not pass");
+});
+Deno.test("current fellow fails an experience ask", () => {
+  const p = { current_employers: [{ title: "Foot and Ankle Fellow", company_name: "OrthoCarolina", start_date: "2026-08-01" }] };
+  if (__fit(p, { min: 5 }, __now).status !== "not_met") throw new Error("fellow must not pass");
+});
+Deno.test("medical student fails an experience ask", () => {
+  const p = { current_employers: [{ title: "Medical Student", company_name: "Harvard Medical School", start_date: "2023-08-01" }] };
+  if (__stage(p) !== "student") throw new Error("expected student");
+  if (__fit(p, { min: 2 }, __now).status !== "not_met") throw new Error("student must not pass");
+});
+Deno.test("nurse residency counts as RN practice", () => {
+  const p = { current_employers: [{ title: "RN Nurse Resident", company_name: "UCHealth", start_date: "2020-09-01" }] };
+  if (__stage(p) !== "practicing") throw new Error("nurse resident is practicing");
+  if (__fit(p, { min: 5 }, __now).status !== "met") throw new Error("6 years RN should meet 5+");
+});
+Deno.test("nurse tech years are not RN years", () => {
+  const p = { current_employers: [{ title: "Registered Nurse", company_name: "Mayo", start_date: "2024-06-01" }],
+    past_employers: [{ title: "Nurse Tech", company_name: "Mayo", start_date: "2019-01-01", end_date: "2024-05-01" }] };
+  if (__fit(p, { min: 5 }, __now).status !== "not_met") throw new Error("only 2 RN years");
+});
+Deno.test("15-year RN passes a plain 12-year floor", () => {
+  const p = { current_employers: [{ title: "Charge Nurse", company_name: "HCA", start_date: "2011-01-01" }] };
+  if (__fit(p, { min: 12 }, __now).status !== "met") throw new Error("15 years should meet 12+");
+});
+Deno.test("attending who moved jobs last year keeps prior practice years", () => {
+  const p = { current_employers: [{ title: "Orthopedic Surgeon", company_name: "Mount Sinai", start_date: "2025-09-01" }],
+    past_employers: [{ title: "Orthopedic Surgeon", company_name: "Cleveland Clinic", start_date: "2013-08-01", end_date: "2025-08-01" }] };
+  if (__fit(p, { min: 12 }, __now).status !== "met") throw new Error("13 years should meet 12+");
+});
+Deno.test("profile with no dates stays unknown", () => {
+  const p = { current_employers: [{ title: "Orthopedic Surgeon", company_name: "X" }] };
+  if (__fit(p, { min: 12 }, __now).status !== "unknown") throw new Error("undated stays unknown");
 });

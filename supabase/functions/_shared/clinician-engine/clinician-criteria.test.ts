@@ -1502,7 +1502,7 @@ Deno.test("trained-at hospital searches school and past training surfaces, not c
   }, "Circulating OR nurses with 12 years of experience who trained at Johns Hopkins Hospital");
   const criteria = mapParsedToCriteria(parsed);
   assertEquals(criteria.some((c) => c.kind === "company"), false);
-  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 11, max: 13 });
+  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 12 });
   const training = criteria.find((c) => c.kind === "training_institution");
   assertExists(training);
   const allLeaves = leaves(buildClinicianQuery(criteria));
