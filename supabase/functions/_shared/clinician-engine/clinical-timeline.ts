@@ -246,6 +246,9 @@ export function assessCurrentTraining(
   if (!stage) return { eligible: true, reason: null, current_stage: null };
   const current = currentEmployers(profile);
   const allowed = new Set(stage.stages?.length ? stage.stages : [stage.stage]);
+  // Senior residents move straight into fellowship; a current fellow belongs
+  // in a residency search (ranked below in-window residents), never dropped.
+  if (allowed.has("residency")) allowed.add("fellowship");
   const training = current.filter((e) => {
     const roleStage = stageOf(e);
     return roleStage !== null && allowed.has(roleStage) && isTrainingEmployment(e);
@@ -280,7 +283,9 @@ export function assessCurrentTraining(
   }
   if (undated) return { eligible: true, reason: null, current_stage: stageOf(training[0]) };
   if (outsideYear !== null) {
-    return { eligible: false, reason: `Current role is PGY-${outsideYear}, outside the requested PGY-${requestedYears.join("/")} window`, current_stage: null };
+    // Research years, chief-year title resets and year-only dates make the
+    // date math unreliable: keep the person, ranking handles the window.
+    return { eligible: true, reason: null, current_stage: stageOf(training[0]) };
   }
   const first = training[0];
   return {

@@ -115,14 +115,20 @@ Deno.test("a generic physician title can use a current training-program employer
   assertEquals(assessCurrentTraining(row, residency, NOW).eligible, true);
 });
 
-Deno.test("requested PGY years are enforced rather than merely sorted", () => {
+Deno.test("requested PGY years rank people but never drop current residents", () => {
   const residency: TrainingStageRequest = { stage: "residency", stages: ["residency"], years: [4, 5], profession: "orthopedic surgery" };
   const pgy4 = { current_employers: [role("Orthopedic Surgery Resident", "2023-07-01", null, true)] };
-  const pgy6 = { current_employers: [role("Orthopedic Surgery Resident", "2021-07-01", null, true)] };
+  const researchYear = { current_employers: [role("Orthopedic Surgery Resident", "2021-07-01", null, true)] };
+  const chiefReset = { current_employers: [role("Chief Resident, Orthopaedic Surgery", "2026-07-01", null, true)] };
   assertEquals(assessCurrentTraining(pgy4, residency, NOW).eligible, true);
-  const late = assessCurrentTraining(pgy6, residency, NOW);
-  assertEquals(late.eligible, false);
-  assertMatch(late.reason ?? "", /PGY-6/);
+  assertEquals(assessCurrentTraining(researchYear, residency, NOW).eligible, true);
+  assertEquals(assessCurrentTraining(chiefReset, residency, NOW).eligible, true);
+});
+
+Deno.test("a current sports medicine fellow stays in a senior-resident search", () => {
+  const residency: TrainingStageRequest = { stage: "residency", stages: ["residency"], years: [4, 5], profession: "orthopedic surgery" };
+  const fellow = { current_employers: [role("Sports Medicine Fellow", "2026-08-01", null, true)] };
+  assertEquals(assessCurrentTraining(fellow, residency, NOW).eligible, true);
 });
 
 Deno.test("pre-medical support work is not post-training licensed practice", () => {

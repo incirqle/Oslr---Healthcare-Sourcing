@@ -187,9 +187,9 @@ export function renderNamedValue(value: unknown): string | null {
  * for year-only values.
  */
 export function formatDateLabelSmart(dateValue: string | null | undefined): string {
-  if (!dateValue) return "Present";
+  if (!dateValue) return "";
   const trimmed = String(dateValue).trim();
-  if (!trimmed) return "Present";
+  if (!trimmed) return "";
 
   // Year only — render as just the year.
   if (/^\d{4}$/.test(trimmed)) return trimmed;
@@ -351,4 +351,22 @@ export function LinkedInMark({ className }: { className?: string }) {
       <path d="M19 3A2 2 0 0 1 21 5V19A2 2 0 0 1 19 21H5A2 2 0 0 1 3 19V5A2 2 0 0 1 5 3H19ZM8.34 10.09H5.67V18H8.34V10.09ZM7.01 5.83C6.15 5.83 5.46 6.52 5.46 7.38C5.46 8.23 6.15 8.93 7.01 8.93C7.86 8.93 8.55 8.23 8.55 7.38C8.55 6.52 7.86 5.83 7.01 5.83ZM18.33 13.13C18.33 10.75 17.82 8.92 15.04 8.92C13.71 8.92 12.82 9.65 12.45 10.34H12.41V9.14H9.85V18H12.52V13.61C12.52 12.45 12.74 11.33 14.18 11.33C15.6 11.33 15.62 12.66 15.62 13.68V18H18.29L18.33 13.13Z" />
     </svg>
   );
+}
+/** Honest date range: unknown dates say so, never "Present to Present". */
+export function formatRoleRange(start: string | null | undefined, end: string | null | undefined, isCurrent: boolean): string {
+  const from = formatDateLabelSmart(start) || "Start date not listed";
+  const to = formatDateLabelSmart(end) || (isCurrent ? "Present" : "End date not listed");
+  return `${from} to ${to}`;
+}
+
+/** Training year from a residency/fellowship start (July academic year). */
+export function estimateTrainingYear(start: string | null | undefined, now: Date = new Date()): number | null {
+  if (!start) return null;
+  const m = String(start).match(/^(\d{4})(?:-(\d{2}))?/);
+  if (!m) return null;
+  const y = Number(m[1]); const mo = m[2] ? Number(m[2]) : 7;
+  const startAcad = mo >= 6 ? y : y - 1;
+  const nowAcad = now.getMonth() + 1 >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  const yr = nowAcad - startAcad + 1;
+  return yr >= 1 && yr <= 9 ? yr : null;
 }

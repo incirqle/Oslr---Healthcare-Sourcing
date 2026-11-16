@@ -32,8 +32,7 @@ import {
 import { faviconUrl, OrgLogo, PersonAvatar } from "./Avatars";
 import {
   normalizeLinkedInUrl,
-  toTitleCase,
-} from "@/components/search/candidate-ui";
+  toTitleCase, formatDateLabelSmart, estimateTrainingYear } from "@/components/search/candidate-ui";
 import { FitPill } from "@/components/search/FitPill";
 import { MatchChipsRow } from "@/components/search/MatchChipsRow";
 import { BulkActionBar } from "@/components/search/BulkActionBar";
@@ -274,6 +273,18 @@ function MiddleColumn({
           </span>
         )}
       </div>
+      {(() => {
+        const start = typeof candidate.raw?.job_start_date === "string" ? (candidate.raw.job_start_date as string) : null;
+        const isTrainee = /\b(resident|residency|fellow|intern)\b/i.test(candidate.title ?? "");
+        const yr = isTrainee ? estimateTrainingYear(start) : null;
+        const fellow = /\bfellow/i.test(candidate.title ?? "");
+        return (
+          <p className="text-[13px] text-foreground/60">
+            {start ? `Started ${formatDateLabelSmart(start)}` : "Start date not listed"}
+            {yr ? ` · ${fellow ? `Fellowship year ${yr}` : `About PGY-${yr}`} (from start date)` : ""}
+          </p>
+        );
+      })()}
       {candidate.location_note && (
         <p className="text-[13px] text-amber-700 dark:text-amber-400">{candidate.location_note}</p>
       )}

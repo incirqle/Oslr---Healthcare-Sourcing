@@ -321,7 +321,10 @@ Deno.serve(async (req: Request) => {
           majors: edu.field_of_study ? [edu.field_of_study as string] : [],
           start_date: (edu.start_date as string | undefined) ?? "",
           end_date: (edu.end_date as string | undefined) ?? null,
-          summary: null,
+          summary: (edu.description as string | undefined) ?? null,
+          description: (edu.description as string | undefined) ?? null,
+          activities_and_societies: (edu.activities_and_societies ?? edu.activities ?? null) as string | null,
+          grade: (edu.grade as string | undefined) ?? null,
         }));
 
       const shaped = {

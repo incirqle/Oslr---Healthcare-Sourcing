@@ -50,6 +50,7 @@ import {
   formatDateLabelSmart,
   formatDegree,
   formatExperienceDuration,
+  formatRoleRange,
   formatSalary,
   getAvatarToneClass,
   getInitials,
@@ -304,6 +305,17 @@ export function normalizeExperience(candidate: CandidateDrawerProps["candidate"]
 
 
 
+/** Everything the profile lists under a school: activities, societies, athletics, notes. */
+function educationDetails(entry: Record<string, unknown>): string | null {
+  const parts: string[] = [];
+  for (const key of ["summary", "description", "activities_and_societies", "activities", "societies", "grade", "notes"]) {
+    const v = entry[key];
+    const t = Array.isArray(v) ? v.filter((x) => typeof x === "string").join(", ") : typeof v === "string" ? v : "";
+    if (t.trim() && !parts.includes(t.trim())) parts.push(key.startsWith("activit") || key === "societies" ? `Activities: ${t.trim()}` : key === "grade" ? `Grade: ${t.trim()}` : t.trim());
+  }
+  return parts.length ? parts.join("\n") : null;
+}
+
 export function normalizeEducation(candidate: CandidateDrawerProps["candidate"], enriched: EnrichedData | null): EducationEntry[] {
   if (enriched?.education?.length) {
     return enriched.education.map((entry) => ({
@@ -314,7 +326,7 @@ export function normalizeEducation(candidate: CandidateDrawerProps["candidate"],
       endDate: entry.end_date ?? null,
       logoDomain: extractDomain(entry.school?.website, entry.school?.linkedin_url),
       logoUrl: null,
-      summary: typeof entry.summary === "string" ? entry.summary : null,
+      summary: educationDetails(entry as unknown as Record<string, unknown>),
     }));
   }
 
@@ -338,7 +350,7 @@ export function normalizeEducation(candidate: CandidateDrawerProps["candidate"],
       (entry.school as { website?: string } | null)?.website ?? null,
     ),
     logoUrl: typeof entry.school_logo_url === "string" && entry.school_logo_url ? entry.school_logo_url : null,
-    summary: typeof entry.summary === "string" ? entry.summary : null,
+    summary: educationDetails(entry),
   }));
 
 
@@ -358,7 +370,7 @@ function buildSummaryPrompt(
   const yearsExperience = candidate.active_practice_years ?? candidate.years_experience ?? enriched?.inferred_years_experience ?? "Not shown";
   const career = experience
     .slice(0, 3)
-    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate)} to ${formatDateLabelSmart(entry.endDate)})`)
+    .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate) || "start not listed"} to ${formatDateLabelSmart(entry.endDate) || "end not listed"})`)
     .join("; ");
   const educationSummary = education
     .slice(0, 3)
@@ -1137,7 +1149,7 @@ export function CandidateDrawer({
                       {currentRoleEntry.company ? toTitleCase(currentRoleEntry.company) : "Unknown company"}
                     </p>
                     <p className="mt-0.5 text-[12px] text-ui-text-muted">
-                      {formatDateLabelSmart(currentRoleEntry.startDate)} to {formatDateLabelSmart(currentRoleEntry.endDate) || "Present"}
+                      {formatRoleRange(currentRoleEntry.startDate, currentRoleEntry.endDate, currentRoleEntry.isCurrent)}
                       {(() => {
                         const dur = formatExperienceDuration(currentRoleEntry.startDate, currentRoleEntry.endDate);
                         return dur ? ` · ${dur}` : "";
@@ -1218,7 +1230,7 @@ export function CandidateDrawer({
                                       )}
                                     </div>
                                     <p className="shrink-0 text-[12px] text-ui-text-muted">
-                                      {formatDateLabelSmart(role.startDate)} to {formatDateLabelSmart(role.endDate) || "Present"}
+                                      {formatRoleRange(role.startDate, role.endDate, role.isCurrent)}
                                       {duration ? ` · ${duration}` : ""}
                                     </p>
                                   </div>
@@ -1228,7 +1240,7 @@ export function CandidateDrawer({
                                     </div>
                                   )}
                                   {role.summary && (
-                                    <p className="mt-1.5 whitespace-pre-line text-[13px] leading-5 text-ui-text-secondary line-clamp-4">
+                                    <p className="mt-1.5 whitespace-pre-line text-[13px] leading-5 text-ui-text-secondary">
                                       {role.summary}
                                     </p>
                                   )}
@@ -1258,7 +1270,7 @@ export function CandidateDrawer({
                     const schoolInitials = getInitials(entry.school || "?");
                     const startYear = formatDateLabelSmart(entry.startDate);
                     const endYear = formatDateLabelSmart(entry.endDate);
-                    const dateLabel = startYear && endYear ? `${startYear} to ${endYear}` : endYear || startYear || null;
+                    const dateLabel = startYear || endYear ? `${startYear || "Start not listed"} to ${endYear || "End not listed"}` : "Dates not listed";
                     return (
                       <div
                         key={`${entry.school}-${index}`}
@@ -1279,7 +1291,7 @@ export function CandidateDrawer({
                             <p className="mt-0.5 text-[12px] text-ui-text-muted">{dateLabel}</p>
                           )}
                           {entry.summary && (
-                            <p className="mt-1.5 text-[13px] leading-5 text-ui-text-secondary line-clamp-3">
+                            <p className="mt-1.5 whitespace-pre-line text-[13px] leading-5 text-ui-text-secondary">
                               {entry.summary}
                             </p>
                           )}

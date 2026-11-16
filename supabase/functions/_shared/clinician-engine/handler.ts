@@ -1052,6 +1052,9 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             start_date: edu.start_date ?? null,
             end_date: edu.end_date ?? null,
             school_logo_url: edu.institute_logo_url ?? null,
+            description: edu.description ?? edu.summary ?? null,
+            activities_and_societies: edu.activities_and_societies ?? edu.activities ?? null,
+            grade: edu.grade ?? null,
           }));
         return {
           id: p.person_id ?? p.linkedin_profile_url ?? null,
