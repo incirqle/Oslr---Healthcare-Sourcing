@@ -65,7 +65,6 @@ function suggestionsFor(roleClass: string | null | undefined, specialties: strin
  * drift (2026-10-13: a v4 UI ran a v3 engine and every number on the page
  * was wrong). When the response names a different build, say so.
  */
-const EXPECTED_ENGINE_VERSION = "crustdata_clin_v8";
 
 const EMPTY_FILTERS: ParsedFilters = {
   job_titles: [],
@@ -128,7 +127,6 @@ export default function SearchPage() {
   const [revealedCount, setRevealedCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [totalIsEstimate, setTotalIsEstimate] = useState(false);
-  const [engineVersion, setEngineVersion] = useState<string | null>(null);
   const [filteredBreakdown, setFilteredBreakdown] = useState<Record<string, number> | null>(null);
   const [browsableTotal, setBrowsableTotal] = useState(0);
   const [hiddenCandidates, setHiddenCandidates] = useState<Candidate[]>([]);
@@ -535,7 +533,6 @@ export default function SearchPage() {
     if (targetPage === 1) setResultsTab("results");
     setTotal(mapped.length);
     setTotalIsEstimate(false);
-    setEngineVersion(typeof data.engine_version === "string" ? data.engine_version : null);
     setFilteredBreakdown(data.filtered && typeof data.filtered === "object" ? data.filtered : null);
     setBrowsableTotal(mapped.length);
     setHasMore(false);
@@ -751,13 +748,6 @@ export default function SearchPage() {
 
         {step === "results" && (
           <div className="space-y-5">
-            {engineVersion && engineVersion !== EXPECTED_ENGINE_VERSION && (
-              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200">
-                The search engine that answered is build <span className="font-mono">{engineVersion}</span>, but this
-                page was built for <span className="font-mono">{EXPECTED_ENGINE_VERSION}</span>. Counts, filters and
-                paging may be wrong until the search functions are redeployed.
-              </div>
-            )}
             {searchPhase === "done" && keptCount > 0 && (
               <div className="sticky top-14 z-30 flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm backdrop-blur-xl">
                 <div className="min-w-0 flex-1">

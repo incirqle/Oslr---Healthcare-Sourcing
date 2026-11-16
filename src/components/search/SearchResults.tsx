@@ -276,13 +276,21 @@ function MiddleColumn({
       {(() => {
         const start = typeof candidate.raw?.job_start_date === "string" ? (candidate.raw.job_start_date as string) : null;
         const isTrainee = /\b(resident|residency|fellow|intern)\b/i.test(candidate.title ?? "");
-        const yr = isTrainee ? estimateTrainingYear(start) : null;
+        const statedText = `${candidate.title ?? ""} ${typeof candidate.raw?.headline === "string" ? candidate.raw.headline : ""} ${typeof candidate.raw?.summary === "string" ? candidate.raw.summary : ""} ${candidate.audit_evidence ?? ""}`;
+        const stated = statedText.match(/\bPGY[\s-]?([1-9])\b/i);
+        const statedYr = stated ? Number(stated[1]) : null;
+        const yr = statedYr ?? (isTrainee ? estimateTrainingYear(start) : null);
         const fellow = /\bfellow/i.test(candidate.title ?? "");
         return (
+          <>
           <p className="text-[13px] text-foreground/60">
             {start ? `Started ${formatDateLabelSmart(start)}` : "Start date not listed"}
-            {yr ? ` · ${fellow ? `Fellowship year ${yr}` : `About PGY-${yr}`} (from start date)` : ""}
+            {yr ? ` · ${fellow ? `Fellowship year ${yr}` : `About PGY-${yr}`} ${statedYr ? "" : " (from start date)"}` : ""}
           </p>
+          {candidate.audit_verdict === "strong" && (candidate.audit_evidence || candidate.audit_reason) && (
+            <p className="text-[13px] text-primary">Why they match: {candidate.audit_evidence || candidate.audit_reason}</p>
+          )}
+          </>
         );
       })()}
       {candidate.location_note && (

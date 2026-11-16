@@ -377,7 +377,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           engine: "clinician",
           engine_version: CLINICIAN_ENGINE_VERSION,
           run_id: runId,
-          provider: "crustdata-v2",
           parsed, criteria, relaxed,
           exact: relaxed.length === 0,
           widen_options: [],
@@ -400,7 +399,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           engine: "clinician",
           engine_version: CLINICIAN_ENGINE_VERSION,
           run_id: runId,
-          provider: "crustdata-v2",
           parsed, criteria, relaxed,
           exact: relaxed.length === 0,
           widen_options: widenOptions(criteria),
@@ -430,7 +428,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           engine: "clinician",
           engine_version: CLINICIAN_ENGINE_VERSION,
           run_id: runId,
-          provider: "crustdata-v2",
           credits: 0,
           credits_session: getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS),
           credit_ceiling: CREDIT_CEILING,
@@ -473,7 +470,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             engine: "clinician",
             engine_version: CLINICIAN_ENGINE_VERSION,
             run_id: runId,
-            provider: "crustdata-v2",
             criteria, relaxed,
             exact: relaxed.length === 0,
             widen_options: [],
@@ -521,7 +517,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
               engine: "clinician",
               engine_version: CLINICIAN_ENGINE_VERSION,
               run_id: runId,
-              provider: "crustdata-v2",
               criteria, relaxed,
               exact: relaxed.length === 0,
               widen_options: [],
@@ -534,11 +529,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           return new Response(JSON.stringify({
             error: err.userMessage,
             ...searchErrorFields(err),
-            detail: `[crustdata.v2] search HTTP ${searchRes.status}: ${searchRes.detail.slice(0, 500)}`,
+            detail: `search HTTP ${searchRes.status}: ${searchRes.detail.slice(0, 500)}`,
             engine: "clinician",
             engine_version: CLINICIAN_ENGINE_VERSION,
             run_id: runId,
-            provider: "crustdata-v2",
             results: [], total: 0, page, size,
             hasMore: false, scroll_token: null,
             criteria, relaxed,
@@ -979,7 +973,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
 
       console.log(JSON.stringify({
         event: "search",
-        provider: "crustdata-v2",
         api_version: "2025-11-01",
         criteria_count: criteria.length,
         results: normalized.length,
@@ -1001,7 +994,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           engine: "clinician",
           engine_version: CLINICIAN_ENGINE_VERSION,
           run_id: runId,
-          provider: "crustdata-v2",
           criteria, relaxed,
           exact: relaxed.length === 0,
           widen_options: thinWidenOptions,
@@ -1296,7 +1288,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // UI can say "N hidden as poor matches" and let the recruiter reveal
       // them with the grader's reason attached. (A page that found people
       // and rendered blank was the Neuvora beta's #1 complaint.)
-      const isReject = (r: Record<string, unknown>) => r.audit_verdict === "reject";
+      // Weak grader verdicts (no evidence for the asked subspecialty, wrong
+      // training stage) join the hidden list too: revealable, never padding.
+      const isReject = (r: Record<string, unknown>) =>
+        r.audit_verdict === "reject" || (r.audit_verdict === "weak" && rankingCriteria.length > 0);
       const graderRows = allResults.filter(isReject);
       allResults = allResults.filter((r: Record<string, unknown>) => !isReject(r));
       // Set-aside rows, by reason, in the order the recruiter would want to
@@ -1466,7 +1461,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         engine: "clinician",
         engine_version: CLINICIAN_ENGINE_VERSION,
         run_id: runId,
-        provider: "crustdata-v2",
         // Echo the parsed payload: widen clicks re-send it as cached_parsed
         // so the positional criterion ids the widen targetIds point at stay
         // stable.
@@ -1515,7 +1509,6 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         engine: "clinician",
         engine_version: CLINICIAN_ENGINE_VERSION,
         run_id: runId,
-        provider: "crustdata-v2",
         criteria: resolvedCriteria,
         results: [],
         total: 0,
