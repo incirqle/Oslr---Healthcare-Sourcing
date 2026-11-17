@@ -18,7 +18,7 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // v9: evidence-based clinical timelines and current-stage filtering.
 // v10: stated-PGY-first ranking, fellow-safe senior-resident recall, ranked
 // clinical-interest evidence, and generic experience that includes training.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v11";
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v12";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

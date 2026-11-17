@@ -23,7 +23,7 @@ import {
   SEARCH_TTL_MS,
   setCrustDataCache,
 } from "./cache.ts";
-import { rankOutOfMarketLast } from "./market-fit.ts";
+import { removeOutOfMarket } from "./market-fit.ts";
 import { auditTier, runClinicianAudit, type AuditableResult, type AuditVerdict } from "./audit.ts";
 import {
   buildCriteriaResults,
@@ -1333,7 +1333,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             if (!v || v.level === "country") return [];
             return v.states?.length ? v.states : v.state ? [v.state] : [];
           });
-        allResults = rankOutOfMarketLast(allResults as Array<Record<string, unknown>>, searchStates) as typeof allResults;
+        allResults = removeOutOfMarket(allResults as Array<Record<string, unknown>>, searchStates).kept as typeof allResults;
       }
       const tagSetAside = (rows: Array<Record<string, unknown>>, reason: SetAsideReason) => {
         for (const r of rows) {
