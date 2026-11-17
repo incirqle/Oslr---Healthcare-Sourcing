@@ -1487,7 +1487,7 @@ Deno.test("recent graduate fellows build completed-training and practice-range g
   assertEquals(criteria.some((c) => c.kind === "job_change"), false);
   assertEquals(criteria.some((c) => c.kind === "role_class"), false);
   assertExists(criteria.find((c) => c.kind === "fellowship"));
-  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 0, max: 5 });
+  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 0, max: 5, basis: "post_training" });
   const allLeaves = leaves(buildClinicianQuery(criteria));
   assert(allLeaves.some((l) => l.field === "experience.employment_details.past.title" && l.value === "fellow"));
   assert(allLeaves.every((l) => l.field !== "recently_changed_jobs"));
@@ -1502,7 +1502,7 @@ Deno.test("trained-at hospital searches school and past training surfaces, not c
   }, "Circulating OR nurses with 12 years of experience who trained at Johns Hopkins Hospital");
   const criteria = mapParsedToCriteria(parsed);
   assertEquals(criteria.some((c) => c.kind === "company"), false);
-  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 12 });
+  assertEquals(criteria.find((c) => c.kind === "experience")?.value, { min: 12, basis: "clinical" });
   const training = criteria.find((c) => c.kind === "training_institution");
   assertExists(training);
   const allLeaves = leaves(buildClinicianQuery(criteria));

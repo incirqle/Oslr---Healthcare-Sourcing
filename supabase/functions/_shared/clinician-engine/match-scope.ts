@@ -36,13 +36,17 @@ export interface ScopedProfile<P> {
 interface EmploymentLike {
   title?: unknown;
   name?: unknown;
+  company_name?: unknown;
+  summary?: unknown;
   is_default?: unknown;
   start_date?: unknown;
   end_date?: unknown;
 }
 interface ProfileLike {
   current_employers?: unknown;
+  experience_history?: unknown;
   headline?: unknown;
+  summary?: unknown;
 }
 
 /**
@@ -148,39 +152,87 @@ export function stageStartWindow(
   return { from, to };
 }
 
-export function stageFit(
+export interface StageAssessment {
+  fit: StageFit;
+  evidence: string;
+  stated_years: number[];
+}
+
+function statedPgyYears(value: unknown): number[] {
+  if (typeof value !== "string" || !value) return [];
+  const years = new Set<number>();
+  const expressions = value.match(/\bpgy[\s-]*(?:level[\s-]*)?\d+(?:\s*(?:,|and|or|\/|&)\s*(?:pgy[\s-]*)?\d+)*/gi) ?? [];
+  for (const expression of expressions) {
+    for (const match of expression.matchAll(/\d+/g)) {
+      const year = Number(match[0]);
+      if (year >= 1 && year <= 10) years.add(year);
+    }
+  }
+  return [...years];
+}
+
+/**
+ * Explicit PGY language beats date estimates. Fellows and chief residents
+ * remain in senior-resident searches because their role is direct evidence;
+ * date math alone never deletes research-year or chief-year candidates.
+ */
+export function assessStageFit(
   profile: unknown,
   stage: TrainingStageValue,
   now: Date = new Date(),
-): StageFit {
+): StageAssessment {
   const years = stage.years && stage.years.length > 0 ? stage.years : stage.year ? [stage.year] : [];
-  if (years.length === 0) return "unknown";
-  const emp = primaryEmployment(profile);
-  // The stage-matching role may be a secondary entry; check every current
-  // employment whose title matches a stage term, preferring the primary.
-  const cur = ((profile as ProfileLike | null)?.current_employers ?? []) as EmploymentLike[];
-  // Match on the stage's title terms OR the stage's root word: a stale
-  // "Chief Resident- Podiatric Medicine & Surgery" entry (probe A) matches
-  // no profession-qualified phrase but is unmistakably a residency role, and
-  // its 2010 start date is exactly what this check exists to catch.
+  if (years.length === 0) return { fit: "unknown", evidence: "Training year not requested", stated_years: [] };
+  const p = profile as ProfileLike | null;
+  const cur = (p?.current_employers ?? []) as EmploymentLike[];
+  const requestedStages = new Set(stage.stages && stage.stages.length > 0 ? stage.stages : [stage.stage]);
+  const fellowIsSeniorMatch = stage.senior_fellow_recall === true ||
+    (requestedStages.has("residency") && !requestedStages.has("fellowship"));
+  if (fellowIsSeniorMatch) requestedStages.add("fellowship");
   const STAGE_ROOT: Record<string, string> = {
     residency: "resident",
     fellowship: "fellow",
     internship: "intern",
     medical_school: "student",
   };
-  const roots = (stage.stages && stage.stages.length > 0 ? stage.stages : [stage.stage])
-    .map((stageName) => STAGE_ROOT[stageName] ?? "");
-  const stageTitleHit = (e: EmploymentLike) => {
-    const t = typeof e.title === "string" ? e.title.toLowerCase() : "";
-    if (roots.some((root) => root && t.includes(root))) return true;
-    return stage.title_terms.some((term) => t.includes(term.toLowerCase()));
+  const roots = [...requestedStages].map((stageName) => STAGE_ROOT[stageName] ?? "");
+  const roleStage = (e: EmploymentLike): string | null => {
+    const t = `${typeof e.title === "string" ? e.title : ""} ${typeof e.name === "string" ? e.name : ""} ${typeof e.company_name === "string" ? e.company_name : ""}`.toLowerCase();
+    for (const stageName of requestedStages) {
+      const root = STAGE_ROOT[stageName] ?? "";
+      if (root && t.includes(root)) return stageName;
+    }
+    return stage.title_terms.some((term) => t.includes(term.toLowerCase())) ? stage.stage : null;
   };
-  const candidates = [emp, ...cur].filter(
-    (e): e is EmploymentLike => !!e && stageTitleHit(e),
-  );
-  if (candidates.length === 0) return "unknown";
+  const candidates = cur.filter((e) => !!e && roleStage(e) !== null);
+  if (candidates.length === 0) return { fit: "unknown", evidence: "Current training role is not dated", stated_years: [] };
+
+  const globalText = [p?.headline, p?.summary].filter((v): v is string => typeof v === "string").join(" ");
+  const globalYears = statedPgyYears(globalText);
   let sawDate = false;
+  let sawStatedOutside = false;
+  const allStated = new Set<number>(globalYears);
+  for (const e of candidates) {
+    const title = typeof e.title === "string" ? e.title : "";
+    const currentStage = roleStage(e);
+    if (currentStage === "fellowship" && fellowIsSeniorMatch) {
+      return { fit: "in_window", evidence: `${title || "Current fellow"} — included as a relevant senior-training match`, stated_years: [...allStated] };
+    }
+    if (currentStage === "residency" && /\bchief\s+resident\b/i.test(title) && years.some((year) => year >= 4)) {
+      return { fit: "in_window", evidence: `${title} — chief-resident evidence; no date cutoff applied`, stated_years: [...allStated] };
+    }
+    const stated = [...new Set([...statedPgyYears(title), ...statedPgyYears(e.summary), ...globalYears])];
+    stated.forEach((year) => allStated.add(year));
+    const direct = stated.find((year) => years.includes(year));
+    if (direct !== undefined) {
+      return { fit: "in_window", evidence: `${title || "Current training role"} states PGY-${direct}`, stated_years: [...allStated] };
+    }
+    if (stated.length > 0) sawStatedOutside = true;
+  }
+  // A stated year is stronger than a conflicting estimate from role dates.
+  if (sawStatedOutside) {
+    return { fit: "out_of_window", evidence: `Profile states ${[...allStated].map((year) => `PGY-${year}`).join(" / ")} rather than ${years.map((year) => `PGY-${year}`).join(" / ")}`, stated_years: [...allStated] };
+  }
   for (const e of candidates) {
     const raw = typeof e.start_date === "string" ? e.start_date : null;
     if (!raw) continue;
@@ -190,9 +242,29 @@ export function stageFit(
     if (years.some((year) => {
       const { from, to } = stageStartWindow(year, now);
       return started >= from && started <= to;
-    })) return "in_window";
+    })) {
+      return {
+        fit: "in_window",
+        evidence: `${typeof e.title === "string" && e.title ? e.title : "Current training role"} started ${raw.slice(0, 7)} — estimated ${years.map((year) => `PGY-${year}`).join(" / ")} from the listed start date`,
+        stated_years: [...allStated],
+      };
+    }
   }
-  return sawDate ? "out_of_window" : "unknown";
+  return {
+    fit: sawDate ? "out_of_window" : "unknown",
+    evidence: sawDate
+      ? "Listed start dates suggest another training year; research years and title resets can make this estimate imprecise"
+      : "Current training role has no start date or stated PGY year",
+    stated_years: [...allStated],
+  };
+}
+
+export function stageFit(
+  profile: unknown,
+  stage: TrainingStageValue,
+  now: Date = new Date(),
+): StageFit {
+  return assessStageFit(profile, stage, now).fit;
 }
 
 /**
@@ -214,9 +286,11 @@ export function rankByStageFit<R extends Record<string, unknown>>(
   const tierOf = (fit: StageFit) => (fit === "in_window" ? 0 : fit === "unknown" ? 1 : 2);
   return rows
     .map((row, i) => {
-      const fit = stageFit(row, stage, now);
-      (row as Record<string, unknown>).stage_fit = fit;
-      return { row, tier: tierOf(fit), i };
+      const assessment = assessStageFit(row, stage, now);
+      (row as Record<string, unknown>).stage_fit = assessment.fit;
+      (row as Record<string, unknown>).stage_evidence = assessment.evidence;
+      (row as Record<string, unknown>).stated_pgy_years = assessment.stated_years;
+      return { row, tier: tierOf(assessment.fit), i };
     })
     .sort((a, b) => a.tier - b.tier || a.i - b.i)
     .map(({ row }) => row);

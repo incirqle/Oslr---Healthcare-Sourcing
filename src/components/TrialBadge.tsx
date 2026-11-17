@@ -13,7 +13,7 @@ export function TrialBadge() {
     refetchInterval: 60_000,
     queryFn: async () => {
       const { data } = await supabase.rpc("beta_status");
-      return (Array.isArray(data) ? data[0] : null) as Trial | null;
+      return (Array.isArray(data) ? data[0] ?? null : null) as Trial | null;
     },
   });
   if (!data?.active) return null;

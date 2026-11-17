@@ -55,7 +55,7 @@ Deno.test("agents withhold graduated fellows from current-fellow briefs", () => 
   assertEquals(quality.eligible, false);
 });
 
-Deno.test("agents do not count residency and fellowship toward requested practice experience", () => {
+Deno.test("agents count supervised training for generic experience but not post-training windows", () => {
   const profile = {
     raw: {
       audit_verdict: "strong",
@@ -67,8 +67,9 @@ Deno.test("agents do not count residency and fellowship toward requested practic
       ],
     },
   };
-  assertEquals(agentMatchQuality(profile, { min_years_experience: 5 }).eligible, false);
-  assertEquals(agentMatchQuality(profile, { min_years_experience: 2, max_years_experience: 5 }).eligible, true);
+  assertEquals(agentMatchQuality(profile, { min_years_experience: 5 }).eligible, true);
+  assertEquals(agentMatchQuality(profile, { min_years_experience: 2, max_years_experience: 5 }).eligible, false);
+  assertEquals(agentMatchQuality(profile, { min_years_experience: 2, max_years_experience: 5, experience_basis: "post_training_clinical_roles" }).eligible, true);
 });
 
 import { normalizeClinicalIntent } from "../clinician-engine/clinical-intent.ts";

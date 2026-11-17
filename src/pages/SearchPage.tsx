@@ -491,10 +491,12 @@ export default function SearchPage() {
       military_affiliation: (r.military_affiliation as string | null | undefined) ?? null,
       location_note: (r.location_note as string | null | undefined) ?? null,
       inferred_salary: null,
-      years_experience: r.active_practice_years ?? r.years_experience ?? r.inferred_years_experience ?? null,
-      active_practice_years: r.active_practice_years ?? r.years_experience ?? null,
+      years_experience: r.clinical_experience_years ?? r.years_experience ?? r.inferred_years_experience ?? null,
+      active_practice_years: r.active_practice_years ?? null,
+      clinical_experience_years: r.clinical_experience_years ?? r.years_experience ?? null,
       training_years: r.training_years ?? null,
       active_practice_since: r.active_practice_since ?? null,
+      clinical_experience_since: r.clinical_experience_since ?? null,
       training_since: r.training_since ?? null,
       experience_basis: r.experience_basis ?? null,
       experience_evidence: r.experience_evidence ?? null,
@@ -507,6 +509,8 @@ export default function SearchPage() {
       audit_score: r.audit_score ?? null,
       match_scope: r.match_scope ?? null,
       stage_fit: r.stage_fit ?? null,
+      stage_evidence: r.stage_evidence ?? null,
+      stated_pgy_years: Array.isArray(r.stated_pgy_years) ? r.stated_pgy_years : [],
       employment_model: r.employment_model ?? null,
       employment_model_evidence: r.employment_model_evidence ?? null,
       military_evidence: r.military_evidence ?? null,
@@ -543,18 +547,8 @@ export default function SearchPage() {
     setSearchPhase("done");
     if (targetPage === 1) addEntry(q, mapped.length);
 
-    // Progressive reveal of the first page only.
-    const firstPage = Math.min(mapped.length, pageSize);
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || firstPage === 0) {
-      setRevealedCount(firstPage);
-    } else {
-      setRevealedCount(0);
-      const stepMs = Math.max(60, Math.min(150, 1500 / Math.max(firstPage, 1)));
-      for (let i = 0; i < firstPage; i++) {
-        setTimeout(() => setRevealedCount((c) => Math.max(c, i + 1)), 400 + i * stepMs);
-      }
-    }
+    // Results are ready now: never gate them behind a reveal timer.
+    setRevealedCount(Math.min(mapped.length, pageSize));
   };
 
   const handleSaveCandidates = async (

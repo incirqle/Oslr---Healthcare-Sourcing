@@ -15,7 +15,10 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // evidence shared by fresh/cached searches and Agents.
 // v7: completed-fellowship searches exclude current trainees deterministically.
 // v8: the operating-room abbreviation does not imply a surgery-center setting.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v9";
+// v9: evidence-based clinical timelines and current-stage filtering.
+// v10: stated-PGY-first ranking, fellow-safe senior-resident recall, ranked
+// clinical-interest evidence, and generic experience that includes training.
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v11";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

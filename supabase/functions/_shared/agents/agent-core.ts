@@ -73,6 +73,8 @@ export function flattenRow(r: Record<string, unknown>): Record<string, unknown> 
     match_rate: r.match_rate ?? null,
     audit_score: r.audit_score ?? null,
     active_practice_years: r.active_practice_years ?? null,
+    clinical_experience_years: r.clinical_experience_years ?? null,
+    clinical_experience_since: r.clinical_experience_since ?? null,
     training_years: r.training_years ?? null,
     experience_basis: r.experience_basis ?? null,
     experience_evidence: r.experience_evidence ?? null,

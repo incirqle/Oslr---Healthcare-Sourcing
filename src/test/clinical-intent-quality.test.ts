@@ -47,14 +47,16 @@ describe("clinical terminology normalization", () => {
     expect(pgyYears(query)).toEqual(expected);
   });
 
-  it("keeps the working NYC orthopedic resident search resident-only", () => {
+  it("keeps senior orthopedic residents and recalls relevant current fellows", () => {
     const parsed = normalizeClinicalIntent({}, "PGY-4 and PGY-5 orthopedic residents in New York City");
-    expect(parsed.role_class).toBe("resident");
+    expect(parsed.role_class).toBeNull();
+    expect(parsed.role_classes).toEqual(["resident", "fellow"]);
     expect(parsed.training_stage).toMatchObject({
       stage: "residency",
-      stages: ["residency"],
+      stages: ["residency", "fellowship"],
       professions: ["orthopedic surgery"],
       years: [4, 5],
+      senior_fellow_recall: true,
     });
   });
 
@@ -98,9 +100,20 @@ describe("clinical terminology normalization", () => {
     expect(normalizeClinicalIntent({}, "seasoned nurses")).toMatchObject({ min_years_experience: 10, max_years_experience: null });
   });
 
-  it("turns exact experience into a bounded practice range and preserves explicit ranges", () => {
-    expect(normalizeClinicalIntent({}, "circulating nurses with 12 years of experience")).toMatchObject({ min_years_experience: 11, max_years_experience: 13 });
+  it("uses plain experience as a minimum and preserves only explicit ceilings", () => {
+    expect(normalizeClinicalIntent({ min_years_experience: 11, max_years_experience: 13 }, "circulating nurses with 12 years of experience")).toMatchObject({ min_years_experience: 12, max_years_experience: null, experience_basis: "clinical_roles_including_training" });
+    expect(normalizeClinicalIntent({}, "nurses with 5+ years of experience")).toMatchObject({ min_years_experience: 5, max_years_experience: null });
+    expect(normalizeClinicalIntent({}, "nurses with at least 5 years in practice")).toMatchObject({ min_years_experience: 5, max_years_experience: null });
     expect(normalizeClinicalIntent({ min_years_experience: 5, max_years_experience: 10 }, "nurses with 5 to 10 years of experience")).toMatchObject({ min_years_experience: 5, max_years_experience: 10 });
+    expect(normalizeClinicalIntent({}, "nurses with up to 5 years of experience")).toMatchObject({ min_years_experience: 0, max_years_experience: 5 });
+    expect(normalizeClinicalIntent({}, "physicians with 2 to 5 years of post-training practice")).toMatchObject({ min_years_experience: 2, max_years_experience: 5, experience_basis: "post_training_clinical_roles" });
+  });
+
+  it("ranks sports-medicine interest across profile evidence instead of requiring a current sports job", () => {
+    const parsed = normalizeClinicalIntent({}, "PGY-4/5 orthopedic residents in New York City interested in sports medicine");
+    expect(parsed.specialty_tense).toBe("any");
+    expect(parsed.specialty_evidence_mode).toBe("interest");
+    expect(parsed.training_stage).toMatchObject({ years: [4, 5], professions: ["orthopedic surgery"] });
   });
 
   it("moves a training hospital out of current employers", () => {

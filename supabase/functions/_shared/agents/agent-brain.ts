@@ -65,7 +65,11 @@ export function agentMatchQuality(
   const min = typeof intent?.min_years_experience === "number" ? intent.min_years_experience : null;
   const max = typeof intent?.max_years_experience === "number" ? intent.max_years_experience : null;
   if (min !== null || max !== null) {
-    const fit = experienceFit(raw, { min, max });
+    const fit = experienceFit(raw, {
+      min,
+      max,
+      basis: intent?.experience_basis === "post_training_clinical_roles" ? "post_training" : "clinical",
+    });
     if (fit.status === "not_met" || fit.status === "partial") {
       return { eligible: false, reason: fit.evidence };
     }

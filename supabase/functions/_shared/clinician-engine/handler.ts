@@ -25,6 +25,7 @@ import {
 } from "./cache.ts";
 import { auditTier, runClinicianAudit, type AuditableResult, type AuditVerdict } from "./audit.ts";
 import {
+  applyClinicalInterestEvidenceGate,
   buildCriteriaResults,
   type CriterionResult,
   type GraderCriterionResult,
@@ -1117,7 +1118,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         });
       }
       const trainingRows = [...trainingSplit.rejected, ...stillTraining] as unknown as typeof allResults;
-      const experienceRange = criteria.find((c) => c.kind === "experience" && c.enforcement === "hard")?.value as { min?: number; max?: number } | undefined;
+      const experienceRange = criteria.find((c) => c.kind === "experience" && c.enforcement === "hard")?.value as { min?: number; max?: number; basis?: "clinical" | "post_training" } | undefined;
       const experienceSplit = splitExperienceRows(allResults as Array<Record<string, unknown>>, experienceRange);
       allResults = experienceSplit.clean as unknown as typeof allResults;
       const experienceRows = experienceSplit.rejected as unknown as typeof allResults;
@@ -1283,6 +1284,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
+      allResults = applyClinicalInterestEvidenceGate(allResults as Array<Record<string, unknown>>, criteria) as unknown as typeof allResults;
+
       // Rejects leave the main list and the count, but they are never
       // discarded silently: they ride the response as hidden_results so the
       // UI can say "N hidden as poor matches" and let the recruiter reveal
@@ -1291,7 +1294,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // Weak grader verdicts (no evidence for the asked subspecialty, wrong
       // training stage) join the hidden list too: revealable, never padding.
       const isReject = (r: Record<string, unknown>) =>
-        r.audit_verdict === "reject" || (r.audit_verdict === "weak" && rankingCriteria.length > 0);
+        r.interest_reviewable !== true &&
+        (r.audit_verdict === "reject" || (r.audit_verdict === "weak" && rankingCriteria.length > 0));
       const graderRows = allResults.filter(isReject);
       allResults = allResults.filter((r: Record<string, unknown>) => !isReject(r));
       // Set-aside rows, by reason, in the order the recruiter would want to

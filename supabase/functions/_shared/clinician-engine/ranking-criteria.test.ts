@@ -4,6 +4,7 @@
 
 import { assert, assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
+  applyClinicalInterestEvidenceGate,
   buildCriteriaResults,
   type CriterionResult,
   type CriterionStatus,
@@ -11,7 +12,7 @@ import {
   resolveCriterion,
   scoreRow,
 } from "./ranking-criteria.ts";
-import { parseAuditVerdicts } from "./audit.ts";
+import { AUDIT_SYSTEM_PROMPT, buildAuditUserMessage, parseAuditVerdicts } from "./audit.ts";
 import type { SearchCriteria } from "./clinician-criteria.ts";
 
 const rc = (id: string, position: number, must_have = false): RankingCriterion => ({
@@ -55,8 +56,8 @@ const crit = (kind: SearchCriteria["kind"], value: unknown): SearchCriteria => (
 Deno.test("5. resolver training_stage", () => {
   const c = crit("training_stage", { profession: null, stage: "residency", year: 3, title_terms: [] });
   assertEquals(resolveCriterion(c, { stage_fit: "in_window", job_start_date: "2024-07-01" })?.status, "met");
-  assertEquals(resolveCriterion(c, { stage_fit: "out_of_window" })?.status, "not_met");
-  assertEquals(resolveCriterion(c, { stage_fit: "unknown" }), null);
+  assertEquals(resolveCriterion(c, { stage_fit: "out_of_window", stage_evidence: "Start-date estimate only" })?.status, "partial");
+  assertEquals(resolveCriterion(c, { stage_fit: "unknown" })?.status, "unknown");
 });
 
 Deno.test("6. resolver employment_model", () => {
@@ -96,6 +97,39 @@ Deno.test("8. missing criteria key -> every Preferred result unknown, row kept",
   const results = buildCriteriaResults({}, [], ranking, new Map(), new Map(), v.criteria, { kept: true });
   assertEquals(results.map((r) => r.status), ["unknown", "unknown", "unknown", "unknown"]);
   assertEquals(scoreRow(results, ranking).must_have_failed, []);
+});
+
+Deno.test("audit rules keep fellows, stated PGY evidence and clinical-interest breadcrumbs", () => {
+  assert(AUDIT_SYSTEM_PROMPT.includes("A current fellow can be a strong match"));
+  assert(AUDIT_SYSTEM_PROMPT.includes("GENERIC YEARS OF EXPERIENCE count dated clinical work"));
+  const message = buildAuditUserMessage(
+    "PGY-4/5 orthopedic residents interested in sports medicine",
+    [{ ...crit("specialty", { terms: ["sports medicine"], tense: "any", subspecialty: { label: "Sports Medicine", siblings: ["hand"] } }), note: "Clinical interest is ranked from profile evidence" }],
+    [{ full_name: "Example Resident", stage_evidence: "Orthopaedic Surgery Resident PGY-4 states PGY-4" }],
+    0,
+  );
+  assert(message.includes("CLINICAL INTEREST (ranked evidence): Sports Medicine"));
+  assert(message.includes("training-year evidence: Orthopaedic Surgery Resident PGY-4 states PGY-4"));
+});
+
+Deno.test("clinical-interest gate removes unsupported strong rows and restores evidence-backed fellows", () => {
+  const interest = {
+    ...crit("specialty", { terms: ["sports medicine"], tense: "any", subspecialty: { label: "Sports Medicine", education_terms: ["sports medicine"], siblings: [] } }),
+    note: "Clinical interest is ranked from profile evidence",
+  };
+  const stage = { ...crit("training_stage", { stage: "residency", years: [4, 5], senior_fellow_recall: true, title_terms: [] }), enforcement: "hard" as const };
+  const rows: Array<Record<string, any>> = [
+    { full_name: "No evidence", audit_verdict: "strong", audit_score: 85, audit_criteria: [{ criterion_id: "c1", status: "unknown", evidence: null, section: null }] },
+    { full_name: "Sports fellow", audit_verdict: "weak", audit_score: 60, audit_reason: "Current fellow; completed residency", stage_fit: "in_window", evidence_snippet: "Orthopaedic Surgery Sports Medicine Fellow" },
+    { full_name: "Related fellow", audit_verdict: "weak", audit_score: 55, audit_reason: "Clinical fellow with another fellowship focus", stage_fit: "in_window", audit_criteria: [{ criterion_id: "c1", status: "partial", evidence: "Diploma in Sports and Exercise Medicine", section: "edu1" }] },
+  ];
+  applyClinicalInterestEvidenceGate(rows, [interest, stage]);
+  assertEquals(rows[0].audit_verdict, "weak");
+  assertEquals(rows[0].interest_reviewable, false);
+  assertEquals(rows[1].audit_verdict, "strong");
+  assertEquals(rows[1].interest_reviewable, true);
+  assertEquals(rows[2].audit_verdict, "weak");
+  assertEquals(rows[2].interest_reviewable, true);
 });
 
 Deno.test("9. training institution resolver requires school or clinical training evidence", () => {

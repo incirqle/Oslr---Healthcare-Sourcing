@@ -21,7 +21,7 @@ function role(title: string, start_date: string | null, end_date: string | null,
   return { title, company_name: "Example Medical Center", start_date, end_date, is_primary };
 }
 
-Deno.test("practice experience excludes college research, residency and fellowship", () => {
+Deno.test("post-training practice excludes college research while generic clinical experience includes training", () => {
   const result = clinicalTimeline({
     experience_history: [
       role("Orthopedic Surgeon", "2022-08-01", null, true),
@@ -31,8 +31,10 @@ Deno.test("practice experience excludes college research, residency and fellowsh
     ],
   }, NOW);
   assertEquals(result.active_practice_years, 4);
+  assertEquals(result.clinical_experience_years, 10);
   assertEquals(result.training_years, 6);
   assertEquals(result.active_practice_since, "2022-08-01");
+  assertEquals(result.clinical_experience_since, "2016-07-01");
   assert(!result.experience_evidence?.includes("2012"));
 });
 
@@ -52,11 +54,12 @@ Deno.test("unknown practice dates stay unknown instead of becoming zero or a car
   assertEquals(experienceFit({ experience_history: [role("Orthopedic Surgeon", null, null, true)] }, { min: 2, max: 5 }, NOW).status, "unknown");
 });
 
-Deno.test("two-to-five-year searches use independent practice rather than training time", () => {
+Deno.test("post-training windows exclude training while generic experience includes it", () => {
   const row = { experience_history: [role("Orthopedic Surgeon", "2024-07-01", null, true), role("Sports Medicine Fellow", "2023-07-01", "2024-06-30")] };
-  assertEquals(experienceFit(row, { min: 2, max: 5 }, NOW).status, "met");
+  assertEquals(experienceFit(row, { min: 2, max: 5, basis: "post_training" }, NOW).status, "met");
+  assertEquals(experienceFit(row, { min: 2, max: 5, basis: "clinical" }, NOW).status, "met");
   const senior = { experience_history: [role("Orthopedic Surgeon", "2010-07-01", null, true), role("Sports Medicine Fellow", "2009-07-01", "2010-06-30")] };
-  assertEquals(experienceFit(senior, { min: 2, max: 5 }, NOW).status, "not_met");
+  assertEquals(experienceFit(senior, { min: 2, max: 5, basis: "post_training" }, NOW).status, "not_met");
 });
 
 Deno.test("a past fellow who is now an attending is not a current fellow", () => {
@@ -177,7 +180,7 @@ Deno.test("hard practice ranges reject known misses but retain unknown timelines
     practicing("2025-07-01"),
     practicing("2010-07-01"),
     { experience_history: [role("Orthopedic Surgeon", null, null, true)] },
-  ], { min: 2, max: 5 }, NOW);
+  ], { min: 2, max: 5, basis: "post_training" }, NOW);
   // One year short is a visible partial match; far misses are rejected.
   assertEquals(split.clean.length, 4);
   assertEquals(split.rejected.length, 1);
@@ -195,18 +198,29 @@ Deno.test("residency duration uses the requested profession rather than a univer
   assertEquals(assessCurrentTraining(row, residency, NOW).eligible, true);
 });
 
-// ---- Career stage: experience asks never serve trainees or students ----
+// ---- Career stage: generic experience counts training; students never count ----
 import { careerStage as __stage, experienceFit as __fit } from "./clinical-timeline.ts";
 const __now = new Date("2026-11-01T00:00:00Z");
-Deno.test("resident with 12 years of total history fails a 12-year experience ask", () => {
+Deno.test("resident without 12 years of clinical work fails a 12-year experience ask on evidence", () => {
   const p = { current_employers: [{ title: "Orthopaedic Surgery Resident PGY-4", company_name: "NYU Langone", start_date: "2022-07-01" }],
     past_employers: [{ title: "Research Assistant", company_name: "Columbia", start_date: "2014-06-01", end_date: "2018-05-01" }] };
   if (__stage(p) !== "trainee") throw new Error("expected trainee");
   if (__fit(p, { min: 12 }, __now).status !== "not_met") throw new Error("resident must not pass");
 });
-Deno.test("current fellow fails an experience ask", () => {
+Deno.test("current fellow with insufficient dated clinical work fails an experience ask", () => {
   const p = { current_employers: [{ title: "Foot and Ankle Fellow", company_name: "OrthoCarolina", start_date: "2026-08-01" }] };
   if (__fit(p, { min: 5 }, __now).status !== "not_met") throw new Error("fellow must not pass");
+});
+Deno.test("residency and fellowship count toward generic experience but not a recent-graduate window", () => {
+  const p = {
+    current_employers: [{ title: "Sports Medicine Fellow", company_name: "Example", start_date: "2026-07-01", end_date: null, is_primary: true }],
+    experience_history: [
+      { title: "Sports Medicine Fellow", company_name: "Example", start_date: "2026-07-01", end_date: null, is_primary: true },
+      { title: "Orthopedic Surgery Resident", company_name: "Example", start_date: "2020-07-01", end_date: "2026-06-30" },
+    ],
+  };
+  assertEquals(__fit(p, { min: 5 }, __now).status, "met");
+  assertEquals(__fit(p, { min: 0, max: 5, basis: "post_training" }, __now).status, "not_met");
 });
 Deno.test("medical student fails an experience ask", () => {
   const p = { current_employers: [{ title: "Medical Student", company_name: "Harvard Medical School", start_date: "2023-08-01" }] };

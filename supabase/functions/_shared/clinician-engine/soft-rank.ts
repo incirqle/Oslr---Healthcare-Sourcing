@@ -44,6 +44,9 @@ export interface SoftRankRow {
     school_name?: string | null;
     degrees?: string[];
     majors?: string[];
+    description?: string | null;
+    activities_and_societies?: string | null;
+    grade?: string | null;
   }> | null;
   /** Already-returned research text; no research provider call is made. */
   research_text?: string | null;
@@ -72,7 +75,7 @@ function surfaces(row: SoftRankRow): Array<{ name: string; text: string }> {
     if (s(e?.summary)) out.push({ name: "role description", text: s(e!.summary) });
   }
   for (const ed of row.education ?? []) {
-    const text = [s(ed?.school_name), ...(ed?.degrees ?? []), ...(ed?.majors ?? [])].join(" ");
+    const text = [s(ed?.school_name), ...(ed?.degrees ?? []), ...(ed?.majors ?? []), s(ed?.description), s(ed?.activities_and_societies), s(ed?.grade)].join(" ");
     if (text.trim()) out.push({ name: "education", text });
   }
   return out.map((x) => ({ name: x.name, text: x.text.toLowerCase() }));
@@ -87,7 +90,7 @@ export function findEvidence(
     s(row.headline), s(row.job_title), s(row.summary), s(row.research_text),
     ...(row.experience_history ?? []).flatMap((e) => [s(e?.title), s(e?.summary)]),
     ...(row.education ?? []).flatMap((ed) => [
-      [s(ed?.school_name), ...(ed?.degrees ?? []), ...(ed?.majors ?? [])].join(", "),
+      [s(ed?.school_name), ...(ed?.degrees ?? []), ...(ed?.majors ?? []), s(ed?.description), s(ed?.activities_and_societies), s(ed?.grade)].join(", "),
     ]),
   ].filter(Boolean);
   for (const text of raw) {
@@ -232,12 +235,13 @@ export function scoreSoftCriteria(
 function evidenceTerms(criteria: SearchCriteria[]): string[] {
   const out: string[] = [];
   for (const c of criteria) {
-    if (c.enforcement !== "hard") continue;
+    const interestEvidence = c.kind === "specialty" && c.enforcement === "soft" && c.note?.startsWith("Clinical interest");
+    if (c.enforcement !== "hard" && !interestEvidence) continue;
     if (c.kind === "credential") {
       out.push(...(c.value as CredentialValue).any_of);
     } else if (c.kind === "specialty") {
       const v = c.value as SpecialtyValue | string[];
-      if (!Array.isArray(v) && v.subspecialty) out.push(...v.terms);
+      if (!Array.isArray(v) && v.subspecialty && (c.enforcement === "hard" || c.note?.startsWith("Clinical interest"))) out.push(...v.terms);
     } else if (c.kind === "fellowship") {
       out.push("fellowship");
     }

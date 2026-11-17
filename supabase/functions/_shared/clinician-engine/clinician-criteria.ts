@@ -488,6 +488,8 @@ export interface EmployerGroupValue {
 export interface ExperienceValue {
   min?: number;
   max?: number;
+  /** Generic clinical work includes supervised training; graduate windows do not. */
+  basis?: "clinical" | "post_training";
 }
 
 /** Years in the current role — same range semantics. */
@@ -579,6 +581,8 @@ export interface TrainingStageValue {
   year: number | null;
   /** Every explicit year in PGY-4/5 or PGY4 and PGY5. */
   years?: number[];
+  /** Senior-resident ask also recalls current fellows as relevant matches. */
+  senior_fellow_recall?: boolean;
   /** Title match terms for the hard gate (probed variants; see vocabulary). */
   title_terms: string[];
 }
@@ -1254,13 +1258,14 @@ export function mapParsedToCriteria(
           stages,
           year,
           years,
+          senior_fellow_recall: row.senior_fellow_recall === true,
           title_terms,
         },
         enforcement: "hard",
         source: "user",
         evidenceSource: "search",
         note: years.length > 0
-          ? "Stage is matched across titles, headlines, role descriptions and education. Each stated year is verified from role start dates by the ranking layer and AI grader."
+          ? "Current stage is required. Stated PGY evidence ranks first; start-date estimates, chief-year resets, research years, undated residents and relevant fellows stay reviewable rather than being cut by date math."
           : undefined,
       });
     }
@@ -1325,6 +1330,7 @@ export function mapParsedToCriteria(
   // criterion, matching the reference engine's behavior.
   const specialtyTense: SpecialtyTense =
     parsed.specialty_tense === "any" ? "any" : parsed.specialty_tense === "past" ? "past" : "current";
+  const interestEvidence = parsed.specialty_evidence_mode === "interest";
   const statedSpecialty = dedupe([
     ...(str(parsed.specialty) ? [str(parsed.specialty) as string] : []),
     ...strArr(parsed.specialties),
@@ -1365,11 +1371,12 @@ export function mapParsedToCriteria(
           siblings: [...hit.def.siblings],
         },
       },
-      enforcement: "hard",
+      enforcement: interestEvidence ? "soft" : "hard",
       source: "user",
       evidenceSource: "search",
-      note:
-        `Subspecialty: matched on procedure language, fellowship training, and role descriptions — not just titles. Sibling subspecialties (${hit.def.siblings.slice(0, 3).join(", ")}) rank lower.`,
+      note: interestEvidence
+        ? "Clinical interest is ranked from current or prior roles, research, publications, education, team coverage and profile text. Athletic history is a useful breadcrumb, not proof of specialty practice by itself."
+        : `Subspecialty: matched on procedure language, fellowship training, and role descriptions — not just titles. Sibling subspecialties (${hit.def.siblings.slice(0, 3).join(", ")}) rank lower.`,
     });
   }
 
@@ -1515,10 +1522,14 @@ export function mapParsedToCriteria(
       value: {
         ...(minYears !== null ? { min: minYears } : {}),
         ...(maxYears !== null ? { max: maxYears } : {}),
+        basis: parsed.experience_basis === "post_training_clinical_roles" ? "post_training" : "clinical",
       },
       enforcement: "hard",
       source: "user",
       evidenceSource: "search",
+      note: parsed.experience_basis === "post_training_clinical_roles"
+        ? "This career-stage window starts after clinical training."
+        : "Counts dated clinical work, including supervised residency/fellowship and licensed nursing roles; students and pre-licensure support work are excluded.",
     });
   }
 

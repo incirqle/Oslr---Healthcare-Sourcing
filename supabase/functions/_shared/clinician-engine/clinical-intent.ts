@@ -14,6 +14,7 @@ const RECENT_GRADUATE = /\brecent(?:ly)?[\s-]*(?:graduate|graduated|grad)\b/i;
 const NEW_GRADUATE = /\bnew(?:ly)?[\s-]*(?:graduate|graduated|grad)\b/i;
 const COMPLETED_FELLOWSHIP = /\b(?:fellowship[\s-]*trained|trained\s+fellows?|fellow(?:ship)?\s+graduates?)\b/i;
 const EXPLICIT_JOB_CHANGE = /\b(?:recently\s+(?:changed|left)\s+(?:jobs?|employers?|roles?)|job\s+changers?|new\s+job\s+in\s+the\s+last\s+\d+\s+days?)\b/i;
+const CLINICAL_INTEREST = /\b(?:interested\s+in|interest\s+(?:in|for)|passion(?:ate)?\s+(?:for|about|in)|sports\s+(?:medicine|med)\s+(?:interest|focus))\b/i;
 
 export const NON_OPERATIVE_INCLUDE_TERMS = [
   "non-operative orthopedic physician",
@@ -71,9 +72,15 @@ export function trainingInstitutions(query: string): string[] {
   return unique(out);
 }
 
-function setPracticeRange(parsed: Record<string, unknown>, min: number | null, max: number | null): void {
+function setPracticeRange(
+  parsed: Record<string, unknown>,
+  min: number | null,
+  max: number | null,
+  basis: "clinical" | "post_training" = "clinical",
+): void {
   parsed.min_years_experience = min;
   parsed.max_years_experience = max;
+  parsed.experience_basis = basis === "post_training" ? "post_training_clinical_roles" : "clinical_roles_including_training";
   // Clinical career-stage words say nothing about a 90-day employer change.
   parsed.recently_changed_jobs = false;
 }
@@ -161,21 +168,34 @@ export function normalizeClinicalIntent(
   const completedFellowship = COMPLETED_FELLOWSHIP.test(query) ||
     (recentGraduate && /\bfellows?\b/i.test(query));
 
-  // Career-stage language describes time AFTER clinical training. It never
-  // means CrustData's commercial ~90-day job-change flag.
-  if (recentGraduate) setPracticeRange(parsed, 0, 5);
-  else if (newGraduate) setPracticeRange(parsed, 0, 2);
-  else if (/\bmid[\s-]?career\b/i.test(query)) setPracticeRange(parsed, 5, 10);
-  else if (/\bseasoned\b/i.test(query)) setPracticeRange(parsed, 10, null);
-  else if (!/\b\d+\s*(?:-|–|—|to)\s*\d+\s+years?/i.test(query)) {
-    const exact = query.match(/\b(\d{1,2})\s+years?\s+(?:of\s+)?(?:clinical\s+|post[\s-]?training\s+|practice\s+)?experience\b/i);
-    if (exact) {
-      const years = Number(exact[1]);
-      // "12 years of experience" means at least 12; caps come only from
-      // explicit ranges ("under 4", "3 to 5") or career-stage words.
-      const capped = /\b(?:under|less\s+than|no\s+more\s+than|at\s+most|up\s+to|max(?:imum)?)\s+\d{1,2}\s+years?/i.test(query);
-      if (!capped) setPracticeRange(parsed, years, null);
-    }
+  // Career-stage language describes time AFTER clinical training. Generic
+  // experience instead counts dated clinical work, including supervised
+  // residency/fellowship. Neither means a recent employer change.
+  if (recentGraduate) setPracticeRange(parsed, 0, 5, "post_training");
+  else if (newGraduate) setPracticeRange(parsed, 0, 2, "post_training");
+  else if (/\bmid[\s-]?career\b/i.test(query)) setPracticeRange(parsed, 5, 10, "post_training");
+  else if (/\bseasoned\b/i.test(query)) setPracticeRange(parsed, 10, null, "post_training");
+  else {
+    const explicitRange = query.match(/\b(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\s+years?\b/i);
+    const below = query.match(/\b(?:under|less\s+than)\s+(\d{1,2})\s+years?\b/i);
+    const capped = query.match(/\b(?:up\s+to|at\s+most|no\s+more\s+than|max(?:imum)?(?:\s+of)?)\s+(\d{1,2})\s+years?\b/i);
+    const floor = query.match(/\b(?:at\s+least|min(?:imum)?(?:\s+of)?)\s+(\d{1,2})\s*\+?\s+years?\b/i) ??
+      query.match(/\b(\d{1,2})\s*\+\s+years?\b/i);
+    const plain = query.match(/\b(\d{1,2})\s+years?\s+(?:(?:of|in)\s+)?(?:(?:clinical|practice|post[\s-]?training|nursing|work|professional|hands[\s-]on)\s+){0,2}(?:experience|practice)\b/i);
+    const basis = /\bpost[\s-]?training\s+(?:clinical\s+)?(?:practice|experience)\b/i.test(query) ? "post_training" as const : "clinical" as const;
+    if (explicitRange) setPracticeRange(parsed, Number(explicitRange[1]), Number(explicitRange[2]), basis);
+    else if (below) setPracticeRange(parsed, 0, Math.max(0, Number(below[1]) - 1), basis);
+    else if (capped) setPracticeRange(parsed, 0, Number(capped[1]), basis);
+    else if (floor) setPracticeRange(parsed, Number(floor[1]), null, basis);
+    else if (plain) setPracticeRange(parsed, Number(plain[1]), null, basis);
+  }
+
+  if (CLINICAL_INTEREST.test(query)) {
+    // Interest is evidence, not a claim that the current job is already a
+    // sports-medicine fellowship. Keep the current clinical role/stage hard,
+    // but let research, prior roles, education and profile text prove focus.
+    parsed.specialty_tense = "any";
+    parsed.specialty_evidence_mode = "interest";
   }
 
   if (completedFellowship) {
@@ -197,7 +217,8 @@ export function normalizeClinicalIntent(
       : {};
     const wantsResidency = years.length > 0 || /\bresidents?\b/i.test(query);
     const wantsFellowship = /\bfellows?\b/i.test(query);
-    const stages = wantsResidency && wantsFellowship ? ["residency", "fellowship"]
+    const seniorFellowRecall = wantsResidency && !wantsFellowship && years.some((year) => year >= 4);
+    const stages = wantsResidency && (wantsFellowship || seniorFellowRecall) ? ["residency", "fellowship"]
       : wantsFellowship ? ["fellowship"]
       : [typeof previous.stage === "string" ? previous.stage : "residency"];
     const professions = trainingProfessions(query);
@@ -210,7 +231,14 @@ export function normalizeClinicalIntent(
       stages,
       year: years.length === 1 ? years[0] : null,
       years,
+      senior_fellow_recall: seniorFellowRecall,
     };
+    if (seniorFellowRecall) {
+      // A current sports-medicine fellow often shows orthopedics in the
+      // residency history rather than the fellowship title. Preserve that
+      // evidence instead of demanding "orthopedic" in the current job.
+      parsed.specialty_tense = "any";
+    }
     if (stages.length === 2) {
       parsed.role_class = null;
       parsed.role_classes = ["resident", "fellow"];

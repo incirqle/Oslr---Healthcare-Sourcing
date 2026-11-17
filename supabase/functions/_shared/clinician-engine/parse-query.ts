@@ -109,6 +109,8 @@ export interface ParsedClinicianPayload {
     stages?: string[];
     year: number | null;
     years?: number[];
+    /** PGY-4/5 resident asks also recall relevant current fellows. */
+    senior_fellow_recall?: boolean;
   } | null;
   practice_modality?: {
     mode: "nonoperative";
@@ -132,6 +134,10 @@ export interface ParsedClinicianPayload {
   specialty: string | null;
   specialties: string[];
   specialty_tense: "current" | "any" | "past";
+  /** Explicit interest/focus language; subspecialty evidence is ranked. */
+  specialty_evidence_mode?: "interest" | null;
+  /** Generic clinical work or post-training-only career windows. */
+  experience_basis?: "clinical_roles_including_training" | "post_training_clinical_roles" | null;
   specialty_confidence: number;
   location: {
     state: string | null;
@@ -228,6 +234,7 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
         years: Array.isArray(row.years)
           ? row.years.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 10)
           : [],
+        senior_fellow_recall: row.senior_fellow_recall === true,
       };
     }
   }
@@ -270,6 +277,12 @@ export function validateAIOutput(raw: unknown): ParsedClinicianPayload {
     specialty: toStr(r.specialty),
     specialties: toStrArr(r.specialties),
     specialty_tense: specialtyTense,
+    specialty_evidence_mode: r.specialty_evidence_mode === "interest" ? "interest" : null,
+    experience_basis: r.experience_basis === "post_training_clinical_roles"
+      ? "post_training_clinical_roles"
+      : r.experience_basis === "clinical_roles_including_training"
+      ? "clinical_roles_including_training"
+      : null,
     specialty_confidence: clamp(r.specialty_confidence, 0, 1, 0.5),
     location: {
       state: toStr(loc.state),
@@ -456,8 +469,8 @@ RETURN THIS EXACT SHAPE:
   "current_role_only":   boolean,
   "keywords":            string[],
   "required_keywords":   string[],
-  "min_years_experience": number|null,  // ACTIVE POST-TRAINING PRACTICE years floor. Plain "12 years of experience" -> 12 (a floor); "5-10 years" -> 5; "recent graduate" -> 0; "new graduate" -> 0; "mid-career" -> 5; "seasoned" -> 10.
-  "max_years_experience": number|null,  // ACTIVE PRACTICE cap. plain "12 years" -> null (no ceiling); "5-10 years" -> 10; "recent graduate" -> 5; "new graduate" -> 2; "mid-career" -> 10. Residency/fellowship years NEVER count.
+  "min_years_experience": number|null,  // Generic CLINICAL WORK floor, including supervised residency/fellowship and post-degree nursing roles. Plain "12 years of experience" -> 12 (a floor); "5-10 years" -> 5; "recent graduate" -> 0; "new graduate" -> 0; "mid-career" -> 5; "seasoned" -> 10.
+  "max_years_experience": number|null,  // Plain "12 years" -> null (no ceiling); "5-10 years" -> 10; "recent graduate" -> 5; "new graduate" -> 2; "mid-career" -> 10. Only recent/new graduate and career-stage windows exclude training.
   "tenure_min_years":     number|null,  // years at the CURRENT employer/role: "5 years at Baylor" -> 5
   "tenure_max_years":     number|null,  // cap on current-role years: "less than 2 years in their current job" -> 2
   "practice_size":        "small"|"midsize"|"large"|null,
@@ -619,8 +632,9 @@ WORKED EXAMPLES (the three archetypes + the tense query):
 CAREER STAGE AND TRAINING GRAMMAR:
   - "recent graduate" / "recent grad" / "recently graduated" = 0-5 years of active post-training practice.
   - "new graduate" / "new grad" = 0-2 years; "mid-career" = 5-10; "seasoned" = 10+.
-  - An exact "N years of experience" = N-1 through N+1 active practice years. Explicit ranges and minimums stay as stated.
+  - Plain "N years of experience", "N+ years", "at least N years" and "N years in practice" = at least N years of dated clinical work, including supervised residency/fellowship. Only explicit ranges and maximums create a ceiling.
   - "current fellow/resident" = training_stage. "Fellowship-trained", "trained fellows" and "recent graduate fellows" = completed fellowship; training_stage null and no resident/fellow role_class.
+  - "interested in X" / "interest in X" = specialty_tense "any" and specialty_evidence_mode "interest": research, prior roles, education, team coverage and profile text may prove focus; the current clinical role/stage still applies.
   - "trained at X" / "residency at X" / "fellowship at X" = training_institutions ["x"]. Plain "works at X" remains current_companies.
   - "OR nurse" means operating-room nursing. It does NOT imply an ambulatory surgery center; care_setting stays null unless the user names that workplace.
 

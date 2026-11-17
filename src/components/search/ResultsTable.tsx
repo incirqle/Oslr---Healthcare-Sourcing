@@ -242,8 +242,8 @@ export function ResultsTable({
                     <td className={cn(td, "max-w-[160px]")}>
                       <span className={cellText}>{c.location ? toTitleCase(c.location) : "-"}</span>
                     </td>
-                    <td className={cn(td, "tabular-nums")} title={c.experience_evidence ?? "Post-training clinical roles only; training is separate"}>
-                      {/\b(?:resident|fellow|house officer|registrar)\b/i.test(c.title ?? "") ? "In training" : typeof c.active_practice_years === "number" ? `${c.active_practice_years} yrs` : c.training_years !== null && c.training_years !== undefined ? "Training listed" : "Not shown"}
+                    <td className={cn(td, "tabular-nums")} title={c.experience_evidence ?? "Dated clinical work, including supervised training"}>
+                      {typeof c.clinical_experience_years === "number" ? `${c.clinical_experience_years} yrs` : /\b(?:resident|fellow|house officer|registrar)\b/i.test(c.title ?? "") ? "In training" : "Not shown"}
                     </td>
                     <td className={td}>{practice ?? <span className="text-muted-foreground">Not listed</span>}</td>
 

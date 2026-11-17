@@ -96,6 +96,8 @@ export interface CandidateDrawerProps {
     inferred_salary?: string | null;
     years_experience?: number | null;
     active_practice_years?: number | null;
+    clinical_experience_years?: number | null;
+    clinical_experience_since?: string | null;
     training_years?: number | null;
     experience_basis?: string;
     experience_evidence?: string | null;
@@ -367,7 +369,7 @@ function buildSummaryPrompt(
   const currentRole = enriched?.job_title || candidate.title || "Unknown";
   const company = enriched?.job_company_name || candidate.current_employer || "Unknown";
   const location = [enriched?.location_locality, enriched?.location_region].filter(Boolean).join(", ") || candidate.location || "Unknown";
-  const yearsExperience = candidate.active_practice_years ?? candidate.years_experience ?? enriched?.inferred_years_experience ?? "Not shown";
+  const yearsExperience = candidate.clinical_experience_years ?? candidate.years_experience ?? enriched?.inferred_years_experience ?? "Not shown";
   const career = experience
     .slice(0, 3)
     .map((entry) => `${entry.title || "Unknown role"} at ${entry.company || "Unknown company"} (${formatDateLabelSmart(entry.startDate) || "start not listed"} to ${formatDateLabelSmart(entry.endDate) || "end not listed"})`)
@@ -382,7 +384,7 @@ function buildSummaryPrompt(
 Name: ${candidate.full_name}
 Current Role: ${currentRole} at ${company}
 Location: ${location}
-Post-Training Clinical Practice Experience: ${yearsExperience}${typeof yearsExperience === "number" ? " years" : ""}. Do not count residency, fellowship, education, research assistant roles, or early non-clinical jobs as active practice experience.
+Clinical Work Experience: ${yearsExperience}${typeof yearsExperience === "number" ? " years" : ""}. This includes supervised residency/fellowship and licensed post-degree nursing work. Do not count education itself, research-only roles, or pre-licensure support jobs.
 Career: ${career || "Not available"}
 Education: ${educationSummary || "Not available"}
 Skills: ${skills.join(", ") || "Not available"}
@@ -652,7 +654,7 @@ export function CandidateDrawer({
 
         throw new Error("Summary not available");
       } catch {
-        const fallback = `${candidate.full_name} is ${candidate.title ? `a ${candidate.title}` : "a healthcare professional"}${candidate.current_employer ? ` at ${candidate.current_employer}` : ""}${candidate.location ? ` based in ${candidate.location}` : ""}. ${(candidate.active_practice_years ?? candidate.years_experience ?? 0) > 0 ? `They bring approximately ${candidate.active_practice_years ?? candidate.years_experience} years of post-training clinical practice experience.` : ""}`.trim();
+        const fallback = `${candidate.full_name} is ${candidate.title ? `a ${candidate.title}` : "a healthcare professional"}${candidate.current_employer ? ` at ${candidate.current_employer}` : ""}${candidate.location ? ` based in ${candidate.location}` : ""}. ${(candidate.clinical_experience_years ?? candidate.years_experience ?? 0) > 0 ? `They bring approximately ${candidate.clinical_experience_years ?? candidate.years_experience} years of clinical work experience, including supervised training.` : ""}`.trim();
         setAiSummary(fallback);
         summaryCache.current.set(candidate.id, fallback);
       } finally {
@@ -718,7 +720,7 @@ export function CandidateDrawer({
 
   if (!candidate) return null;
 
-  const yearsExperience = candidate.active_practice_years ?? candidate.years_experience ?? enriched?.inferred_years_experience;
+  const yearsExperience = candidate.clinical_experience_years ?? candidate.years_experience ?? enriched?.inferred_years_experience;
   const linkedinUrl = normalizeLinkedInUrl(enriched?.linkedin_url || candidate.linkedin_url);
   const companyName = enriched?.job_company_name || candidate.current_employer;
   const title = enriched?.job_title || candidate.title;
@@ -1111,7 +1113,7 @@ export function CandidateDrawer({
                   </section>
                 )}
 
-                {/* Tenure is role-specific; practice experience excludes education and training. */}
+                {/* Tenure is role-specific; clinical experience includes supervised training. */}
                 {(avgTenureMonths > 0 || currentTenureMonths > 0 || typeof yearsExperience === "number") && (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
@@ -1127,8 +1129,8 @@ export function CandidateDrawer({
                       </p>
                     </div>
                     <div className="rounded-[10px] border border-ui-border-light bg-ui-surface-subtle/40 px-3 py-2.5">
-                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Practice exp.</p>
-                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary" title={candidate.experience_evidence ?? "Post-training clinical practice only"}>
+                      <p className="text-[11px] uppercase tracking-wide text-ui-text-muted">Clinical exp.</p>
+                      <p className="mt-0.5 text-[14px] font-semibold text-ui-text-primary" title={candidate.experience_evidence ?? "Dated clinical work, including supervised training"}>
                         {typeof yearsExperience === "number" ? `${yearsExperience} yrs` : "Not shown"}
                       </p>
                     </div>

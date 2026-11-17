@@ -50,6 +50,7 @@ export interface AuditableResult {
   location_region?: string | null;
   match_scope?: string | null;
   stage_fit?: string | null;
+  stage_evidence?: string | null;
   employer_class?: string | null;
   employment_model?: string | null;
   employment_model_evidence?: string | null;
@@ -69,6 +70,8 @@ export interface AuditableResult {
     degrees?: string[];
     majors?: string[];
     end_date?: string | null;
+    description?: string | null;
+    activities_and_societies?: string | null;
   }> | null;
 }
 
@@ -84,14 +87,16 @@ Rules:
 - Judge INTENT, not just words. "Nurses" wants licensed bedside or clinical RNs/LPNs; a "Nurse Innovator | Healthcare Executive" headline is not a staff nurse — weak at best, with the real current role named.
 - CREDENTIALS ARE CLASSES, NOT INTERCHANGEABLE TITLES: RN, BSN, NP, PA-C, CRNA, MD, DO, DPM are different licenses. If the recruiter asked for nurses, a nurse practitioner is a DIFFERENT license class — include as weak with the class named in the reason, never silently as strong. If a credential was asked (e.g. CRNA), verify it appears on the profile (title, headline, education, credential letters after the name).
 - TENSE IS INTENT. Unless the query explicitly asks for former/past people ("used to", "former", "background in"), the person's CURRENT primary occupation must fit the asked role and vertical. History never rescues a current role outside the asked vertical: a former cardiac nurse now in pharma sales is a "reject" for "cardiovascular nurses". (A CONTEXT line below may state that past-role candidates are the explicit premise of this page; only then does this rule not apply.) "Background in X" phrasing DOES license history for X — but the person must still currently be what the role words ask for.
-- TRAINING STAGES ARE YEARS, VERIFIED FROM DATES: "PGY-3" means third post-graduate year. Verify stage AND year from the role start dates on the profile (a residency started ~26 months ago is PGY-3 territory this fall). An attending or fellow is a reject for a resident ask; a graduated (former) resident is a reject unless the page's CONTEXT says otherwise; an adjacent year is weak with the year named. Quote the date evidence. A "resident" entry with a start date many years back and a different primary role is a STALE never-closed position — reject it, naming the real current role. "PGY" titles are overwhelmingly PHARMACY residents — a pharmacy resident is a reject for a physician/podiatric residency ask.
+- TRAINING STAGE IS REQUIRED; PGY YEAR IS RANKED EVIDENCE: explicit "PGY-4" / "PGY-5" language in a title, headline, summary or role description beats a start-date estimate. A current fellow can be a strong match for a senior-resident sourcing ask when the subspecialty fits; do not reject solely for being a fellow. Chief residents, research-year residents and undated current residents stay reviewable; an adjacent or uncertain year is weak with the evidence named, never a date-only reject. An attending or graduated former resident is still a reject for a current-resident ask. A never-closed training entry beside a later primary attending role is stale. Pharmacy residents do not satisfy a physician/podiatric residency ask. Quote the stated PGY or date evidence.
 - SPECIALTY FAMILIES ARE UMBRELLAS: CVICU/cath lab/telemetry are cardiovascular nursing; exact vertical = strong, sibling (general ICU for CVICU) = weak with the sibling named, different service line (school nurse for cardiovascular) = reject.
 - PATIENT POPULATION IS A REQUIREMENT: "pediatric oncologist" means a clinician whose CURRENT practice treats CHILDREN in that specialty. An adult oncologist = reject (name it). A pediatric generalist without the specialty = weak. Evidence: "pediatric"/"children's" in the title, a children's-hospital employer, a peds fellowship, patient-population language in role text. Same rule for neonatal/adolescent/geriatric asks.
 - NON-OPERATIVE / NON-SURGICAL IS A HARD EXCLUSION: an orthopedic, spine, sports-medicine or other surgeon with an operative current title or headline is a reject, even when the profile also mentions conservative care. Strong evidence is a non-operative orthopedic physician, primary-care sports-medicine physician, physiatrist or non-operative spine/pain physician whose current practice and stated patient population fit. Do not treat "non-operative" as a specialty keyword or weaken pediatric/spine requirements to fill the list.
 - SUBSPECIALTY DEPTH IS THE ASK. When a SUBSPECIALTY line appears below, the recruiter wants that layer, not the parent specialty. Subspecialty identity is proven by PROCEDURE language (arthroplasty, TKA/THA, ablation, TAVR, thrombectomy…), FELLOWSHIP training (an "Adult Reconstruction Fellowship" education record, an "Arthroplasty Fellow" past title), or role descriptions naming the practice focus. Judge by that evidence: clear subspecialty evidence = strong (quote it); the parent specialty with NO subspecialty evidence shown = weak ("general orthopedic surgeon — no joint reconstruction evidence shown"); a DIFFERENT subspecialty declared on the profile (a "Foot and Ankle Subspecialty" headline for a joint reconstruction ask) = weak at best, naming the actual subspecialty, and reject when the declared focus makes the ask implausible. A fellowship is subspecialty identity, but the person must still practice it NOW — a joint-reconstruction fellowship followed by a current administrative or industry role fails the tense rule as usual.
+- CLINICAL INTEREST IS EVIDENCE, NOT A CURRENT-JOB TITLE: when a CLINICAL INTEREST line appears below, sports-medicine or other focus can be shown by research, publications, fellowship plans, prior roles, education, team coverage, role descriptions, headline or summary. Current fellows can be strong. Athletic history and school activities are useful breadcrumbs but are not sufficient alone for a strong specialty-interest verdict; pair them with clinical evidence. Quote the actual breadcrumb instead of saying there is no information.
 - EMPLOYER GROUPS: "at the VA" means CURRENTLY employed by a Veterans Affairs entity (VA medical centers, Veterans Health Care Systems). A VA stint years ago is not current VA employment.
 - FELLOWSHIP TRAINED means a completed CLINICAL fellowship: a fellowship education record, a fellow-titled training role, or explicit "fellowship trained" language. Honorific fellowships (FACS, FACC — Fellow of a College) are NOT fellowship training; neither are non-clinical fellowships (research-only, "Product Management Fellowship", leadership fellowships). When the ask says fellowship trained and the only evidence is honorific or non-clinical, that is a reject with the reason named. Quote the fellowship evidence when strong.
-- RECENT GRADUATE means 0-5 years of active post-training clinical practice; NEW GRADUATE means 0-2. Residency/fellowship time does not count. Recent graduate fellows are completed-fellowship clinicians, not current trainees. Never interpret these phrases as a recent employer change.
+- GENERIC YEARS OF EXPERIENCE count dated clinical work, including supervised physician residency/fellowship and post-degree licensed nursing roles. Students, education itself, research-only roles and pre-licensure support work do not count. A current resident/fellow is not an automatic mismatch for a generic experience floor.
+- RECENT GRADUATE means 0-5 years of active post-training clinical practice; NEW GRADUATE means 0-2. Residency/fellowship time does not count for these career-stage windows. Recent graduate fellows are completed-fellowship clinicians, not current trainees. Never interpret these phrases as a recent employer change.
 - TRAINED AT an institution requires education or a clinical residency/fellowship role there. Merely working there now or holding attending privileges does not prove training. Plain "at" without training language remains a current-employer ask.
 - EMPLOYMENT MODEL (when the filters say employment_model=Private practice or Hospital-employed): the question is WHO SIGNS THE PAYCHECK, judged on the PRIMARY current employer. Hospital-employed = a hospital, health system, academic medical center / medical school faculty practice, VA or other government facility, OR a physician group owned by one of those (a "Baptist Health Medical Group" or "HCA Florida Physicians" is hospital-employed whatever its name says). Private practice = everything else that delivers care: solo and group practices, "& Associates", MD PA / PLLC entities, ASCs, dental practices, DSOs, PE-backed groups. Hospital PRIVILEGES or a second concurrent entry at a hospital do NOT make a private-practice clinician hospital-employed; an "Owner" / "Partner" / "Founder" title or Owner / Partner seniority at a practice-sized employer is strong private-practice evidence. A profile line "employment model:" below gives the deterministic read and its evidence; override it only with better evidence from the profile, and name it. The wrong model = reject with the employer named.
 - MILITARY AND VA (when the employer is a service branch, a base hospital, the Defense Health Agency, Guard / Reserve, or the VA): military clinicians rotate every 2-4 years and many never update their profile, so a "location note" line means the location is a transfer signal, not a mismatch — do not reject on it. Weigh the NEWEST current employer: a surgeon who now lists a civilian health system first has left or is Guard / Reserve ("military affiliation: likely_reserve"). A "military affiliation: active" read with only military employers is the active-duty population. Podiatrists and many surgeons tag the service ("US Navy") rather than the hospital; that is normal, not weak evidence.
@@ -138,8 +143,9 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
   if (r.match_scope === "secondary") {
     lines.push(`note: matched via a secondary/concurrent role, not the primary one`);
   }
-  if (r.stage_fit && r.stage_fit !== "unknown") {
-    lines.push(`stage date check: ${r.stage_fit === "in_window" ? "start date fits the asked training year" : "start date does NOT fit the asked training year"}`);
+  if (s(r.stage_evidence)) lines.push(`training-year evidence: ${s(r.stage_evidence)}`);
+  else if (r.stage_fit && r.stage_fit !== "unknown") {
+    lines.push(`stage date check: ${r.stage_fit === "in_window" ? "start date fits the asked training year" : "start-date estimate is outside the asked year; not a rejection by itself"}`);
   }
   const past = (r.experience_history ?? [])
     .filter((e) => e && e.is_primary !== true && s(e.company_name))
@@ -158,14 +164,16 @@ export function auditProfileBlock(r: AuditableResult, i: number): string {
         (e.majors ?? []).join("/"),
         s(e.school_name),
         s(e.end_date) ? `ended ${s(e.end_date).slice(0, 7)}` : "",
+        s(e.description).slice(0, 500),
+        s(e.activities_and_societies) ? `activities: ${s(e.activities_and_societies).slice(0, 500)}` : "",
       ].filter(Boolean).join(", ")
     );
   edu.forEach((e, k) => lines.push(`[edu${k}] education: ${e}`));
-  if (s(r.summary)) lines.push(`[summary] about: ${s(r.summary).slice(0, 500)}`);
+  if (s(r.summary)) lines.push(`[summary] about: ${s(r.summary).slice(0, 1200)}`);
   const roleDescriptions = (r.experience_history ?? [])
     .filter((e) => e && s(e.summary))
-    .slice(0, 4)
-    .map((e, k) => `[desc${k}] ${[s(e.title), s(e.company_name)].filter(Boolean).join(" @ ")}: ${s(e.summary).slice(0, 600)}`);
+    .slice(0, 8)
+    .map((e, k) => `[desc${k}] ${[s(e.title), s(e.company_name)].filter(Boolean).join(" @ ")}: ${s(e.summary).slice(0, 800)}`);
   if (roleDescriptions.length > 0) {
     lines.push(`role descriptions:\n${roleDescriptions.join("\n")}`);
   }
@@ -191,10 +199,13 @@ export function buildAuditUserMessage(
     .filter((c) => c.kind === "specialty")
     .map((c) => {
       const v = c.value as { subspecialty?: { label: string; siblings: string[] } } | string[] | null;
-      return !Array.isArray(v) && v?.subspecialty ? v.subspecialty : null;
+      if (Array.isArray(v) || !v?.subspecialty) return null;
+      return { ...v.subspecialty, interest: c.enforcement === "soft" && c.note?.startsWith("Clinical interest") === true };
     })
-    .filter((s): s is { label: string; siblings: string[] } => s !== null)
-    .map((s) => `SUBSPECIALTY: ${s.label} — sibling subspecialties (weak, name them): ${s.siblings.join(", ")}`);
+    .filter((s): s is { label: string; siblings: string[]; interest: boolean } => s !== null)
+    .map((s) => s.interest
+      ? `CLINICAL INTEREST (ranked evidence): ${s.label} — use research, fellowship plans, prior roles, education, team coverage and profile text; athletics alone is only a breadcrumb.`
+      : `SUBSPECIALTY: ${s.label} — sibling subspecialties (weak, name them): ${s.siblings.join(", ")}`);
   return [
     `RECRUITER'S QUERY: ${query}`,
     `ENFORCED FILTERS: ${filters}`,

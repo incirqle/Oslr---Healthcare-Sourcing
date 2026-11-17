@@ -2,9 +2,10 @@
  * Evidence-based clinical career timelines.
  *
  * Provider "years of experience" starts at the first listed job, which can be
- * a college research role. Oslr instead separates post-training clinical
- * practice from residency/fellowship time and never invents missing dates.
- * Pure module: no provider calls and no I/O.
+ * a college research role. Oslr counts dated clinical work instead. Generic
+ * experience includes supervised residency/fellowship and licensed nursing
+ * roles; recent-graduate windows separately use post-training practice.
+ * Missing dates stay unknown. Pure module: no provider calls and no I/O.
  */
 
 import { TRAINING_STAGES } from "./clinical-vocabulary.ts";
@@ -107,9 +108,13 @@ function elapsedYears(employers: TimelineRow[], nowMs: number): { years: number 
 }
 
 export interface ClinicalTimeline {
+  /** Dated independent practice after residency/fellowship. */
   active_practice_years: number | null;
+  /** Dated clinical work including supervised residency/fellowship. */
+  clinical_experience_years: number | null;
   training_years: number | null;
   active_practice_since: string | null;
+  clinical_experience_since: string | null;
   training_since: string | null;
   experience_basis: string;
   experience_evidence: string | null;
@@ -120,17 +125,18 @@ export function clinicalTimeline(profile: TimelineRow, now: Date = new Date()): 
   const fallback = history.length > 0 ? history : [...rows(profile.current_employers), ...rows(profile.past_employers)];
   const practice = elapsedYears(fallback.filter(isPracticeEmployment), now.getTime());
   const training = elapsedYears(fallback.filter(isTrainingEmployment), now.getTime());
-  const evidence = practice.earliest !== null
-    ? `${practice.years} completed years across dated post-training clinical roles; earliest listed role began ${monthLabel(practice.earliest)}; education and training are separate`
-    : training.earliest !== null
-    ? "No dated post-training clinical role is listed; residency and fellowship time are not counted as practice experience"
-    : "No dated post-training clinical role is listed";
+  const clinical = elapsedYears(fallback.filter((e) => isPracticeEmployment(e) || isTrainingEmployment(e)), now.getTime());
+  const evidence = clinical.earliest !== null
+    ? `${clinical.years} completed years of dated clinical work, including supervised residency/fellowship; earliest clinical role began ${monthLabel(clinical.earliest)}. ${practice.years === null ? "No dated post-training role is listed" : `${practice.years} years are post-training practice`}.`
+    : "No dated clinical work is listed; education and pre-licensure support roles are not counted";
   return {
     active_practice_years: practice.years,
+    clinical_experience_years: clinical.years,
     training_years: training.years,
     active_practice_since: practice.earliest !== null ? new Date(practice.earliest).toISOString().slice(0, 10) : null,
+    clinical_experience_since: clinical.earliest !== null ? new Date(clinical.earliest).toISOString().slice(0, 10) : null,
     training_since: training.earliest !== null ? new Date(training.earliest).toISOString().slice(0, 10) : null,
-    experience_basis: "post_training_clinical_roles",
+    experience_basis: "clinical_roles_including_training",
     experience_evidence: evidence,
   };
 }
@@ -146,26 +152,33 @@ export function annotateClinicalTimeline<R extends TimelineRow>(row: R, now: Dat
   return { ...row, ...clinicalTimeline(row, now) };
 }
 
+export interface ExperienceRange {
+  min?: number | null;
+  max?: number | null;
+  /** Generic experience includes supervised training; graduate windows do not. */
+  basis?: "clinical" | "post_training";
+}
+
 export function experienceFit(
   profile: TimelineRow,
-  range: { min?: number | null; max?: number | null },
+  range: ExperienceRange,
   now: Date = new Date(),
 ): { status: ExperienceFit; years: number | null; evidence: string } {
   const timeline = clinicalTimeline(profile, now);
-  const years = timeline.active_practice_years;
+  const postTraining = range.basis === "post_training";
+  const years = postTraining ? timeline.active_practice_years : timeline.clinical_experience_years;
   const stage = careerStage(profile);
-  // Experience asks are for practicing clinicians. A current resident, fellow
-  // or student is a decided mismatch, never "unknown".
-  if (stage === "trainee" || stage === "student") {
+  if (stage === "student") {
+    return { status: "not_met", years, evidence: "Currently a student; pre-licensure education is not clinical work experience" };
+  }
+  if (postTraining && stage === "trainee") {
     return {
       status: "not_met",
       years,
-      evidence: stage === "trainee"
-        ? "Currently in residency or fellowship; training years are not practice experience"
-        : "Currently a student; no licensed practice years yet",
+      evidence: "Currently in residency or fellowship; this career-stage window starts after training",
     };
   }
-  if (years === null) return { status: "unknown", years, evidence: timeline.experience_evidence ?? "Practice dates are not listed" };
+  if (years === null) return { status: "unknown", years, evidence: timeline.experience_evidence ?? "Clinical work dates are not listed" };
   const below = range.min !== null && range.min !== undefined && years < range.min;
   const above = range.max !== null && range.max !== undefined && years > range.max;
   const near = (range.min !== null && range.min !== undefined && years === range.min - 1) ||
@@ -173,7 +186,7 @@ export function experienceFit(
   return {
     status: below || above ? (near ? "partial" : "not_met") : "met",
     years,
-    evidence: timeline.experience_evidence ?? `${years} years in post-training clinical roles`,
+    evidence: timeline.experience_evidence ?? `${years} years in dated clinical roles`,
   };
 }
 
@@ -199,6 +212,7 @@ export interface TrainingStageRequest {
   stages?: TrainingStageRequest["stage"][];
   year?: number | null;
   years?: number[];
+  senior_fellow_recall?: boolean;
   title_terms?: string[];
 }
 
@@ -337,7 +351,7 @@ export function splitCurrentTrainingRows<R extends TimelineRow>(
 /** Enforce explicit practice ranges only when the dates support a decision. */
 export function splitExperienceRows<R extends TimelineRow>(
   input: R[],
-  range: { min?: number | null; max?: number | null } | null | undefined,
+  range: ExperienceRange | null | undefined,
   now: Date = new Date(),
 ): { clean: Array<R & TimelineAnnotated>; rejected: Array<R & TimelineAnnotated> } {
   if (!range || (typeof range.min !== "number" && typeof range.max !== "number")) {

@@ -76,12 +76,15 @@ export interface Candidate {
   location_note?: string | null;
   inferred_salary?: string | null;
   years_experience?: number | null;
-  /** Independent clinical practice; residency/fellowship time is separate. */
+  /** Independent post-training practice, retained alongside total clinical work. */
   active_practice_years?: number | null;
+  /** Dated clinical work including supervised residency/fellowship. */
+  clinical_experience_years?: number | null;
   training_years?: number | null;
   active_practice_since?: string | null;
+  clinical_experience_since?: string | null;
   training_since?: string | null;
-  experience_basis?: "post_training_clinical_roles" | string;
+  experience_basis?: "clinical_roles_including_training" | "post_training_clinical_roles" | string;
   experience_evidence?: string | null;
   clinical_skills?: string[];
   has_contact_info?: boolean;
@@ -93,6 +96,8 @@ export interface Candidate {
   audit_score?: number | null;
   match_scope?: "primary" | "secondary" | null;
   stage_fit?: "in_window" | "out_of_window" | "unknown" | null;
+  stage_evidence?: string | null;
+  stated_pgy_years?: number[];
   employment_model?: string | null;
   employment_model_evidence?: string | null;
   military_evidence?: string | null;
@@ -278,17 +283,23 @@ function MiddleColumn({
         const isTrainee = /\b(resident|residency|fellow|intern)\b/i.test(candidate.title ?? "");
         const statedText = `${candidate.title ?? ""} ${typeof candidate.raw?.headline === "string" ? candidate.raw.headline : ""} ${typeof candidate.raw?.summary === "string" ? candidate.raw.summary : ""} ${candidate.audit_evidence ?? ""}`;
         const stated = statedText.match(/\bPGY[\s-]?([1-9])\b/i);
-        const statedYr = stated ? Number(stated[1]) : null;
+        const statedYr = candidate.stated_pgy_years?.[0] ?? (stated ? Number(stated[1]) : null);
         const yr = statedYr ?? (isTrainee ? estimateTrainingYear(start) : null);
         const fellow = /\bfellow/i.test(candidate.title ?? "");
         return (
           <>
           <p className="text-[13px] text-foreground/60">
             {start ? `Started ${formatDateLabelSmart(start)}` : "Start date not listed"}
-            {yr ? ` · ${fellow ? `Fellowship year ${yr}` : `About PGY-${yr}`} ${statedYr ? "" : " (from start date)"}` : ""}
           </p>
-          {candidate.audit_verdict === "strong" && (candidate.audit_evidence || candidate.audit_reason) && (
-            <p className="text-[13px] text-primary">Why they match: {candidate.audit_evidence || candidate.audit_reason}</p>
+          {(isTrainee || candidate.stage_evidence || statedYr) && (
+            <p className="text-[13px] text-foreground/60">
+              {candidate.stage_evidence ?? (yr ? `${statedYr ? "Stated" : fellow ? "Estimated fellowship year" : "Estimated"} ${fellow && !statedYr ? yr : `PGY-${yr}`}${statedYr ? "" : " from the listed start date"}` : "Training year not listed")}
+            </p>
+          )}
+          {(candidate.audit_verdict === "strong" || candidate.audit_verdict === "weak") && (candidate.audit_evidence || candidate.audit_reason) && (
+            <p className="text-[13px] text-primary">
+              {candidate.audit_verdict === "strong" ? "Why they match" : "Related evidence"}: {candidate.audit_evidence || candidate.audit_reason}
+            </p>
           )}
           </>
         );
