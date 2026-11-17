@@ -35,3 +35,10 @@ Deno.test("New York employers stay", () => {
   ];
   assertEquals(names(removeOutOfMarket(rows, ["new york"]).kept), ["A", "B"]);
 });
+
+Deno.test("a New York City search removes same-state employers outside the city", () => {
+  const row = { current_employers: [{ name: "Stony Brook University", is_primary: true }] };
+  assertEquals(removeOutOfMarket([row], ["new york"], "new york city").kept.length, 0);
+  const nyc = { current_employers: [{ name: "NYU Langone Health", is_primary: true }] };
+  assertEquals(removeOutOfMarket([nyc], ["new york"], "new york city").kept.length, 1);
+});

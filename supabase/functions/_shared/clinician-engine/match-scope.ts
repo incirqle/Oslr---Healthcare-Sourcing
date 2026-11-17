@@ -186,8 +186,7 @@ export function assessStageFit(
   const p = profile as ProfileLike | null;
   const cur = (p?.current_employers ?? []) as EmploymentLike[];
   const requestedStages = new Set(stage.stages && stage.stages.length > 0 ? stage.stages : [stage.stage]);
-  const fellowIsSeniorMatch = stage.senior_fellow_recall === true ||
-    (requestedStages.has("residency") && !requestedStages.has("fellowship"));
+  const fellowIsSeniorMatch = false;
   if (fellowIsSeniorMatch) requestedStages.add("fellowship");
   const STAGE_ROOT: Record<string, string> = {
     residency: "resident",

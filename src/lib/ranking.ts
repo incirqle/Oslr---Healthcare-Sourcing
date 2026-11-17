@@ -147,7 +147,14 @@ export function recomputeRanking(
   });
 
   const hasMatch = scored.length > 0;
+  // A resident-year ask: written PGY / chief first, then date estimates.
+  const yearTier = (r: Candidate) => {
+    const t = r.resident_year_tier;
+    return typeof t === "number" ? t : 2;
+  };
   keptOut.sort((a, b) => {
+    const y = yearTier(a.r) - yearTier(b.r);
+    if (y) return y;
     if (hasMatch) {
       const d = (b.r.match_rate ?? -1) - (a.r.match_rate ?? -1);
       if (d) return d;

@@ -354,66 +354,6 @@ export function resolveCriterion(c: SearchCriteria, row: Row, id: string = c.id,
   }
 }
 
-/**
- * Clinical-interest asks need evidence, but a fellow is not a mismatch just
- * for being a fellow. Run after the AI audit: unsupported "strong" verdicts
- * become weak, while fellow-only weak verdicts with interest evidence stay
- * reviewable. Other weak reasons (wrong year, thin observation, sibling
- * specialty) remain untouched.
- */
-export function applyClinicalInterestEvidenceGate(rows: Row[], criteria: SearchCriteria[]): Row[] {
-  const interests = criteria.filter((c) =>
-    c.kind === "specialty" && c.enforcement === "soft" && c.note?.startsWith("Clinical interest")
-  );
-  if (interests.length === 0) return rows;
-  const seniorFellowRecall = criteria.some((c) =>
-    c.kind === "training_stage" && (c.value as { senior_fellow_recall?: boolean } | null)?.senior_fellow_recall === true
-  );
-  for (const row of rows) {
-    let status: CriterionStatus = "unknown";
-    let evidence: string | null = null;
-    for (const criterion of interests) {
-      const direct = resolveCriterion(criterion, row);
-      const graded = (row.audit_criteria as GraderCriterionResult[] | null | undefined)?.find((r) => r.criterion_id === criterion.id);
-      const result = direct ?? graded ?? null;
-      if (!result) continue;
-      if (result.status === "met") {
-        status = "met";
-        evidence = result.evidence;
-        break;
-      }
-      if (result.status === "partial" && status === "unknown") {
-        status = "partial";
-        evidence = result.evidence;
-      }
-    }
-    if (status === "unknown") {
-      if (row.audit_verdict === "strong") {
-        row.audit_verdict = "weak";
-        row.audit_score = typeof row.audit_score === "number" ? Math.min(row.audit_score, 55) : 55;
-      }
-      row.audit_reason = "Current clinical role fits, but the profile shows no clinical interest evidence for the requested focus";
-      row.audit_evidence = null;
-      row.interest_reviewable = false;
-      continue;
-    }
-    const reason = String(row.audit_reason ?? "");
-    const fellowOnlyWeakReason = /\b(?:current\s+(?:\w+\s+){0,4}fellow|orthopedic\s+fellow|clinical\s+fellow|completed\s+residency|post[\s-]resident|not\s+(?:a\s+)?PGY[\s-]?\d)/i.test(reason);
-    if (seniorFellowRecall && row.stage_fit === "in_window" && row.audit_verdict === "weak" && fellowOnlyWeakReason) {
-      row.interest_reviewable = true;
-      row.audit_evidence = evidence;
-      if (status === "met") {
-        row.audit_verdict = "strong";
-        row.audit_score = typeof row.audit_score === "number" ? Math.max(row.audit_score, 80) : 80;
-        row.audit_reason = "Current fellow with direct clinical-interest evidence; included in the senior-training search";
-      } else {
-        row.audit_reason = "Current fellow with related clinical-interest evidence; review the fellowship focus";
-      }
-    }
-  }
-  return rows;
-}
-
 /** Resolve a ranking criterion against a row, using its source SearchCriteria when it has one. */
 export function resolveRanking(rc: RankingCriterion, byId: Map<string, SearchCriteria>, row: Row, now?: number): CriterionResult | null {
   const src = rc.source_criterion_id ? byId.get(rc.source_criterion_id) : undefined;

@@ -16,13 +16,14 @@ describe("clinical intent reaches the real provider query", () => {
     const parsed = normalizeClinicalIntent({ location: { city: "new york", state: "new york" } }, "PGY-4/5 orthopedic residents in New York City");
     const criteria = mapParsedToCriteria(parsed);
     const training = criteria.find((c) => c.kind === "training_stage");
-    expect(training?.value).toMatchObject({ years: [4, 5], stages: ["residency", "fellowship"], senior_fellow_recall: true });
-    expect(criteria.find((c) => c.kind === "role_class")?.value).toMatchObject({ class: "resident+fellow" });
+    expect(training?.value).toMatchObject({ years: [4, 5], stages: ["residency"], senior_fellow_recall: false });
+    expect(criteria.find((c) => c.kind === "role_class")?.value).toMatchObject({ class: "resident" });
     const nodes = leaves(buildClinicianQuery(criteria));
     expect(nodes.some((n) => n.field === "basic_profile.headline" && String(n.value).includes("resident"))).toBe(true);
     expect(nodes.some((n) => n.field === "experience.employment_details.current.description" && String(n.value).includes("resident"))).toBe(true);
-    expect(nodes.some((n) => n.field === "experience.employment_details.current.title" && String(n.value).includes("fellow"))).toBe(true);
-    expect(nodes.every((n) => !/\bpgy\b/i.test(String(n.value)))).toBe(true);
+    expect(nodes.some((n) => n.field === "experience.employment_details.current.title" && /\bfellow/i.test(String(n.value)))).toBe(false);
+    expect(nodes.some((n) => n.field === "experience.employment_details.current.title" && String(n.value).includes("chief resident"))).toBe(true);
+    expect(nodes.some((n) => n.field === "basic_profile.headline" && /pgy-?4/i.test(String(n.value)))).toBe(true);
   });
 
   it("supports residents or fellows and all spine parent programs", () => {
@@ -76,7 +77,7 @@ describe("clinical intent reaches the real provider query", () => {
     expect(stageFit({ current_employers: [{ title: "Chief Resident, Orthopaedic Surgery", start_date: "2026-07-01" }] }, stage, new Date("2026-11-13T00:00:00Z"))).toBe("in_window");
   });
 
-  it("keeps a relevant current sports-medicine fellow in a senior-resident search", () => {
+  it("never treats a current sports-medicine fellow as a PGY-4/5 resident", () => {
     const fit = stageFit({ current_employers: [{ title: "Sports Medicine Fellow", start_date: "2026-07-01" }] }, {
       profession: "orthopedic surgery",
       professions: ["orthopedic surgery"],
@@ -86,7 +87,7 @@ describe("clinical intent reaches the real provider query", () => {
       years: [4, 5],
       title_terms: ["orthopedic surgery resident", "resident"],
     }, new Date("2026-11-13T00:00:00Z"));
-    expect(fit).toBe("in_window");
+    expect(fit).not.toBe("in_window");
   });
 
   it("keeps orthopedics required while sports-medicine interest ranks profile evidence", () => {

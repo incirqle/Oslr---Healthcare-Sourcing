@@ -98,6 +98,8 @@ export interface Candidate {
   stage_fit?: "in_window" | "out_of_window" | "unknown" | null;
   stage_evidence?: string | null;
   stated_pgy_years?: number[];
+  /** Resident-year asks: 0 = written PGY or chief, 1 = start-date estimate. */
+  resident_year_tier?: number | null;
   employment_model?: string | null;
   employment_model_evidence?: string | null;
   military_evidence?: string | null;

@@ -260,9 +260,6 @@ export function assessCurrentTraining(
   if (!stage) return { eligible: true, reason: null, current_stage: null };
   const current = currentEmployers(profile);
   const allowed = new Set(stage.stages?.length ? stage.stages : [stage.stage]);
-  // Senior residents move straight into fellowship; a current fellow belongs
-  // in a residency search (ranked below in-window residents), never dropped.
-  if (allowed.has("residency")) allowed.add("fellowship");
   const training = current.filter((e) => {
     const roleStage = stageOf(e);
     return roleStage !== null && allowed.has(roleStage) && isTrainingEmployment(e);

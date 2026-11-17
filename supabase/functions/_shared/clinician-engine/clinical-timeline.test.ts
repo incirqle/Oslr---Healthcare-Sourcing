@@ -128,10 +128,10 @@ Deno.test("requested PGY years rank people but never drop current residents", ()
   assertEquals(assessCurrentTraining(chiefReset, residency, NOW).eligible, true);
 });
 
-Deno.test("a current sports medicine fellow stays in a senior-resident search", () => {
+Deno.test("a current sports medicine fellow is excluded from a resident search", () => {
   const residency: TrainingStageRequest = { stage: "residency", stages: ["residency"], years: [4, 5], profession: "orthopedic surgery" };
   const fellow = { current_employers: [role("Sports Medicine Fellow", "2026-08-01", null, true)] };
-  assertEquals(assessCurrentTraining(fellow, residency, NOW).eligible, true);
+  assertEquals(assessCurrentTraining(fellow, residency, NOW).eligible, false);
 });
 
 Deno.test("pre-medical support work is not post-training licensed practice", () => {

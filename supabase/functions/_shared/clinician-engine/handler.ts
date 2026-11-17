@@ -71,6 +71,7 @@ import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
 import { companyIdentifyV2, personEnrichV2, personSearchV2 } from "./lib/crustdata-v2.ts";
 import { resolveEmployerGroup } from "./employer-resolution.ts";
 import { resolveCaller } from "./lib/auth.ts";
+import { residencyProgramRecall, sortByResidentYearTier, splitResidentYearRows } from "./resident-year.ts";
 import { handleRankAction, saveRunSnapshot, suggestionsFor } from "./rank-route.ts";
 import { cleanTitle, TITLE_NOTE, titlesFromRaw } from "./rank-actions.ts";
 import { getUsage, logEngagement, meterSearch } from "./search-meter.ts";
@@ -823,10 +824,62 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
+      // ── Residency-program recall ────────────────────────────────────
+      // Residents often list no city or an old one; their program name is
+      // the reliable anchor. Same role/specialty filters, statewide clip,
+      // program names ORed. Ceiling-checked per hop.
+      let programRecallAdded = 0;
+      const programRecall = residencyProgramRecall(criteria);
+      if (!cacheHit && !preview && programRecall) {
+        const programCriteria = [
+          ...criteria.filter((c) => c.kind !== "location"),
+          {
+            id: "program_recall", kind: "employer_group", label: "Residency programs", enforcement: "hard",
+            source: "system", evidenceSource: "search",
+            value: { group_key: "residency_programs", name: "Residency programs", company_ids: [], domains: [], name_variants: programRecall.variants },
+          },
+          {
+            id: "program_state", kind: "location", label: programRecall.state, enforcement: "hard",
+            source: "system", evidenceSource: "search",
+            value: { level: "state", state: programRecall.state },
+          },
+        ] as unknown as SearchCriteria[];
+        const programFilters = buildClinicianQuery(programCriteria);
+        let cursor: string | null | undefined = undefined;
+        for (let hop = 0; programFilters && hop < 4; hop++) {
+          const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+          if (!checkCeiling(spentNow, SEARCH_LIMIT).allow) break;
+          const res = await personSearchV2({
+            filters: programFilters as unknown as Record<string, unknown>,
+            limit: SEARCH_LIMIT,
+            fields: CARD_FIELDS,
+            ...(cursor ? { cursor } : {}),
+          });
+          if (!res.ok) {
+            console.warn(`[clinician] program recall HTTP ${res.status}: ${res.detail.slice(0, 200)}`);
+            break;
+          }
+          if (res.data.profiles.length === 0) break;
+          const rowsIn = res.data.profiles
+            .map(normalizeCrustDataV2Profile)
+            .map((p: Record<string, unknown>) => ({ ...p, _program_recall: true }));
+          const merged = mergeSemanticRows(normalized, rowsIn, rowKey);
+          normalized = merged.merged;
+          programRecallAdded += merged.added;
+          const hopCredits = creditsForResults(res.data.profiles.length);
+          credits += hopCredits;
+          recordSessionSpend(creditLedger, sessionKey, hopCredits, SEARCH_TTL_MS);
+          cursor = res.data.next_cursor;
+          if (!cursor) break;
+        }
+        totalCount = Math.max(totalCount, normalized.length);
+        console.log(JSON.stringify({ event: "program_recall", added: programRecallAdded }));
+      }
+
       // Recall rows are part of the pool: cache the MERGED pool so a repeat
       // of the same criteria within the TTL pages the same people instead
       // of a lexical-only subset.
-      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0 || facilityRecallAdded > 0) && normalized.length > 0) {
+      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0 || facilityRecallAdded > 0 || programRecallAdded > 0) && normalized.length > 0) {
         await setCrustDataCache(cacheKey, totalCount, normalized, nextCursor);
       }
 
@@ -1117,7 +1170,10 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           return false;
         });
       }
-      const trainingRows = [...trainingSplit.rejected, ...stillTraining] as unknown as typeof allResults;
+      // Resident-year asks: residents in the asked PGY years only.
+      const residentSplit = splitResidentYearRows(allResults as Array<Record<string, unknown>>, criteria);
+      allResults = residentSplit.clean as unknown as typeof allResults;
+      const trainingRows = [...trainingSplit.rejected, ...stillTraining, ...residentSplit.rejected] as unknown as typeof allResults;
       const experienceRange = criteria.find((c) => c.kind === "experience" && c.enforcement === "hard")?.value as { min?: number; max?: number; basis?: "clinical" | "post_training" } | undefined;
       const experienceSplit = splitExperienceRows(allResults as Array<Record<string, unknown>>, experienceRange);
       allResults = experienceSplit.clean as unknown as typeof allResults;
@@ -1325,6 +1381,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         return false;
       });
       if (rankingCriteria.length > 0) allResults = sortByMatchRate(allResults as Array<Record<string, unknown>>) as typeof allResults;
+      // Training year outranks everything else in a resident-year ask.
+      allResults = sortByResidentYearTier(allResults as Array<Record<string, unknown>>) as typeof allResults;
       {
         const searchStates = criteria
           .filter((c) => c.kind === "location" && c.enforcement === "hard")
@@ -1333,7 +1391,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             if (!v || v.level === "country") return [];
             return v.states?.length ? v.states : v.state ? [v.state] : [];
           });
-        allResults = removeOutOfMarket(allResults as Array<Record<string, unknown>>, searchStates).kept as typeof allResults;
+        const searchCity = (criteria.find((c) => c.kind === "location" && c.enforcement === "hard")?.value as { level?: string; city?: string } | null)?.city ?? null;
+        allResults = removeOutOfMarket(allResults as Array<Record<string, unknown>>, searchStates, searchCity).kept as typeof allResults;
       }
       const tagSetAside = (rows: Array<Record<string, unknown>>, reason: SetAsideReason) => {
         for (const r of rows) {

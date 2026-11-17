@@ -217,7 +217,8 @@ export function normalizeClinicalIntent(
       : {};
     const wantsResidency = years.length > 0 || /\bresidents?\b/i.test(query);
     const wantsFellowship = /\bfellows?\b/i.test(query);
-    const seniorFellowRecall = wantsResidency && !wantsFellowship && years.some((year) => year >= 4);
+    // Residents and fellows are different roles: a resident ask never adds fellows.
+    const seniorFellowRecall = false;
     const stages = wantsResidency && (wantsFellowship || seniorFellowRecall) ? ["residency", "fellowship"]
       : wantsFellowship ? ["fellowship"]
       : [typeof previous.stage === "string" ? previous.stage : "residency"];

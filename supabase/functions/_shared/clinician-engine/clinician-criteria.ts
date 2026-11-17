@@ -1245,6 +1245,9 @@ export function mapParsedToCriteria(
           ? [...professions.flatMap((p) => def.professionTerms(p)), ...def.genericTerms]
           : [...def.genericTerms];
       }));
+      if (years.length > 0 && (stages ?? [stage]).includes("residency")) {
+        title_terms.push("chief resident", ...years.flatMap((y) => [`pgy-${y}`, `pgy${y}`, `pgy ${y}`]));
+      }
       const yearLabel = years.length > 0 ? years.map((y) => `PGY-${y}`).join(" / ") : null;
       const professionLabel = professions.length > 0 ? professions.map(titleCase).join(" / ") : null;
       const stageLabel = (stages ?? []).map((s) => TRAINING_STAGES[s]?.label).filter(Boolean).join(" / ") || stageDef.label;
@@ -1265,7 +1268,7 @@ export function mapParsedToCriteria(
         source: "user",
         evidenceSource: "search",
         note: years.length > 0
-          ? "Current stage is required. Stated PGY evidence ranks first; start-date estimates, chief-year resets, research years, undated residents and relevant fellows stay reviewable rather than being cut by date math."
+          ? "Current residents in the asked PGY years only; fellows and other years are excluded. Written PGY ranks first, then start-date estimates that allow research years."
           : undefined,
       });
     }

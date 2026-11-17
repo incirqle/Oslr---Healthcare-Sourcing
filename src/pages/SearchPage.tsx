@@ -511,6 +511,7 @@ export default function SearchPage() {
       stage_fit: r.stage_fit ?? null,
       stage_evidence: r.stage_evidence ?? null,
       stated_pgy_years: Array.isArray(r.stated_pgy_years) ? r.stated_pgy_years : [],
+      resident_year_tier: typeof r.resident_year_tier === "number" ? r.resident_year_tier : null,
       employment_model: r.employment_model ?? null,
       employment_model_evidence: r.employment_model_evidence ?? null,
       military_evidence: r.military_evidence ?? null,

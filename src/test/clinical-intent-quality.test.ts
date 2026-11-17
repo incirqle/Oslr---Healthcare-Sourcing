@@ -47,16 +47,15 @@ describe("clinical terminology normalization", () => {
     expect(pgyYears(query)).toEqual(expected);
   });
 
-  it("keeps senior orthopedic residents and recalls relevant current fellows", () => {
+  it("reads a PGY-4/5 resident ask as residents only, never fellows", () => {
     const parsed = normalizeClinicalIntent({}, "PGY-4 and PGY-5 orthopedic residents in New York City");
-    expect(parsed.role_class).toBeNull();
-    expect(parsed.role_classes).toEqual(["resident", "fellow"]);
+    expect(parsed.role_class).toBe("resident");
     expect(parsed.training_stage).toMatchObject({
       stage: "residency",
-      stages: ["residency", "fellowship"],
+      stages: ["residency"],
       professions: ["orthopedic surgery"],
       years: [4, 5],
-      senior_fellow_recall: true,
+      senior_fellow_recall: false,
     });
   });
 

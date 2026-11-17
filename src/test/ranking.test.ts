@@ -9,6 +9,12 @@ const row = (id: string, results: CandidateCriterionResult[], extra: Partial<Can
   ({ id, full_name: id, title: null, current_employer: null, location: null, linkedin_url: null, email: null, phone: null, skills: [], avg_tenure_months: null, industry: null, company_size: null, criteria_results: results, ...extra });
 
 describe("client ranking recompute (spec 7)", () => {
+  it("a written PGY-4/5 resident stays above a date-estimated one with a higher match", () => {
+    const dated = row("dated", [res("x", "met")], { resident_year_tier: 1 });
+    const stated = row("stated", [res("x", "partial")], { resident_year_tier: 0 });
+    expect(recomputeRanking([dated, stated], [], [rc("x")]).kept.map((r) => r.id)).toEqual(["stated", "dated"]);
+  });
+
   it("weights four criteria 40/30/20/10", () => {
     expect([0, 1, 2, 3].map((i) => weightPercent(i, 4))).toEqual([40, 30, 20, 10]);
   });

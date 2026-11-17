@@ -37,6 +37,12 @@ const REGIONS: Array<[RegExp, string]> = [
 
 type Row = Record<string, unknown>;
 
+/** Same-state employers outside a searched metro (a city search is the metro, not the state). */
+const OUTSIDE_METRO: Array<[RegExp, RegExp]> = [
+  [/^(?:new york(?: city)?|nyc|manhattan|brooklyn|bronx|the bronx|queens|staten island)$/i,
+    /\b(?:stony brook|albany|rochester|strong memorial|buffalo|ubmd|syracuse|upstate|bassett|guthrie|binghamton|utica|ithaca|cayuga|plattsburgh)\b/i],
+];
+
 function stateIn(text: string): string | null {
   const t = text.toLowerCase();
   if (!t) return null;
@@ -60,9 +66,12 @@ export function statedRelocationState(row: Row): string | null {
   return stateIn(m[0]);
 }
 
-export function outOfMarketReason(row: Row, searchStates: string[]): string | null {
+export function outOfMarketReason(row: Row, searchStates: string[], searchCity?: string | null): string | null {
   if (searchStates.length === 0) return null;
-  const employerState = stateIn(primaryEmployer(row));
+  const employer = primaryEmployer(row);
+  const metro = searchCity ? OUTSIDE_METRO.find(([city]) => city.test(searchCity.trim())) : undefined;
+  if (metro && metro[1].test(employer)) return `current employer outside ${searchCity}`;
+  const employerState = stateIn(employer);
   if (employerState && !searchStates.includes(employerState)) return `current employer in ${employerState}`;
   const moving = statedRelocationState(row);
   if (moving && !searchStates.includes(moving)) return `seeking work in ${moving}`;
@@ -70,11 +79,11 @@ export function outOfMarketReason(row: Row, searchStates: string[]): string | nu
 }
 
 /** Keeps in-market rows in order; out-of-market rows are removed. */
-export function removeOutOfMarket<T extends Row>(rows: T[], searchStates: string[]): { kept: T[]; removed: T[] } {
+export function removeOutOfMarket<T extends Row>(rows: T[], searchStates: string[], searchCity?: string | null): { kept: T[]; removed: T[] } {
   const states = searchStates.map((s) => s.toLowerCase().trim()).filter(Boolean);
   if (states.length === 0) return { kept: rows, removed: [] };
   const kept: T[] = [];
   const removed: T[] = [];
-  for (const r of rows) (outOfMarketReason(r, states) ? removed : kept).push(r);
+  for (const r of rows) (outOfMarketReason(r, states, searchCity) ? removed : kept).push(r);
   return { kept, removed };
 }
