@@ -29,6 +29,7 @@ import { classifyEmployer } from "./employer-class.ts";
 import { noisePatternsFor, splitRoleClassNoise } from "./noise-filter.ts";
 import { applyEmploymentModel, classifyEmploymentModel, readRowEmploymentModel } from "./employment-model.ts";
 import { dedupeRows, identityKeys, normalizeLinkedInUrl, samePersonByName, setAsideSuspectedDuplicates } from "./dedupe.ts";
+import { sortByMatchRate } from "./ranking-criteria.ts";
 
 /* ---------- helpers ---------- */
 
@@ -531,6 +532,30 @@ Deno.test("specialty asks earn a semantic pass, with or without a named employer
     location: { state: "colorado" },
   }) as unknown as Record<string, unknown>);
   assert(semanticWorthRunning(genericWithEmployer), "a named employer no longer disables the semantic pass");
+});
+
+Deno.test("semantic discovery runs for explicit titles and keeps hard boundaries", async () => {
+  const { semanticDiscoveryQueries, semanticFilterCriteria, semanticWorthRunning } = await import("./semantic-recall.ts");
+  const criteria = mapParsedToCriteria(validateAIOutput({
+    role_class: "nurse",
+    job_titles: ["emergency room nurse manager"],
+    title_synonyms: ["emergency department nurse manager", "ed nurse manager"],
+    specialties: ["emergency medicine"],
+    seniority_levels: ["Director"],
+    current_companies: ["uchealth"],
+    location: { state: "colorado" },
+  }) as unknown as Record<string, unknown>);
+  assert(semanticWorthRunning(criteria), "an exact-title ask must always earn semantic discovery");
+  const semanticCriteria = semanticFilterCriteria(criteria);
+  assert(!semanticCriteria.some((c) => c.kind === "title" || c.kind === "specialty" || c.kind === "seniority"));
+  assert(semanticCriteria.some((c) => c.kind === "location" && c.enforcement === "hard"));
+  assert(semanticCriteria.some((c) => c.kind === "role_class" && c.enforcement === "hard"));
+  assert(semanticCriteria.some((c) => (c.kind === "company" || c.kind === "employer_group") && c.enforcement === "hard"));
+  const queries = semanticDiscoveryQueries("Emergency room nurse manager in Colorado", criteria);
+  assertEquals(queries.length, 2);
+  assertEquals(queries[0], "Emergency room nurse manager in Colorado");
+  assert(queries[1].includes("clinical nurse manager emergency department"));
+  assert(queries[1].includes("clinical nurse manager ed"));
 });
 
 Deno.test("subspecialty depth across verticals: neurovascular and structural heart", () => {
@@ -1348,6 +1373,20 @@ Deno.test("same person, two profiles: J. Pieter Hommen and Jan Pieter Hommen are
   assertEquals(suspects[0].audit_verdict, "reject");
   assert(String(suspects[0].audit_reason).includes("J. Pieter Hommen"), String(suspects[0].audit_reason));
   assertEquals(suspects[0].duplicate_of, "p1");
+
+  const forward = { id: "k1", full_name: "Kory Scheideman", job_company_name: "UCHealth", location_locality: "Fort Collins" };
+  const backward = { id: "k2", full_name: "Scheideman Kory", job_company_name: "UCHealth", location_locality: "Loveland" };
+  assert(samePersonByName(forward, backward), "an exact name reversal at the same employer is one person");
+  assert(!samePersonByName(forward, { ...backward, job_company_name: "Denver Health" }), "a reversed name still needs the employer anchor");
+});
+
+Deno.test("strong clinical matches stay above weak matches despite secondary criteria", () => {
+  const ordered = sortByMatchRate([
+    { full_name: "Weak but complete", audit_verdict: "weak", match_rate: 100 },
+    { full_name: "Strong exact title", audit_verdict: "strong", match_rate: 50 },
+    { full_name: "Strong complete", audit_verdict: "strong", match_rate: 100 },
+  ]);
+  assertEquals(ordered.map((r) => r.full_name), ["Strong complete", "Strong exact title", "Weak but complete"]);
 });
 
 /* ---------- employment model: hospital-employed vs private practice (2026-10-13) ---------- */

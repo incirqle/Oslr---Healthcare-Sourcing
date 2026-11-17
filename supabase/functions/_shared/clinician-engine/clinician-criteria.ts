@@ -1658,8 +1658,13 @@ export function mapParsedToCriteria(
     });
   }
 
-  /* ---- seniority (hard, explicit leadership asks only) ---- */
-  const seniorityLevels = isBedsideLeadAsk(parsed)
+  /* ---- seniority (hard, explicit leadership-class asks only) ---- */
+  // A specific stated title already defines the job. Never bolt an inferred
+  // corporate seniority enum onto it: emergency nurse managers are commonly
+  // indexed as Entry Level Manager, not Director, and the extra filter erased
+  // the exact people requested. Generic asks such as "nurse leaders" retain
+  // the explicit leadership-class filter.
+  const seniorityLevels = strArr(parsed.job_titles).length > 0 || isBedsideLeadAsk(parsed)
     ? []
     : canonicalizeSeniorityLevels(parsed.seniority_levels);
   if (seniorityLevels.length > 0) {

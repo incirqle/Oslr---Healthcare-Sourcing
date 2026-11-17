@@ -176,6 +176,16 @@ export function samePersonByName(a: Record<string, unknown>, b: Record<string, u
   const na = parsePersonName(a.full_name ?? a.name);
   const nb = parsePersonName(b.full_name ?? b.name);
   if (!na || !nb) return false;
+  // Some duplicate profiles store "First Last" backwards. Require the same
+  // employer as an independent anchor; different cities are common when a
+  // clinician moves between campuses and must not defeat this exact reversal.
+  const reversed = !na.middle && !nb.middle && na.first === nb.last && na.last === nb.first &&
+    na.first.length >= 3 && na.last.length >= 3;
+  if (reversed) {
+    const ea = squash(primaryEmployerName(a), EMPLOYER_NOISE);
+    const eb = squash(primaryEmployerName(b), EMPLOYER_NOISE);
+    if (ea && ea === eb) return true;
+  }
   if (na.last !== nb.last || na.last.length < 3) return false;
   if (!compatibleFirst(na.first, nb.first)) return false;
   if (!compatibleMiddle(na.middle, nb.middle)) return false;

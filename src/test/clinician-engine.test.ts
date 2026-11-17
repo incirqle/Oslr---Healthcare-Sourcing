@@ -119,9 +119,12 @@ describe("live failure 2026-10-12: orthopedic surgeons in Miami, Florida", async
     }
   });
 
-  it("keeps Miami geography without requiring a populated profile state", () => {
-    expect(leaves.some((l) => l.field === "basic_profile.location.state")).toBe(false);
-    expect(leaves.some((l) => l.field === "basic_profile.location.full_location" && l.value === "miami")).toBe(true);
+  it("keeps Miami geography with city/state text, metro labels, and a commuter radius", () => {
+    // Bare same-name cities pair with their state; metro-labelled profiles
+    // and commuters still enter through the state-free alternatives.
+    expect(leaves.some((l) => l.field === "basic_profile.location.city" && l.value === "miami")).toBe(true);
+    expect(leaves.some((l) => l.field === "basic_profile.location.state" && l.value === "florida")).toBe(true);
+    expect(leaves.some((l) => l.field === "basic_profile.location.full_location" && l.value === "metropolitan")).toBe(true);
     expect(leaves.some((l) => l.field === "basic_profile.location" && JSON.stringify(l.value).toLowerCase().includes("miami, florida"))).toBe(true);
   });
 

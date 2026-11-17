@@ -17,7 +17,16 @@ Deno.test("Charge nurse never becomes a Director seniority filter", () => {
   assertEquals((Array.isArray(c) ? c : c.criteria).filter((x: any) => x.kind === "seniority").length, 0);
 });
 
-Deno.test("Director of nursing keeps its seniority filter", () => {
-  const c = (mapParsedToCriteria as any)({ role_class: "nurse", job_titles: ["director of nursing"], seniority_levels: ["Director"] });
+Deno.test("A specific nursing title never inherits a hard seniority filter", () => {
+  for (const title of ["emergency room nurse manager", "director of nursing"]) {
+    const c = (mapParsedToCriteria as any)({ role_class: "nurse", job_titles: [title], seniority_levels: ["Director"] });
+    const criteria = Array.isArray(c) ? c : c.criteria;
+    assertEquals(criteria.filter((x: any) => x.kind === "seniority").length, 0);
+    assertEquals(criteria.filter((x: any) => x.kind === "title").length, 1);
+  }
+});
+
+Deno.test("A generic nurse-leader ask keeps its explicit seniority filter", () => {
+  const c = (mapParsedToCriteria as any)({ role_class: "nurse", job_titles: [], seniority_levels: ["Director"] });
   assertEquals((Array.isArray(c) ? c : c.criteria).filter((x: any) => x.kind === "seniority").length, 1);
 });

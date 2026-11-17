@@ -20,7 +20,14 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // clinical-interest evidence, and generic experience that includes training.
 // v14: metro recall no longer requires a populated profile state; current
 // trainees are also recalled through local employers and residency programs.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v17";
+// v18: semantic discovery runs on every search; stated titles no longer
+// inherit incompatible hard seniority enums. The raw recruiter sentence also
+// joins the cache key because it now shapes the semantic recall pool.
+// v19: one full semantic page (up to 100 rows) rather than 50, after the
+// Colorado nurse-manager live check produced only 16 strong matches.
+// v23: preserve strong clinical-fit ordering above secondary preferences after
+// emergency-unit, current-management and duplicate-person safeguards.
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v23";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

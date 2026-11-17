@@ -28,8 +28,10 @@
 import { personSearchV2 } from "./lib/crustdata-v2.ts";
 import type { SearchCriteria } from "./clinician-criteria.ts";
 
-/** Rows to request. Kept modest: this is a recall supplement, not a re-search. */
-export const SEMANTIC_LIMIT = 50;
+/** One bounded semantic page on every search (provider maximum: 100). */
+export const SEMANTIC_LIMIT = 100;
+/** Extra targeted page for nursing-management word-order variants. */
+export const SEMANTIC_TITLE_LIMIT = 50;
 
 export interface SemanticRecallInput {
   /** The recruiter's original sentence, verbatim. */
@@ -38,6 +40,8 @@ export interface SemanticRecallInput {
   filters: Record<string, unknown>;
   fields: string[];
   limit?: number;
+  /** Additional bounded semantic phrasings, merged into the same recall pool. */
+  additionalQueries?: string[];
 }
 
 export interface SemanticRecallResult {
@@ -48,35 +52,61 @@ export interface SemanticRecallResult {
 }
 
 /**
- * Should a semantic pass run for this search?
- *
- * Only when it can actually add something. A query pinned to a named employer
- * plus an award is already precise and semantic recall would spend credits to
- * return the same people. A query resting on a specialty word — the case where
- * a substring is doing work it cannot do — is exactly where it pays.
+ * Semantic discovery runs on every valid search, not only specialty searches.
+ * Clinical titles vary too much for literal matching to be the primary recall
+ * strategy: "Manager of Emergency Services" and "Clinical Nurse Manager - ED"
+ * are the same recruiting target as "Emergency Room Nurse Manager".
  */
 export function semanticWorthRunning(criteria: SearchCriteria[]): boolean {
-  // Subspecialty asks ALWAYS earn a semantic pass, employer or not
-  // (2026-09-15): subspecialty language is the most variable text in the
-  // index — "does complex primary and revision TKA" never contains the
-  // phrase "joint reconstruction" — and the recruiter's own sentence is the
-  // best recall net for it.
-  const hasSubspecialty = criteria.some((c) => {
-    if (c.kind !== "specialty" || c.enforcement !== "hard") return false;
-    const v = c.value as { subspecialty?: unknown } | string[] | null;
-    return !Array.isArray(v) && !!v?.subspecialty;
-  });
-  if (hasSubspecialty) return true;
-  // A named employer used to switch the semantic pass OFF — exactly the
-  // query where a recruiter's own sentence ("does complex revision TKA at
-  // UCHealth") is the best recall net, and the reason "company semantic
-  // search" appeared not to work. The structured employer filter still
-  // rides along in exact mode, so the pass stays inside that employer.
-  return criteria.some((c) => c.kind === "specialty" && c.enforcement === "hard");
+  return criteria.some((c) => c.enforcement === "hard");
 }
 
 /**
- * Run one semantic pass under the same hard constraints as the lexical search.
+ * Semantic discovery needs room to recognize equivalent title and specialty
+ * language. Those two text filters therefore stay out of the provider-side
+ * semantic request; the original criteria still rank and grade every row.
+ * Geography, named employers, role classes, credentials, career stage and all
+ * other hard boundaries remain in exact mode.
+ */
+export function semanticFilterCriteria(criteria: SearchCriteria[]): SearchCriteria[] {
+  return criteria.filter((c) =>
+    c.kind !== "title" && c.kind !== "specialty" && c.kind !== "seniority"
+  );
+}
+
+/**
+ * A second semantic phrasing for nursing-management titles. Literal and
+ * single-query semantic search both over-recall bedside nurses; real leaders
+ * also use "Clinical Nurse Manager, ED" and "Manager of Emergency Services".
+ * The variant is derived from stated/autocomplete titles, never invented as a
+ * new requirement, and the original sentence always remains the first query.
+ */
+export function semanticDiscoveryQueries(query: string, criteria: SearchCriteria[]): string[] {
+  const original = query.trim();
+  const titleTerms = criteria
+    .filter((c) => c.kind === "title" && c.enforcement === "hard")
+    .flatMap((c) => {
+      const value = c.value as { terms?: string[] } | string[] | null;
+      return Array.isArray(value) ? value : value?.terms ?? [];
+    })
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const variants = new Set(titleTerms);
+  for (const title of titleTerms) {
+    if (!/\b(?:nurse|nursing) manager\b/.test(title)) continue;
+    variants.add(title.replace(/\b(?:nurse|nursing) manager\b/, "clinical nurse manager"));
+    const prefix = title.replace(/\b(?:nurse|nursing) manager\b.*$/, "").trim();
+    if (prefix) variants.add(`clinical nurse manager ${prefix}`);
+  }
+  if (variants.size === titleTerms.length || titleTerms.length === 0) return [original];
+  return [
+    original,
+    `Current ${[...variants].join(", ")}, or equivalent clinical leadership roles. ${original}`,
+  ];
+}
+
+/**
+ * Run semantic passes under the same hard constraints as the lexical search.
  *
  * Degrades silently: any provider failure returns `ran: false` with no rows,
  * because a recall supplement must never be able to fail a search that already
@@ -88,20 +118,33 @@ export async function semanticRecall(
   const query = input.query?.trim();
   if (!query) return { profiles: [], ran: false, reason: "empty query" };
 
-  const r = await personSearchV2({
+  const requests = [
+    { query, limit: input.limit ?? SEMANTIC_LIMIT },
+    ...(input.additionalQueries ?? []).map((q) => ({ query: q, limit: Math.min(SEMANTIC_TITLE_LIMIT, input.limit ?? SEMANTIC_TITLE_LIMIT) })),
+  ];
+  const responses = await Promise.all(requests.map((request) => personSearchV2({
     filters: input.filters,
-    search: { query, mode: "hybrid" },
+    search: { query: request.query, mode: "hybrid" },
     mode: "exact",
     fields: input.fields,
-    limit: input.limit ?? SEMANTIC_LIMIT,
-  });
+    limit: request.limit,
+  })));
 
-  if (!r.ok) {
-    // r is the error arm of the union here, so status/detail are present.
-    console.warn(`[semantic] provider declined (${r.status}) — lexical results stand`);
-    return { profiles: [], ran: false, reason: `provider ${r.status}` };
+  const profiles: Record<string, unknown>[] = [];
+  let ran = false;
+  let lastStatus: number | null = null;
+  for (const r of responses) {
+    if (!r.ok) {
+      lastStatus = r.status;
+      console.warn(`[semantic] provider declined (${r.status}) — lexical results stand`);
+      continue;
+    }
+    ran = true;
+    profiles.push(...(r.data.profiles ?? []));
   }
-  return { profiles: r.data.profiles ?? [], ran: true };
+  return ran
+    ? { profiles, ran: true }
+    : { profiles: [], ran: false, reason: lastStatus ? `provider ${lastStatus}` : "no response" };
 }
 
 /**

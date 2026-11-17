@@ -177,6 +177,7 @@ export async function buildSearchCacheKey(
   criteria: SearchCriteria[],
   limit: number,
   fields: readonly string[] = [],
+  semanticQuery = "",
 ): Promise<string> {
   const canon = criteria
     .filter((c) => c.enforcement !== "dropped")
@@ -191,6 +192,6 @@ export async function buildSearchCacheKey(
   return "clin:" +
     await sha256Hex(
       CLINICIAN_ENGINE_VERSION + "|" + JSON.stringify(canon) + "|" + String(limit) + "|" +
-        fields.join(","),
+        fields.join(",") + "|" + semanticQuery.trim().toLowerCase().replace(/\s+/g, " "),
     );
 }

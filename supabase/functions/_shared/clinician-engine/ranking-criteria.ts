@@ -433,12 +433,14 @@ export function setAsideNote(reason: SetAsideReason, row: Row, ranking: RankingC
 }
 
 /**
- * Kept-row order (spec 7): match_rate desc, then the incoming order, which
- * is already grader tier, audit score and the deterministic index.
+ * Kept-row order: clinical fit tier first, then match_rate and the incoming
+ * grader/audit-score order. A secondary preference must never bury an exact
+ * strong match below a weak one merely because the weak row has more text.
  */
 export function sortByMatchRate<T extends Row>(rows: T[]): T[] {
+  const tier = (r: Row) => r.audit_verdict === "strong" ? 0 : r.audit_verdict === "weak" ? 1 : 2;
   return rows
     .map((r, i) => ({ r, i }))
-    .sort((a, b) => ((b.r.match_rate ?? -1) - (a.r.match_rate ?? -1)) || (a.i - b.i))
+    .sort((a, b) => (tier(a.r) - tier(b.r)) || ((b.r.match_rate ?? -1) - (a.r.match_rate ?? -1)) || (a.i - b.i))
     .map(({ r }) => r);
 }

@@ -516,11 +516,8 @@ Deno.serve(async (req: Request) => {
       geo_scope: deriveGeoScope(parsed, relaxed),
       company_scope: deriveCompanyScope(criteria),
       ai_reranked: !!data.audit,
-      ai_rerank_model: data.audit ? "claude-opus" : null,
       engine: "clinician",
-      // The build that answered. The UI compares it with the build it was
-      // written for: a push does not redeploy a Lovable edge function.
-      engine_version: data.engine_version ?? null,
+      // Internal engine versions and model/provider names stay in server logs.
       run_id: data.run_id ?? null,
       criteria,
       relaxed,
@@ -529,6 +526,7 @@ Deno.serve(async (req: Request) => {
       fallback: data.fallback ?? null,
       fallback_note: data.fallback_note ?? null,
       audit: data.audit ?? null,
+      semantic: data.semantic && typeof data.semantic === "object" ? data.semantic : null,
       credits: data.credits ?? 0,
       credits_session: data.credits_session ?? 0,
       cache_hit: data.cache_hit ?? false,

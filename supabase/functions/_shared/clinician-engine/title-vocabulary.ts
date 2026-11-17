@@ -25,6 +25,7 @@
  */
 
 import { personSearchAutocomplete } from "./lib/crustdata-v2.ts";
+import type { SearchCriteria } from "./clinician-criteria.ts";
 
 /**
  * Cap on expansions per stated title. Each becomes a filter clause, and the
@@ -98,4 +99,56 @@ export function titleKeepsEveryWord(stated: string, variant: string): boolean {
   const words = (x: string) => x.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const have = new Set(words(variant));
   return words(stated).every((w) => have.has(w));
+}
+
+/**
+ * A stated nurse-manager search must not keep a current bedside RN merely
+ * because the grader found management in their history or headline. Only an
+ * actual current role title proves current management. Missing titles stay
+ * untouched; unit/specialty fit remains the normal auditor's job.
+ */
+export function rejectCurrentNonManagers(
+  rows: Array<Record<string, unknown>>,
+  criteria: SearchCriteria[],
+): number {
+  let asksForEmergency = false;
+  const asksForManager = criteria.some((c) => {
+    if (c.kind !== "title" || c.enforcement !== "hard") return false;
+    const value = c.value as { terms?: string[] } | string[] | null;
+    const terms = Array.isArray(value) ? value : value?.terms ?? [];
+    if (terms.some((t) => /\b(?:emergency|\bed\b)\b/i.test(t))) asksForEmergency = true;
+    return terms.some((t) => /\b(?:nurse|nursing) manager\b/i.test(t));
+  });
+  if (!asksForManager) return 0;
+  let rejected = 0;
+  for (const row of rows) {
+    const current = Array.isArray(row.current_employers)
+      ? row.current_employers as Array<Record<string, unknown>>
+      : [];
+    const titles = current
+      .filter((e) => e.current !== false)
+      .map((e) => String(e.title ?? e.role ?? "").trim())
+      .filter(Boolean);
+    if (titles.length === 0 && typeof row.job_title === "string" && row.job_title.trim()) {
+      titles.push(row.job_title.trim());
+    }
+    const hasManagementTitle = titles.some((t) => /\b(?:manager|director|supervisor|superintendent)\b/i.test(t));
+    if (titles.length > 0 && !hasManagementTitle) {
+      row.audit_verdict = "reject";
+      row.audit_score = 0;
+      row.audit_reason = `Current role is ${titles[0]}, not a nurse-management position.`;
+      rejected++;
+      continue;
+    }
+    // When the auditor itself identifies a different current unit, that is a
+    // contradiction, not a soft "weak" preference. Use its reason rather than
+    // guessing from an employer name or discarding an unlabelled manager.
+    const reason = String(row.audit_reason ?? "");
+    if (asksForEmergency && row.audit_verdict !== "reject" && /\bnot (?:an? |the )?(?:emergency department|emergency room|emergency|ed)\b/i.test(reason)) {
+      row.audit_verdict = "reject";
+      row.audit_score = 0;
+      rejected++;
+    }
+  }
+  return rejected;
 }

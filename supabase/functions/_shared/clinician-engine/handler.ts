@@ -65,8 +65,8 @@ import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
 import { splitNonoperativeRows } from "./clinical-intent.ts";
 import { currentClinicalTrainingReason, splitCurrentTrainingRows, splitExperienceRows, type TrainingStageRequest } from "./clinical-timeline.ts";
-import { mergeSemanticRows, SEMANTIC_LIMIT, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
-import { expandStatedTitles } from "./title-vocabulary.ts";
+import { mergeSemanticRows, SEMANTIC_LIMIT, SEMANTIC_TITLE_LIMIT, semanticDiscoveryQueries, semanticFilterCriteria, semanticRecall, semanticWorthRunning } from "./semantic-recall.ts";
+import { expandStatedTitles, rejectCurrentNonManagers } from "./title-vocabulary.ts";
 import { resolveSpecialtyCompanyIds } from "./specialty-companies.ts";
 import { companyIdentifyV2, personEnrichV2, personSearchV2 } from "./lib/crustdata-v2.ts";
 import { resolveEmployerGroup } from "./employer-resolution.ts";
@@ -440,7 +440,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
 
       // 4. ONE v2 person search per resolved criteria set — cached 4h,
       //    cursor-followed to fill the pool, credit-ceilinged.
-      const cacheKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS);
+      const cacheKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS, String(query ?? ""));
       // deno-lint-ignore no-explicit-any
       let normalized: any[];
       let totalCount: number;
@@ -600,7 +600,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             `Thin local results — widened to ${CITY_WIDE_RADIUS_MI} miles around ${v.city}; ${v.city} itself still ranks first.`;
           const wideFilters = buildClinicianQuery(criteria);
           if (wideFilters) {
-            const wideKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS);
+            const wideKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS, String(query ?? ""));
             const cachedWide = bypassCache ? null : await getCrustDataCache(wideKey);
             if (cachedWide && cachedWide.profiles.length > normalized.length) {
               normalized = cachedWide.profiles;
@@ -705,18 +705,18 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       let semanticAdded = 0;
       let semanticRan = false;
       let companyGraphAdded = 0;
-      const recallFilters = buildClinicianQuery(
-        criteria.filter((c) => c.kind !== "specialty"),
-      ) ?? treeFilters;
+      const recallFilters = buildClinicianQuery(semanticFilterCriteria(criteria)) ?? treeFilters;
       // The two recall passes are independent provider calls; they run
       // CONCURRENTLY and merge in a fixed order (semantic first) so results
       // are deterministic. Serial, they added ~8 s to a 45 s search
       // (2026-10-13) while contributing 0 rows.
       if (!cacheHit && !useWorkplaceRecall && semanticWorthRunning(criteria)) {
         const spentBefore = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
-        // Both passes together must fit under the ceiling.
-        const semanticAllowed = checkCeiling(spentBefore, SEMANTIC_LIMIT).allow;
-        const graphAllowed = checkCeiling(spentBefore, SEMANTIC_LIMIT * 2).allow;
+        // All semantic phrasings plus the company graph must fit the ceiling.
+        const semanticQueries = semanticDiscoveryQueries(String(query ?? "").trim(), criteria);
+        const semanticRowsBudget = SEMANTIC_LIMIT + (semanticQueries.length - 1) * SEMANTIC_TITLE_LIMIT;
+        const semanticAllowed = checkCeiling(spentBefore, semanticRowsBudget).allow;
+        const graphAllowed = checkCeiling(spentBefore, semanticRowsBudget + SEMANTIC_LIMIT).allow;
         const specialtyTerms = criteria
           .filter((c) => c.kind === "specialty" && c.enforcement === "hard")
           .flatMap((c) => {
@@ -730,6 +730,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             filters: recallFilters as unknown as Record<string, unknown>,
             fields: CARD_FIELDS,
             limit: SEMANTIC_LIMIT,
+            additionalQueries: semanticQueries.slice(1),
           })
           : Promise.resolve({ profiles: [], ran: false, reason: "ceiling" });
 
@@ -1078,7 +1079,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       }
 
       // ── Auto-widen ladder: one requirement at a time, labelled ──────
-      // specialty → credential → title → seniority → region-to-state.
+      // Inferred seniority is always relaxed before a stated job title.
       // Demote to SOFT, never delete. Empty probes bill 0.
       if (totalCount === 0 && !preview && normalized.length === 0) {
         const LADDER = [
@@ -1088,13 +1089,19 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           { kind: "employer_size", note: "employer size ranked instead of required" },
           { kind: "employment_model", note: "employment model ranked instead of required" },
           { kind: "care_setting", note: "care setting ranked instead of required" },
-          { kind: "title", note: "title ranked instead of required" },
           { kind: "seniority", note: "seniority ranked instead of required" },
+          { kind: "title", note: "title ranked instead of required" },
         ];
         // The provider's zero-result diagnostics name the culprit condition
         // (probe log D: "condition_eliminates_all … 77 match without it") —
         // relax that requirement FIRST instead of walking a blind order.
-        const orderedLadder = reorderLadderByRemarks(LADDER, zeroRemarks);
+        const remarksOrdered = reorderLadderByRemarks(LADDER, zeroRemarks);
+        // Provider remarks may implicate both fields; they must never put an
+        // inferred seniority relaxation behind the user's stated title.
+        const orderedLadder = [
+          ...remarksOrdered.filter((r) => r.kind === "seniority"),
+          ...remarksOrdered.filter((r) => r.kind !== "seniority"),
+        ];
         for (const step of [...orderedLadder, { kind: "__region__", note: "" }]) {
           let label: string | null = null;
           if (step.kind === "__region__") {
@@ -1143,7 +1150,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           credits += widenCredits;
           recordSessionSpend(creditLedger, sessionKey, widenCredits, SEARCH_TTL_MS);
           relaxed.push(label);
-          const widenedKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS);
+          const widenedKey = await buildSearchCacheKey(criteria, SEARCH_LIMIT, CARD_FIELDS, String(query ?? ""));
           await setCrustDataCache(widenedKey, totalCount, normalized, retry.data.next_cursor);
           console.log(JSON.stringify({ event: "auto_widen", tier: relaxed.length, relaxed, found: normalized.length }));
           break;
@@ -1493,6 +1500,13 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
             )
             .map(({ r }) => r);
         }
+      }
+
+      // Deterministic title guard after fresh OR cached grading: a headline
+      // or past manager role cannot make a current bedside RN a manager.
+      const nonManagersRejected = rejectCurrentNonManagers(allResults as Array<Record<string, unknown>>, criteria);
+      if (nonManagersRejected > 0) {
+        console.log(JSON.stringify({ event: "current_non_managers_rejected", count: nonManagersRejected }));
       }
 
       // Rejects leave the main list and the count, but they are never
