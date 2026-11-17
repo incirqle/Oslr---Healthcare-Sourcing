@@ -23,9 +23,9 @@ import {
   SEARCH_TTL_MS,
   setCrustDataCache,
 } from "./cache.ts";
+import { rankOutOfMarketLast } from "./market-fit.ts";
 import { auditTier, runClinicianAudit, type AuditableResult, type AuditVerdict } from "./audit.ts";
 import {
-  applyClinicalInterestEvidenceGate,
   buildCriteriaResults,
   type CriterionResult,
   type GraderCriterionResult,
@@ -1284,18 +1284,14 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
-      allResults = applyClinicalInterestEvidenceGate(allResults as Array<Record<string, unknown>>, criteria) as unknown as typeof allResults;
-
       // Rejects leave the main list and the count, but they are never
       // discarded silently: they ride the response as hidden_results so the
       // UI can say "N hidden as poor matches" and let the recruiter reveal
       // them with the grader's reason attached. (A page that found people
       // and rendered blank was the Neuvora beta's #1 complaint.)
-      // Weak grader verdicts (no evidence for the asked subspecialty, wrong
-      // training stage) join the hidden list too: revealable, never padding.
-      const isReject = (r: Record<string, unknown>) =>
-        r.interest_reviewable !== true &&
-        (r.audit_verdict === "reject" || (r.audit_verdict === "weak" && rankingCriteria.length > 0));
+      // Only true mismatches are hidden. Weak verdicts (soft interest not
+      // shown, adjacent training year) stay in the list and rank lower.
+      const isReject = (r: Record<string, unknown>) => r.audit_verdict === "reject";
       const graderRows = allResults.filter(isReject);
       allResults = allResults.filter((r: Record<string, unknown>) => !isReject(r));
       // Set-aside rows, by reason, in the order the recruiter would want to
@@ -1329,6 +1325,16 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         return false;
       });
       if (rankingCriteria.length > 0) allResults = sortByMatchRate(allResults as Array<Record<string, unknown>>) as typeof allResults;
+      {
+        const searchStates = criteria
+          .filter((c) => c.kind === "location" && c.enforcement === "hard")
+          .flatMap((c) => {
+            const v = c.value as { level?: string; state?: string; states?: string[] } | null;
+            if (!v || v.level === "country") return [];
+            return v.states?.length ? v.states : v.state ? [v.state] : [];
+          });
+        allResults = rankOutOfMarketLast(allResults as Array<Record<string, unknown>>, searchStates) as typeof allResults;
+      }
       const tagSetAside = (rows: Array<Record<string, unknown>>, reason: SetAsideReason) => {
         for (const r of rows) {
           attachRanking(r, false);

@@ -291,16 +291,6 @@ function MiddleColumn({
           <p className="text-[13px] text-foreground/60">
             {start ? `Started ${formatDateLabelSmart(start)}` : "Start date not listed"}
           </p>
-          {(isTrainee || candidate.stage_evidence || statedYr) && (
-            <p className="text-[13px] text-foreground/60">
-              {candidate.stage_evidence ?? (yr ? `${statedYr ? "Stated" : fellow ? "Estimated fellowship year" : "Estimated"} ${fellow && !statedYr ? yr : `PGY-${yr}`}${statedYr ? "" : " from the listed start date"}` : "Training year not listed")}
-            </p>
-          )}
-          {(candidate.audit_verdict === "strong" || candidate.audit_verdict === "weak") && (candidate.audit_evidence || candidate.audit_reason) && (
-            <p className="text-[13px] text-primary">
-              {candidate.audit_verdict === "strong" ? "Why they match" : "Related evidence"}: {candidate.audit_evidence || candidate.audit_reason}
-            </p>
-          )}
           </>
         );
       })()}
