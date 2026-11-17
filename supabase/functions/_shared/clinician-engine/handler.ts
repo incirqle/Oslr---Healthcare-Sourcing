@@ -72,6 +72,7 @@ import { companyIdentifyV2, personEnrichV2, personSearchV2 } from "./lib/crustda
 import { resolveEmployerGroup } from "./employer-resolution.ts";
 import { resolveCaller } from "./lib/auth.ts";
 import { residencyProgramRecall, sortByResidentYearTier, splitResidentYearRows } from "./resident-year.ts";
+import { buildWorkplaceRecallPasses, statedResidentYearTextFilter } from "./workplace-recall.ts";
 import { handleRankAction, saveRunSnapshot, suggestionsFor } from "./rank-route.ts";
 import { cleanTitle, TITLE_NOTE, titlesFromRaw } from "./rank-actions.ts";
 import { getUsage, logEngagement, meterSearch } from "./search-meter.ts";
@@ -559,6 +560,17 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
+      // Plan workplace recall before spending the budget on deep lexical or
+      // semantic passes. A hard trainee + market ask gets one local page to
+      // learn employers, then fair per-program passes below.
+      const programRecall = residencyProgramRecall(criteria);
+      const workplacePasses = cacheHit ? [] : buildWorkplaceRecallPasses(
+        criteria,
+        normalized as Array<Record<string, unknown>>,
+        programRecall?.programs ?? [],
+      );
+      const useWorkplaceRecall = !preview && workplacePasses.length > 0;
+
       // ── Thin-city adaptive radius (rural markets, 2026-09-15) ───────
       // A 15mi circle treats Aspen like Manhattan: the real market is the
       // whole valley (Basalt, Carbondale, Glenwood, Vail — live probe: 15
@@ -574,7 +586,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           (c.value as { level?: string; city?: string }).level === "city" &&
           (c.value as { city?: string }).city
         );
-        if (cityCrit && totalCount < THIN_CITY_TOTAL) {
+        if (cityCrit && !useWorkplaceRecall && totalCount < THIN_CITY_TOTAL) {
           const v = cityCrit.value as {
             city: string;
             state?: string;
@@ -645,7 +657,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       {
         const needed = (Number(page) + 1) * Number(size);
         const target = Number(page) === 0
-          ? Math.min(Math.max(totalCount, 0), LEXICAL_POOL_CAP)
+          ? Math.min(Math.max(totalCount, 0), useWorkplaceRecall ? SEARCH_LIMIT : LEXICAL_POOL_CAP)
           : Math.min(needed + Number(size), DEEP_PAGE_CAP);
         const seen = new Set<string>();
         for (const row of normalized) {
@@ -700,7 +712,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       // CONCURRENTLY and merge in a fixed order (semantic first) so results
       // are deterministic. Serial, they added ~8 s to a 45 s search
       // (2026-10-13) while contributing 0 rows.
-      if (!cacheHit && semanticWorthRunning(criteria)) {
+      if (!cacheHit && !useWorkplaceRecall && semanticWorthRunning(criteria)) {
         const spentBefore = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
         // Both passes together must fit under the ceiling.
         const semanticAllowed = checkCeiling(spentBefore, SEMANTIC_LIMIT).allow;
@@ -786,7 +798,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
       const facilityCriterion = criteria.find((c) =>
         c.kind === "employer_group" && c.enforcement !== "dropped" && !!(c.value as EmployerGroupValue).facility
       );
-      if (!cacheHit && facilityCriterion && criteria.some((c) => c.kind === "location")) {
+      if (!cacheHit && !useWorkplaceRecall && facilityCriterion && criteria.some((c) => c.kind === "location")) {
         const FACILITY_RECALL_LIMIT = 50;
         const fv = (facilityCriterion.value as EmployerGroupValue).facility!;
         const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
@@ -824,62 +836,202 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
         }
       }
 
-      // ── Residency-program recall ────────────────────────────────────
-      // Residents often list no city or an old one; their program name is
-      // the reliable anchor. Same role/specialty filters, statewide clip,
-      // program names ORed. Ceiling-checked per hop.
-      let programRecallAdded = 0;
-      const programRecall = residencyProgramRecall(criteria);
-      if (!cacheHit && !preview && programRecall) {
-        const programCriteria = [
-          ...criteria.filter((c) => c.kind !== "location"),
-          {
-            id: "program_recall", kind: "employer_group", label: "Residency programs", enforcement: "hard",
-            source: "system", evidenceSource: "search",
-            value: { group_key: "residency_programs", name: "Residency programs", company_ids: [], domains: [], name_variants: programRecall.variants },
-          },
-          {
-            id: "program_state", kind: "location", label: programRecall.state, enforcement: "hard",
-            source: "system", evidenceSource: "search",
-            value: { level: "state", state: programRecall.state },
-          },
-        ] as unknown as SearchCriteria[];
-        const programFilters = buildClinicianQuery(programCriteria);
+      // ── Current-trainee workplace recall ────────────────────────────
+      // Trainees update their program before their home city. Learn the
+      // current training employers from the local pool, add any curated
+      // residency-program variants, then search those workplaces WITHOUT a
+      // personal-city/state gate. This works for any market with a local
+      // anchor; the curated NYC list only fills programs absent from that
+      // pool. Role, specialty and all other hard criteria remain intact.
+      // The ordinary PGY and out-of-market gates still run downstream.
+      let workplaceRecallAdded = 0;
+      const WORKPLACE_PAGE_LIMIT = 25;
+      const WORKPLACE_MAX_PAGES = 2;
+      let workplacePassesRun = 0;
+      for (const pass of useWorkplaceRecall ? workplacePasses : []) {
+        const workplaceFilters = buildClinicianQuery(pass);
+        if (!workplaceFilters) continue;
         let cursor: string | null | undefined = undefined;
-        for (let hop = 0; programFilters && hop < 4; hop++) {
+        let passRan = false;
+        for (let hop = 0; hop < WORKPLACE_MAX_PAGES; hop++) {
           const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
-          if (!checkCeiling(spentNow, SEARCH_LIMIT).allow) break;
+          if (!checkCeiling(spentNow, WORKPLACE_PAGE_LIMIT).allow) break;
           const res = await personSearchV2({
-            filters: programFilters as unknown as Record<string, unknown>,
-            limit: SEARCH_LIMIT,
+            filters: workplaceFilters as unknown as Record<string, unknown>,
+            limit: WORKPLACE_PAGE_LIMIT,
             fields: CARD_FIELDS,
             ...(cursor ? { cursor } : {}),
           });
           if (!res.ok) {
-            console.warn(`[clinician] program recall HTTP ${res.status}: ${res.detail.slice(0, 200)}`);
+            console.warn(`[clinician] workplace recall HTTP ${res.status}: ${res.detail.slice(0, 200)}`);
             break;
           }
+          passRan = true;
           if (res.data.profiles.length === 0) break;
+          const passGroup = pass.find((c) => c.kind === "employer_group")?.value as EmployerGroupValue | undefined;
+          const passAnchors = passGroup?.name_variants ?? [];
           const rowsIn = res.data.profiles
             .map(normalizeCrustDataV2Profile)
-            .map((p: Record<string, unknown>) => ({ ...p, _program_recall: true }));
+            .map((p: Record<string, unknown>) => ({
+              ...p,
+              _workplace_recall: true,
+              _workplace_anchors: passAnchors,
+            }));
           const merged = mergeSemanticRows(normalized, rowsIn, rowKey);
           normalized = merged.merged;
-          programRecallAdded += merged.added;
+          // A person may appear under several program aliases. Preserve the
+          // union so the final check accepts any actual local training role.
+          const mergedByKey = new Map(normalized.map((row) => [rowKey(row), row]));
+          for (const row of rowsIn) {
+            const target = mergedByKey.get(rowKey(row));
+            if (!target) continue;
+            target._workplace_recall = true;
+            target._workplace_anchors = [...new Set([
+              ...(Array.isArray(target._workplace_anchors) ? target._workplace_anchors as string[] : []),
+              ...passAnchors,
+            ])];
+          }
+          workplaceRecallAdded += merged.added;
           const hopCredits = creditsForResults(res.data.profiles.length);
           credits += hopCredits;
           recordSessionSpend(creditLedger, sessionKey, hopCredits, SEARCH_TTL_MS);
           cursor = res.data.next_cursor;
           if (!cursor) break;
         }
+        if (passRan) workplacePassesRun += 1;
+      }
+      if (workplacePassesRun > 0) {
         totalCount = Math.max(totalCount, normalized.length);
-        console.log(JSON.stringify({ event: "program_recall", added: programRecallAdded }));
+        console.log(JSON.stringify({
+          event: "workplace_recall",
+          passes: workplacePassesRun,
+          added: workplaceRecallAdded,
+        }));
+      }
+
+      // Spend any remaining headroom on the ordinary local cursor and a
+      // bounded semantic pass. Program recall comes first, but must not
+      // displace qualified people the earlier local strategy would have kept.
+      if (useWorkplaceRecall && nextCursor) {
+        const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+        if (checkCeiling(spentNow, SEARCH_LIMIT).allow) {
+          const more = await personSearchV2({
+            filters: treeFilters as unknown as Record<string, unknown>,
+            limit: SEARCH_LIMIT,
+            fields: CARD_FIELDS,
+            cursor: nextCursor,
+          });
+          if (more.ok && more.data.profiles.length > 0) {
+            const rowsIn = more.data.profiles.map(normalizeCrustDataV2Profile);
+            const merged = mergeSemanticRows(normalized, rowsIn, rowKey);
+            normalized = merged.merged;
+            nextCursor = more.data.next_cursor;
+            const hopCredits = creditsForResults(more.data.profiles.length);
+            credits += hopCredits;
+            recordSessionSpend(creditLedger, sessionKey, hopCredits, SEARCH_TTL_MS);
+            console.log(JSON.stringify({ event: "workplace_local_fill", returned: rowsIn.length, added: merged.added }));
+          }
+        }
+      }
+      if (useWorkplaceRecall && semanticWorthRunning(criteria)) {
+        const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+        const semanticFillLimit = 25;
+        if (checkCeiling(spentNow, semanticFillLimit).allow) {
+          const sem = await semanticRecall({
+            query: String(query ?? "").trim(),
+            filters: recallFilters as unknown as Record<string, unknown>,
+            fields: CARD_FIELDS,
+            limit: semanticFillLimit,
+          });
+          semanticRan = semanticRan || sem.ran;
+          if (sem.ran && sem.profiles.length > 0) {
+            const rowsIn = sem.profiles.map(normalizeCrustDataV2Profile);
+            const merged = mergeSemanticRows(normalized, rowsIn, rowKey);
+            normalized = merged.merged;
+            semanticAdded += merged.added;
+            const semCredits = creditsForResults(rowsIn.length);
+            credits += semCredits;
+            recordSessionSpend(creditLedger, sessionKey, semCredits, SEARCH_TTL_MS);
+            console.log(JSON.stringify({ event: "workplace_semantic_fill", returned: rowsIn.length, added: merged.added }));
+          }
+        }
+      }
+
+      // A final narrow pass finds explicit PGY evidence that broad employer
+      // ordering can miss (for example a headline that literally says PGY5).
+      // It is limited to 25 rows and uses the same local-workplace union.
+      const askedResidentYears = (() => {
+        const value = criteria.find((c) => c.kind === "training_stage" && c.enforcement === "hard")?.value as { years?: number[]; year?: number } | undefined;
+        return value?.years?.length ? value.years : value?.year ? [value.year] : [];
+      })();
+      if (useWorkplaceRecall && askedResidentYears.length > 0 && workplacePasses.length > 0) {
+        const spentNow = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+        const statedLimit = 25;
+        if (checkCeiling(spentNow, statedLimit).allow) {
+          const base = workplacePasses[0].filter((c) => c.kind !== "employer_group");
+          const allAnchors = [...new Set(workplacePasses.flatMap((pass) => {
+            const value = pass.find((c) => c.kind === "employer_group")?.value as EmployerGroupValue | undefined;
+            return value?.name_variants ?? [];
+          }))];
+          const combined = buildClinicianQuery([
+            ...base,
+            {
+              id: "workplace_stated_years",
+              kind: "employer_group",
+              label: "Local training workplaces",
+              enforcement: "hard",
+              source: "inferred",
+              evidenceSource: "search",
+              value: {
+                group_key: "local_training_workplaces",
+                name: "Local training workplaces",
+                company_ids: [],
+                domains: [],
+                name_variants: allAnchors,
+              },
+            } as SearchCriteria,
+          ]);
+          if (combined) {
+            const yearText = statedResidentYearTextFilter(askedResidentYears)!;
+            const statedRes = await personSearchV2({
+              filters: { op: "and", conditions: [combined, yearText] },
+              limit: statedLimit,
+              fields: CARD_FIELDS,
+            });
+            if (statedRes.ok && statedRes.data.profiles.length > 0) {
+              const rowsIn = statedRes.data.profiles
+                .map(normalizeCrustDataV2Profile)
+                .map((p: Record<string, unknown>) => ({
+                  ...p,
+                  _workplace_recall: true,
+                  _workplace_anchors: allAnchors,
+                }));
+              const merged = mergeSemanticRows(normalized, rowsIn, rowKey);
+              normalized = merged.merged;
+              const mergedByKey = new Map(normalized.map((row) => [rowKey(row), row]));
+              for (const row of rowsIn) {
+                const target = mergedByKey.get(rowKey(row));
+                if (!target) continue;
+                target._workplace_recall = true;
+                target._workplace_anchors = [...new Set([
+                  ...(Array.isArray(target._workplace_anchors) ? target._workplace_anchors as string[] : []),
+                  ...allAnchors,
+                ])];
+              }
+              workplaceRecallAdded += merged.added;
+              const statedCredits = creditsForResults(statedRes.data.profiles.length);
+              credits += statedCredits;
+              recordSessionSpend(creditLedger, sessionKey, statedCredits, SEARCH_TTL_MS);
+              console.log(JSON.stringify({ event: "workplace_stated_years", returned: rowsIn.length, added: merged.added }));
+            }
+          }
+        }
       }
 
       // Recall rows are part of the pool: cache the MERGED pool so a repeat
       // of the same criteria within the TTL pages the same people instead
       // of a lexical-only subset.
-      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0 || facilityRecallAdded > 0 || programRecallAdded > 0) && normalized.length > 0) {
+      if (!cacheHit && (semanticAdded > 0 || companyGraphAdded > 0 || facilityRecallAdded > 0 || workplaceRecallAdded > 0) && normalized.length > 0) {
         await setCrustDataCache(cacheKey, totalCount, normalized, nextCursor);
       }
 
@@ -1070,6 +1222,7 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           industry: e.company_industries?.[0] ?? null,
           company_logo_url: e.company_logo_url ?? e.logo_url ?? null,
           company_domain: e.company_website_domain ?? e.company_website ?? null,
+          company_hq_location: e.company_hq_location ?? null,
           company_id: e.crustdata_company_id ?? null,
           headcount: typeof e.company_headcount === "number" ? e.company_headcount : null,
           seniority_level: e.seniority_level ?? null,
@@ -1145,6 +1298,8 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           match_scope: scopeByIndex[idx] ?? "primary",
           semantic_recall: p._semantic_recall === true,
           facility_recall: p._facility_recall === true,
+          workplace_recall: p._workplace_recall === true,
+          _workplace_anchors: Array.isArray(p._workplace_anchors) ? p._workplace_anchors : [],
           past_role_match: p.past_role_match === true,
         };
       });

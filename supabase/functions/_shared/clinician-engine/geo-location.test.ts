@@ -13,3 +13,12 @@ Deno.test("noGeo fallback drops the radius but keeps the city", () => {
   assertEquals(s.includes("geo_distance"), false);
   assertEquals(s.includes("philadelphia"), true);
 });
+
+Deno.test("city discovery never requires a populated profile state", () => {
+  const tree = buildClinicianQuery(crit) as any;
+  assertEquals(tree.op, "or");
+  assertEquals(JSON.stringify(tree).includes("basic_profile.location.state"), false);
+  const alternatives = JSON.stringify(tree.conditions);
+  assertEquals(alternatives.includes("basic_profile.location.full_location"), true);
+  assertEquals(alternatives.includes("geo_distance"), true);
+});

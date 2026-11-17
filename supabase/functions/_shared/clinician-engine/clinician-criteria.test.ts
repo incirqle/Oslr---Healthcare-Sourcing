@@ -340,8 +340,10 @@ Deno.test("multi-location: Dallas or Houston ORs, never ANDs to zero", () => {
   const group = topLocationNodes[0] as V2FilterBranch;
   assertEquals(group.op, "or");
   const stateValues = leaves(group).filter((l) => l.field === "basic_profile.location.state").map((l) => l.value);
-  assert(stateValues.includes("texas"));
-  assert(stateValues.includes("oklahoma"));
+  assert(!stateValues.includes("texas"), "city alternatives must not require a profile state");
+  assert(stateValues.includes("oklahoma"), "the standalone state ask remains a state filter");
+  const textValues = leaves(group).map((l) => String(l.value).toLowerCase());
+  assert(textValues.includes("dallas") && textValues.includes("houston"));
 });
 
 Deno.test("practice experience stays in-process while tenure uses the provider", () => {
@@ -831,8 +833,8 @@ Deno.test("CRNAs and SRNAs in South Florida: classes union, region resolves", ()
 
   const tree = buildClinicianQuery(criteria);
   const allLeaves = leaves(tree);
-  // Region = florida clip AND OR of the Miami + West Palm circles.
-  assert(allLeaves.some((l) => l.field === "basic_profile.location.state" && l.value === "florida"));
+  // Region = the Miami + West Palm circles, with no null-state gate.
+  assert(!allLeaves.some((l) => l.field === "basic_profile.location.state"));
   const geo = allLeaves.filter((l) => l.type === "geo_distance");
   assertEquals(geo.length, 2, "South Florida must emit both metro circles");
   // Class terms land on current titles.
@@ -858,7 +860,8 @@ Deno.test("region phrase backstop: 'south florida' in raw query resolves the reg
 
 Deno.test("regional gazetteer: every table entry builds a valid location group", async () => {
   const { SUB_STATE_REGIONS, MULTI_STATE_REGIONS } = await import("./clinician-criteria.ts");
-  // Metros: clip states AND circles.
+  // Metros: circles only. A separate profile-state requirement would erase
+  // valid metro-labelled rows with a null state.
   for (const [key, region] of Object.entries(SUB_STATE_REGIONS)) {
     const criteria = mapParsedToCriteria(validateAIOutput({
       role_class: "nurse",
@@ -871,16 +874,9 @@ Deno.test("regional gazetteer: every table entry builds a valid location group",
     const tree = buildClinicianQuery(criteria);
     const geo = leaves(tree).filter((l) => l.type === "geo_distance");
     assertEquals(geo.length, region.circles.length, `region ${key}: circle count`);
-    const clipStates = leaves(tree)
-      .filter((l) => l.field === "basic_profile.location.state")
-      .map((l) => l.value);
-    for (const s of region.states ?? [region.state]) {
-      assert(clipStates.includes(s), `region ${key}: missing clip state ${s}`);
-    }
-    // Never `in` on states.
     assert(
-      leaves(tree).every((l) => l.field !== "basic_profile.location.state" || l.type === "="),
-      `region ${key}: state leaf must use '='`,
+      leaves(tree).every((l) => l.field !== "basic_profile.location.state"),
+      `region ${key}: profile state must not gate a metro circle`,
     );
   }
   // Multi-state bands: or() of '=' leaves, one per state.
@@ -898,7 +894,7 @@ Deno.test("regional gazetteer: every table entry builds a valid location group",
   }
 });
 
-Deno.test("border-straddling metros clip to every state and widen to the full set", async () => {
+Deno.test("border-straddling metros use their circles and still widen to the full state set", async () => {
   const { reconcileParsedClinicianIntent } = await import("./clinician-criteria.ts");
   const { applyRelaxations } = await import("./widen-criteria.ts");
   // DMV spans DC/MD/VA.
@@ -914,12 +910,8 @@ Deno.test("border-straddling metros clip to every state and widen to the full se
   const loc = criteria.find((c) => c.kind === "location")!;
   assertEquals(loc.label, "DMV (DC–Maryland–Virginia)");
   const tree = buildClinicianQuery(criteria);
-  const clipStates = leaves(tree)
-    .filter((l) => l.field === "basic_profile.location.state")
-    .map((l) => l.value);
-  for (const s of ["district of columbia", "maryland", "virginia"]) {
-    assert(clipStates.includes(s), `DMV missing clip state ${s}`);
-  }
+  assert(!leaves(tree).some((l) => l.field === "basic_profile.location.state"));
+  assert(leaves(tree).some((l) => l.type === "geo_distance"));
   // city_to_state widen relaxes the metro to ALL three states.
   const { criteria: widened, relaxed } = applyRelaxations(criteria, [], true);
   const widenedLoc = widened.find((c) => c.kind === "location")!;

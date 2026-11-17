@@ -288,16 +288,12 @@ export function buildClinicianQuery(
           const circles = region.circles.map((g) =>
             leaf(F.location, "geo_distance", { lat_lng: [g.lat, g.lng], distance: g.radius_mi, unit: "mi" })
           );
-          // Clip to every state the metro straddles (Tri-State, DMV,
-          // Chicagoland) — or() of "=" leaves, never `in`.
-          const clipStates = region.states ?? [region.state];
-          const clip = clipStates.length === 1
-            ? leaf(F.state, "=", clipStates[0])
-            : or(...clipStates.map((s) => leaf(F.state, "=", s)));
-          locationAlternatives.push(and(
-            clip,
-            circles.length === 1 ? circles[0] : or(...circles),
-          ));
+          // A metro circle is already the geographic constraint. Do NOT AND
+          // it with profile.state: metro-labelled profiles often have a null
+          // state even when their coordinates are correct, and border metros
+          // legitimately span several states. The final market check still
+          // rejects a current employer known to be outside the asked market.
+          locationAlternatives.push(circles.length === 1 ? circles[0] : or(...circles));
         } else if (v.level === "multi_state" && Array.isArray(v.states) && v.states.length > 0) {
           // or() of "=" leaves. NEVER `in` (silently matches nothing —
           // reference probe 2026-08-31).
@@ -305,23 +301,19 @@ export function buildClinicianQuery(
           if (states.length === 1) locationAlternatives.push(leaf(F.state, "=", states[0]));
           else if (states.length > 1) locationAlternatives.push(or(...states.map((s) => leaf(F.state, "=", s))));
         } else if (v.level === "city" && v.city && v.state) {
-          // City equality is unreliable (probe D: city="Dallas" removed every
-          // result), and hyper-local asks (Golden, Boulder) also need the
-          // people whose profile says the nearby metro. state= AND (city= OR
-          // full_location substring OR a 15mi geo circle around the named
-          // town — geocoded by the provider, verified live 2026-09-15 on
-          // Golden/Boulder).
-          locationAlternatives.push(and(
-            leaf(F.state, "=", v.state),
-            or(
-              leaf(F.city, "=", v.city),
-              leaf(F.locationFull, "[.]", v.city),
-              ...(opts.noGeo ? [] : [leaf(F.location, "geo_distance", {
-                location: titleCasePlace(`${v.city}, ${v.state}`),
-                distance: v.radius_mi ?? 15,
-                unit: "mi",
-              })]),
-            ),
+          // City equality alone is unreliable, and a state= AND silently
+          // deletes metro-labelled profiles whose state is null (32 of the
+          // 165 supplied NYC resident records had a blank state). The city,
+          // full metro string and geo circle are alternatives; the named
+          // state disambiguates the geocoder but is not a profile gate.
+          locationAlternatives.push(or(
+            leaf(F.city, "=", v.city),
+            leaf(F.locationFull, "[.]", v.city),
+            ...(opts.noGeo ? [] : [leaf(F.location, "geo_distance", {
+              location: titleCasePlace(`${v.city}, ${v.state}`),
+              distance: v.radius_mi ?? 15,
+              unit: "mi",
+            })]),
           ));
         } else if (v.state) {
           locationAlternatives.push(leaf(F.state, "=", v.state));

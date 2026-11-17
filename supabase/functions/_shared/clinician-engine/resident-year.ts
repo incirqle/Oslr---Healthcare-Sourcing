@@ -115,6 +115,20 @@ export function assessResidentYear(row: Row, stage: TrainingStageValue, now: Dat
   if (rule && residentRoles.length > 0 && residentRoles.every((e) => rule[1].test(text(e.title)) && !rule[0].test(text(e.title)))) {
     return { status: "not_resident", tier: null, reason: `${text(residentRoles[0].title)} is a different specialty` };
   }
+  // A generic "Resident Physician" at a large hospital is not necessarily an
+  // orthopedic resident. Require orthopedic wording on the person's own role,
+  // headline, summary, or specialty-named employer; hospital reputation alone
+  // is not evidence. This keeps generic-but-explicit profiles without padding
+  // the result with unsupported specialties.
+  if (/orthop/i.test(professions) && residentRoles.length > 0) {
+    const orthopedicEvidence = [
+      text(row.headline), text(row.summary),
+      ...residentRoles.flatMap((e) => [text(e.title), text(e.description), text(e.summary), text(e.name)]),
+    ].join(" ");
+    if (!/orthop/i.test(orthopedicEvidence)) {
+      return { status: "not_resident", tier: null, reason: "No orthopedic evidence for this generic resident role" };
+    }
+  }
   if (residentRoles.length === 0) {
     const headline = text(row.headline);
     if (!RESIDENT.test(headline) || FELLOW.test(headline.replace(NOT_A_FELLOW_ROLE, ""))) {
@@ -193,7 +207,7 @@ export function sortByResidentYearTier<R extends Row>(input: R[]): R[] {
  * Residency programs searched by name for a resident ask in their metro,
  * alongside the city search: residents often list no city or an old one.
  */
-const PROGRAMS: Array<{ city: RegExp; specialty: RegExp; state: string; variants: string[] }> = [
+const PROGRAMS: Array<{ city: RegExp; specialty: RegExp; state: string; variants: string[]; programs: string[][] }> = [
   {
     city: /^(?:new york(?: city)?|nyc|manhattan|brooklyn|bronx|the bronx|queens)$/i,
     specialty: /orthop/i,
@@ -209,10 +223,23 @@ const PROGRAMS: Array<{ city: RegExp; specialty: RegExp; state: string; variants
       "lenox hill",
       "one brooklyn health", "kingsbrook",
     ],
+    // One fair pass per residency program. A single OR across every hospital
+    // lets the largest program consume the whole credit budget.
+    programs: [
+      ["nyu langone", "nyu grossman", "hospital for joint diseases"],
+      ["hospital for special surgery", "weill cornell"],
+      ["mount sinai", "icahn school of medicine"],
+      ["montefiore", "albert einstein college of medicine"],
+      ["columbia university irving", "newyork-presbyterian", "new york-presbyterian", "columbia orthopedics"],
+      ["suny downstate", "downstate health sciences", "kings county hospital"],
+      ["maimonides"],
+      ["lenox hill"],
+      ["one brooklyn health", "kingsbrook"],
+    ],
   },
 ];
 
-export function residencyProgramRecall(criteria: SearchCriteria[]): { state: string; variants: string[] } | null {
+export function residencyProgramRecall(criteria: SearchCriteria[]): { state: string; variants: string[]; programs: string[][] } | null {
   const stage = residentYearStage(criteria);
   if (!stage) return null;
   const professions = [...(stage.professions ?? []), stage.profession ?? ""].join(" ");
@@ -220,5 +247,5 @@ export function residencyProgramRecall(criteria: SearchCriteria[]): { state: str
   const city = text(loc?.city);
   if (!city) return null;
   const p = PROGRAMS.find((x) => x.city.test(city) && x.specialty.test(professions));
-  return p ? { state: p.state, variants: p.variants } : null;
+  return p ? { state: p.state, variants: p.variants, programs: p.programs } : null;
 }

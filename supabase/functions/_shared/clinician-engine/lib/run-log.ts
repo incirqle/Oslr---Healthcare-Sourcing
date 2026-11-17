@@ -18,7 +18,9 @@ export const CLINICIAN_ENGINE = "clinician" as const;
 // v9: evidence-based clinical timelines and current-stage filtering.
 // v10: stated-PGY-first ranking, fellow-safe senior-resident recall, ranked
 // clinical-interest evidence, and generic experience that includes training.
-export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v13";
+// v14: metro recall no longer requires a populated profile state; current
+// trainees are also recalled through local employers and residency programs.
+export const CLINICIAN_ENGINE_VERSION = "crustdata_clin_v17";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

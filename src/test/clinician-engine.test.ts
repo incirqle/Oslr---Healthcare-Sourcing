@@ -119,8 +119,9 @@ describe("live failure 2026-10-12: orthopedic surgeons in Miami, Florida", async
     }
   });
 
-  it("keeps the Miami location clause intact", () => {
-    expect(leaves.some((l) => l.field === "basic_profile.location.state" && l.value === "florida")).toBe(true);
+  it("keeps Miami geography without requiring a populated profile state", () => {
+    expect(leaves.some((l) => l.field === "basic_profile.location.state")).toBe(false);
+    expect(leaves.some((l) => l.field === "basic_profile.location.full_location" && l.value === "miami")).toBe(true);
     expect(leaves.some((l) => l.field === "basic_profile.location" && JSON.stringify(l.value).toLowerCase().includes("miami, florida"))).toBe(true);
   });
 

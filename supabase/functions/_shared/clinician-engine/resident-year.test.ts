@@ -67,6 +67,11 @@ Deno.test("New York orthopedic resident searches also search the city's programs
   assertEquals(residencyProgramRecall([criteria[0], { ...criteria[1], value: { ...stage, stages: ["residency", "fellowship"] } }] as any), null);
 });
 
+Deno.test("program recall never depends on sports-medicine interest", () => {
+  const withSoftInterest = [...criteria, { id: "interest", kind: "specialty", enforcement: "soft", value: { terms: ["sports medicine"] } }] as any;
+  assertEquals(residencyProgramRecall(withSoftInterest), residencyProgramRecall(criteria));
+});
+
 Deno.test("a research-year entry does not reset the residency start", () => {
   const row = { current_employers: [
     { title: "Orthopedic Surgery Resident Research Fellow", start_date: "2025-05" },
@@ -79,5 +84,9 @@ Deno.test("residents in another specialty are not orthopedic residents", () => {
   for (const t of ["Emergency Medicine Resident Physician", "Urology Resident", "Internal Medicine Resident", "Emergency Medicine Physician Assistant Resident"]) {
     assertEquals(assessResidentYear(res(t, "2022-06"), stage, NOW).status, "not_resident", t);
   }
-  assertEquals(assessResidentYear(res("Resident Physician", "2022-06"), stage, NOW).status, "dated");
+  assertEquals(assessResidentYear(res("Resident Physician", "2022-06"), stage, NOW).status, "not_resident");
+  assertEquals(assessResidentYear(res("Resident Physician", "2022-06", { headline: "Resident Physician in Orthopaedic Surgery" }), stage, NOW).status, "dated");
+  assertEquals(assessResidentYear({
+    current_employers: [{ title: "Resident Physician", start_date: "2022-06", name: "NYU Langone Orthopedics" }],
+  }, stage, NOW).status, "dated");
 });

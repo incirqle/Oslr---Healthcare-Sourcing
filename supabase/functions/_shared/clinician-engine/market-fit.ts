@@ -40,7 +40,7 @@ type Row = Record<string, unknown>;
 /** Same-state employers outside a searched metro (a city search is the metro, not the state). */
 const OUTSIDE_METRO: Array<[RegExp, RegExp]> = [
   [/^(?:new york(?: city)?|nyc|manhattan|brooklyn|bronx|the bronx|queens|staten island)$/i,
-    /\b(?:stony brook|albany|rochester|strong memorial|buffalo|ubmd|syracuse|upstate|bassett|guthrie|binghamton|utica|ithaca|cayuga|plattsburgh)\b/i],
+    /\b(?:stony brook|long island|newark|albany|rochester|strong memorial|buffalo|ubmd|syracuse|upstate|bassett|guthrie|binghamton|utica|ithaca|cayuga|plattsburgh)\b/i],
 ];
 
 function stateIn(text: string): string | null {
@@ -51,10 +51,35 @@ function stateIn(text: string): string | null {
   return null;
 }
 
-function primaryEmployer(row: Row): string {
+function primaryEmployerRecord(row: Row): Row | null {
   const list = Array.isArray(row.current_employers) ? row.current_employers as Row[] : [];
-  const primary = list.find((e) => e?.is_primary) ?? list[0];
-  return String(primary?.name ?? row.job_company_name ?? "");
+  return list.find((e) => e?.is_primary) ?? list[0] ?? null;
+}
+
+function primaryEmployer(row: Row): string {
+  return String(primaryEmployerRecord(row)?.name ?? row.job_company_name ?? "");
+}
+
+const normalizedEmployer = (value: unknown) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const TRAINING_ROLE = /\b(?:resident|residency|fellow|fellowship|intern|internship|house\s+(?:officer|staff)|pgy[\s-]*\d)\b/i;
+
+/**
+ * An employer query can match a secondary research appointment. For a
+ * workplace-recalled trainee, the actual current training role must be at
+ * one of the local programs that caused the row to be recalled.
+ */
+function workplaceTrainingMismatch(row: Row): string | null {
+  const anchors = Array.isArray(row._workplace_anchors)
+    ? (row._workplace_anchors as unknown[]).map(normalizedEmployer).filter(Boolean)
+    : [];
+  if (anchors.length === 0) return null;
+  const employers = Array.isArray(row.current_employers) ? row.current_employers as Row[] : [];
+  const trainingRoles = employers.filter((e) => TRAINING_ROLE.test(String(e.title ?? "")));
+  const matched = trainingRoles.some((e) => {
+    const name = normalizedEmployer(e.name);
+    return name && anchors.some((anchor) => name.includes(anchor) || anchor.includes(name));
+  });
+  return matched ? null : "current training role is not at the searched local workplace";
 }
 
 /** A stated move: "seeking employment ... in the Southern California area". */
@@ -69,9 +94,12 @@ export function statedRelocationState(row: Row): string | null {
 export function outOfMarketReason(row: Row, searchStates: string[], searchCity?: string | null): string | null {
   if (searchStates.length === 0) return null;
   const employer = primaryEmployer(row);
+  const workplaceMismatch = workplaceTrainingMismatch(row);
+  if (workplaceMismatch) return workplaceMismatch;
   const metro = searchCity ? OUTSIDE_METRO.find(([city]) => city.test(searchCity.trim())) : undefined;
   if (metro && metro[1].test(employer)) return `current employer outside ${searchCity}`;
-  const employerState = stateIn(employer);
+  const headquarters = String(primaryEmployerRecord(row)?.company_hq_location ?? "");
+  const employerState = stateIn(`${employer} ${headquarters}`);
   if (employerState && !searchStates.includes(employerState)) return `current employer in ${employerState}`;
   const moving = statedRelocationState(row);
   if (moving && !searchStates.includes(moving)) return `seeking work in ${moving}`;
