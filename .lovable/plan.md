@@ -40,9 +40,19 @@ The bigger problem is that the search is gathering too few residents to begin wi
 
 I will not promise a number. The offline replay and one live search will show the real count, and you'll see every name before anything goes live.
 
+## Recall target from your program list
+
+Your table shows about 60 residents per year across 9 New York City programs, about 300 in total. That means **about 120 PGY-4 and PGY-5 residents** exist, around 60 in each year. Not every resident has a public profile, so the real reachable number will be lower. We will measure it, not guess it.
+
+- **Search program by program.** Search each of the 9 programs by name, with all its name variants: NYU Langone and Hospital for Joint Diseases, HSS and Weill Cornell, Mount Sinai and Icahn, Montefiore and Einstein, Columbia and NewYork-Presbyterian, SUNY Downstate and Kings County, Maimonides, Lenox Hill and Northwell, and One Brooklyn Health and Kingsbrook. This runs alongside the city search, and results are merged with duplicates removed.
+- **Coverage check per program.** For each program, compare residents found with the expected count (for example, NYU 16 per year, so about 32 PGY-4/5). This shows exactly where we are missing people.
+- **Main list target.** Every PGY-4/5 orthopedic resident we can find at these programs, with no fellows and no juniors. Sports medicine evidence decides the order only.
+- **Cost.** Program searches use the normal search pull. I will show you the extra credit cost per search before anything goes live, and keep it within the existing search credit limit.
+
 ## How I'll verify before anything goes live
 
-1. Replay your exact last New York search offline at no credit cost. I'll list every person shown, every person removed, and why.
+1. Run the program-by-program pull once, and report residents found per program against your expected counts.
+2. Replay your exact last New York search offline at no credit cost. I'll list every person shown, every person removed, and why.
 2. Check by hand that no fellow, PGY-1/2/3 or out-of-area person is in the list.
 3. Run the existing test suites, plus new tests: one per rule above.
 4. Run one fresh live search, which costs normal search credits, and send you the full list before you publish.
