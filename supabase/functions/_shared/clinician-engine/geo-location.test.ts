@@ -17,7 +17,11 @@ Deno.test("noGeo fallback drops the radius but keeps the city", () => {
 Deno.test("city discovery never requires a populated profile state", () => {
   const tree = buildClinicianQuery(crit) as any;
   assertEquals(tree.op, "or");
-  assertEquals(JSON.stringify(tree).includes("basic_profile.location.state"), false);
+  // State only ever pairs with the city text; metro-label and geo branches
+  // need no state, so blank-state metro profiles and commuters still match.
+  const stateFree = tree.conditions.filter((c: any) => !JSON.stringify(c).includes("basic_profile.location.state"));
+  assertEquals(stateFree.some((c: any) => JSON.stringify(c).includes("geo_distance")), true);
+  assertEquals(stateFree.some((c: any) => JSON.stringify(c).includes("metropolitan")), true);
   const alternatives = JSON.stringify(tree.conditions);
   assertEquals(alternatives.includes("basic_profile.location.full_location"), true);
   assertEquals(alternatives.includes("geo_distance"), true);

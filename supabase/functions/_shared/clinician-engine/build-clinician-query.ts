@@ -306,9 +306,14 @@ export function buildClinicianQuery(
           // 165 supplied NYC resident records had a blank state). The city,
           // full metro string and geo circle are alternatives; the named
           // state disambiguates the geocoder but is not a profile gate.
+          // A bare city name must not match the same name in another state
+          // (Rochester MN vs NY): city text pairs with the state, or with a
+          // metro label whose state is often blank. Commuters come in through
+          // the geo circle, which crosses state lines.
           locationAlternatives.push(or(
-            leaf(F.city, "=", v.city),
-            leaf(F.locationFull, "[.]", v.city),
+            and(leaf(F.city, "=", v.city), leaf(F.state, "=", v.state)),
+            and(leaf(F.locationFull, "[.]", v.city), leaf(F.state, "=", v.state)),
+            and(leaf(F.locationFull, "[.]", v.city), leaf(F.locationFull, "[.]", "metropolitan")),
             ...(opts.noGeo ? [] : [leaf(F.location, "geo_distance", {
               location: titleCasePlace(`${v.city}, ${v.state}`),
               distance: v.radius_mi ?? 15,

@@ -18,17 +18,10 @@ import {
 import { ResourceSidebar } from "./ResourceSidebar";
 import { ArticleContent } from "./ArticleContent";
 import { PreviewBanner } from "./PreviewBanner";
-
-// Eagerly load every markdown file as a raw string at build time.
-const MD_FILES = import.meta.glob("/src/content/resources/**/*.md", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+import { ARTICLES } from "@/content/resources/articles";
 
 function getMarkdown(slug: string): string | null {
-  const path = `/src/content/resources/${slug}.md`;
-  return MD_FILES[path] ?? null;
+  return ARTICLES[slug] ?? null;
 }
 
 function MobileArticleSelect({ current }: { current: ResourceArticle }) {

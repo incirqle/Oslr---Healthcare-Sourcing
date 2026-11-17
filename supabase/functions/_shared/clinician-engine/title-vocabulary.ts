@@ -50,7 +50,7 @@ export async function expandStatedTitle(stated: string): Promise<string[]> {
 
   let hits: string[] = [];
   try {
-    hits = await personSearchAutocomplete("title", term);
+    hits = await personSearchAutocomplete("experience.employment_details.current.title", term);
   } catch (err) {
     console.warn(`[title-vocab] autocomplete failed for "${term}" — using the stated title alone`, err);
   }
@@ -63,7 +63,9 @@ export async function expandStatedTitle(stated: string): Promise<string[]> {
     // a prefix/partial match, so it can drift ("sales" -> "Sales Engineer");
     // an expansion that no longer contains what the user said is a different
     // job, not a synonym for theirs.
-    if (!v.includes(term) && !term.includes(v)) continue;
+    // Every word the user stated must survive: "emergency room nurse manager"
+    // must never widen to bedside "emergency room nurse".
+    if (!titleKeepsEveryWord(term, v)) continue;
     out.push(v);
     if (out.length >= MAX_TITLE_EXPANSIONS) break;
   }
@@ -89,4 +91,11 @@ export async function expandStatedTitles(stated: string[]): Promise<string[]> {
     for (const v of group) if (!out.includes(v)) out.push(v);
   }
   return out;
+}
+
+/** True when every word of the stated title appears as a word in the variant. */
+export function titleKeepsEveryWord(stated: string, variant: string): boolean {
+  const words = (x: string) => x.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const have = new Set(words(variant));
+  return words(stated).every((w) => have.has(w));
 }

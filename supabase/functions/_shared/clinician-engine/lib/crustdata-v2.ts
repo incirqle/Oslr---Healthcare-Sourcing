@@ -211,12 +211,18 @@ export async function personSearchAutocomplete(
   query: string,
 ): Promise<string[]> {
   if (!query?.trim()) return [];
-  const r = await call<{ results?: AutocompleteHit[]; data?: AutocompleteHit[] }>(
+  // "title" is not an allowed field (live 400 invalid_request, 2026-11-17).
+  if (field === "title") field = "experience.employment_details.current.title";
+  const r = await call<{ suggestions?: AutocompleteHit[]; results?: AutocompleteHit[]; data?: AutocompleteHit[] }>(
     "/person/search/autocomplete",
     { method: "POST", body: JSON.stringify({ field, query }) },
   );
-  if (!r.ok) return [];
-  const hits = r.data?.results ?? r.data?.data ?? [];
+  if (!r.ok) {
+    console.warn(`[autocomplete] non-200 for field "${field}"`, (r as { status?: number }).status);
+    return [];
+  }
+  // Live response shape is { suggestions: [{ value }] }.
+  const hits = r.data?.suggestions ?? r.data?.results ?? r.data?.data ?? [];
   return hits.map((h) => h.value).filter(Boolean);
 }
 

@@ -340,7 +340,9 @@ Deno.test("multi-location: Dallas or Houston ORs, never ANDs to zero", () => {
   const group = topLocationNodes[0] as V2FilterBranch;
   assertEquals(group.op, "or");
   const stateValues = leaves(group).filter((l) => l.field === "basic_profile.location.state").map((l) => l.value);
-  assert(!stateValues.includes("texas"), "city alternatives must not require a profile state");
+  // Texas appears only paired with a city name (Rochester-MN-vs-NY guard);
+  // the geo circles and metro-label branches carry no state.
+  assert(leaves(group).some((l) => l.type === "geo_distance" && JSON.stringify(l.value).includes("Dallas")), "a state-free Dallas geo alternative remains");
   assert(stateValues.includes("oklahoma"), "the standalone state ask remains a state filter");
   const textValues = leaves(group).map((l) => String(l.value).toLowerCase());
   assert(textValues.includes("dallas") && textValues.includes("houston"));
