@@ -42,6 +42,24 @@ export function money(amount: number, currency: string) {
     maximumFractionDigits: 2,
   }).format(amount / 100);
 }
+export function canUpgradeToPro(plan: string | null | undefined) {
+  return plan === "starter" || plan === "beta";
+}
+
+export function workspaceCreditPool(
+  plan: string | null | undefined,
+  activeSeats: number,
+  options?: PlanOption[],
+) {
+  if (plan === "enterprise") return null;
+  const id = plan === "pro" ? "pro" : plan === "beta" ? "beta" : "starter";
+  const option = options?.find((item) => item.id === id);
+  const monthlyCredits = option?.monthlyCredits ?? (id === "pro" ? 500 : 150);
+  if (id !== "pro") return monthlyCredits;
+  const seats = Math.max(1, Math.min(option?.seats ?? 5, Math.floor(activeSeats) || 1));
+  return monthlyCredits * seats;
+}
+
 export function monthlyMemberSpend(
   rows: { user_id: string | null; credits: number; kind: string }[],
   userId: string,

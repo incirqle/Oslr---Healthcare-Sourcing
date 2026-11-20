@@ -46,11 +46,15 @@ import { useCreditBalance } from "@/hooks/useContactEnrich";
 import { useInvites } from "@/hooks/useInvites";
 import { IntegrationsPanel } from "@/pages/Integrations";
 import { EmbeddedCheckoutDialog } from "@/components/EmbeddedCheckoutDialog";
+import { PlanComparison } from "@/components/settings/PlanComparison";
+import { UpgradeToProDialog } from "@/components/settings/UpgradeToProDialog";
 import {
   billingRequest,
+  canUpgradeToPro,
   money,
   monthlyMemberSpend,
   saveInvoice,
+  workspaceCreditPool,
   type Member,
   type Invoice,
   type PlanOption,
@@ -195,7 +199,15 @@ export default function TeamSettings() {
     qc.invalidateQueries({ queryKey: ["settings-context"] });
     window.dispatchEvent(new Event("oslr:credits"));
   };
-  const plan = data?.plan;
+  const refreshBilling = async () => {
+    // The status call applies the new plan and monthly pool before the workspace
+    // queries refresh, so Team, Agents, and Billing never show different limits.
+    await status.refetch();
+    await context.refetch();
+    await qc.invalidateQueries({ queryKey: ["settings-invoices", companyId] });
+    window.dispatchEvent(new Event("oslr:credits"));
+  };
+  const plan = status.data?.plan ?? data?.plan;
   const selected = sections.find((s) => s.id === tab) ?? sections[0];
   const planLabel =
     plan === "pro"
@@ -281,9 +293,11 @@ export default function TeamSettings() {
                     <Team
                       members={data.members}
                       plan={plan}
+                      status={status.data}
                       isAdmin={data.isAdmin}
                       catalog={catalog.data?.plans}
                       onBilling={() => setParams({ tab: "billing" })}
+                      onChanged={refreshBilling}
                     />
                   )}
                   {tab === "credits" && (
@@ -307,7 +321,7 @@ export default function TeamSettings() {
                       isAdmin={data.isAdmin}
                       options={catalog.data?.plans}
                       catalogError={catalog.isError}
-                      onChanged={() => status.refetch()}
+                      onChanged={refreshBilling}
                     />
                   )}
                   {tab === "integrations" && (
@@ -516,18 +530,23 @@ function General({
 function Team({
   members,
   plan,
+  status,
   isAdmin,
   catalog,
   onBilling,
+  onChanged,
 }: {
   members: Member[];
   plan: string | null | undefined;
+  status?: Status;
   isAdmin: boolean;
   catalog?: PlanOption[];
   onBilling: () => void;
+  onChanged: () => void | Promise<unknown>;
 }) {
   const { list, create, revoke } = useInvites();
   const [open, setOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "recruiter" | "viewer">(
     "recruiter",
@@ -541,7 +560,25 @@ function Team({
       ? null
       : (catalog?.find((p) => p.id === plan)?.seats ??
         (plan === "pro" ? 5 : 1));
-  const full = cap !== null && members.length + pending.length >= cap;
+  const reservedSeats = members.length + pending.length;
+  const full = cap !== null && reservedSeats >= cap;
+  const pool = workspaceCreditPool(plan, members.length, catalog);
+  const upgradePlan = canUpgradeToPro(plan);
+  const planName =
+    plan === "pro"
+      ? "Pro"
+      : plan === "enterprise"
+        ? "Enterprise"
+        : plan === "beta"
+          ? "Early access"
+          : "Starter";
+  const handleSeatAction = () => {
+    if (!full) return setOpen(true);
+    if (upgradePlan) {
+      if (status?.subscribed) setUpgradeOpen(true);
+      else onBilling();
+    }
+  };
   const copy = async (token: string) => {
     try {
       await navigator.clipboard.writeText(
@@ -579,41 +616,111 @@ function Team({
     <>
       <Section
         title="Team & seats"
-        description={`${members.length} active ${members.length === 1 ? "member" : "members"} · ${pending.length} pending ${pending.length === 1 ? "invitation" : "invitations"}${cap === null ? "" : ` · ${cap} seat maximum`}`}
+        description="One workspace, one shared credit pool, and individual agent capacity for every teammate."
         action={
           isAdmin && (
-            <Button onClick={() => (full ? onBilling() : setOpen(true))}>
+            <Button
+              onClick={handleSeatAction}
+              disabled={full && !upgradePlan}
+            >
               <Plus className="h-4 w-4 mr-2" />
-              {full ? "Review plan" : "Invite teammate"}
+              {!full
+                ? "Invite teammate"
+                : upgradePlan
+                  ? status?.subscribed
+                    ? "Upgrade to Pro"
+                    : "View plans"
+                  : "All seats reserved"}
             </Button>
           )
         }
       >
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <p className="text-sm text-muted-foreground">Shared monthly pool</p>
-            <p className="mt-2 text-2xl font-semibold">
-              {plan === "pro"
-                ? `${(members.length * 500).toLocaleString()} credits`
-                : plan === "enterprise"
-                  ? "Custom allocation"
-                  : "150 credits"}
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {plan === "pro"
-                ? "500 credits per active seat, shared across the entire team. Pending invitations do not add credits."
-                : "All members use the same workspace credit balance."}
-            </p>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-secondary/25 px-6 py-5">
+            <div>
+              <p className="font-display text-lg font-semibold">{planName} workspace</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {members.length} active {members.length === 1 ? "member" : "members"}
+                {pending.length > 0 && ` · ${pending.length} pending ${pending.length === 1 ? "invitation" : "invitations"}`}
+              </p>
+            </div>
+            <Badge variant="outline" className="border-primary/30 bg-primary/[0.06]">
+              {cap === null ? "Custom seats" : `${reservedSeats} of ${cap} seats reserved`}
+            </Badge>
           </div>
-          <div className="border-l-0 md:border-l border-border md:pl-6">
-            <p className="text-sm font-medium">Seat billing</p>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Your existing subscription amount is shown in Billing. Additional
-              seats are not currently billed separately. No extra seat price has
-              been introduced.
-            </p>
+
+          <div className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="p-6">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4 text-primary" />
+                Seats
+              </div>
+              <p className="mt-3 font-display text-2xl font-semibold">
+                {cap === null ? "Custom" : `${members.length} of ${cap}`}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Active seats in use
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Zap className="h-4 w-4 text-primary" />
+                Shared monthly pool
+              </div>
+              <p className="mt-3 font-display text-2xl font-semibold">
+                {pool === null ? "Custom" : pool.toLocaleString()}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {plan === "pro" ? "500 credits per active seat" : pool === null ? "Workspace allocation" : "Credits for the whole workspace"}
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Activity className="h-4 w-4 text-primary" />
+                Active agents
+              </div>
+              <p className="mt-3 font-display text-2xl font-semibold">
+                {plan === "pro" ? "4 each" : plan === "enterprise" ? "Unlimited" : "1 total"}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {plan === "pro" ? "Per teammate · 25 matches/day each" : plan === "enterprise" ? "Workspace access" : "Workspace · 10 matches/day"}
+              </p>
+            </div>
           </div>
+
+          {cap !== null && (
+            <div className="border-t border-border px-6 py-5">
+              <div className="mb-2.5 flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Seat capacity</span>
+                <span className="font-medium tabular-nums">{reservedSeats} / {cap}</span>
+              </div>
+              <Progress value={Math.min(100, (reservedSeats / cap) * 100)} className="h-2" />
+            </div>
+          )}
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          Pending invitations reserve seats but do not add credits. Accepted Pro seats add 500 credits to the shared pool. No additional per-seat subscription charge is added.
+        </p>
+
+        {isAdmin && full && upgradePlan && (
+          <div className="mt-6 rounded-xl border border-primary/25 bg-primary/[0.055] p-6 sm:p-7">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <Badge className="mb-3">Grow your team</Badge>
+                <h3 className="font-display text-xl font-bold tracking-tight">
+                  Ready to invite your team?
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Pro unlocks up to 5 seats, gives each teammate 4 active agents of their own, and adds 500 monthly credits per active seat to your shared pool.
+                </p>
+              </div>
+              <Button size="lg" className="shrink-0" onClick={handleSeatAction}>
+                {status?.subscribed ? "Upgrade to Pro" : "View Pro plans"}
+                <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Section>
       <Section
         title="Members"
@@ -784,6 +891,13 @@ function Team({
           </div>
         </DialogContent>
       </Dialog>
+      <UpgradeToProDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        options={catalog}
+        interval={status?.interval}
+        onChanged={onChanged}
+      />
     </>
   );
 }
@@ -1002,7 +1116,7 @@ function Billing({
   isAdmin: boolean;
   options?: PlanOption[];
   catalogError: boolean;
-  onChanged: () => void;
+  onChanged: () => void | Promise<unknown>;
 }) {
   const [pick, setPick] = useState<"starter" | "pro" | "beta">("starter");
   const [year, setYear] = useState(false);
@@ -1069,7 +1183,7 @@ function Billing({
           isAdmin &&
           status?.subscribed && (
             <div className="flex flex-wrap gap-2">
-              {status.plan !== "pro" && options?.find(p => p.id === "pro") && <Button onClick={() => setUpgradeOpen(true)} disabled={busy}>Upgrade to Pro</Button>}
+              {canUpgradeToPro(status.plan) && options?.find(p => p.id === "pro") && <Button onClick={() => setUpgradeOpen(true)} disabled={busy}>Upgrade to Pro</Button>}
               <Button variant="outline" onClick={portal} disabled={busy}>
                 Manage subscription
                 <ArrowUpRight className="h-4 w-4 ml-2" />
@@ -1180,8 +1294,39 @@ function Billing({
           plan={pick}
           interval={year && pick !== "beta" ? "year" : "month"}
         />
-        <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}><DialogContent><DialogHeader><DialogTitle>Upgrade to Pro</DialogTitle><DialogDescription>Your current billing interval is retained. Your billing account calculates any prorated charge before issuing the invoice.</DialogDescription></DialogHeader><p className="text-sm">{(() => { const next=options?.find(p=>p.id==='pro')?.prices.find(p=>p.interval===status?.interval); return next?.amount!==null&&next?.amount!==undefined?`${money(next.amount,next.currency)} per ${status?.interval==='year'?'year':'month'}`:'Current price unavailable'; })()}</p><Button disabled={busy} onClick={async()=>{setBusy(true);try{await billingRequest('upgrade',{interval:status?.interval});setUpgradeOpen(false);onChanged();toast.success('Upgraded to Pro');}catch(e){toast.error((e as Error).message);}finally{setBusy(false);}}}>Confirm upgrade</Button></DialogContent></Dialog>
+        <UpgradeToProDialog
+          open={upgradeOpen}
+          onOpenChange={setUpgradeOpen}
+          options={options}
+          interval={status?.interval}
+          onChanged={onChanged}
+        />
         <Dialog open={!!prepared} onOpenChange={open=>{if(!open)setPrepared(null);}}><DialogContent><DialogHeader><DialogTitle>Invoice ready</DialogTitle><DialogDescription>Your official invoice PDF is ready to save.</DialogDescription></DialogHeader><Button onClick={()=>{if(!prepared)return;saveInvoice(prepared.blob,prepared.name);setPrepared(null);}}><Download className="h-4 w-4 mr-2"/>Download PDF</Button></DialogContent></Dialog>
+      </Section>
+      <Section
+        title="Compare plans"
+        description="Credits are shared by the whole workspace. On Pro, agent slots belong to each teammate while every agent build and contact lookup still uses the shared pool."
+      >
+        {options ? (
+          <PlanComparison
+            options={options}
+            currentPlan={status?.plan}
+            interval={status?.interval === "year" || (!status?.subscribed && year) ? "year" : "month"}
+            onUpgrade={
+              isAdmin && status?.subscribed && canUpgradeToPro(status.plan)
+                ? () => setUpgradeOpen(true)
+                : undefined
+            }
+          />
+        ) : (
+          <div className="flex min-h-40 items-center justify-center rounded-xl border border-border bg-card">
+            {catalogError ? (
+              <p className="text-sm text-muted-foreground">Plan comparison is unavailable until current prices can be loaded.</p>
+            ) : (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            )}
+          </div>
+        )}
       </Section>
       {isAdmin && (
         <>
