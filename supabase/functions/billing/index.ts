@@ -180,8 +180,22 @@ Deno.serve(async (req) => {
       const cur = PRICE_IDS[item.price.id];
       if (cur.plan === "pro") return json({ error: "You are already on Pro." }, 400);
       const interval: Interval = body?.interval === "year" ? "year" : cur.interval;
+      // Team discount codes: code typed by the admin -> Stripe coupon, created on first use in whichever account holds the plan.
+      const TEAM_CODES: Record<string, { id: string; percent: number; name: string }> = {
+        corganic: { id: "OSLR_CORGANIC10", percent: 10, name: "Corganic team 10% off" },
+      };
+      const codeKey = (body?.code ?? "").trim().toLowerCase();
+      let discounts: { coupon: string }[] | undefined;
+      if (codeKey) {
+        const team = TEAM_CODES[codeKey];
+        if (!team) return json({ error: "That discount code isn't valid." }, 400);
+        const existing = await stripe.coupons.retrieve(team.id).catch(() => null);
+        if (!existing) await stripe.coupons.create({ id: team.id, percent_off: team.percent, duration: "forever", name: team.name });
+        discounts = [{ coupon: team.id }];
+      }
       await stripe.subscriptions.update(live.id, {
         items: [{ id: item.id, price: priceFor("pro", interval, account) }],
+        ...(discounts ? { discounts } : {}),
         proration_behavior: "always_invoice",
         cancel_at_period_end: false,
       });

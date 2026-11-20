@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Bot, Check, Loader2, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ export function UpgradeToProDialog({
   onChanged: () => void | Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
   const billingInterval = interval === "year" ? "year" : "month";
   const price = options
     ?.find((option) => option.id === "pro")
@@ -58,7 +60,7 @@ export function UpgradeToProDialog({
   const upgrade = async () => {
     setBusy(true);
     try {
-      await billingRequest("upgrade", { interval: billingInterval });
+      await billingRequest("upgrade", { interval: billingInterval, ...(code.trim() ? { code: code.trim() } : {}) });
       await onChanged();
       onOpenChange(false);
       toast.success("You're now on Pro. Your team capacity is ready.");
@@ -129,6 +131,11 @@ export function UpgradeToProDialog({
                 )}
               </p>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="upgrade-code" className="text-sm font-medium">Discount code (optional)</label>
+            <Input id="upgrade-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter code" disabled={busy} autoComplete="off" />
           </div>
 
           <div className="space-y-3">
