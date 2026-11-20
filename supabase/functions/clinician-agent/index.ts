@@ -151,6 +151,11 @@ Deno.serve(async (req) => {
       const skipCity = typeof body.skip_city === "string" ? body.skip_city.trim().slice(0, 80) || null : null;
       const { data: row } = await admin.from("clin_agent_pool").select("*").eq("id", body.pool_id).eq("agent_id", agent.id).maybeSingle();
       if (!row) return json({ error: "Person not found." }, 404);
+      if (decision === "approved" && agent.goal && row.decision !== "approved") {
+        const { count: already } = await admin.from("clin_agent_pool").select("id", { count: "exact", head: true })
+          .eq("agent_id", agent.id).eq("decision", "approved");
+        if ((already ?? 0) >= agent.goal) return json({ error: `Goal reached (${already} of ${agent.goal}). Raise the goal to approve more.` }, 409);
+      }
 
       // Parse the note before writing the decision. An AI failure leaves it retryable.
       let learned = validateRules({}, []);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, Loader2, Mail, MapPin, Phone, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,11 @@ interface Props {
   onOpen: () => void;
   onSubmit: (b: { decision: "approved" | "passed"; tags: string[]; note?: string; skip_city?: string | null }) => Promise<void>;
   onFound?: (c: { email: string | null; phone: string | null }) => Promise<void> | void;
+  known?: { email: string | null; phone: string | null } | null;
+  approveLocked?: boolean;
 }
 
-export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, onOpen, onSubmit, onFound }: Props) {
+export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, onOpen, onSubmit, onFound, known, approveLocked }: Props) {
   const p = item.profile as Record<string, string | null | undefined>;
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
@@ -40,6 +42,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
     return email || phone ? { email, phone } : null;
   });
 
+  useEffect(() => { if (known && (known.email || known.phone)) setContact(known); }, [known?.email, known?.phone]);
   const [pickOpen, setPickOpen] = useState(false);
   const [kinds, setKinds] = useState<ContactKind[]>(["work_email"]);
   const findContact = async () => {
@@ -168,7 +171,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
         {!decision && !draft && (
           <div className="flex shrink-0 gap-1.5">
             <Button size="icon" variant="outline" className="h-10 w-10 rounded-full" aria-label={`Pass on ${p.full_name ?? ""}`} onClick={() => onDraft("passed")}><ThumbsDown className="h-4 w-4" /></Button>
-            <Button size="icon" className="h-10 w-10 rounded-full bg-mint text-mint-foreground hover:bg-mint/90" aria-label={`Approve ${p.full_name ?? ""}`} onClick={() => onDraft("approved")}><ThumbsUp className="h-4 w-4" /></Button>
+            <Button size="icon" className="h-10 w-10 rounded-full bg-mint text-mint-foreground hover:bg-mint/90" aria-label={`Approve ${p.full_name ?? ""}`} disabled={approveLocked} title={approveLocked ? "Goal reached" : undefined} onClick={() => onDraft("approved")}><ThumbsUp className="h-4 w-4" /></Button>
           </div>
         )}
       </div>

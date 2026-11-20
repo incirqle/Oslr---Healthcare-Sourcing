@@ -54,6 +54,16 @@ export default function AgentDetail() {
   const { data: enabled, isLoading: el } = useAgentsEnabled();
   const { data: roster, isLoading, error } = useRoster(enabled ? id : undefined);
   const { data: project } = useProject(roster?.agent.project_id ?? "");
+  const [found, setFound] = useState<Map<string, { email: string | null; phone: string | null }>>(new Map());
+  const [saved_contacts, setSavedContacts] = useState<Map<string, { email: string | null; phone: string | null }>>(new Map());
+  useEffect(() => {
+    const pid = roster?.agent.project_id;
+    if (!pid) return;
+    supabase.from("candidates").select("person_id, email, phone").eq("project_id", pid).then(({ data }) => {
+      setSavedContacts(new Map((data ?? []).filter((r) => r.person_id && (r.email || r.phone)).map((r) => [r.person_id as string, { email: r.email, phone: r.phone }])));
+    });
+  }, [roster?.agent.project_id, roster?.pool.length]);
+  const contacts = useMemo(() => new Map([...saved_contacts, ...found]), [saved_contacts, found]);
   const decide = useDecide(id ?? "");
   const steer = useSteer(id ?? "");
   const update = useUpdateAgent(id ?? "");
@@ -104,6 +114,7 @@ export default function AgentDetail() {
 
   const { agent } = roster;
   const saved = lists.approved.length;
+  const goalReached = !!agent.goal && saved >= agent.goal;
   const pct = agent.goal ? Math.min(100, Math.round((saved / agent.goal) * 100)) : 0;
   const openItem = openId ? roster.pool.find((p) => p.id === openId) ?? null : null;
   const openIdx = openItem ? visible.findIndex((p) => p.id === openItem.id) : -1;
@@ -156,7 +167,7 @@ export default function AgentDetail() {
                 </p>
               </div>
               <p className="text-right text-muted-foreground">
-                Next search: {agent.status === "sourcing" ? fmtWhen(agent.next_run_at) : agent.status === "calibrating" ? "after your first review" : "on hold"}
+                {goalReached ? "Search finished" : <>Next search: {agent.status === "sourcing" ? fmtWhen(agent.next_run_at) : agent.status === "calibrating" ? "after your first review" : "on hold"}</>}
                 <br />Email updates {agent.email_updates ? "on" : "off"}
               </p>
             </div>
@@ -220,8 +231,19 @@ export default function AgentDetail() {
             )}
           </div>
 
+          {goalReached ? (
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-mint/40 bg-mint-soft/50 p-5">
+              <CheckCircle2 className="h-8 w-8 shrink-0 text-mint-ink" />
+              <div className="mr-auto">
+                <p className="font-display text-[17px] font-semibold">Goal reached</p>
+                <p className="text-[13px] text-muted-foreground">{saved} clinicians saved to {project?.name ?? "your project"}. Your agent has stopped searching. Find their contact info below.</p>
+              </div>
+              <Button variant="outline" className="rounded-full" onClick={() => setTab("approved")}>See approved</Button>
+            </div>
+          ) : null}
+
           {/* Milestones */}
-          <div className="space-y-4 rounded-2xl border border-border/70 bg-card/70 p-5">
+          {!goalReached && <div className="space-y-4 rounded-2xl border border-border/70 bg-card/70 p-5">
             <div className="flex gap-3">
               {agent.status === "calibrating" ? <CircleDashed className="mt-0.5 h-5 w-5 text-primary" /> : <CheckCircle2 className="mt-0.5 h-5 w-5 text-primary" />}
               <div>
@@ -251,7 +273,7 @@ export default function AgentDetail() {
                 </div>
               </div>
             ) : null}
-          </div>
+          </div>}
 
           {/* Review tabs */}
           <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +287,11 @@ export default function AgentDetail() {
             {tab === "review" && lists.review.length > 0 && <span className="ml-auto hidden text-[12px] text-muted-foreground md:inline">Press A to approve, P to pass</span>}
           </div>
 
-          {tab === "approved" && <ApprovedTools agentName={agent.name} items={lists.approved} decisions={roster.decisions} projectId={agent.project_id} />}
+          {tab === "review" && goalReached && lists.review.length > 0 && (
+            <div className="rounded-xl border border-border bg-secondary/60 px-4 py-3 text-[14px]">Goal reached ({saved} of {agent.goal}). You can pass on the rest, or raise the goal from the menu to approve more.</div>
+          )}
+          {tab === "approved" && <ApprovedTools agentName={agent.name} items={lists.approved} decisions={roster.decisions} projectId={agent.project_id}
+            contacts={contacts} onFound={(pid, c) => setFound((m) => new Map(m).set(pid, c))} />}
           <div className="space-y-3">
             {visible.length === 0 ? (
               <p className="py-10 text-center text-[15px] text-muted-foreground">
@@ -287,6 +313,8 @@ export default function AgentDetail() {
                   if (phone) patch.phone = phone;
                   if (Object.keys(patch).length) await supabase.from("candidates").update(patch).eq("project_id", agent.project_id).eq("person_id", item.person_id);
                 }}
+                known={contacts.get(item.person_id) ?? null}
+                approveLocked={goalReached}
                 onOpen={() => setOpenId(item.id)}
                 onSubmit={async (b) => {
                   try {
