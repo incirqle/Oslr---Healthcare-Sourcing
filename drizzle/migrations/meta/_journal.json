@@ -176,6 +176,13 @@
       "when": 1794536620182,
       "tag": "0024_repair_signup_nudges_and_invite_redemption",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795487271272,
+      "tag": "0025_open_friends_code",
+      "breakpoints": true
     }
   ]
 }
