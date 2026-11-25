@@ -150,3 +150,61 @@ Deno.test("only provider-verified coworker addresses are saved as reusable evide
   assertEquals(r.audit.evidenceSaved, 3);
   assert(!JSON.stringify(db.rows).includes("jschwartz@"));
 });
+
+Deno.test("a clean hospital uses one staff search and six coworker contact lookups", async () => {
+  let contactRequests = 0;
+  let coworkersRead = 0;
+  const { deps, calls } = setup({
+    contacts: async (urls: string[]) => {
+      contactRequests++;
+      coworkersRead = urls.length;
+      return { ok: true, data: contacts };
+    },
+  });
+  const r = await researchInstitutionWorkEmail(new FakeDb(), target, deps);
+  assertEquals(r.suggestion?.email, "mmagruder@maimonidesmed.org");
+  assertEquals(calls.search, 1);
+  assertEquals(contactRequests, 1);
+  assertEquals(coworkersRead, INITIAL_CONTACT_SAMPLE_FOR_TEST);
+});
+
+const INITIAL_CONTACT_SAMPLE_FOR_TEST = 6;
+
+Deno.test("split early evidence escalates for more coworkers instead of accepting a cheap guess", async () => {
+  const extras = [
+    ["alice", "Alice Carter", "acarter@maimonidesmed.org"],
+    ["ben", "Ben Diaz", "bdiaz@maimonidesmed.org"],
+    ["carla", "Carla Evans", "cevans@maimonidesmed.org"],
+  ] as const;
+  const extraProfiles = extras.map(([id, name]) => ({
+    basic_profile: { name },
+    experience: { employment_details: { current: [{ name: target.employer, crustdata_company_id: 1127784, title: "Attending Physician" }] } },
+    social_handles: { professional_network_identifier: { profile_url: `https://www.linkedin.com/in/${id}` } },
+  }));
+  const splitFirstContacts = contacts.map((c, i) => i === 0
+    ? { ...c, business_email: "joel.schwartz@maimonidesmed.org" }
+    : c);
+  const extraContacts = extras.map(([id, , email]) => ({
+    linkedin_url: `https://www.linkedin.com/in/${id}`, business_email: email, business_email_verified: false,
+    personal_emails: [], mobile_phone: null, phones: [], raw: {}, has_contact: true,
+  }));
+  const contactBatches: number[] = [];
+  const { deps, calls } = setup({
+    search: async (input: any) => {
+      calls.search++;
+      const flagged = JSON.stringify(input.filters).includes("business_email_verified");
+      return { ok: true, data: { profiles: flagged ? profiles : [...profiles, ...extraProfiles], total_count: 9, next_cursor: null, remarks: [] } };
+    },
+    contacts: async (urls: string[]) => {
+      calls.contacts++;
+      contactBatches.push(urls.length);
+      const all = [...splitFirstContacts, ...extraContacts];
+      return { ok: true, data: urls.map((url) => all.find((c) => c.linkedin_url === url)).filter(Boolean) };
+    },
+  });
+  const r = await researchInstitutionWorkEmail(new FakeDb(), target, deps);
+  assertEquals(r.suggestion?.email, "mmagruder@maimonidesmed.org");
+  assertEquals(r.audit.supporters, 6);
+  assertEquals(calls.search, 2);
+  assertEquals(contactBatches, [6, 3]);
+});

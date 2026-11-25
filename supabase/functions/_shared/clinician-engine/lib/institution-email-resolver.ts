@@ -65,9 +65,13 @@ const defaultDeps: Deps = {
   cacheSet: setCrustDataCache,
 };
 
-const PROFILES_PER_SEARCH = 40;
+const FLAGGED_SEARCH_LIMIT = 12;
+const BROAD_SEARCH_LIMIT = 40;
+// A clean hospital should not pay for fifty coworkers. Six gives the election
+// enough evidence to apply its full agreement checks; unclear cases escalate.
+const INITIAL_CONTACT_SAMPLE = 6;
 const CONTACT_BATCH = 25;
-const MAX_CONTACT_BATCHES = 2;
+const MAX_CONTACT_PROFILES = 50;
 const MAX_NAME_VARIANTS = 6;
 const MISS_TTL_MS = 6 * 60 * 60 * 1000;
 const RULE_VERSION = "v5";
@@ -176,8 +180,8 @@ export async function resolveInstitutionEmployerDomain(
 }
 
 /**
- * Reuse a cached institution rule, else pull current coworkers (two bounded
- * searches, at most two contact batches of 25) and elect the rule from them.
+ * Reuse a cached institution rule, else check six likely email holders first.
+ * Only unclear evidence escalates to broader coworker searches and batches.
  */
 export async function researchInstitutionWorkEmail(
   db: Db,
@@ -234,18 +238,13 @@ export async function researchInstitutionWorkEmail(
   const indexed = await deps.autocomplete("experience.employment_details.current.company_name", employer);
   const names = [...new Set([employer, ...indexed.filter((n) => isEmployerSubunit(n, employer))])].slice(0, MAX_NAME_VARIANTS);
   const employerFilter = { op: "or", conditions: names.map((value) => ({ field: "experience.employment_details.current.company_name", type: "=", value })) };
-  const searchOnce = (flagged: boolean) => deps.search({
+  const searchOnce = (flagged: boolean, limit: number) => deps.search({
     filters: flagged
       ? { op: "and", conditions: [employerFilter, { field: "experience.employment_details.current.business_email_verified", type: "=", value: true }] }
       : employerFilter,
     fields: ["crustdata_person_id", "basic_profile", "experience", "professional_network", "social_handles"],
-    limit: PROFILES_PER_SEARCH,
+    limit,
   });
-  const [flagged, broad] = await Promise.all([searchOnce(true), searchOnce(false)]);
-  if (!flagged.ok && !broad.ok) {
-    audit.outcome = "unavailable"; audit.reason = "colleague_search_unavailable";
-    return { suggestion: null, audit };
-  }
   audit.rejections = {};
   const reject = (reason: string) => { audit.rejections![reason] = (audit.rejections![reason] ?? 0) + 1; };
   const pool: Array<{ url: string; name: string; title: string; cohort: string; primary: boolean; flagged: boolean }> = [];
@@ -261,23 +260,49 @@ export async function researchInstitutionWorkEmail(
       seen.add(url);
       pool.push({ url, name, title: role.title, cohort: clinicalCohort(role.title), primary: role.primary, flagged: isFlagged });
     }
+    // Coworkers whose main job is this employer first; then likely email holders.
+    pool.sort((a, b) => Number(b.primary) - Number(a.primary) || Number(b.flagged) - Number(a.flagged));
   };
+
+  // Likely email holders are the cheapest useful starting point. The broad
+  // search is an escalation, not an automatic second bill on every hospital.
+  const flagged = await searchOnce(true, FLAGGED_SEARCH_LIMIT);
   if (flagged.ok) add(flagged.data.profiles as Record<string, unknown>[], true);
-  if (broad.ok) add(broad.data.profiles as Record<string, unknown>[], false);
-  // Coworkers whose main job is this employer first; then likely email holders.
-  pool.sort((a, b) => Number(b.primary) - Number(a.primary) || Number(b.flagged) - Number(a.flagged));
+  let broadAttempted = false;
+  let broadOk = false;
+  const addBroadCoworkers = async () => {
+    if (broadAttempted) return;
+    broadAttempted = true;
+    const broad = await searchOnce(false, BROAD_SEARCH_LIMIT);
+    broadOk = broad.ok;
+    if (broad.ok) add(broad.data.profiles as Record<string, unknown>[], false);
+  };
+  if (!flagged.ok || pool.length < INITIAL_CONTACT_SAMPLE) await addBroadCoworkers();
+  if (!flagged.ok && !broadOk) {
+    audit.outcome = "unavailable"; audit.reason = "colleague_search_unavailable";
+    return { suggestion: null, audit };
+  }
   audit.colleaguesSelected = pool.length;
   if (pool.length < 3) return await memoMiss("fewer_than_three_current_colleagues");
 
-  // 3. Read coworker work addresses in bounded batches until the rule is clear.
+  // 3. Check six coworkers first. If their evidence is split, keep the exact
+  // same election rules and escalate through the remaining bounded pool. A
+  // small sample can never bypass a contradiction just to save credits.
   const samples: CoworkerEmail[] = [];
   let election = electInstitutionEmail([], { organization: employer, targetCohort, hintDomain: resolved.hintDomain });
   let contactFailure = false;
   let timedOut = false;
-  for (let batch = 0; batch < MAX_CONTACT_BATCHES; batch++) {
-    const slice = pool.slice(batch * CONTACT_BATCH, (batch + 1) * CONTACT_BATCH);
+  const contacted = new Set<string>();
+  while (contacted.size < pool.length && contacted.size < MAX_CONTACT_PROFILES) {
+    if (contacted.size > 0 && Date.now() - startedAt > RESEARCH_BUDGET_MS) { timedOut = true; break; }
+    const size = contacted.size === 0
+      ? Math.min(INITIAL_CONTACT_SAMPLE, pool.length)
+      : Math.min(CONTACT_BATCH, MAX_CONTACT_PROFILES - contacted.size);
+    // A broader result can change ranking; identity tracking prevents a new
+    // batch from charging again for anyone already checked.
+    const slice = pool.filter((c) => !contacted.has(c.url)).slice(0, size);
     if (!slice.length) break;
-    if (batch > 0 && Date.now() - startedAt > RESEARCH_BUDGET_MS) { timedOut = true; break; }
+    for (const colleague of slice) contacted.add(colleague.url);
     const contacts = await deps.contacts(slice.map((c) => c.url), ["business_email"]);
     if (!contacts.ok) { contactFailure = true; break; }
     const byUrl = new Map(contacts.data.map((c) => [canonicalLinkedinUrl(c.linkedin_url), c]));
@@ -291,6 +316,10 @@ export async function researchInstitutionWorkEmail(
     }
     election = electInstitutionEmail(samples, { organization: employer, targetCohort, hintDomain: resolved.hintDomain });
     if (election.pattern) break;
+    if (contacted.size >= pool.length && !broadAttempted && pool.length < MAX_CONTACT_PROFILES) {
+      await addBroadCoworkers();
+      audit.colleaguesSelected = pool.length;
+    }
   }
   audit.domainSupport = election.domainSupport;
   audit.domain = election.domain;
