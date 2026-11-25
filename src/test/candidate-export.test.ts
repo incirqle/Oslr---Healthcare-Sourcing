@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildCandidatesCsv, buildLinkedInRecruiterCsv } from "@/lib/export-csv";
 import { toDossier, type AnyCandidate } from "@/lib/candidate-export-adapter";
+import { prepareForExport } from "@/lib/export-prepare";
+import { generateDossierPdf } from "@/lib/export-pdf";
 
 const people = [
   {
@@ -46,7 +48,7 @@ describe("candidate exports", () => {
     const [candidate] = people;
     const saved = {
       ...candidate,
-      raw: {
+      raw_data: {
         enriched: {
           work_email: "ada@uchealth.org",
           personal_emails: ["ada.personal@example.org"],
@@ -71,6 +73,63 @@ describe("candidate exports", () => {
     expect(dossier.education[0].school).toBe("Example Medical School");
     expect(dossier.research?.articleCount).toBe(27);
     expect(dossier.research?.topArticles[0].title).toBe("Cartilage repair outcomes");
+  });
+
+  it("keeps the database raw_data payload through export preparation", async () => {
+    const saved = {
+      id: "saved-adam",
+      full_name: "Adam J. Wolfert",
+      title: "Orthopaedic Surgery Resident",
+      raw_data: {
+        doctor_intel: { npi: { npi: "1972245215" } },
+        experience_history: [{ title: "Orthopaedic Surgery Resident", company_name: "SUNY Downstate", is_current: true }],
+        education: [{ school_name: "SUNY Downstate", degrees: ["MD"] }],
+      },
+    } as unknown as AnyCandidate;
+    const [prepared] = await prepareForExport([saved], false);
+    const dossier = toDossier(prepared);
+    expect(dossier.npi).toBe("1972245215");
+    expect(dossier.experience[0].company).toBe("SUNY Downstate");
+    expect(dossier.education[0].school).toBe("SUNY Downstate");
+  });
+
+  it("renders saved research, interests, trials and industry payments in a branded PDF", () => {
+    const saved = {
+      full_name: "Ada Lovelace",
+      title: "Orthopedic Surgeon",
+      raw_data: {
+        enriched: {
+          research_profile: {
+            designation: "Associate Professor",
+            organisation: "Example University",
+            article_count: 27,
+            citations: 840,
+            h_index: 12,
+            interests: ["Cartilage repair"],
+            top_articles: [{ title: "Cartilage repair outcomes", publication: "Example Journal", year: "2025" }],
+          },
+        },
+        doctor_intel: {
+          payments: {
+            total: 12500,
+            count: 4,
+            byYear: [{ year: "2025", total: 12500 }],
+            topCompanies: [{ name: "Example Medical", amount: 12500 }],
+            byType: [{ name: "Consulting", amount: 12500 }],
+          },
+          trials: { studies: [{ nctId: "NCT00000001", title: "Cartilage outcomes trial", role: "Principal Investigator" }] },
+          publications: { articles: [{ title: "Cartilage repair outcomes", journal: "Example Journal", year: "2025" }] },
+        },
+      },
+    } as unknown as AnyCandidate;
+    const { doc, dossier } = generateDossierPdf(saved, { includeContactInfo: false });
+    expect(dossier.research?.articleCount).toBe(27);
+    expect(dossier.interests).toEqual(["Cartilage repair"]);
+    expect(dossier.industry?.total).toBe(12500);
+    expect(dossier.trials[0].role).toBe("Principal Investigator");
+    expect(dossier.pubmed[0].title).toBe("Cartilage repair outcomes");
+    expect(doc.getNumberOfPages()).toBeGreaterThan(0);
+    expect(doc.output("arraybuffer").byteLength).toBeGreaterThan(10000);
   });
 
   it("neutralizes spreadsheet formulas in every CSV format", () => {
@@ -98,6 +157,32 @@ d2("clinical profile export completeness", () => {
     ex2(clinicalCredential("", ["Doctor of Podiatric Medicine"])).toBe("DPM");
     const dz = toDossier2({ full_name: "Dr. Jane Smith", raw: { education: [{ school_name: "X", degrees: ["MD"] }] } });
     ex2(dz.displayName).toBe("Jane Smith, MD");
+  });
+  it2("loads saved database profiles with training, education notes and headlines", () => {
+    const dz = toDossier2({
+      full_name: "Adam J. Wolfert",
+      title: "Orthopaedic Surgery Resident",
+      raw_data: {
+        headline: "PGY-5 Orthopaedic Surgery Resident | Incoming Adult Reconstruction Fellow",
+        experience_history: [{
+          title: "Orthopaedic Surgery Resident",
+          company_name: "SUNY Downstate Health Sciences University",
+          start_date: "2022-07-01T00:00:00",
+          is_current: true,
+        }],
+        education: [{
+          school_name: "State University of New York Downstate Health Sciences University",
+          degrees: ["Doctor of Medicine - MD"],
+          majors: ["Medical Educator Pathway"],
+          activities_and_societies: "Orthopaedic Surgery Interest Group",
+        }],
+      },
+    });
+    ex2(dz.headline).toContain("Adult Reconstruction Fellow");
+    ex2(dz.experience[0].company).toBe("SUNY Downstate Health Sciences University");
+    ex2(dz.education[0].degree).toBe("Doctor of Medicine - MD");
+    ex2(dz.education[0].major).toBe("Medical Educator Pathway");
+    ex2(dz.education[0].summary).toBe("Activities: Orthopaedic Surgery Interest Group");
   });
   it2("flags a personal email that does not carry the person's name", () => {
     const dz = toDossier2({ full_name: "Leesa Galatz", personal_email: "deleonjohana@aol.com", raw: {} });

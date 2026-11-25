@@ -1,6 +1,7 @@
 /**
  * Normalizes search results and saved contacts for CSV and clinical PDF exports.
- * Saved enrichment is nested under raw.enriched; no export function fetches data.
+ * Search rows use raw; database contacts use raw_data. Saved enrichment is nested
+ * under either payload's enriched key; no export function fetches profile data.
  */
 
 import type { Candidate } from "@/components/search/SearchResults";
@@ -43,6 +44,7 @@ export interface DossierEducation {
   major: string;
   startDate: string | null;
   endDate: string | null;
+  summary: string;
 }
 
 export interface DossierResearch {
@@ -95,7 +97,9 @@ export interface Dossier {
   workEmail: string;
   personalEmail: string;
   phone: string;
+  headline: string;
   summary: string;
+  interests: string[];
   yearsExperience: string;
   npi: string;
   certifications: string[];
@@ -136,10 +140,16 @@ function monthsBetween(start: string | null, end: string | null): number {
 
 const oneDecimal = (n: number) => (n > 0 ? (Math.round(n * 10) / 10).toFixed(1) : "");
 
-/** Merge the original provider payload with enrichment already saved on a contact. */
-function profileRaw(c: AnyCandidate): Record<string, unknown> {
-  const raw = (c as Candidate).raw ?? {};
-  const enriched = isObj(raw.enriched) ? raw.enriched : {};
+/** Merge search/saved payloads with enrichment already stored on a contact. */
+export function candidateProfileRaw(c: AnyCandidate): Record<string, unknown> {
+  const candidate = c as Record<string, unknown>;
+  const stored = isObj(candidate.raw_data) ? candidate.raw_data : {};
+  const supplied = isObj(candidate.raw) ? candidate.raw : {};
+  const raw: Record<string, unknown> = { ...stored, ...supplied };
+  const enriched = {
+    ...(isObj(stored.enriched) ? stored.enriched : {}),
+    ...(isObj(supplied.enriched) ? supplied.enriched : {}),
+  };
   const merged: Record<string, unknown> = { ...raw };
   // Enrichment wins only where it actually has data: an empty list or blank
   // field must never wipe out experience or education saved on the profile.
@@ -183,6 +193,17 @@ function extractRawExperience(raw: Record<string, unknown> | undefined): Dossier
   });
 }
 
+function educationSummary(entry: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const key of ["summary", "description", "activities_and_societies", "activities", "societies", "grade", "notes"]) {
+    const value = entry[key];
+    const text = Array.isArray(value) ? value.filter((x): x is string => typeof x === "string").join(", ") : asString(value);
+    if (!text.trim() || parts.includes(text.trim())) continue;
+    parts.push(key.startsWith("activit") || key === "societies" ? `Activities: ${text.trim()}` : key === "grade" ? `Grade: ${text.trim()}` : text.trim());
+  }
+  return parts.join("\n");
+}
+
 function extractRawEducation(raw: Record<string, unknown> | undefined): DossierEducation[] {
   if (!raw) return [];
   return asArray<Record<string, unknown>>(raw.education).map((entry) => {
@@ -193,12 +214,13 @@ function extractRawEducation(raw: Record<string, unknown> | undefined): DossierE
       major: asArray<string>(entry.majors).filter(Boolean).join(", ") || asString(entry.major),
       startDate: asString(entry.start_date) || null,
       endDate: asString(entry.end_date) || null,
+      summary: educationSummary(entry),
     };
   }).filter((entry) => Boolean(entry.school || entry.degree || entry.major));
 }
 
 function pickEmails(c: AnyCandidate): { work: string; personal: string; workVerified: string; personalVerified: string } {
-  const raw = profileRaw(c);
+  const raw = candidateProfileRaw(c);
   const contact = isObj(raw.contact) ? raw.contact : {};
   const workEmail = asString((c as Candidate).work_email ?? raw.work_email ?? contact.work_email);
   const personalEmail = asString(
@@ -216,7 +238,7 @@ function pickEmails(c: AnyCandidate): { work: string; personal: string; workVeri
 }
 
 function pickPhones(c: AnyCandidate): string {
-  const raw = profileRaw(c);
+  const raw = candidateProfileRaw(c);
   const contact = isObj(raw.contact) ? raw.contact : {};
   const list = new Set<string>();
   if (c.phone) list.add(asString(c.phone));
@@ -226,8 +248,7 @@ function pickPhones(c: AnyCandidate): string {
   return Array.from(list).join(", ");
 }
 
-function extractResearch(raw: Record<string, unknown>, originalRaw: Record<string, unknown>): DossierResearch | null {
-  void originalRaw;
+function extractResearch(raw: Record<string, unknown>): DossierResearch | null {
   const publications: Record<string, unknown> = {};
   const value = isObj(raw.research_profile) ? raw.research_profile : null;
   if (!value) return null;
@@ -332,7 +353,7 @@ export function emailMatchesName(email: string, fullName: string): boolean {
 export function toExportRow(c: AnyCandidate): ExportRow {
   const fullName = asString(c.full_name);
   const { first, last } = splitName(fullName);
-  const raw = profileRaw(c);
+  const raw = candidateProfileRaw(c);
   const experience = extractRawExperience(raw);
   const education = extractRawEducation(raw);
   const tenures = experience.map((e) => monthsBetween(e.startDate, e.endDate)).filter((m) => m > 0);
@@ -363,8 +384,7 @@ export function toExportRow(c: AnyCandidate): ExportRow {
 }
 
 export function toDossier(c: AnyCandidate): Dossier {
-  const originalRaw = (c as Candidate).raw ?? {};
-  const raw = profileRaw(c);
+  const raw = candidateProfileRaw(c);
   const emails = pickEmails(c);
   const experience = extractRawExperience(raw);
   const education = extractRawEducation(raw);
@@ -376,6 +396,11 @@ export function toDossier(c: AnyCandidate): Dossier {
     .map((item) => typeof item === "string" ? item : isObj(item) ? asString(item.name ?? item.title ?? item.state) : "")
     .filter(Boolean);
   const totalYears = asNumber((c as Candidate).years_experience ?? raw.inferred_years_experience);
+  const research = extractResearch(raw);
+  const listedInterests = [raw.clinical_interests, raw.research_interests, raw.interests]
+    .flatMap((value) => typeof value === "string" ? [value] : asArray<unknown>(value)
+      .map((item) => typeof item === "string" ? item : isObj(item) ? asString(item.name ?? item.title) : ""));
+  const interests = [...new Set([...listedInterests, ...(research?.interests ?? [])].map((item) => item.trim()).filter(Boolean))];
 
   const fullName = toTitleCase(asString(c.full_name ?? raw.full_name)).replace(/^dr\.?\s+/i, "").replace(/,\s*(md|do|dpm)\b.*$/i, "");
   const credential = clinicalCredential(npi.credential, education.map((e) => e.degree));
@@ -404,11 +429,13 @@ export function toDossier(c: AnyCandidate): Dossier {
     workEmail: emails.work,
     personalEmail: emails.personal,
     phone: pickPhones(c),
+    headline: asString(raw.headline),
     summary: asString(raw.summary) || asString((c as Candidate).summary),
+    interests,
     yearsExperience: totalYears > 0 ? `${Number.isInteger(totalYears) ? totalYears : oneDecimal(totalYears)} years` : "",
     npi: npi.npi,
     certifications: [...new Set(certifications)],
-    research: extractResearch(raw, originalRaw),
+    research,
     experience: experience.map((e) => ({
       ...e,
       title: toTitleCase(e.title),

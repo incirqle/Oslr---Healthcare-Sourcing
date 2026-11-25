@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import JSZip from "jszip";
 import type { AnyCandidate, Dossier } from "./candidate-export-adapter";
 import { toDossier } from "./candidate-export-adapter";
+import { OSLR_PDF_LOGO } from "./oslr-pdf-logo";
 
 export interface PdfExportOptions { includeContactInfo?: boolean }
 
@@ -157,14 +158,11 @@ function snapshot(w: PdfWriter, d: Dossier) {
 
 function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
   const w = new PdfWriter();
-  w.doc.setFont("helvetica", "bold");
-  w.doc.setFontSize(15);
-  w.doc.setTextColor(...MINT_DARK);
-  w.doc.text("oslr", X, 30);
+  w.doc.addImage(OSLR_PDF_LOGO, "PNG", X, 14, 30, 30);
   w.doc.setFont("helvetica", "normal");
   w.doc.setFontSize(8);
   w.doc.setTextColor(...MUTED);
-  w.doc.text("CLINICAL PROFILE", X + 42, 29);
+  w.doc.text("CLINICAL PROFILE", X + 40, 29);
   w.doc.text(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), PAGE_W - X, 29, { align: "right" });
 
   w.y = 72;
@@ -172,7 +170,9 @@ function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
   const role = [d.currentTitle, d.currentOrg].filter(Boolean).join(" at ");
   if (role) w.text(role, { size: 12, color: TEXT, gap: 3, lineHeight: 16 });
   const meta = [d.specialty || d.classification.specialty, d.location].filter(Boolean).join(" · ");
-  if (meta) w.text(meta, { size: 10, color: MUTED, gap: 10 });
+  if (meta) w.text(meta, { size: 10, color: MUTED, gap: 5 });
+  if (d.headline && d.headline !== d.summary) w.text(d.headline, { size: 10, color: MINT_DARK, gap: 5, lineHeight: 14 });
+  w.y += 5;
   w.doc.setDrawColor(...MINT);
   w.doc.setLineWidth(2);
   w.doc.line(X, w.y, X + 52, w.y);
@@ -206,9 +206,14 @@ function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
       const qualification = [entry.degree, entry.major].filter(Boolean).join(" · ");
       if (qualification) w.text(qualification, { size: 10, gap: 1 });
       const range = dateRange(entry.startDate, entry.endDate, false);
-      if (range) w.text(range, { size: 9, color: MUTED });
+      if (range) w.text(range, { size: 9, color: MUTED, gap: entry.summary ? 3 : 0 });
+      if (entry.summary) w.text(entry.summary, { size: 9.5, color: TEXT, lineHeight: 13 });
       w.y += 9;
     });
+  }
+  if (d.interests.length) {
+    w.heading("Clinical & research interests");
+    w.text(d.interests.slice(0, 30).join(" · "), { size: 10, lineHeight: 14.5 });
   }
   if (d.research) {
     w.heading("Academic research profile");
@@ -222,7 +227,6 @@ function renderDossier(d: Dossier, includeContactInfo: boolean): jsPDF {
       d.research.coAuthorCount ? `${d.research.coAuthorCount.toLocaleString()} co-authors` : "",
     ].filter(Boolean).join(" · ");
     if (metrics) w.text(metrics, { size: 9.5, color: MUTED, gap: 5 });
-    if (d.research.interests.length) w.text(`Research interests: ${d.research.interests.join(", ")}`, { size: 9.5, gap: 5 });
     d.research.topArticles.filter((article) => article.title).slice(0, 5).forEach((article) => {
       w.ensure(38);
       w.text(article.title, { size: 10, bold: true, gap: 1 });

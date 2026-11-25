@@ -5,7 +5,7 @@
  */
 import { enrichContact } from "@/hooks/useContactEnrich";
 import { loadDoctorIntel } from "@/lib/doctorIntel";
-import type { AnyCandidate } from "@/lib/candidate-export-adapter";
+import { candidateProfileRaw, type AnyCandidate } from "@/lib/candidate-export-adapter";
 
 type Row = Record<string, unknown> & { raw?: Record<string, unknown> };
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -18,7 +18,9 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>)
 }
 
 export async function prepareForExport(list: AnyCandidate[], includeContactInfo: boolean): Promise<AnyCandidate[]> {
-  const rows: Row[] = list.map((c) => ({ ...(c as Row), raw: { ...((c as Row).raw ?? {}) } }));
+  // Contacts read straight from the database carry raw_data, not raw. Normalize
+  // both shapes before saved-contact reuse and public-record export preparation.
+  const rows: Row[] = list.map((c) => ({ ...(c as Row), raw: candidateProfileRaw(c) }));
 
   if (includeContactInfo) {
     await pool(rows.slice(0, 200), 5, async (row) => {
