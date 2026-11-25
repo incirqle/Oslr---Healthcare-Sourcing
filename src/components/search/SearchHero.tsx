@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, FolderOpen, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,25 @@ interface SearchHeroProps {
   loading: boolean;
   /** Name of the project this search will be saved into, if any. */
   projectName?: string | null;
+  /** Retained for Edit search; blank for a fresh search. */
+  initialQuery?: string;
+  /** Changing this explicitly restores focus, even after same-URL navigation. */
+  focusKey?: number;
 }
 
-export function SearchHero({ onSearch, loading, projectName }: SearchHeroProps) {
-  const [query, setQuery] = useState("");
+export function SearchHero({ onSearch, loading, projectName, initialQuery = "", focusKey = 0 }: SearchHeroProps) {
+  const [query, setQuery] = useState(initialQuery);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const reduce = useReducedMotion();
+
+  useEffect(() => {
+    setQuery(initialQuery);
+    const input = textareaRef.current;
+    if (!input) return;
+    input.focus();
+    const end = initialQuery.length;
+    input.setSelectionRange(end, end);
+  }, [initialQuery, focusKey]);
   const enter = (delay: number) => ({
     initial: { opacity: 0, transform: reduce ? "none" : "translateY(8px)" },
     animate: { opacity: 1, transform: "translateY(0px)" },
@@ -70,6 +84,7 @@ export function SearchHero({ onSearch, loading, projectName }: SearchHeroProps) 
           className="group relative rounded-[22px] border border-border/70 bg-card/80 p-2 shadow-[0_1px_0_hsl(var(--foreground)/0.04),0_18px_40px_-24px_hsl(var(--mint)/0.45)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 focus-within:border-mint/60 focus-within:shadow-[0_0_0_4px_hsl(var(--mint)/0.12),0_18px_40px_-20px_hsl(var(--mint)/0.5)]"
         >
           <textarea
+            ref={textareaRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {

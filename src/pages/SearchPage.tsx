@@ -34,7 +34,9 @@ import { SaveToProjectDialog } from "@/components/SaveToProjectDialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
+import { BroadSearchPanel } from "@/components/search/BroadSearchPanel";
+import { SEARCH_RESET_EVENT } from "@/lib/search-reset";
 
 const NO_PROJECT = "__none__";
 const NEW_PROJECT = "__new__";
@@ -82,6 +84,7 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const autoRanRef = useRef(false);
+  const activeRequestRef = useRef(0);
 
   const { data: project } = useProject(projectId ?? "");
   const { data: existingCandidates = [] } = useProjectCandidates(projectId ?? "");
@@ -119,7 +122,9 @@ export default function SearchPage() {
     }
   };
   const [step, setStep] = useState<SearchStep>("hero");
+  const [heroFocusKey, setHeroFocusKey] = useState(0);
   const [query, setQuery] = useState("");
+  const [broadSearch, setBroadSearch] = useState<{ total: number; roleLabel: string } | null>(null);
   const [filters, setFilters] = useState<ParsedFilters>(EMPTY_FILTERS);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   // Pre-load doctors' payments, research and trials in the background as results land.
@@ -329,8 +334,10 @@ export default function SearchPage() {
    * the request is in flight.
    */
   const runFullSearch = async (q: string, overrideFilters?: ParsedFilters) => {
+    const requestId = ++activeRequestRef.current;
     setQuery(q);
     setStep("results");
+    setBroadSearch(null);
     setSearchPhase("running");
     setSelected(new Set());
     setCandidates([]);
@@ -358,16 +365,20 @@ export default function SearchPage() {
       // with the results; the filter chips are derived from that. A separate
       // preview round trip used to add a parser call (~4 s) before the
       // search even started (2026-10-13).
-      await runResultsFetch(q, overrideFilters ?? null, null, 1, null);
+      await runResultsFetch(q, overrideFilters ?? null, null, 1, null, requestId);
+      if (requestId !== activeRequestRef.current) return;
       burstRetryRef.current = 0;
       fetchSearchUsage().then((u) => u && setUsage(u));
     } catch (err: unknown) {
+      if (requestId !== activeRequestRef.current) return;
       if (err instanceof SearchLimitError) {
         if (err.usage) setUsage(err.usage);
         if (err.code === "burst" && err.retryAfterMs <= 30_000 && burstRetryRef.current < 2) {
           burstRetryRef.current += 1;
           toast.info(err.message);
-          setTimeout(() => runFullSearch(q, overrideFilters), Math.max(err.retryAfterMs, 3000));
+          setTimeout(() => {
+            if (requestId === activeRequestRef.current) runFullSearch(q, overrideFilters);
+          }, Math.max(err.retryAfterMs, 3000));
           return;
         }
         burstRetryRef.current = 0;
@@ -406,6 +417,7 @@ export default function SearchPage() {
     parsed: Record<string, unknown> | null,
     targetPage: number,
     token: string | null,
+    requestId = activeRequestRef.current,
   ) => {
     const data = await invokeSearchPeople({
         query: q,
@@ -431,6 +443,7 @@ export default function SearchPage() {
         ...(rankingRef.current.length > 0 ? { ranking_criteria: rankingRef.current } : {}),
     });
 
+    if (requestId !== activeRequestRef.current) return;
     if (data?.error) throw new Error(data.error);
 
     // A fresh search: adopt the engine's parse so the chips and the editor
@@ -440,6 +453,24 @@ export default function SearchPage() {
       setParsedPayload(engineParsed);
       setFilters(f ?? filtersFromParsed(engineParsed));
     }
+
+    if (data?.broad_search === true) {
+      const broadTotal = Number(data.broad_total ?? data.provider_total ?? data.total ?? 0);
+      setBroadSearch({ total: broadTotal, roleLabel: String(data.broad_role ?? "clinicians") });
+      setProviderTotal(broadTotal);
+      setTotal(broadTotal);
+      setTotalIsEstimate(false);
+      setCandidates([]);
+      setHiddenCandidates([]);
+      setRevealedCount(0);
+      setBrowsableTotal(0);
+      setResultsTab("results");
+      setPage(1);
+      setSearchPhase("done");
+      if (targetPage === 1) addEntry(q, 0);
+      return;
+    }
+    setBroadSearch(null);
 
     // Criterion titles for the per-candidate results (spec 3.3).
     const criterionMeta = new Map<string, { title: string; group: "required" | "preferred" }>();
@@ -604,29 +635,66 @@ export default function SearchPage() {
   };
 
   const handleReset = () => {
+    // Invalidate an in-flight request before clearing the screen; its response
+    // must not repopulate a search the recruiter explicitly left.
+    activeRequestRef.current += 1;
+    autoRanRef.current = false;
+    burstRetryRef.current = 0;
+    removedRef.current = new Set();
+    explainAsked.current = new Set();
     setStep("hero");
+    setHeroFocusKey((key) => key + 1);
     setQuery("");
+    setBroadSearch(null);
     setFilters(EMPTY_FILTERS);
+    setParsedPayload(null);
     setCandidates([]);
     setRevealedCount(0);
     setTotal(0);
+    setTotalIsEstimate(false);
+    setProviderTotal(null);
     setFilteredBreakdown(null);
     setBrowsableTotal(0);
     setHiddenCandidates([]);
     setHasMore(false);
     setPage(1);
     setSelected(new Set());
+    setDrawerCandidate(null);
     setScrollToken(null);
     setGeoScope(null);
     setCompanyScope(null);
+    setSpecialtyFunnel(null);
+    setResultsTab("results");
+    setAnalyticsFilter(null);
+    setTableSort(null);
+    setRunId(null);
+    setRanking([]);
+    setRequiredCriteria([]);
+    setCantCheck([]);
+    setServerSuggestions([]);
+    setChecks({});
+    setExplanations({});
+    setDetailsOpen(false);
+    setFilterEditorOpen(false);
+    setCriteriaOpen(false);
     setSearchPhase("idle");
   };
 
   const handleEditQuery = () => {
-    // Cancel current view and return to hero with the query pre-filled by being remembered.
+    // Keep the exact wording and put the cursor at its end for a quick edit.
+    activeRequestRef.current += 1;
     setStep("hero");
+    setHeroFocusKey((key) => key + 1);
     setSearchPhase("idle");
   };
+
+  useEffect(() => {
+    const reset = () => handleReset();
+    window.addEventListener(SEARCH_RESET_EVENT, reset);
+    return () => window.removeEventListener(SEARCH_RESET_EVENT, reset);
+    // The listener only uses stable state setters and request refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
 
   const toggleSelect = (id: string) => {
@@ -738,6 +806,8 @@ export default function SearchPage() {
             onSearch={startSearch}
             loading={createProject.isPending}
             projectName={project?.name ?? null}
+            initialQuery={query}
+            focusKey={heroFocusKey}
           />
         )}
 
@@ -750,13 +820,14 @@ export default function SearchPage() {
                   <p className="truncate text-[13px] text-muted-foreground">{query}</p>
                 </div>
                 <Button size="sm" variant="outline" className="h-8" onClick={handleEditQuery}>Edit search</Button>
+                <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleReset}><RotateCcw className="h-3.5 w-3.5" /> New search</Button>
                 <Button size="sm" variant="outline" className="h-8" onClick={() => setCriteriaOpen(true)}>Edit ranking</Button>
                 <Button size="sm" variant="ghost" className="h-8" onClick={() => setDetailsOpen((v) => !v)}>
                   {detailsOpen ? "Hide details" : "Search details"}
                 </Button>
               </div>
             )}
-            {(searchPhase !== "done" || keptCount === 0 || detailsOpen) && (<>
+            {!broadSearch && (searchPhase !== "done" || keptCount === 0 || detailsOpen) && (<>
             <AgentReasoningPanel
               query={query}
               lines={reasoningLines}
@@ -879,8 +950,18 @@ export default function SearchPage() {
             )}
 
 
+            {searchPhase === "done" && broadSearch && (
+              <BroadSearchPanel
+                query={query}
+                total={broadSearch.total}
+                roleLabel={broadSearch.roleLabel}
+                onSearch={runFullSearch}
+                onReset={handleReset}
+              />
+            )}
+
             {/* Zero-result helper after stream completes */}
-            {searchPhase === "done" && keptCount === 0 && (
+            {searchPhase === "done" && !broadSearch && keptCount === 0 && (
               <div className="rounded-xl border border-border/50 bg-card/40 p-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   No matches. Open{" "}
@@ -905,10 +986,13 @@ export default function SearchPage() {
         onFiltersChange={(next) => {
           setFilters(next);
           // re-run on change
+          const requestId = ++activeRequestRef.current;
+          setBroadSearch(null);
           setSearchPhase("running");
           setCandidates([]);
           setRevealedCount(0);
-          runResultsFetch(query, next, parsedPayload, 1, null).catch((err) => {
+          runResultsFetch(query, next, parsedPayload, 1, null, requestId).catch((err) => {
+            if (requestId !== activeRequestRef.current) return;
             console.error(err);
             setSearchPhase("error");
             toast.error(err instanceof Error ? err.message : "Search failed");

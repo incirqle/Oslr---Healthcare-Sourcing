@@ -60,6 +60,7 @@ import type { CompanyValue, EmployerGroupValue, SearchCriteria } from "./clinici
 import { applyRelaxations, reorderLadderByRemarks, widenOptions } from "./widen-criteria.ts";
 import { classifySearchError, searchErrorFields } from "./errors.ts";
 import { buildClinicianQuery, CARD_FIELDS, safeTitleTerms } from "./build-clinician-query.ts";
+import { broadSearchScope } from "./broad-search.ts";
 import { rankByMatchScope, rankByStageFit } from "./match-scope.ts";
 import { rankDeterministic } from "./soft-rank.ts";
 import { classifyEmployer } from "./employer-class.ts";
@@ -436,6 +437,118 @@ export async function handleClinicianSearch(req: Request): Promise<Response> {
           credit_ceiling: CREDIT_CEILING,
           cache_hit: false,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // A role-only nationwide ask is not a useful candidate list. Get its
+      // REAL total with one projected row, then stop before the 200-row pool,
+      // semantic recall and grading. All other searches continue unchanged.
+      const broadScope = broadSearchScope(criteria);
+      if (broadScope) {
+        const broadFields = ["crustdata_person_id"];
+        const broadKey = (await buildSearchCacheKey(criteria, 1, broadFields)).replace(/^clin:/, "clin:broad:");
+        const cachedBroad = bypassCache ? null : await getCrustDataCache(broadKey, SEARCH_TTL_MS);
+        let broadTotal = cachedBroad?.total_count ?? 0;
+        let broadCredits = 0;
+
+        if (!cachedBroad) {
+          const spent = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+          if (!checkCeiling(spent, 1).allow) {
+            const err = classifySearchError("credit_ceiling");
+            return new Response(JSON.stringify({
+              error: err.userMessage,
+              ...searchErrorFields(err),
+              results: [], total: 0, page, size,
+              hasMore: false, scroll_token: null,
+              run_id: runId, parsed, criteria, relaxed,
+              credits: 0, credits_session: spent, credit_ceiling: CREDIT_CEILING,
+            }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+
+          const countRes = await personSearchV2({
+            filters: treeFilters as unknown as Record<string, unknown>,
+            limit: 1,
+            fields: broadFields,
+          });
+          if (!countRes.ok) {
+            const err = classifySearchError(countRes);
+            await logClinicianRun(adminClient, {
+              run_id: runId,
+              user_id: user.id,
+              raw_query: String(query ?? "").trim(),
+              parsed_payload: parsed ?? null,
+              criteria,
+              provider_query: { broad_search: true },
+              result_count: 0,
+              total_count: 0,
+              page,
+              size,
+              latency_ms: Date.now() - requestStart,
+              error_code: err.code,
+              error: err.userMessage,
+            });
+            return new Response(JSON.stringify({
+              error: err.userMessage,
+              ...searchErrorFields(err),
+              ...(countRes.busy ? { busy: true, retry_after_ms: countRes.retryAfterMs ?? 2000 } : {}),
+              results: [], total: 0, page, size,
+              hasMore: false, scroll_token: null,
+              run_id: runId, parsed, criteria, relaxed,
+              credits: 0, credits_session: spent, credit_ceiling: CREDIT_CEILING,
+            }), { status: countRes.busy ? 429 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+
+          broadTotal = countRes.data.total_count;
+          broadCredits = creditsForResults(countRes.data.profiles.length);
+          recordSessionSpend(creditLedger, sessionKey, broadCredits, SEARCH_TTL_MS);
+          // The count is the value; do not retain the sampled person's row.
+          await setCrustDataCache(broadKey, broadTotal, [], null);
+        }
+
+        const broadSessionSpend = getSessionSpend(creditLedger, sessionKey, SEARCH_TTL_MS);
+        await logClinicianSearch(adminClient, { userId: user.id, query, filters, resultCount: 0 });
+        await logClinicianRun(adminClient, {
+          run_id: runId,
+          user_id: user.id,
+          raw_query: String(query ?? "").trim(),
+          parsed_payload: parsed ?? null,
+          criteria,
+          provider_query: { broad_search: true, filters: treeFilters ?? {} },
+          result_count: 0,
+          total_count: broadTotal,
+          page,
+          size,
+          cache_hit: !!cachedBroad,
+          credits_charged: broadCredits,
+          credits_session: broadSessionSpend,
+          credit_ceiling: CREDIT_CEILING,
+          latency_ms: Date.now() - requestStart,
+        });
+
+        return new Response(JSON.stringify({
+          broad_search: true,
+          broad_total: broadTotal,
+          broad_role: broadScope.roleLabel,
+          results: [],
+          hidden_results: [],
+          total: broadTotal,
+          provider_total: broadTotal,
+          total_is_estimate: false,
+          pool_complete: false,
+          page,
+          size,
+          hasMore: false,
+          scroll_token: null,
+          run_id: runId,
+          parsed,
+          criteria,
+          relaxed,
+          exact: relaxed.length === 0,
+          widen_options: [],
+          credits: broadCredits,
+          credits_session: broadSessionSpend,
+          credit_ceiling: CREDIT_CEILING,
+          cache_hit: !!cachedBroad,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       // 4. ONE v2 person search per resolved criteria set — cached 4h,

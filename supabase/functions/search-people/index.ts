@@ -493,6 +493,9 @@ Deno.serve(async (req: Request) => {
       total,
       total_is_estimate: data.total_is_estimate === true,
       provider_total: typeof data.provider_total === "number" ? data.provider_total : null,
+      broad_search: data.broad_search === true,
+      broad_total: typeof data.broad_total === "number" ? data.broad_total : null,
+      broad_role: typeof data.broad_role === "string" ? data.broad_role : null,
       pool_complete: data.pool_complete === true,
       noise_filtered: typeof data.noise_filtered === "number" ? data.noise_filtered : 0,
       // Why rows were set aside: { grader, employment_model, military_reserve, thin_profile, duplicates, role_class_noise }.

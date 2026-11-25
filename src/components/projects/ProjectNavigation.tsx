@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Bot, FolderKanban, Plug, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { projectPath, type ProjectSection } from "@/lib/project-navigation";
+import { requestSearchReset } from "@/lib/search-reset";
 
 const sections = [
   { key: "candidates", label: "Candidates", icon: Users },
@@ -23,7 +24,7 @@ export function ProjectNavigation({ projectId, name, section }: { projectId: str
       <nav aria-label="Project navigation" className="flex gap-1 overflow-x-auto pb-2">
         {sections.map(({ key, label, icon: Icon }) => (
           <Button key={key} asChild variant="ghost" className={`h-10 shrink-0 gap-2 rounded-md px-3 active:scale-[0.98] ${section === key ? "bg-mint-soft text-mint-ink hover:bg-mint-soft hover:text-mint-ink" : "text-muted-foreground"}`}>
-            <Link to={projectPath(projectId, key)} aria-current={section === key ? "page" : undefined}><Icon className="h-4 w-4" />{label}</Link>
+            <Link to={projectPath(projectId, key)} onClick={key === "search" ? requestSearchReset : undefined} aria-current={section === key ? "page" : undefined}><Icon className="h-4 w-4" />{label}</Link>
           </Button>
         ))}
       </nav>

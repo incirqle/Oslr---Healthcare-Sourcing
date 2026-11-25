@@ -32,6 +32,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { projectPath } from "@/lib/project-navigation";
+import { requestSearchReset } from "@/lib/search-reset";
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -70,7 +71,7 @@ export function AppSidebar({ projectId, projectName }: { projectId?: string; pro
           <SidebarGroupContent>
             <Link to={projectPath(projectId)} className="mx-2 mb-2 block break-words rounded-md bg-sidebar-accent px-3 py-2 text-sm font-semibold text-sidebar-primary">{projectName ?? "Loading project…"}</Link>
             <SidebarMenu>
-              {([{ key: "candidates", label: "Candidates", icon: Users }, { key: "search", label: "Talent Search", icon: Search }, { key: "agents", label: "Project agents", icon: Bot }, { key: "connections", label: "Connections & Sync", icon: Plug }] as const).map(({ key, label, icon: Icon }) => <SidebarMenuItem key={key}><SidebarMenuButton asChild><NavLink to={projectPath(projectId, key)} end className="text-sidebar-foreground/75" activeClassName="bg-sidebar-accent text-sidebar-primary"><Icon className="h-4 w-4" /><span>{label}</span></NavLink></SidebarMenuButton></SidebarMenuItem>)}
+              {([{ key: "candidates", label: "Candidates", icon: Users }, { key: "search", label: "Talent Search", icon: Search }, { key: "agents", label: "Project agents", icon: Bot }, { key: "connections", label: "Connections & Sync", icon: Plug }] as const).map(({ key, label, icon: Icon }) => <SidebarMenuItem key={key}><SidebarMenuButton asChild><NavLink to={projectPath(projectId, key)} end onClick={key === "search" ? requestSearchReset : undefined} className="text-sidebar-foreground/75" activeClassName="bg-sidebar-accent text-sidebar-primary"><Icon className="h-4 w-4" /><span>{label}</span></NavLink></SidebarMenuButton></SidebarMenuItem>)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>}
@@ -85,6 +86,7 @@ export function AppSidebar({ projectId, projectName }: { projectId?: string; pro
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
+                      onClick={item.url === "/search" ? requestSearchReset : undefined}
                       end={item.url === "/agents"}
                       className="relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] font-medium text-sidebar-foreground/75 transition-all duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-foreground font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary"
