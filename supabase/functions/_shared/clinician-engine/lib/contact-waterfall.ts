@@ -3,6 +3,7 @@
 // Provider names never leave the server.
 import type { BatchEnrichResult } from "./crustdata-v2.ts";
 import type { TertiaryContact } from "./contactout.ts";
+import { employerEmail } from "./email-classification.ts";
 
 export type WaterfallKind = "work_email" | "personal_email" | "phone";
 
@@ -33,10 +34,11 @@ const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const isPhone = (s: unknown): s is string => typeof s === "string" && !s.includes("@") && s.replace(/\D/g, "").length >= 10;
 
 /** Which kinds the primary result left empty. */
-export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult | null | undefined, fullName?: string | null): WaterfallKind[] {
+export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult | null | undefined, fullName?: string | null, employerDomain?: string | null): WaterfallKind[] {
+  const corporate = employerEmail(p?.personal_emails ?? [], employerDomain, fullName);
   return kinds.filter((k) => {
-    if (k === "work_email") return !(p?.business_email_verified === true && p.business_email && isEmail(clean(p.business_email)));
-    if (k === "personal_email") return !(p?.personal_emails ?? []).some((e) => isEmail(clean(e)) && emailMatchesName(clean(e), fullName));
+    if (k === "work_email") return !corporate && !(p?.business_email_verified === true && p.business_email && isEmail(clean(p.business_email)));
+    if (k === "personal_email") return !(p?.personal_emails ?? []).some((e) => clean(e) !== corporate && isEmail(clean(e)) && emailMatchesName(clean(e), fullName));
     return ![p?.mobile_phone, ...(p?.phones ?? [])].some(isPhone);
   });
 }
@@ -104,8 +106,14 @@ export function mergeContacts(
   secondary: SecondaryContact | null | undefined,
   fullName?: string | null,
   tertiary?: TertiaryContact | null,
+  employerDomain?: string | null,
 ): MergedContact {
   const out: MergedContact = { sources: {} };
+  const corporate = [
+    [employerEmail(primary?.personal_emails ?? [], employerDomain, fullName), "primary"],
+    [employerEmail(secondary?.personal_emails ?? [], employerDomain, fullName), "secondary"],
+    [employerEmail(tertiary?.personal_emails ?? [], employerDomain, fullName), "tertiary"],
+  ] as const;
   for (const k of kinds) {
     if (k === "work_email") {
       const p = clean(primary?.business_email);
@@ -117,6 +125,10 @@ export function mergeContacts(
         out.work_email = t;
         out.sources.work_email = "tertiary";
       }
+      if (!out.work_email) {
+        const hit = corporate.find(([email]) => email);
+        if (hit?.[0]) { out.work_email = hit[0]; out.sources.work_email = hit[1]; }
+      }
     }
     if (k === "personal_email") {
       // "If true" rule: an address is kept only when something confirms it is theirs.
@@ -124,13 +136,14 @@ export function mergeContacts(
       // the record was matched on their own LinkedIn profile / stored id (then its
       // recommended address first). Tertiary: matched strictly on their LinkedIn URL
       // (prefers name match first, else first valid personal email).
-      const pList = (primary?.personal_emails ?? []).map(clean).filter(isEmail);
-      const sList = [secondary?.recommended_personal_email, ...(secondary?.personal_emails ?? [])].map(clean).filter(isEmail);
-      const tList = (tertiary?.personal_emails ?? []).map(clean).filter(isEmail);
+      const personal = (emails: Array<string | null | undefined>) => emails.map(clean).filter(isEmail).filter(e => !corporate.some(([c]) => c === e));
+      const pList = personal(primary?.personal_emails ?? []);
+      const sList = personal([secondary?.recommended_personal_email, ...(secondary?.personal_emails ?? [])]);
+      const tList = personal(tertiary?.personal_emails ?? []);
       const named = (l: string[]) => l.find((e) => emailMatchesName(e, fullName));
       const pick: [string | undefined, "primary" | "secondary" | "tertiary"][] = [
         [named(pList), "primary"], [named(sList), "secondary"],
-        [secondary?.identity_confirmed ? clean(secondary?.recommended_personal_email) || undefined : undefined, "secondary"],
+        [secondary?.identity_confirmed ? sList[0] : undefined, "secondary"],
         [named(tList), "tertiary"],
         [tertiary?.identity_confirmed ? tList[0] : undefined, "tertiary"],
       ];

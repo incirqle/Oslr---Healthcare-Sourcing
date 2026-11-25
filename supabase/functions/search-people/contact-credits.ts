@@ -7,8 +7,9 @@ import { batchContactEnrich, syncContactEnrich, type BatchEnrichResult } from ".
 import { combinePrimary, mergeContacts, missingAfterMerged, missingAfterPrimary, pdlEnrichContact, type MergedContact, type WaterfallKind } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
 import { contactOutEnrichContact } from "../_shared/clinician-engine/lib/contactout.ts";
 import { observeVerifiedWorkEmail, type WorkEmailSuggestion } from "../_shared/clinician-engine/lib/institution-email-store.ts";
-import { researchInstitutionWorkEmail } from "../_shared/clinician-engine/lib/institution-email-resolver.ts";
+import { researchInstitutionWorkEmail, resolveInstitutionEmployerDomain } from "../_shared/clinician-engine/lib/institution-email-resolver.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
+import { employerEmail } from "../_shared/clinician-engine/lib/email-classification.ts";
 import { ContactAudit } from "./contact-audit.ts";
 
 import { contactPrices, type ContactKind } from "../_shared/plans.ts";
@@ -19,7 +20,7 @@ const FIELD: Record<ContactKind, string> = {
   personal_email: "personal_emails",
   phone: "mobile_phone",
 };
-const CONTACT_RESEARCH_VERSION = 6;
+const CONTACT_RESEARCH_VERSION = 7;
 
 export interface Stored {
   work_email?: string | null;
@@ -30,6 +31,7 @@ export interface Stored {
   profile_pic_url?: string | null;
   pdl_id?: string; // linked secondary-provider id, server only
   research_version?: number;
+  employer_domain?: string | null;
 }
 
 function admin() {
@@ -68,8 +70,8 @@ export function visibleContactChecks(stored: Stored, checked: Record<string, str
   return visible;
 }
 
-function primaryFields(kinds: ContactKind[], contact: BatchEnrichResult | null, name: string | null): ContactKind[] {
-  return kinds.filter((k) => !missingAfterPrimary([k], contact, name).length);
+function primaryFields(kinds: ContactKind[], contact: BatchEnrichResult | null, name: string | null, domain?: string | null): ContactKind[] {
+  return kinds.filter((k) => !missingAfterPrimary([k], contact, name, domain).length);
 }
 
 function mergedFields(kinds: WaterfallKind[], contact: MergedContact): ContactKind[] {
@@ -82,6 +84,17 @@ export function foundContactKinds(kinds: ContactKind[], contact: MergedContact):
     (k === "personal_email" && !!contact.personal_email) ||
     (k === "phone" && !!contact.phones?.length)
   );
+}
+
+/** Reclassification moves an already-owned address, never creates a new debit. */
+export function reclassifyStoredContact(stored: Stored, checked: Record<string, string>, name: string | null, domain: string | null): boolean {
+  const email = employerEmail(stored.personal_emails ?? [], domain, name);
+  if (!email || (stored.work_email && stored.work_email !== email)) return false;
+  stored.work_email = email;
+  stored.personal_emails = (stored.personal_emails ?? []).filter(e => e.trim().toLowerCase() !== email);
+  if (checked.personal_email) checked.work_email = checked.personal_email;
+  if (!stored.personal_emails.length) delete checked.personal_email;
+  return true;
 }
 
 export async function handleEnrichContact(
@@ -137,6 +150,22 @@ export async function handleEnrichContact(
     .eq("company_id", companyId).eq("linkedin_url", url).maybeSingle();
   const stored: Stored = (unlock?.data as Stored) ?? {};
   const checked: Record<string, string> = (unlock?.checked as Record<string, string>) ?? {};
+  // Confirm domain through server-side organization resolution, never a client
+  // assertion. This also repairs misfiled contacts on the normal cached read.
+  let confirmedDomain = stored.employer_domain ?? null;
+  if (!confirmedDomain && anchors.company && (requested.includes("work_email") || stored.personal_emails?.length)) {
+    try {
+      const resolved = await resolveInstitutionEmployerDomain(anchors.company, null);
+      if (resolved.unambiguous && resolved.domain) confirmedDomain = resolved.domain;
+    } catch { /* sourced provider contacts still work when company research fails */ }
+  }
+  anchors.companyDomain = confirmedDomain;
+  if (confirmedDomain) stored.employer_domain = confirmedDomain;
+  if (reclassifyStoredContact(stored, checked, candidateName, confirmedDomain)) {
+    audit.step("email_classification", "found", { fields: ["work_email"], detail: "owned_email_reclassified_no_charge" });
+    const { error } = await db.from("contact_unlocks").upsert({ company_id: companyId, linkedin_url: url, data: stored, checked, updated_at: new Date().toISOString() });
+    if (error) return await respond(500, { error: "Contact information could not be saved. Try again." }, "error", "classification_save_failed");
+  }
 
   const { data: bal } = await db.from("credit_balances").select("balance").eq("company_id", companyId).maybeSingle();
   let balance = (bal?.balance as number | undefined) ?? 0;
@@ -178,19 +207,19 @@ export async function handleEnrichContact(
   let res: { ok: boolean } = syncRes;
   let primaryIncomplete = false;
   if (syncRes.ok) {
-    const fields = primaryFields(toFetch, syncHit, candidateName);
+    const fields = primaryFields(toFetch, syncHit, candidateName, confirmedDomain);
     audit.step("instant_lookup", fields.length ? "found" : "miss", { fields, httpStatus: 200 });
   } else {
     audit.step("instant_lookup", "unavailable", { httpStatus: syncRes.status });
   }
-  const syncMissing = syncRes.ok ? missingAfterPrimary(toFetch, syncHit, candidateName) : (syncRes.insufficientCredits ? [] : toFetch);
+  const syncMissing = syncRes.ok ? missingAfterPrimary(toFetch, syncHit, candidateName, confirmedDomain) : (syncRes.insufficientCredits ? [] : toFetch);
   if (syncMissing.length) {
     if (!syncRes.ok) console.warn(`[enrich_contact] sync lookup failed (${syncRes.status}): ${syncRes.detail.slice(0, 200)}; sending to batch`);
     const batchRes = await batchContactEnrich([{ linkedin_url: url }], syncMissing.map((k) => FIELD[k]));
     if (batchRes.ok) {
       primary = combinePrimary(syncHit, batchRes.data[0] ?? null);
       res = { ok: true };
-      const fields = primaryFields(syncMissing, batchRes.data[0] ?? null, candidateName);
+      const fields = primaryFields(syncMissing, batchRes.data[0] ?? null, candidateName, confirmedDomain);
       audit.step("batch_lookup", fields.length ? "found" : "miss", { fields, httpStatus: 200 });
     } else {
       primaryIncomplete = true;
@@ -200,14 +229,14 @@ export async function handleEnrichContact(
   }
 
   // Secondary provider only for what the primary left empty.
-  const missing = missingAfterPrimary(toFetch, primary, candidateName);
+  const missing = missingAfterPrimary(toFetch, primary, candidateName, confirmedDomain);
   let secondary = null;
   let secondaryFailed = false;
   if (missing.length) {
     const s = await pdlEnrichContact(url, missing, stored.pdl_id ?? null, fetch, anchors);
     if (s.ok) {
       secondary = s.contact;
-      const fields = mergedFields(missing, mergeContacts(missing, null, secondary, candidateName));
+      const fields = mergedFields(missing, mergeContacts(missing, null, secondary, candidateName, null, confirmedDomain));
       audit.step("secondary_lookup", fields.length ? "found" : "miss", { fields, httpStatus: 200 });
     } else {
       secondaryFailed = s.reason === "unavailable";
@@ -215,7 +244,7 @@ export async function handleEnrichContact(
     }
   }
   if (secondary?.pdl_id) stored.pdl_id = secondary.pdl_id;
-  const preMerged = mergeContacts(toFetch, primary, secondary, candidateName);
+  const preMerged = mergeContacts(toFetch, primary, secondary, candidateName, null, confirmedDomain);
 
   // Tertiary provider only for what both primary and secondary left empty.
   const stillMissing = missingAfterMerged(toFetch, preMerged);
@@ -225,7 +254,7 @@ export async function handleEnrichContact(
     const t = await contactOutEnrichContact(url, stillMissing, fetch, anchors.companyDomain);
     if (t.ok) {
       tertiary = t.contact;
-      const fields = mergedFields(stillMissing, mergeContacts(stillMissing, null, null, candidateName, tertiary));
+      const fields = mergedFields(stillMissing, mergeContacts(stillMissing, null, null, candidateName, tertiary, confirmedDomain));
       audit.step("tertiary_lookup", fields.length ? "found" : "miss", { fields, httpStatus: 200 });
     } else {
       tertiaryFailed = t.reason === "unavailable" || t.reason === "out_of_credits";
@@ -233,7 +262,7 @@ export async function handleEnrichContact(
     }
   }
 
-  const merged = tertiary ? mergeContacts(toFetch, primary, secondary, candidateName, tertiary) : preMerged;
+  const merged = tertiary ? mergeContacts(toFetch, primary, secondary, candidateName, tertiary, confirmedDomain) : preMerged;
   const anyFound = Boolean(merged.work_email || merged.personal_email || merged.phones?.length);
   if (!res.ok && (secondaryFailed || !secondary) && (tertiaryFailed || !anyFound)) {
     const message = "Contact lookup is unavailable right now. Try again shortly.";
@@ -246,8 +275,8 @@ export async function handleEnrichContact(
   // Learn only from provider-verified work email tied to the current employer
   // and an exact known employer domain. Failures never block the contact result.
   const verifiedWorkEmail = merged.work_email && (
-    (merged.sources.work_email === "primary" && primary?.business_email_verified === true) ||
-    (merged.sources.work_email === "tertiary" && tertiary?.work_email_verified === true)
+    (merged.sources.work_email === "primary" && primary?.business_email_verified === true && primary.business_email?.trim().toLowerCase() === merged.work_email) ||
+    (merged.sources.work_email === "tertiary" && tertiary?.work_email_verified === true && tertiary.work_email?.trim().toLowerCase() === merged.work_email)
   );
   if (merged.work_email && verifiedWorkEmail) {
     try {
@@ -265,10 +294,19 @@ export async function handleEnrichContact(
     }
   }
 
+  // A work-only request may have missed an address stored by the source under
+  // personal emails. One bounded identity lookup can recover it without an LLM.
+  if (toFetch.includes("work_email") && !merged.work_email && confirmedDomain && !toFetch.includes("personal_email") && !(syncRes.ok === false && syncRes.insufficientCredits)) {
+    const relabel = await syncContactEnrich([url], ["personal_emails"]);
+    const owned = relabel.ok ? employerEmail(relabel.data[0]?.personal_emails ?? [], confirmedDomain, candidateName) : null;
+    if (owned) merged.work_email = owned;
+    audit.step("email_classification_lookup", owned ? "found" : relabel.ok ? "miss" : "unavailable", { fields: owned ? ["work_email"] : [] });
+  }
+
   // Last resort after every sourced provider: dynamically resolve the employer,
   // obtain current same-cohort colleague evidence, then promote one unambiguous
   // pattern into the ordinary work-email result and normal found-contact charge.
-  if (toFetch.includes("work_email") && !merged.work_email && !lookupIncomplete) {
+  if (toFetch.includes("work_email") && !merged.work_email && !(syncRes.ok === false && syncRes.insufficientCredits)) {
     try {
       const research = await researchInstitutionWorkEmail(db, {
         linkedinUrl: url,
@@ -289,6 +327,7 @@ export async function handleEnrichContact(
       if (research.suggestion) {
         merged.work_email = research.suggestion.email;
         stored.work_email_suggestion = null;
+        stored.employer_domain = research.audit.domain;
       }
       if (research.audit.outcome === "unavailable") lookupIncomplete = true;
     } catch (e) {

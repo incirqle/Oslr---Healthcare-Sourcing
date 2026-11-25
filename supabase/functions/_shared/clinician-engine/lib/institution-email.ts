@@ -199,3 +199,13 @@ export function hasAddressCollision(
 ): boolean {
   return rows.some((row) => row.address_hash === candidateAddressHash && row.person_hash !== targetPersonHash);
 }
+
+/** One canonical identity key across provider matching, deduplication and hashes. */
+export function canonicalLinkedinUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim()}`);
+    if (!["linkedin.com", "www.linkedin.com"].includes(url.hostname.toLowerCase()) || !url.pathname.toLowerCase().startsWith("/in/")) return null;
+    return `https://www.linkedin.com${url.pathname.toLowerCase().replace(/\/+$/, "")}`;
+  } catch { return null; }
+}

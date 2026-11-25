@@ -58,6 +58,8 @@ const company = (domain: string | null = "maimo.org") => async () => ({
   data: [{ company_id: 1, name: target.employer, basic_info: { name: target.employer, primary_domain: domain, website: "https://linktr.ee/MaimonidesHealth" } }],
 });
 const deps = {
+  autocomplete: async () => [],
+  reason: async () => ({ decision: null, model: "test", elapsedMs: 0 }),
   companySearch: company(),
   webSearch: async () => ({ ok: true as const, data: { success: true, results: [{ title: "Maimonides Medical Center | Brooklyn", url: "https://www.google.com/goto?official" }] } }),
   resolveRedirect: async () => "https://maimo.org/",
@@ -74,7 +76,7 @@ Deno.test("a miss dynamically learns three current colleague patterns and fills 
   const result = await researchInstitutionWorkEmail(db, target, {
     ...deps,
     search: async (input) => {
-      searchBody = input.filters;
+      if (!searchBody) searchBody = input.filters;
       return { ok: true as const, data: { profiles, total_count: 3, next_cursor: null, remarks: [] } };
     },
   });
@@ -84,7 +86,7 @@ Deno.test("a miss dynamically learns three current colleague patterns and fills 
   assertEquals(db.rows.length, 3);
   assert(!JSON.stringify(db.rows).includes("aanderson@maimo.org"));
   assert(JSON.stringify(searchBody).includes("business_email_verified"));
-  assert(JSON.stringify(searchBody).includes("experience.employment_details.current.title"));
+  assert(!JSON.stringify(searchBody).includes("experience.employment_details.current.title"));
 });
 
 Deno.test("the official site and verified colleagues establish the domain when the company only has a link page", async () => {
@@ -95,7 +97,7 @@ Deno.test("the official site and verified colleagues establish the domain when t
   assertEquals(result.audit.domain, "maimo.org");
   assertEquals(result.audit.domainSource, "official_site");
   assertEquals(result.audit.outcome, "reconstructed");
-  assert([...cache.keys()].some((key) => key.includes("contact:employer-domain:v3:")));
+  assert([...cache.keys()].some((key) => key.startsWith("contact:employer-domain:v4:")));
 });
 
 Deno.test("a failed top-result redirect abstains instead of accepting a later directory domain", async () => {
@@ -126,7 +128,7 @@ Deno.test("the exact organization logic is reused without more provider calls", 
   let called = false;
   const result = await researchInstitutionWorkEmail(db, target, {
     ...deps,
-    companySearch: async () => { called = true; throw new Error("must not run"); },
+    companySearch: company(),
     search: async () => { called = true; throw new Error("must not run"); },
     contacts: async () => { called = true; throw new Error("must not run"); },
   });
@@ -148,7 +150,7 @@ Deno.test("an exact-name employer miss does not guess a domain or call colleague
   assertEquals(searched, false);
 });
 
-Deno.test("wrong-cohort and outside-domain addresses cannot teach the pattern", async () => {
+Deno.test("three attending-only examples cannot establish a shared resident pattern", async () => {
   cache.clear();
   const db = new FakeDb();
   const wrongProfiles = profiles.map((p) => ({
@@ -160,8 +162,8 @@ Deno.test("wrong-cohort and outside-domain addresses cannot teach the pattern", 
     search: async () => ({ ok: true as const, data: { profiles: wrongProfiles, total_count: 3, next_cursor: null, remarks: [] } }),
   });
   assertEquals(result.suggestion, null);
-  assertEquals(result.audit.colleaguesSelected, 0);
-  assertEquals(db.rows.length, 0);
+  assertEquals(result.audit.colleaguesSelected, 3);
+  assertEquals(db.rows.length, 3);
 });
 
 Deno.test("a failed colleague contact request is retryable and never cached as evidence", async () => {
@@ -187,9 +189,9 @@ Deno.test("coworker addresses outside the official domain are discarded", async 
     contacts: async () => ({ ok: true as const, data: mixed }),
   });
   assertEquals(result.suggestion, null);
-  assertEquals(result.audit.reason, "insufficient_verified_exact_domain_evidence");
-  assertEquals(db.rows.length, 2);
-  assert(![...cache.keys()].some((key) => key.includes("contact:employer-domain:v3:")));
+  assertEquals(result.audit.reason, "multiple_current_mail_domains");
+  assertEquals(db.rows.length, 0);
+  assert(![...cache.keys()].some((key) => key.startsWith("contact:employer-domain:v4:")));
 });
 
 Deno.test("a broader second pass fills missing colleagues without duplicating people", async () => {
@@ -222,5 +224,51 @@ Deno.test("previously observed evidence still requires three independent people"
     search: async () => ({ ok: true as const, data: { profiles: profiles.slice(0, 2), total_count: 2, next_cursor: null, remarks: [] } }),
   });
   assertEquals(result.suggestion, null);
-  assertEquals(result.audit.reason, "fewer_than_three_current_same_cohort_colleagues");
+  assertEquals(result.audit.reason, "fewer_than_three_current_colleagues");
+});
+
+Deno.test("ten colleagues across clinical roles establish a shared rule without requiring three trainees", async () => {
+  cache.clear(); const db = new FakeDb(); let contactCount = 0;
+  const names = ["Alice Anderson", "Ben Brown", "Carla Clark", "Diane Davis", "Elise Evans", "Frank Ford", "Grace Green", "Henry Hill", "Iris Ivy", "Jack Jones"];
+  const broad = names.map((name, i) => ({ basic_profile: { name }, experience: { employment_details: { current: [{ name: target.employer + " (MMC)", title: i < 8 ? "Attending Physician" : "Resident Physician" }] } }, social_handles: { professional_network_identifier: { profile_url: `https://www.linkedin.com/in/example-${i}` } } }));
+  const result = await researchInstitutionWorkEmail(db, target, { ...deps,
+    search: async () => ({ ok: true as const, data: { profiles: broad, total_count: 10, next_cursor: null, remarks: [] } }),
+    contacts: async urls => { contactCount = urls.length; return { ok: true as const, data: urls.map((url, i) => ({ ...contacts[0], linkedin_url: url, business_email: names[i].toLowerCase().replace(" ", ".") + "@maimo.org" })) }; },
+    reason: async input => ({ decision: { pattern: "first.last", sharedAcrossRoles: true, sampleIds: input.samples.map(s => s.id), blockers: [] }, model: "test", elapsedMs: 1 }),
+  });
+  assertEquals(contactCount, 10); assertEquals(result.suggestion?.email, "matthew.magruder@maimo.org");
+  assertEquals(result.audit.model?.outcome, "supported");
+  const reused = await researchInstitutionWorkEmail(db, target, { ...deps, search: async () => { throw new Error("no repeat search"); } });
+  assertEquals(reused.audit.outcome, "reused"); assertEquals(reused.suggestion?.email, result.suggestion?.email);
+});
+
+Deno.test("three verified current coworkers establish a mail domain different from the website", async () => {
+  cache.clear(); const result = await researchInstitutionWorkEmail(new FakeDb(), target, { ...deps,
+    contacts: async () => ({ ok: true as const, data: contacts.map(c => ({ ...c, business_email: c.business_email.replace("@maimo.org", "@mail.example") })) }),
+  });
+  assertEquals(result.audit.domain, "mail.example"); assertEquals(result.suggestion?.email, "mmagruder@mail.example");
+});
+
+Deno.test("ambiguous same-name companies cannot borrow a previous institution's cached mail domain", async () => {
+ cache.clear(); await researchInstitutionWorkEmail(new FakeDb(), target, deps);
+ const result=await researchInstitutionWorkEmail(new FakeDb(), {...target,employerDomain:"wrong.org"}, {...deps,
+  companySearch:async()=>({ok:true as const,data:[{company_id:1,name:target.employer,basic_info:{name:target.employer,primary_domain:"maimo.org"}},{company_id:2,name:target.employer,basic_info:{name:target.employer,primary_domain:"wrong.org"}}]}),
+  search:async()=>{throw new Error("must not fetch ambiguous organization");}
+ });
+ assertEquals(result.suggestion,null);assertEquals(result.audit.reason,"employer_not_unambiguous");
+});
+Deno.test("a different affiliate sharing the website domain is not silently treated as the target employer",async()=>{
+ cache.clear();const result=await researchInstitutionWorkEmail(new FakeDb(),target,{...deps,
+ search:async()=>({ok:true as const,data:{profiles:profiles.map(p=>({...p,experience:{employment_details:{current:[{name:"Different Affiliate",title:"Resident Physician",company_website:"maimo.org"}]}}})),total_count:3,next_cursor:null,remarks:[]}})
+ });
+ assertEquals(result.audit.colleaguesSelected,0);assertEquals(result.suggestion,null);
+});
+Deno.test("institution-wide negative evidence is reused instead of repeating paid colleague pulls",async()=>{
+ cache.clear();const db=new FakeDb();await researchInstitutionWorkEmail(db,target,{...deps,search:async()=>({ok:true as const,data:{profiles:[],total_count:0,next_cursor:null,remarks:[]}})});
+ const result=await researchInstitutionWorkEmail(db,{...target,fullName:"Another Doctor"},{...deps,search:async()=>{throw new Error("negative cache should prevent lookup");}});
+ assertEquals(result.suggestion,null);assertEquals(result.audit.reason,"fewer_than_three_current_colleagues");
+});
+Deno.test("canonical LinkedIn variants cannot count the target as an independent coworker",async()=>{
+ cache.clear(); const result=await researchInstitutionWorkEmail(new FakeDb(),{...target,linkedinUrl:"https://linkedin.com/in/alice/?trk=test"},{...deps});
+ assertEquals(result.audit.colleaguesSelected,2);assertEquals(result.suggestion,null);
 });

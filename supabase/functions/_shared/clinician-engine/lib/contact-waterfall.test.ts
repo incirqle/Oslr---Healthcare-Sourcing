@@ -264,3 +264,15 @@ Deno.test("contactOutEnrichContact handles 404, 403 out-of-credits, and 200 clea
     else Deno.env.set("CONTACTOUT_API_KEY", prev);
   }
 });
+
+Deno.test("a sourced HSS address misfiled as personal fills work and stops that field's waterfall", () => {
+  const hit = primary({ personal_emails: ["ammermanb@hss.edu", "brittany@gmail.com"] });
+  assertEquals(missingAfterPrimary(["work_email"], hit, "Brittany Ammerman", "hss.edu"), []);
+  const result = mergeContacts(["work_email", "personal_email"], hit, null, "Brittany Ammerman", null, "hss.edu");
+  assertEquals(result.work_email, "ammermanb@hss.edu"); assertEquals(result.personal_email, "brittany@gmail.com");
+  assertEquals(hit.business_email_verified, true); assertEquals(hit.business_email, null);
+});
+Deno.test("same-domain misfiled email with another person's name cannot be promoted", () => {
+  const hit = primary({ personal_emails: ["anotherperson@hss.edu"] });
+  assertEquals(mergeContacts(["work_email"], hit, null, "Brittany Ammerman", null, "hss.edu").work_email, undefined);
+});

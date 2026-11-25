@@ -32,7 +32,7 @@ export class ContactAudit {
   record(values: Record<string, unknown>) { Object.assign(this.result, values); }
 
   async finish(status: number, outcome: "found" | "not_found" | "cached" | "blocked" | "error", error?: string) {
-    if (!this.input.enabled) return;
+    if (!this.input.enabled && !this.steps.some(s => s.step === "email_classification")) return;
     const { error: writeError } = await this.db.from("contact_enrichment_logs").insert({
       company_id: this.input.companyId,
       user_id: this.input.userId,

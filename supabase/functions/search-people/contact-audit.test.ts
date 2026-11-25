@@ -27,3 +27,8 @@ Deno.test("read-only cache checks do not create lookup audit rows", async () => 
   await audit.finish(200, "cached");
   assertEquals(writes, 0);
 });
+
+Deno.test("owned-email classification repairs are privately audited even on a cached read", async () => {
+ let writes=0;const audit=new ContactAudit({from:()=>({insert:async()=>{writes++;return {error:null};}})},{companyId:"company",userId:"user",linkedinUrl:"https://linkedin.com/in/test",candidateName:"Test Person",employer:"Example",requested:[],enabled:false});
+ audit.step("email_classification","found",{fields:["work_email"],detail:"owned_email_reclassified_no_charge"});await audit.finish(200,"cached");assertEquals(writes,1);
+});

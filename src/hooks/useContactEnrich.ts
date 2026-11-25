@@ -53,11 +53,11 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     setState(EMPTY);
     if (!linkedinUrl) return;
     let cancelled = false;
-    enrichContact(linkedinUrl, [])
+    enrichContact(linkedinUrl, [], candidateName, anchors)
       .then((r) => { if (!cancelled && r && !r.error) setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null, unlimited: r.unlimited === true }); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [linkedinUrl]);
+  }, [linkedinUrl, candidateName, anchors.company, anchors.location, anchors.title, anchors.companyDomain]);
 
   const run = useCallback(async (kinds: ContactKind[]) => {
     if (!linkedinUrl || !kinds.length) return;
