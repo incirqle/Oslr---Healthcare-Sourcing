@@ -1,0 +1,4 @@
+- Keep this lab offline by default and outside production imports; why: experiments must not change customer contacts.
+- Live requests require explicit opt-in, a durable locked ledger, a 75-credit maximum, and fail-closed cost reservations; why: repeated tests cannot silently spend again.
+- Patterns, MX and mailbox acceptance never establish a person's identity; why: catch-all domains and colliding institutional IDs can accept incorrect addresses.
+- Persist synthetic fixtures and aggregate results only; keep identifiable live responses in temporary private storage; why: research must not publish a contact directory.
