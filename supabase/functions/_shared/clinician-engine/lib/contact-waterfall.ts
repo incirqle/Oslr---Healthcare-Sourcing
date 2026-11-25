@@ -1,7 +1,8 @@
-// Contact waterfall: the primary provider (CrustData) answers first; the
-// secondary provider (People Data Labs) is asked only for what is still missing.
+// Contact waterfall: primary (CrustData) answers first; secondary (People Data
+// Labs) is asked for what is missing; tertiary (ContactOut) fills any remaining gaps.
 // Provider names never leave the server.
 import type { BatchEnrichResult } from "./crustdata-v2.ts";
+import type { TertiaryContact } from "./contactout.ts";
 
 export type WaterfallKind = "work_email" | "personal_email" | "phone";
 
@@ -22,7 +23,7 @@ export interface MergedContact {
   work_email?: string;
   personal_email?: string; // the single best personal address
   phones?: string[];
-  sources: Partial<Record<WaterfallKind, "primary" | "secondary">>;
+  sources: Partial<Record<WaterfallKind, "primary" | "secondary" | "tertiary">>;
 }
 
 const clean = (s: unknown) => (typeof s === "string" ? s.trim().toLowerCase() : "");
@@ -38,6 +39,14 @@ export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult
   });
 }
 
+/** Which requested kinds are still empty in a merged contact result. */
+export function missingAfterMerged(kinds: WaterfallKind[], m: MergedContact): WaterfallKind[] {
+  return kinds.filter((k) => {
+    if (k === "work_email") return !m.work_email;
+    if (k === "personal_email") return !m.personal_email;
+    return !(m.phones && m.phones.length > 0);
+  });
+}
 /** Combine the instant lookup with the batch retry: the instant answer wins
  *  per field, the batch only fills fields the instant lookup left empty. */
 export function combinePrimary(
@@ -92,26 +101,36 @@ export function mergeContacts(
   primary: BatchEnrichResult | null | undefined,
   secondary: SecondaryContact | null | undefined,
   fullName?: string | null,
+  tertiary?: TertiaryContact | null,
 ): MergedContact {
   const out: MergedContact = { sources: {} };
   for (const k of kinds) {
     if (k === "work_email") {
       const p = clean(primary?.business_email);
       const s = clean(secondary?.work_email);
+      const t = clean(tertiary?.work_email);
       if (primary?.business_email_verified === true && isEmail(p)) { out.work_email = p; out.sources.work_email = "primary"; }
       else if (isEmail(s) && secondary?.work_domain_ok) { out.work_email = s; out.sources.work_email = "secondary"; }
+      else if (isEmail(t) && tertiary?.work_domain_ok && (tertiary.work_email_verified || emailMatchesName(t, fullName))) {
+        out.work_email = t;
+        out.sources.work_email = "tertiary";
+      }
     }
     if (k === "personal_email") {
       // "If true" rule: an address is kept only when something confirms it is theirs.
       // Primary: the address carries their name. Secondary: carries their name, or
       // the record was matched on their own LinkedIn profile / stored id (then its
-      // recommended address first). Anything else is discarded, never guessed.
+      // recommended address first). Tertiary: matched strictly on their LinkedIn URL
+      // (prefers name match first, else first valid personal email).
       const pList = (primary?.personal_emails ?? []).map(clean).filter(isEmail);
       const sList = [secondary?.recommended_personal_email, ...(secondary?.personal_emails ?? [])].map(clean).filter(isEmail);
+      const tList = (tertiary?.personal_emails ?? []).map(clean).filter(isEmail);
       const named = (l: string[]) => l.find((e) => emailMatchesName(e, fullName));
-      const pick: [string | undefined, "primary" | "secondary"][] = [
+      const pick: [string | undefined, "primary" | "secondary" | "tertiary"][] = [
         [named(pList), "primary"], [named(sList), "secondary"],
         [secondary?.identity_confirmed ? clean(secondary?.recommended_personal_email) || undefined : undefined, "secondary"],
+        [named(tList), "tertiary"],
+        [tertiary?.identity_confirmed ? tList[0] : undefined, "tertiary"],
       ];
       const hit = pick.find(([e]) => e);
       if (hit) { out.personal_email = hit[0]; out.sources.personal_email = hit[1]; }
@@ -119,8 +138,10 @@ export function mergeContacts(
     if (k === "phone") {
       const p = [...new Set([primary?.mobile_phone, ...(primary?.phones ?? [])].filter(isPhone))];
       const s = [...new Set([secondary?.mobile_phone, ...(secondary?.phone_numbers ?? [])].filter(isPhone))];
+      const t = [...new Set((tertiary?.phone_numbers ?? []).filter(isPhone))];
       if (p.length) { out.phones = p.slice(0, 3); out.sources.phone = "primary"; }
       else if (s.length) { out.phones = s.slice(0, 3); out.sources.phone = "secondary"; }
+      else if (t.length) { out.phones = t.slice(0, 3); out.sources.phone = "tertiary"; }
     }
   }
   return out;

@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { emailMatchesName, mergeContacts, missingAfterPrimary, parsePdlPerson, pdlQuery, pdlRequired } from "./contact-waterfall.ts";
+import { emailMatchesName, mergeContacts, missingAfterMerged, missingAfterPrimary, parsePdlPerson, pdlQuery, pdlRequired } from "./contact-waterfall.ts";
+import { contactOutEnrichContact, contactOutQuery, normalizeContactOutProfileUrl, parseContactOutProfile } from "./contactout.ts";
 import type { BatchEnrichResult } from "./crustdata-v2.ts";
 
 const primary = (o: Partial<BatchEnrichResult>): BatchEnrichResult => ({
@@ -133,4 +134,118 @@ Deno.test("fallback lookup sends profile, name, employer and city, and reports w
   assertEquals(q.get("include_if_matched"), "true");
   assertEquals(q.get("min_likelihood"), "6");
   assertEquals(pdlQuery("x", ["phone"], "abc").get("profile"), null);
+});
+
+Deno.test("ContactOut query requests only missing fields and saves email credits on phone-only", () => {
+  assertEquals(normalizeContactOutProfileUrl("linkedin.com/in/jane-doe/"), "https://www.linkedin.com/in/jane-doe");
+  assertEquals(normalizeContactOutProfileUrl("https://www.linkedin.com/sales/people/123"), null);
+
+  const phoneOnly = contactOutQuery("linkedin.com/in/jane-doe", ["phone"])!;
+  assertEquals(phoneOnly.get("email_type"), "none");
+  assertEquals(phoneOnly.get("include_phone"), "true");
+
+  const personalOnly = contactOutQuery("https://linkedin.com/in/jane-doe", ["personal_email"])!;
+  assertEquals(personalOnly.get("email_type"), "personal");
+  assertEquals(personalOnly.get("include_phone"), null);
+
+  const workOnly = contactOutQuery("https://linkedin.com/in/jane-doe", ["work_email"])!;
+  assertEquals(workOnly.get("email_type"), "work");
+
+  const both = contactOutQuery("https://linkedin.com/in/jane-doe", ["work_email", "personal_email", "phone"])!;
+  assertEquals(both.get("email_type"), "personal,work");
+  assertEquals(both.get("include_phone"), "true");
+});
+
+Deno.test("ContactOut tertiary fills missing personal email, verified work email, and phone without overriding earlier tiers", () => {
+  const tertiary = parseContactOutProfile({
+    work_email: ["jdoe@hospital.org"],
+    work_email_status: { "jdoe@hospital.org": "Verified" },
+    personal_email: ["janedoe@gmail.com"],
+    phone: ["+13055551212"],
+  }, "hospital.org");
+
+  // When primary and secondary are empty, tertiary fills everything
+  const filled = mergeContacts(["work_email", "personal_email", "phone"], null, null, "Jane Doe", tertiary);
+  assertEquals(filled.work_email, "jdoe@hospital.org");
+  assertEquals(filled.personal_email, "janedoe@gmail.com");
+  assertEquals(filled.phones, ["+13055551212"]);
+  assertEquals(filled.sources, { work_email: "tertiary", personal_email: "tertiary", phone: "tertiary" });
+
+  // Earlier tiers always win
+  const withPrimary = mergeContacts(
+    ["work_email", "personal_email", "phone"],
+    primary({ business_email: "primary@hospital.org" }),
+    parsePdlPerson({ recommended_personal_email: "jane.doe@yahoo.com" }, ["profile"]),
+    "Jane Doe",
+    tertiary,
+  );
+  assertEquals(withPrimary.work_email, "primary@hospital.org");
+  assertEquals(withPrimary.personal_email, "jane.doe@yahoo.com");
+  assertEquals(withPrimary.phones, ["+13055551212"]);
+  assertEquals(withPrimary.sources, { work_email: "primary", personal_email: "secondary", phone: "tertiary" });
+});
+
+Deno.test("ContactOut rejects unverified work emails and mismatched employer domains", () => {
+  const unverified = parseContactOutProfile({
+    work_email: ["jdoe@hospital.org"],
+    work_email_status: { "jdoe@hospital.org": "Unverified" },
+  }, "hospital.org");
+  assertEquals(unverified.work_email, null);
+
+  const wrongDomain = parseContactOutProfile({
+    work_email: ["jdoe@oldclinic.org"],
+    work_email_status: { "jdoe@oldclinic.org": "Verified" },
+  }, "newhospital.org");
+  assertEquals(wrongDomain.work_email, null);
+});
+
+Deno.test("missingAfterMerged skips tertiary for fields already filled by primary or secondary", () => {
+  const pre = mergeContacts(["work_email", "personal_email", "phone"], primary({ business_email: "dr@hospital.org" }), pdl, "Best Name");
+  assertEquals(missingAfterMerged(["work_email", "personal_email", "phone"], pre), []);
+
+  const partial = mergeContacts(["work_email", "personal_email", "phone"], primary({ business_email: "dr@hospital.org" }), null, "Jane Doe");
+  assertEquals(missingAfterMerged(["work_email", "personal_email", "phone"], partial), ["personal_email", "phone"]);
+});
+
+Deno.test("contactOutEnrichContact handles 404, 403 out-of-credits, and 200 cleanly", async () => {
+  const prev = Deno.env.get("CONTACTOUT_API_KEY");
+  Deno.env.set("CONTACTOUT_API_KEY", "test-token");
+  try {
+    const notFound = await contactOutEnrichContact(
+      "https://www.linkedin.com/in/nobody",
+      ["personal_email"],
+      () => Promise.resolve(new Response(JSON.stringify({ status_code: 404, message: "Not Found" }), { status: 404 })),
+    );
+    assertEquals(notFound, { ok: true, contact: null });
+
+    const outOfCredits = await contactOutEnrichContact(
+      "https://www.linkedin.com/in/someone",
+      ["personal_email"],
+      () => Promise.resolve(new Response("out of credits", { status: 403 })),
+    );
+    assertEquals(outOfCredits, { ok: false, reason: "out_of_credits" });
+
+    const hit = await contactOutEnrichContact(
+      "https://www.linkedin.com/in/jane-doe",
+      ["personal_email", "phone"],
+      (input, init) => {
+        const url = String(input);
+        assertEquals(url.includes("email_type=personal"), true);
+        assertEquals(url.includes("include_phone=true"), true);
+        assertEquals((init?.headers as Record<string, string>).token, "test-token");
+        return Promise.resolve(new Response(JSON.stringify({
+          status_code: 200,
+          profile: { personal_email: ["jane@gmail.com"], phone: ["+13055551212"] },
+        }), { status: 200 }));
+      },
+    );
+    assertEquals(hit.ok, true);
+    if (hit.ok) {
+      assertEquals(hit.contact?.personal_emails, ["jane@gmail.com"]);
+      assertEquals(hit.contact?.phone_numbers, ["+13055551212"]);
+    }
+  } finally {
+    if (prev === undefined) Deno.env.delete("CONTACTOUT_API_KEY");
+    else Deno.env.set("CONTACTOUT_API_KEY", prev);
+  }
 });

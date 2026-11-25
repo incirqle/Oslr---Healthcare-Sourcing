@@ -4,7 +4,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
-import { combinePrimary, mergeContacts, missingAfterPrimary, pdlEnrichContact } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
+import { combinePrimary, mergeContacts, missingAfterMerged, missingAfterPrimary, pdlEnrichContact } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
+import { contactOutEnrichContact } from "../_shared/clinician-engine/lib/contactout.ts";
 import { observeVerifiedWorkEmail, suggestInstitutionWorkEmail, type WorkEmailSuggestion } from "../_shared/clinician-engine/lib/institution-email-store.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
 
@@ -144,15 +145,28 @@ export async function handleEnrichContact(
     if (s.ok) secondary = s.contact;
     else secondaryFailed = s.reason === "unavailable";
   }
-  if (!res.ok && (secondaryFailed || !secondary)) {
+  if (secondary?.pdl_id) stored.pdl_id = secondary.pdl_id;
+  const preMerged = mergeContacts(toFetch, primary, secondary, candidateName);
+
+  // Tertiary provider only for what both primary and secondary left empty.
+  const stillMissing = missingAfterMerged(toFetch, preMerged);
+  let tertiary = null;
+  let tertiaryFailed = false;
+  if (stillMissing.length) {
+    const t = await contactOutEnrichContact(url, stillMissing, fetch, anchors.companyDomain);
+    if (t.ok) tertiary = t.contact;
+    else tertiaryFailed = t.reason === "unavailable" || t.reason === "out_of_credits";
+  }
+
+  const merged = tertiary ? mergeContacts(toFetch, primary, secondary, candidateName, tertiary) : preMerged;
+  const anyFound = Boolean(merged.work_email || merged.personal_email || merged.phones?.length);
+  if (!res.ok && (secondaryFailed || !secondary) && (tertiaryFailed || !anyFound)) {
     return { status: 502, payload: { ...summary(), error: "Contact lookup is unavailable right now. Try again shortly." } };
   }
-  if (secondary?.pdl_id) stored.pdl_id = secondary.pdl_id;
-  const merged = mergeContacts(toFetch, primary, secondary, candidateName);
 
   const found: ContactKind[] = [];
   const now = new Date().toISOString();
-  const lookupIncomplete = !res.ok || primaryIncomplete || secondaryFailed;
+  const lookupIncomplete = !res.ok || primaryIncomplete || secondaryFailed || tertiaryFailed;
   for (const k of toFetch) {
     const hasResult = (k === "work_email" && !!merged.work_email)
       || (k === "personal_email" && !!merged.personal_email)
