@@ -8,6 +8,7 @@ import { combinePrimary, mergeContacts, missingAfterMerged, missingAfterPrimary,
 import { contactOutEnrichContact } from "../_shared/clinician-engine/lib/contactout.ts";
 import { observeVerifiedWorkEmail, type WorkEmailSuggestion } from "../_shared/clinician-engine/lib/institution-email-store.ts";
 import { researchInstitutionWorkEmail, resolveInstitutionEmployerDomain } from "../_shared/clinician-engine/lib/institution-email-resolver.ts";
+import { isInstitutionCandidateDomain } from "../_shared/clinician-engine/lib/institution-election.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
 import { employerEmail } from "../_shared/clinician-engine/lib/email-classification.ts";
 import { ContactAudit } from "./contact-audit.ts";
@@ -152,7 +153,7 @@ export async function handleEnrichContact(
   const checked: Record<string, string> = (unlock?.checked as Record<string, string>) ?? {};
   // Confirm domain through server-side organization resolution, never a client
   // assertion. This also repairs misfiled contacts on the normal cached read.
-  let confirmedDomain = stored.employer_domain ?? null;
+  let confirmedDomain = isInstitutionCandidateDomain(stored.employer_domain);
   if (!confirmedDomain && anchors.company && (requested.includes("work_email") || stored.personal_emails?.length)) {
     try {
       const resolved = await resolveInstitutionEmployerDomain(anchors.company, null);
