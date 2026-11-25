@@ -144,3 +144,14 @@ export async function suggestInstitutionWorkEmail(db: Db, input: {
     verification: "unverified",
   };
 }
+
+/** True when the address is already on record for a different person. */
+export async function addressBelongsToSomeoneElse(db: Db, email: string, linkedinUrl: string): Promise<boolean> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return true;
+  const [candidateHash, targetPersonHash] = await Promise.all([digest(normalized), digest(canonicalLinkedinUrl(linkedinUrl) ?? linkedinUrl)]);
+  const { data, error } = await db.from("institution_email_evidence")
+    .select("person_hash,address_hash").eq("address_hash", candidateHash).limit(2);
+  if (error) throw new Error("institution_evidence_read_unavailable");
+  return hasAddressCollision(candidateHash, targetPersonHash, (data ?? []) as Array<{ person_hash: string; address_hash: string }>);
+}

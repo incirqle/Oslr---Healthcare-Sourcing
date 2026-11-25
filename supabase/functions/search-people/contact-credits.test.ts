@@ -33,12 +33,12 @@ Deno.test("old work-email misses retry once with dynamic research, then honor th
   const checked = { work_email: "2026-11-25T00:00:00.000Z" };
   const now = Date.parse("2026-11-25T01:00:00.000Z");
   assertEquals(recentContactMiss({}, checked, "work_email", now), false);
-  assertEquals(recentContactMiss({ research_version: 7 }, checked, "work_email", now), true);
+  assertEquals(recentContactMiss({ research_version: 8 }, checked, "work_email", now), true);
   assertEquals(recentContactMiss({}, checked, "personal_email", now), false);
   assertEquals(recentContactMiss({}, { personal_email: checked.work_email }, "personal_email", now), true);
   assertEquals(visibleContactChecks({}, checked), {});
-  assertEquals(visibleContactChecks({ research_version: 7 }, checked), checked);
-  assertEquals(visibleContactChecks({ research_version: 7 }, { work_email: "2020-01-01T00:00:00.000Z" }), {});
+  assertEquals(visibleContactChecks({ research_version: 8 }, checked), checked);
+  assertEquals(visibleContactChecks({ research_version: 8 }, { work_email: "2020-01-01T00:00:00.000Z" }), {});
 });
 
 Deno.test("Brittany's already-owned HSS address moves to work email without another charge", () => {

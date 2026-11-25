@@ -1,16 +1,14 @@
-// Dynamic institutional work-email research. There is no institution directory:
-// resolve the exact organization, then use a bounded set of current colleagues'
-// verified work emails to establish both its mail domain and naming pattern.
+// Dynamic institutional work-email research. There is no institution directory.
+// The coworkers are the source of truth: pull current staff at the exact
+// employer, read the work addresses providers hold for them, and let those
+// addresses elect the mail domain and naming pattern. A company's listed
+// website (often a link page or a careers site) is only a hint, never a gate.
 import { ENRICHMENT_TTL_MS, getCrustDataCache, setCrustDataCache } from "../cache.ts";
-import { companySearchV2, personSearchAutocomplete, personSearchV2, syncContactEnrich, webSearchLiveV2 } from "./crustdata-v2.ts";
-import { canonicalLinkedinUrl, clinicalCohort, normalizeDomain, normalizeOrganization } from "./institution-email.ts";
-import {
-  observeVerifiedWorkEmail,
-  suggestInstitutionWorkEmail,
-  type WorkEmailSuggestion,
-} from "./institution-email-store.ts";
-
-import { validateEmailDecision, type EmailReasoningInput, type EmailReasoningResult } from "./institution-reasoning.ts";
+import { companySearchV2, personSearchAutocomplete, personSearchV2, syncContactEnrich } from "./crustdata-v2.ts";
+import { canonicalLinkedinUrl, clinicalCohort, institutionalEmailCandidate, normalizeOrganization, type EmailPattern } from "./institution-email.ts";
+import { addressBelongsToSomeoneElse, observeVerifiedWorkEmail, type WorkEmailSuggestion } from "./institution-email-store.ts";
+import { electInstitutionEmail, isInstitutionCandidateDomain, type CoworkerEmail } from "./institution-election.ts";
+import type { EmailReasoningInput, EmailReasoningResult } from "./institution-reasoning.ts";
 
 interface Db { from: (table: string) => any }
 
@@ -25,12 +23,15 @@ export interface InstitutionResearchInput {
 export interface InstitutionResearchAudit {
   outcome: "reused" | "reconstructed" | "no_match" | "unavailable";
   domain: string | null;
-  domainSource: "supplied" | "identified" | "official_site" | "cache" | null;
+  domainSource: "supplied" | "identified" | "colleagues" | "cache" | null;
   profilesExamined: number;
   colleaguesSelected: number;
   evidenceSaved: number;
   reason?: string;
   rejections?: Record<string, number>;
+  domainSupport?: Record<string, number>;
+  pattern?: string | null;
+  supporters?: number;
   model?: { id: string; elapsedMs: number; requestId?: string; outcome: string };
 }
 
@@ -39,13 +40,11 @@ export interface InstitutionResearchResult {
   audit: InstitutionResearchAudit;
 }
 
-interface CacheEntry { domain: string; resolvedName: string }
 interface Deps {
   companySearch: (employer: string) => ReturnType<typeof companySearchV2>;
-  webSearch: typeof webSearchLiveV2;
-  resolveRedirect: (url: string) => Promise<string | null>;
   search: typeof personSearchV2;
   autocomplete: typeof personSearchAutocomplete;
+  /** Second-opinion review; may only veto, never invent. */
   reason: (input: EmailReasoningInput) => Promise<EmailReasoningResult>;
   contacts: typeof syncContactEnrich;
   cacheGet: typeof getCrustDataCache;
@@ -55,54 +54,43 @@ interface Deps {
 const defaultDeps: Deps = {
   companySearch: (employer: string) => companySearchV2({
     filters: { field: "basic_info.name", type: "=", value: employer },
-    fields: [
-      "crustdata_company_id",
-      "basic_info.name",
-      "basic_info.primary_domain",
-      "basic_info.all_domains",
-      "basic_info.website",
-      "locations.city",
-      "locations.country",
-    ],
+    fields: ["crustdata_company_id", "basic_info.name", "basic_info.primary_domain", "basic_info.all_domains", "basic_info.website"],
     limit: 5,
   }),
-  webSearch: webSearchLiveV2,
-  resolveRedirect: async (url: string) => {
-    try {
-      const target = new URL(url);
-      if (target.protocol !== "https:" || !["google.com", "www.google.com"].includes(target.hostname)) return null;
-      const response = await fetch(target, { redirect: "manual", signal: AbortSignal.timeout(12000) });
-      await response.body?.cancel();
-      if (response.status < 300 || response.status >= 400) return null;
-      const location = response.headers.get("location");
-      return location ? new URL(location, target).toString() : null;
-    } catch {
-      return null;
-    }
-  },
   search: personSearchV2,
   autocomplete: personSearchAutocomplete,
-  reason: async (input) => (await import("./institution-email-model.ts")).reasonInstitutionEmail(input),
+  reason: async (input) => (await import("./institution-email-model.ts")).reviewInstitutionEmail(input),
   contacts: syncContactEnrich,
   cacheGet: getCrustDataCache,
   cacheSet: setCrustDataCache,
 };
 
-const MAX_PROFILES = 20;
-const MIN_COLLEAGUES = 3;
-const MAX_CONTACT_CANDIDATES = 10;
-const NON_ORGANIZATION_DOMAINS = new Set([
-  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "icloud.com", "me.com",
-  "msn.com", "live.com", "proton.me", "protonmail.com", "linktr.ee", "linkedin.com", "facebook.com",
-  "wikipedia.org", "en.wikipedia.org", "indeed.com", "glassdoor.com", "crunchbase.com", "doximity.com", "mapy.com", "instagram.com", "twitter.com", "x.com", "bit.ly", "beacons.ai", "carrd.co", "google.com", "www.google.com",
-]);
-const cleanUrl = (value: unknown) => canonicalLinkedinUrl(value) ?? "";
+const PROFILES_PER_SEARCH = 40;
+const CONTACT_BATCH = 25;
+const MAX_CONTACT_BATCHES = 2;
+const MAX_NAME_VARIANTS = 6;
+const MISS_TTL_MS = 6 * 60 * 60 * 1000;
+const RULE_VERSION = "v5";
+/** No new coworker batch starts after this, keeping the whole lookup inside the request window. */
+const RESEARCH_BUDGET_MS = 45_000;
 
-function organizationDomain(value: unknown): string | null {
-  const domain = normalizeDomain(value);
-  if (!domain || NON_ORGANIZATION_DOMAINS.has(domain)) return null;
-  const tld = domain.split(".").at(-1) ?? "";
-  return /^[a-z]{2,}$/.test(tld) ? domain : null;
+const ruleKey = (companyKey: string) => `contact:institution-rule:${RULE_VERSION}:${companyKey}`;
+const domainKey = (companyKey: string) => `contact:employer-domain:${RULE_VERSION}:${companyKey}`;
+const missKey = (companyKey: string) => `contact:institution-miss:${RULE_VERSION}:${companyKey}`;
+
+interface CachedRule { domain: string; pattern: EmailPattern; supporters: number; resolvedName: string }
+
+// Accept an explicit trailing acronym, not a different affiliate or parent.
+export function sameInstitution(a: unknown, b: unknown): boolean {
+  const canonical = (v: unknown) => normalizeOrganization(typeof v === "string" ? v.replace(/\s*\([A-Z.]{2,12}\)\s*$/, "") : v);
+  const left = canonical(a); const right = canonical(b);
+  return !!left && left === right;
+}
+
+/** Indexed sub-units of the same employer ("Maimonides Medical Center - MMC Radiology FPP"). */
+export function isEmployerSubunit(candidate: unknown, employer: unknown): boolean {
+  const c = normalizeOrganization(candidate); const e = normalizeOrganization(employer);
+  return !!c && !!e && (c === e || c.startsWith(`${e} `));
 }
 
 function profileUrl(profile: Record<string, unknown>): string | null {
@@ -110,10 +98,7 @@ function profileUrl(profile: Record<string, unknown>): string | null {
   const professional = social?.professional_network_identifier as Record<string, unknown> | undefined;
   const network = profile.professional_network as Record<string, unknown> | undefined;
   const basic = profile.basic_profile as Record<string, unknown> | undefined;
-  const value = professional?.profile_url ?? network?.profile_url ?? basic?.profile_url ?? profile.linkedin_profile_url;
-  if (typeof value !== "string") return null;
-  const url = cleanUrl(value);
-  return url.startsWith("https://www.linkedin.com/in/") || url.startsWith("https://linkedin.com/in/") ? url : null;
+  return canonicalLinkedinUrl(professional?.profile_url ?? network?.profile_url ?? basic?.profile_url ?? profile.linkedin_profile_url);
 }
 
 function currentRoles(profile: Record<string, unknown>): Record<string, unknown>[] {
@@ -124,282 +109,222 @@ function currentRoles(profile: Record<string, unknown>): Record<string, unknown>
     : [];
 }
 
-// Accept an explicit trailing acronym, not a different affiliate or parent.
-export function sameInstitution(a: unknown, b: unknown): boolean {
-  const canonical = (v: unknown) => normalizeOrganization(typeof v === "string" ? v.replace(/\s*\([A-Z.]{2,12}\)\s*$/, "") : v);
-  const left = canonical(a); const right = canonical(b);
-  return !!left && left === right;
-}
-
-function exactEmployerRole(profile: Record<string, unknown>, organization: string): Record<string, unknown> | null {
-  return currentRoles(profile).find((role) =>
-    sameInstitution(role.company_name ?? role.name ?? role.company, organization)
-  ) ?? null;
-}
-
 function personName(profile: Record<string, unknown>): string | null {
   const basic = profile.basic_profile as Record<string, unknown> | undefined;
   return typeof basic?.name === "string" && basic.name.trim() ? basic.name.trim() : null;
 }
 
+/** The coworker's current role at the target, matched by company id when known. */
+function employerRole(profile: Record<string, unknown>, employer: string, companyId: number | null) {
+  const roles = currentRoles(profile);
+  const index = roles.findIndex((role) => {
+    if (companyId !== null && typeof role.crustdata_company_id === "number") return role.crustdata_company_id === companyId;
+    return isEmployerSubunit(role.company_name ?? role.name ?? role.company, employer);
+  });
+  if (index < 0) return null;
+  const role = roles[index];
+  const primary = roles.length === 1 || role.is_default === true;
+  const basic = profile.basic_profile as Record<string, unknown> | undefined;
+  const title = typeof role.title === "string" && role.title.trim() ? role.title
+    : typeof basic?.current_title === "string" ? basic.current_title : "";
+  return { title, primary };
+}
+
 function emptyAudit(): InstitutionResearchAudit {
-  return {
-    outcome: "no_match",
-    domain: null,
-    domainSource: null,
-    profilesExamined: 0,
-    colleaguesSelected: 0,
-    evidenceSaved: 0,
-  };
+  return { outcome: "no_match", domain: null, domainSource: null, profilesExamined: 0, colleaguesSelected: 0, evidenceSaved: 0 };
 }
 
-async function officialWebsiteDomain(employer: string, deps: Deps): Promise<string | null | undefined> {
-  const search = await deps.webSearch(`${employer} official website`);
-  if (!search.ok) return undefined;
-  const organization = normalizeOrganization(employer);
-  if (!organization) return null;
-  const first = (search.data.results ?? [])[0];
-  if (!first || !normalizeOrganization(first.title)?.includes(organization) || typeof first.url !== "string") return null;
-  let url = first.url;
-  try {
-    const host = new URL(url).hostname;
-    if (["google.com", "www.google.com"].includes(host)) {
-      url = await deps.resolveRedirect(url) ?? "";
-    }
-    return url ? organizationDomain(new URL(url).hostname) : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function resolveInstitutionEmployerDomain(
-  employer: string,
-  supplied: string | null,
-  deps: Deps = defaultDeps,
-): Promise<{
+export interface ResolvedEmployer {
   domain: string | null;
   source: InstitutionResearchAudit["domainSource"];
   unambiguous: boolean;
   unavailable?: boolean;
-  cacheKey?: string;
-}> {
-  const organization = normalizeOrganization(employer);
-  if (!organization) return { domain: null, source: null, unambiguous: false };
-
-  const found = await deps.companySearch(employer);
-  if (!found.ok) return { domain: null, source: null, unambiguous: false, unavailable: true };
-  const exact = found.data.filter((row) =>
-    sameInstitution(row.basic_info?.name ?? row.name, employer)
-  );
-  if (exact.length !== 1) return { domain: null, source: null, unambiguous: false };
-  const cacheKey = `contact:employer-domain:v4:${exact[0].company_id}`;
-  const cached = await deps.cacheGet(cacheKey, ENRICHMENT_TTL_MS);
-  const entry = cached?.profiles?.[0] as unknown as CacheEntry | undefined;
-  const cachedDomain = organizationDomain(entry?.domain);
-  if (cachedDomain) return { domain: cachedDomain, source: "cache", unambiguous: true, cacheKey };
-  const info = exact[0].basic_info ?? {};
-  let domain = organizationDomain(info.primary_domain);
-  if (!domain) {
-    const domains = Array.isArray(info.all_domains)
-      ? [...new Set(info.all_domains.map(organizationDomain).filter((d): d is string => !!d))]
-      : [];
-    if (domains.length === 1) domain = domains[0];
-  }
-  if (!domain) domain = organizationDomain(info.website);
-  let source: InstitutionResearchAudit["domainSource"] = "identified";
-  if (!domain) {
-    const official = await officialWebsiteDomain(employer, deps);
-    if (official === undefined) return { domain: null, source: null, unambiguous: false, unavailable: true };
-    domain = official;
-    source = "official_site";
-  }
-  if (!domain) return { domain: null, source, unambiguous: true };
-  const resolvedName = typeof info.name === "string" ? info.name : employer;
-  if (source === "identified") await deps.cacheSet(cacheKey, 1, [{ domain, resolvedName }], null);
-  return { domain, source, unambiguous: true, cacheKey };
+  companyId: number | null;
+  companyKey: string | null;
+  hintDomain: string | null;
 }
 
-/** Resolve once, reuse evidence first, then at most two bounded searches and
- * one ten-person work-only contact request. No automatic batch research loop. */
+/**
+ * Identify the exact employer. Returns the colleague-elected mail domain when
+ * one is cached, else the company record's domain as a hint. A missing or
+ * junk website (link pages, directories) never makes the employer ambiguous.
+ */
+export async function resolveInstitutionEmployerDomain(
+  employer: string,
+  _supplied: string | null,
+  overrides: Partial<Deps> = {},
+): Promise<ResolvedEmployer> {
+  const deps = { ...defaultDeps, ...overrides };
+  const organization = normalizeOrganization(employer);
+  const none: ResolvedEmployer = { domain: null, source: null, unambiguous: false, companyId: null, companyKey: null, hintDomain: null };
+  if (!organization) return none;
+  const found = await deps.companySearch(employer);
+  if (!found.ok) return { ...none, unavailable: true };
+  const exact = found.data.filter((row) => sameInstitution(row.basic_info?.name ?? row.name, employer));
+  // Two same-name organizations: never borrow either one's people or domain.
+  if (exact.length > 1) return none;
+  const companyId = exact.length === 1 ? exact[0].company_id : null;
+  const companyKey = companyId !== null ? String(companyId) : `name:${organization}`;
+  const info = (exact[0]?.basic_info ?? {}) as Record<string, unknown>;
+  const listed = [info.primary_domain, ...(Array.isArray(info.all_domains) ? info.all_domains : []), info.website]
+    .map(isInstitutionCandidateDomain).filter((d): d is string => !!d);
+  const hintDomain = [...new Set(listed)].length === 1 ? listed[0] : (isInstitutionCandidateDomain(info.primary_domain) ?? null);
+  const cached = await deps.cacheGet(domainKey(companyKey), ENRICHMENT_TTL_MS);
+  const cachedDomain = isInstitutionCandidateDomain((cached?.profiles?.[0] as { domain?: string } | undefined)?.domain);
+  if (cachedDomain) return { domain: cachedDomain, source: "cache", unambiguous: true, companyId, companyKey, hintDomain };
+  return { domain: hintDomain, source: hintDomain ? "identified" : null, unambiguous: true, companyId, companyKey, hintDomain };
+}
+
+/**
+ * Reuse a cached institution rule, else pull current coworkers (two bounded
+ * searches, at most two contact batches of 25) and elect the rule from them.
+ */
 export async function researchInstitutionWorkEmail(
   db: Db,
   input: InstitutionResearchInput,
   overrides: Partial<Deps> = {},
 ): Promise<InstitutionResearchResult> {
   const deps = { ...defaultDeps, ...overrides };
+  const startedAt = Date.now();
   const audit = emptyAudit();
-  const organization = normalizeOrganization(input.employer);
-  if (!organization || !input.fullName || !input.linkedinUrl) {
+  const employer = input.employer?.trim() ?? "";
+  const targetUrl = canonicalLinkedinUrl(input.linkedinUrl);
+  if (!normalizeOrganization(employer) || !input.fullName || !targetUrl) {
     audit.reason = "missing_identity_or_employer";
     return { suggestion: null, audit };
   }
+  const targetCohort = clinicalCohort(input.title);
 
-  const employer = input.employer;
-  if (!employer) return { suggestion: null, audit };
-  const resolved = await resolveInstitutionEmployerDomain(employer, organizationDomain(input.employerDomain), deps);
-  audit.domain = resolved.domain;
-  audit.domainSource = resolved.source;
-  if (!resolved.unambiguous) {
+  const resolved = await resolveInstitutionEmployerDomain(employer, null, deps);
+  if (!resolved.unambiguous || !resolved.companyKey) {
     audit.outcome = resolved.unavailable ? "unavailable" : "no_match";
     audit.reason = resolved.unavailable ? "employer_resolution_unavailable" : "employer_not_unambiguous";
     return { suggestion: null, audit };
   }
+  const companyKey = resolved.companyKey;
 
-  if (!resolved.domain) {
-    audit.reason = "employer_domain_not_unambiguous";
-    return { suggestion: null, audit };
-  }
+  const deliver = async (rule: CachedRule, outcome: "reused" | "reconstructed", source: InstitutionResearchAudit["domainSource"]) => {
+    audit.domain = rule.domain; audit.domainSource = source; audit.pattern = rule.pattern; audit.supporters = rule.supporters;
+    const email = institutionalEmailCandidate(input.fullName!, {
+      state: "supported", pattern: rule.pattern, sampleCount: rule.supporters,
+      organization: employer, domain: rule.domain, cohort: targetCohort,
+    });
+    if (!email) { audit.reason = "name_has_multiple_spellings"; return { suggestion: null, audit }; }
+    if (await addressBelongsToSomeoneElse(db, email, targetUrl)) { audit.reason = "address_belongs_to_another_person"; return { suggestion: null, audit }; }
+    audit.outcome = outcome;
+    const suggestion: WorkEmailSuggestion = {
+      email, organization: employer, domain: rule.domain, cohort: targetCohort, pattern: rule.pattern,
+      sampleCount: rule.supporters, learnedAt: new Date().toISOString(), verification: "unverified",
+    };
+    return { suggestion, audit };
+  };
 
-  if (resolved.domain) {
-    const cached = await suggestInstitutionWorkEmail(db, { ...input, employerDomain: resolved.domain });
-    if (cached) {
-      audit.outcome = "reused";
-      audit.domain = cached.domain;
-      return { suggestion: cached, audit };
-    }
-  }
-
-  const modelCacheKey = `contact:institution-model:v2:${resolved.cacheKey}:${resolved.domain}`;
-  const prior = await deps.cacheGet(modelCacheKey, ENRICHMENT_TTL_MS);
-  const priorRule = prior?.profiles?.[0] as unknown as { pattern?: string; sharedAcrossRoles?: boolean } | undefined;
-  if (priorRule?.sharedAcrossRoles) {
-    const reused = await suggestInstitutionWorkEmail(db, { ...input, employerDomain: resolved.domain, allowShared: true });
-    if (reused && reused.pattern === priorRule.pattern) {
-      audit.outcome = "reused";
-      return { suggestion: reused, audit };
-    }
-  }
-  const negativeKey = `contact:institution-miss:v1:${resolved.cacheKey}:${resolved.domain}`;
-  const negative = await deps.cacheGet(negativeKey, 6 * 60 * 60 * 1000);
-  const miss = negative?.profiles?.[0] as unknown as { reason?: string } | undefined;
+  // 1. A rule this institution already earned is reused with zero provider calls.
+  const cachedRule = (await deps.cacheGet(ruleKey(companyKey), ENRICHMENT_TTL_MS))?.profiles?.[0] as unknown as CachedRule | undefined;
+  if (cachedRule?.domain && cachedRule.pattern) return await deliver(cachedRule, "reused", "cache");
+  const miss = (await deps.cacheGet(missKey(companyKey), MISS_TTL_MS))?.profiles?.[0] as unknown as { reason?: string } | undefined;
   if (miss?.reason) { audit.reason = miss.reason; return { suggestion: null, audit }; }
   const memoMiss = async (reason: string) => {
     audit.reason = reason;
-    await deps.cacheSet(negativeKey, 1, [{ reason }], null);
+    await deps.cacheSet(missKey(companyKey), 1, [{ reason }], null);
     return { suggestion: null, audit };
   };
-  const targetUrl = cleanUrl(input.linkedinUrl);
-  const colleagues: Array<{ url: string; name: string; title: string }> = [];
-  const seen = new Set<string>([targetUrl]);
-  audit.rejections = {};
-  const reject = (reason: string) => { if (audit.rejections) audit.rejections[reason] = (audit.rejections[reason] ?? 0) + 1; };
-  const addProfiles = (profiles: Record<string, unknown>[]) => {
-    for (const profile of profiles) {
-      if (colleagues.length >= MAX_CONTACT_CANDIDATES) break;
-      const url = profileUrl(profile);
-      const name = personName(profile);
-      const role = exactEmployerRole(profile, organization);
-      if (!url || !name) { reject("missing_identity"); continue; }
-      if (seen.has(cleanUrl(url))) { reject("duplicate_or_target"); continue; }
-      if (!role) { reject("current_employer_mismatch"); continue; }
-      if (typeof role.title !== "string" || !role.title.trim()) { reject("missing_current_role"); continue; }
-      seen.add(cleanUrl(url));
-      colleagues.push({ url, name, title: role.title });
-    }
-  };
-  // Resolve indexed company strings, then use exact current-role confirmation.
+
+  // 2. Pull current coworkers at the exact employer and its indexed sub-units.
   const indexed = await deps.autocomplete("experience.employment_details.current.company_name", employer);
-  const names = [...new Set([employer, ...indexed.filter(n => sameInstitution(n, employer))])].slice(0, 4);
-  const searchOnce = (requireVerified: boolean) => deps.search({
-    filters: {
-      op: "and", conditions: [
-        { op: "or", conditions: names.map(value => ({ field: "experience.employment_details.current.company_name", type: "=", value })) },
-        ...(requireVerified ? [{ field: "experience.employment_details.current.business_email_verified", type: "=", value: true }] : []),
-      ],
-    },
+  const names = [...new Set([employer, ...indexed.filter((n) => isEmployerSubunit(n, employer))])].slice(0, MAX_NAME_VARIANTS);
+  const employerFilter = { op: "or", conditions: names.map((value) => ({ field: "experience.employment_details.current.company_name", type: "=", value })) };
+  const searchOnce = (flagged: boolean) => deps.search({
+    filters: flagged
+      ? { op: "and", conditions: [employerFilter, { field: "experience.employment_details.current.business_email_verified", type: "=", value: true }] }
+      : employerFilter,
     fields: ["crustdata_person_id", "basic_profile", "experience", "professional_network", "social_handles"],
-    limit: MAX_PROFILES,
+    limit: PROFILES_PER_SEARCH,
   });
-  const flagged = await searchOnce(true);
-  if (!flagged.ok) {
+  const [flagged, broad] = await Promise.all([searchOnce(true), searchOnce(false)]);
+  if (!flagged.ok && !broad.ok) {
     audit.outcome = "unavailable"; audit.reason = "colleague_search_unavailable";
     return { suggestion: null, audit };
   }
-  audit.profilesExamined += flagged.data.profiles.length;
-  addProfiles(flagged.data.profiles);
-  if (colleagues.length < MAX_CONTACT_CANDIDATES) {
-    const broader = await searchOnce(false);
-    if (broader.ok) { audit.profilesExamined += broader.data.profiles.length; addProfiles(broader.data.profiles); }
-    else if (colleagues.length < MIN_COLLEAGUES) {
-      audit.outcome = "unavailable"; audit.reason = "colleague_search_unavailable";
-      return { suggestion: null, audit };
+  audit.rejections = {};
+  const reject = (reason: string) => { audit.rejections![reason] = (audit.rejections![reason] ?? 0) + 1; };
+  const pool: Array<{ url: string; name: string; title: string; cohort: string; primary: boolean; flagged: boolean }> = [];
+  const seen = new Set<string>([targetUrl]);
+  const add = (profiles: Record<string, unknown>[], isFlagged: boolean) => {
+    for (const profile of profiles) {
+      audit.profilesExamined++;
+      const url = profileUrl(profile); const name = personName(profile);
+      if (!url || !name) { reject("missing_identity"); continue; }
+      if (seen.has(url)) { reject("duplicate_or_target"); continue; }
+      const role = employerRole(profile, employer, resolved.companyId);
+      if (!role) { reject("current_employer_mismatch"); continue; }
+      seen.add(url);
+      pool.push({ url, name, title: role.title, cohort: clinicalCohort(role.title), primary: role.primary, flagged: isFlagged });
     }
-  }
-  audit.colleaguesSelected = colleagues.length;
-  if (colleagues.length < MIN_COLLEAGUES) {
-    return await memoMiss("fewer_than_three_current_colleagues");
-  }
+  };
+  if (flagged.ok) add(flagged.data.profiles as Record<string, unknown>[], true);
+  if (broad.ok) add(broad.data.profiles as Record<string, unknown>[], false);
+  // Coworkers whose main job is this employer first; then likely email holders.
+  pool.sort((a, b) => Number(b.primary) - Number(a.primary) || Number(b.flagged) - Number(a.flagged));
+  audit.colleaguesSelected = pool.length;
+  if (pool.length < 3) return await memoMiss("fewer_than_three_current_colleagues");
 
-  const contacts = await deps.contacts(colleagues.map((c) => c.url), ["business_email"]);
-  if (!contacts.ok) {
-    audit.outcome = "unavailable";
-    audit.reason = "colleague_contacts_unavailable";
+  // 3. Read coworker work addresses in bounded batches until the rule is clear.
+  const samples: CoworkerEmail[] = [];
+  let election = electInstitutionEmail([], { organization: employer, targetCohort, hintDomain: resolved.hintDomain });
+  let contactFailure = false;
+  let timedOut = false;
+  for (let batch = 0; batch < MAX_CONTACT_BATCHES; batch++) {
+    const slice = pool.slice(batch * CONTACT_BATCH, (batch + 1) * CONTACT_BATCH);
+    if (!slice.length) break;
+    if (batch > 0 && Date.now() - startedAt > RESEARCH_BUDGET_MS) { timedOut = true; break; }
+    const contacts = await deps.contacts(slice.map((c) => c.url), ["business_email"]);
+    if (!contacts.ok) { contactFailure = true; break; }
+    const byUrl = new Map(contacts.data.map((c) => [canonicalLinkedinUrl(c.linkedin_url), c]));
+    for (const colleague of slice) {
+      const contact = byUrl.get(colleague.url);
+      if (!contact?.business_email) continue;
+      samples.push({
+        personKey: colleague.url, name: colleague.name, cohort: colleague.cohort, email: contact.business_email,
+        providerVerified: contact.business_email_verified === true, primaryEmployer: colleague.primary,
+      });
+    }
+    election = electInstitutionEmail(samples, { organization: employer, targetCohort, hintDomain: resolved.hintDomain });
+    if (election.pattern) break;
+  }
+  audit.domainSupport = election.domainSupport;
+  audit.domain = election.domain;
+  if ((contactFailure || timedOut) && !election.pattern) {
+    audit.outcome = "unavailable"; audit.reason = contactFailure ? "colleague_contacts_unavailable" : "time_budget_reached";
     return { suggestion: null, audit };
   }
-  const byUrl = new Map(contacts.data.map((c) => [cleanUrl(c.linkedin_url), c]));
-  const allVerified = colleagues.flatMap((colleague) => {
-    const contact = byUrl.get(cleanUrl(colleague.url));
-    const domain = contact?.business_email_verified ? organizationDomain(contact.business_email?.split("@")[1]) : null;
-    return contact?.business_email && domain ? [{ colleague, email: contact.business_email, domain }] : [];
-  });
-  const observedDomains = [...new Set(allVerified.map(r => r.domain))];
-  // A corporate website need not be its mail domain. Three independently
-  // verified CURRENT coworkers can establish a different email domain. Multiple
-  // observed domains are retained as a conflict, not silently filtered away.
-  if (observedDomains.length > 1) {
-    return await memoMiss("multiple_current_mail_domains");
-  }
-  const mailDomain = observedDomains.length === 1 && allVerified.length >= MIN_COLLEAGUES ? observedDomains[0] : resolved.domain;
-  const verified = allVerified;
-  audit.domain = mailDomain;
+  if (!election.domain || !election.pattern) return await memoMiss(election.reason ?? "no_institution_rule");
 
+  // 4. A second-opinion review may veto on a factual problem; outages never block.
+  const reviewInput: EmailReasoningInput = {
+    name: input.fullName, employer, domain: election.domain, title: input.title ?? "",
+    samples: election.supporters.map((s, i) => ({ id: String(i), name: s.name, title: pool.find((p) => p.url === s.personKey)?.title ?? "", email: s.email })),
+    proposedPattern: election.pattern,
+  };
+  const review = await deps.reason(reviewInput);
+  const vetoed = !review.error && !!review.decision && review.decision.pattern !== election.pattern && review.decision.blockers.length > 0;
+  audit.model = { id: review.model, elapsedMs: review.elapsedMs, requestId: review.requestId, outcome: review.error ?? (vetoed ? "vetoed" : "agreed") };
+  if (vetoed) return await memoMiss("review_found_contradiction");
 
-  for (const row of verified) {
+  // 5. Keep provider-verified examples as reusable evidence and cache the rule.
+  for (const s of election.supporters.filter((x) => x.providerVerified)) {
     try {
       await observeVerifiedWorkEmail(db, {
-        linkedinUrl: row.colleague.url,
-        fullName: row.colleague.name,
-        employer: input.employer,
-        employerDomain: row.domain,
-        title: row.colleague.title,
-        workEmail: row.email,
-        verified: true,
+        linkedinUrl: s.personKey, fullName: s.name, employer, employerDomain: election.domain,
+        title: pool.find((p) => p.url === s.personKey)?.title ?? null, workEmail: s.email, verified: true,
       });
       audit.evidenceSaved++;
     } catch (error) {
       console.warn(`[institution-email] colleague evidence was not saved: ${String(error).slice(0, 160)}`);
     }
   }
-
-  if (verified.length >= MIN_COLLEAGUES && audit.evidenceSaved >= MIN_COLLEAGUES) {
-    await deps.cacheSet(resolved.cacheKey ?? `contact:employer-domain:v4:${organization}`, 1, [{ domain: mailDomain, resolvedName: input.employer }], null);
-  }
-  let suggestion = await suggestInstitutionWorkEmail(db, { ...input, employerDomain: mailDomain });
-  if (!suggestion && verified.length >= MIN_COLLEAGUES) {
-    const evidence: EmailReasoningInput = {
-      name: input.fullName, employer, domain: mailDomain, title: input.title ?? "",
-      samples: verified.map(({ colleague, email }, i) => ({ id: String(i), name: colleague.name, title: colleague.title, email })),
-    };
-    const reasoning = await deps.reason(evidence);
-    const candidate = validateEmailDecision(evidence, reasoning.decision);
-    audit.model = { id: reasoning.model, elapsedMs: reasoning.elapsedMs, requestId: reasoning.requestId, outcome: reasoning.error ?? (candidate ? "supported" : "abstained") };
-    if (candidate) {
-      const checked = await suggestInstitutionWorkEmail(db, { ...input, employerDomain: mailDomain, allowShared: reasoning.decision?.sharedAcrossRoles });
-      if (checked?.email === candidate) {
-        suggestion = checked;
-        await deps.cacheSet(`contact:institution-model:v2:${resolved.cacheKey}:${mailDomain}`, 1, [{ pattern: checked.pattern, sharedAcrossRoles: reasoning.decision?.sharedAcrossRoles === true }], null);
-      }
-    }
-    if (reasoning.error) {
-      audit.outcome = "unavailable"; audit.reason = "model_unavailable";
-      return { suggestion: null, audit };
-    }
-  }
-  if (!suggestion) {
-    if (audit.evidenceSaved < MIN_COLLEAGUES) return await memoMiss("insufficient_verified_exact_domain_evidence");
-    audit.reason = "no_single_unambiguous_pattern_or_address_collision";
-    return { suggestion: null, audit };
-  }
-  audit.outcome = "reconstructed";
-  return { suggestion, audit };
+  const rule: CachedRule = { domain: election.domain, pattern: election.pattern, supporters: election.supporters.length, resolvedName: employer };
+  await deps.cacheSet(ruleKey(companyKey), 1, [rule as unknown as Record<string, unknown>], null);
+  await deps.cacheSet(domainKey(companyKey), 1, [{ domain: election.domain, resolvedName: employer }], null);
+  return await deliver(rule, "reconstructed", "colleagues");
 }

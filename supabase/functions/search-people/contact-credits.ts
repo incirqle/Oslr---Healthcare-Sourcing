@@ -20,7 +20,7 @@ const FIELD: Record<ContactKind, string> = {
   personal_email: "personal_emails",
   phone: "mobile_phone",
 };
-const CONTACT_RESEARCH_VERSION = 7;
+const CONTACT_RESEARCH_VERSION = 8;
 
 export interface Stored {
   work_email?: string | null;
