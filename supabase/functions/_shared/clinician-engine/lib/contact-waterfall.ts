@@ -32,7 +32,7 @@ const isPhone = (s: unknown): s is string => typeof s === "string" && !s.include
 /** Which kinds the primary result left empty. */
 export function missingAfterPrimary(kinds: WaterfallKind[], p: BatchEnrichResult | null | undefined, fullName?: string | null): WaterfallKind[] {
   return kinds.filter((k) => {
-    if (k === "work_email") return !(p?.business_email && isEmail(clean(p.business_email)));
+    if (k === "work_email") return !(p?.business_email_verified === true && p.business_email && isEmail(clean(p.business_email)));
     if (k === "personal_email") return !(p?.personal_emails ?? []).some((e) => isEmail(clean(e)) && emailMatchesName(clean(e), fullName));
     return ![p?.mobile_phone, ...(p?.phones ?? [])].some(isPhone);
   });
@@ -46,7 +46,7 @@ export function combinePrimary(
 ): BatchEnrichResult | null {
   if (!sync) return batch ?? null;
   if (!batch) return sync;
-  const be = sync.business_email && isEmail(clean(sync.business_email));
+  const be = sync.business_email_verified === true && sync.business_email && isEmail(clean(sync.business_email));
   const personal = sync.personal_emails.length ? sync.personal_emails : batch.personal_emails;
   const phones = sync.phones.length ? sync.phones : batch.phones;
   const mobile = sync.mobile_phone ?? (sync.phones.length ? null : batch.mobile_phone);
@@ -98,7 +98,7 @@ export function mergeContacts(
     if (k === "work_email") {
       const p = clean(primary?.business_email);
       const s = clean(secondary?.work_email);
-      if (isEmail(p)) { out.work_email = p; out.sources.work_email = "primary"; }
+      if (primary?.business_email_verified === true && isEmail(p)) { out.work_email = p; out.sources.work_email = "primary"; }
       else if (isEmail(s) && secondary?.work_domain_ok) { out.work_email = s; out.sources.work_email = "secondary"; }
     }
     if (k === "personal_email") {

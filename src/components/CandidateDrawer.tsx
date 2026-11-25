@@ -1,4 +1,4 @@
-import { resolveCompanyDomain } from "@/lib/company-domains";
+import { normalizeDomain, resolveCompanyDomain } from "@/lib/company-domains";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -448,12 +448,19 @@ export function CandidateDrawer({
 }: CandidateDrawerProps) {
   const { size: drawerSize, toggle: toggleDrawerSize, isWide } = useDrawerSize();
   const [enriched, setEnriched] = useState<EnrichedData | null>(null);
+  const rawCompanyDomain = candidate?.raw?.company_domain ?? candidate?.raw?.job_company_website;
   const contactEnrich = useContactEnrich(
     open ? candidate?.linkedin_url : null,
     candidate?.full_name,
     savedContactId,
     !savedContactId && !isSaved && onSaveCandidate ? (c) => onSaveCandidate(c) : undefined,
-    { company: candidate?.current_employer, location: candidate?.location },
+    {
+      company: candidate?.current_employer,
+      location: candidate?.location,
+      title: candidate?.title,
+      companyDomain: normalizeDomain(typeof rawCompanyDomain === "string" ? rawCompanyDomain : null)
+        ?? resolveCompanyDomain(candidate?.current_employer),
+    },
   );
   const doctorIntelEntry = useDoctorIntel(candidate?.id);
   const [loading, setLoading] = useState(false);

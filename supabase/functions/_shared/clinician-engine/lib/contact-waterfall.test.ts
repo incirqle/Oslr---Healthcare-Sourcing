@@ -3,7 +3,7 @@ import { emailMatchesName, mergeContacts, missingAfterPrimary, parsePdlPerson, p
 import type { BatchEnrichResult } from "./crustdata-v2.ts";
 
 const primary = (o: Partial<BatchEnrichResult>): BatchEnrichResult => ({
-  linkedin_url: "x", business_email: null, business_email_verified: false, personal_emails: [],
+  linkedin_url: "x", business_email: null, business_email_verified: true, personal_emails: [],
   mobile_phone: null, phones: [], raw: {}, has_contact: false, ...o,
 });
 const pdl = parsePdlPerson({
@@ -16,6 +16,12 @@ Deno.test("primary work email is never overridden by the secondary", () => {
   const m = mergeContacts(["work_email"], primary({ business_email: "dr@novant.org" }), parsePdlPerson({ work_email: "dr@other.com" }));
   assertEquals(m.work_email, "dr@novant.org");
   assertEquals(m.sources.work_email, "primary");
+});
+
+Deno.test("an unverified primary work email is not accepted as sourced contact data", () => {
+  const unverified = primary({ business_email: "guess@novant.org", business_email_verified: false });
+  assertEquals(missingAfterPrimary(["work_email"], unverified), ["work_email"]);
+  assertEquals(mergeContacts(["work_email"], unverified, null).work_email, undefined);
 });
 
 Deno.test("stale secondary work email from a past employer is rejected", () => {

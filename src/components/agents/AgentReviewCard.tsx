@@ -49,7 +49,12 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
     if (!p.linkedin_url || contactBusy || !kinds.length) return;
     setContactBusy(true);
     try {
-      const r = await enrichContact(p.linkedin_url, kinds, p.full_name ?? undefined);
+      const r = await enrichContact(p.linkedin_url, kinds, p.full_name ?? undefined, {
+        company: p.current_employer,
+        location: p.location,
+        title: p.title,
+        companyDomain: p.company_domain,
+      });
       setPickOpen(false);
       if (r.error === "insufficient_credits") {
         toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);

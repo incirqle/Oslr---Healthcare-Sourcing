@@ -48,7 +48,12 @@ export function AgentProfileDialog({ item, candidate, decision, tags, hasPrev, h
   useEffect(() => { setChoice("approved"); setPicked([]); setNote(""); setSkipCity(false); setShowAllExp(false); setReadMore(false); }, [item?.id]);
 
   const pp = (item?.profile ?? {}) as Record<string, string | null | undefined>;
-  const contactEnrich = useContactEnrich(pp.linkedin_url ?? null, pp.full_name ?? undefined);
+  const contactEnrich = useContactEnrich(pp.linkedin_url ?? null, pp.full_name ?? undefined, null, undefined, {
+    company: pp.current_employer,
+    location: pp.location,
+    title: pp.title,
+    companyDomain: pp.company_domain,
+  });
   const exp = useMemo(() => (candidate ? normalizeExperience(candidate, null) : []), [candidate]);
   const edu = useMemo(() => (candidate ? normalizeEducation(candidate, null) : []), [candidate]);
   if (!item || !candidate) return null;

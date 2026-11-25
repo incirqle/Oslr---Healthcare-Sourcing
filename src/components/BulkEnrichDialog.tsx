@@ -8,7 +8,15 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CONTACT_PRICES, enrichContact, type ContactKind } from "@/hooks/useContactEnrich";
 
-interface Person { id: string; full_name: string; linkedin_url: string | null }
+interface Person {
+  id: string;
+  full_name: string;
+  linkedin_url: string | null;
+  title?: string | null;
+  current_employer?: string | null;
+  location?: string | null;
+  company_domain?: string | null;
+}
 
 const OPTIONS: { kind: ContactKind; label: string }[] = [
   { kind: "work_email", label: "Work email" },
@@ -30,7 +38,12 @@ export function BulkEnrichDialog({ open, onOpenChange, people, onDone }: {
     let spent = 0, found = 0, stopped = false;
     for (const p of eligible) {
       try {
-        const r = await enrichContact(p.linkedin_url!, kinds, p.full_name);
+        const r = await enrichContact(p.linkedin_url!, kinds, p.full_name, {
+          company: p.current_employer,
+          location: p.location,
+          title: p.title,
+          companyDomain: p.company_domain,
+        });
         if (r.error === "insufficient_credits") { stopped = true; break; }
         spent += r.charged ?? 0;
         if (r.found?.length) found++;

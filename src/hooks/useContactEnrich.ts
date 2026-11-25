@@ -15,13 +15,21 @@ export interface ContactState {
 
 const EMPTY: ContactState = { contact: {}, checked: {}, balance: null };
 
-export interface ContactAnchors { company?: string | null; location?: string | null }
+export interface ContactAnchors {
+  company?: string | null;
+  location?: string | null;
+  title?: string | null;
+  companyDomain?: string | null;
+}
 
 export async function enrichContact(linkedinUrl: string, kinds: ContactKind[], candidateName?: string, anchors: ContactAnchors = {}) {
   const { data, error } = await supabase.functions.invoke("search-people", {
     body: {
       action: "enrich_contact", linkedin_url: linkedinUrl, kinds, candidate_name: candidateName,
-      candidate_company: anchors.company ?? undefined, candidate_location: anchors.location ?? undefined,
+      candidate_company: anchors.company ?? undefined,
+      candidate_location: anchors.location ?? undefined,
+      candidate_title: anchors.title ?? undefined,
+      candidate_company_domain: anchors.companyDomain ?? undefined,
     },
   });
   // 402 comes back as an error with the body in context

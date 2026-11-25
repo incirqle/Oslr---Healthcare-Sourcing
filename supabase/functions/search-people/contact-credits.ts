@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/clinician-engine/lib/auth.ts";
 import { batchContactEnrich, syncContactEnrich } from "../_shared/clinician-engine/lib/crustdata-v2.ts";
 import { combinePrimary, mergeContacts, missingAfterPrimary, pdlEnrichContact } from "../_shared/clinician-engine/lib/contact-waterfall.ts";
+import { observeVerifiedWorkEmail, suggestInstitutionWorkEmail, type WorkEmailSuggestion } from "../_shared/clinician-engine/lib/institution-email-store.ts";
 import { canLookupContact, contactCharge } from "./contact-policy.ts";
 
 import { contactPrices, type ContactKind } from "../_shared/plans.ts";
@@ -16,8 +17,9 @@ const FIELD: Record<ContactKind, string> = {
   phone: "mobile_phone",
 };
 
-interface Stored {
+export interface Stored {
   work_email?: string | null;
+  work_email_suggestion?: WorkEmailSuggestion | null;
   personal_emails?: string[];
   phone_numbers?: string[];
   pdl_id?: string; // linked secondary-provider id, server only
@@ -34,6 +36,15 @@ function has(data: Stored, k: ContactKind): boolean {
   if (k === "work_email") return !!data.work_email;
   if (k === "personal_email") return !!data.personal_emails?.length;
   return !!data.phone_numbers?.length;
+}
+
+/** Only sourced contact facts cross the server/browser boundary. */
+export function browserContact(stored: Stored) {
+  return {
+    work_email: stored.work_email,
+    personal_emails: stored.personal_emails?.slice(0, 1),
+    phone_numbers: stored.phone_numbers,
+  };
 }
 
 export async function handleEnrichContact(
@@ -64,7 +75,13 @@ export async function handleEnrichContact(
   );
   const candidateName = typeof body.candidate_name === "string" ? body.candidate_name.slice(0, 200) : null;
   const anchorStr = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 200) : null);
-  const anchors = { name: candidateName, company: anchorStr(body.candidate_company), location: anchorStr(body.candidate_location) };
+  const anchors = {
+    name: candidateName,
+    company: anchorStr(body.candidate_company),
+    location: anchorStr(body.candidate_location),
+    title: anchorStr(body.candidate_title),
+    companyDomain: anchorStr(body.candidate_company_domain),
+  };
 
   const { data: unlock } = await db.from("contact_unlocks").select("data, checked")
     .eq("company_id", companyId).eq("linkedin_url", url).maybeSingle();
@@ -79,7 +96,7 @@ export async function handleEnrichContact(
   const toFetch = requested.filter((k) => !has(stored, k) && !recent(k));
 
   const summary = () => ({
-    contact: { work_email: stored.work_email, personal_emails: stored.personal_emails?.slice(0, 1), phone_numbers: stored.phone_numbers },
+    contact: browserContact(stored),
     checked,
     balance,
     unlimited,
@@ -106,12 +123,16 @@ export async function handleEnrichContact(
   const syncHit = syncRes.ok ? syncRes.data[0] ?? null : null;
   let primary = syncHit;
   let res: { ok: boolean } = syncRes;
+  let primaryIncomplete = false;
   const syncMissing = syncRes.ok ? missingAfterPrimary(toFetch, syncHit, candidateName) : (syncRes.insufficientCredits ? [] : toFetch);
   if (syncMissing.length) {
     if (!syncRes.ok) console.warn(`[enrich_contact] sync lookup failed (${syncRes.status}): ${syncRes.detail.slice(0, 200)}; sending to batch`);
     const batchRes = await batchContactEnrich([{ linkedin_url: url }], syncMissing.map((k) => FIELD[k]));
     if (batchRes.ok) { primary = combinePrimary(syncHit, batchRes.data[0] ?? null); res = { ok: true }; }
-    else console.warn(`[enrich_contact] batch lookup failed (${batchRes.status}): ${batchRes.detail.slice(0, 200)}`);
+    else {
+      primaryIncomplete = true;
+      console.warn(`[enrich_contact] batch lookup failed (${batchRes.status}): ${batchRes.detail.slice(0, 200)}`);
+    }
   }
 
   // Secondary provider only for what the primary left empty.
@@ -131,13 +152,57 @@ export async function handleEnrichContact(
 
   const found: ContactKind[] = [];
   const now = new Date().toISOString();
+  const lookupIncomplete = !res.ok || primaryIncomplete || secondaryFailed;
   for (const k of toFetch) {
-    checked[k] = now;
-    if (k === "work_email" && merged.work_email) { stored.work_email = merged.work_email; found.push(k); }
+    const hasResult = (k === "work_email" && !!merged.work_email)
+      || (k === "personal_email" && !!merged.personal_email)
+      || (k === "phone" && !!merged.phones?.length);
+    // A partial outage is not a 30-day verified miss.
+    if (hasResult || !lookupIncomplete) checked[k] = now;
+    if (k === "work_email" && merged.work_email) {
+      stored.work_email = merged.work_email;
+      stored.work_email_suggestion = null;
+      found.push(k);
+    }
     if (k === "personal_email" && merged.personal_email) { stored.personal_emails = [merged.personal_email]; found.push(k); }
     if (k === "phone" && merged.phones?.length) { stored.phone_numbers = merged.phones; found.push(k); }
   }
   const sources = merged.sources;
+
+  // Learn only from a verified primary work email tied to the current employer
+  // and an exact known employer domain. Failures never block the contact result.
+  if (merged.work_email && sources.work_email === "primary" && primary?.business_email_verified === true) {
+    try {
+      await observeVerifiedWorkEmail(db, {
+        linkedinUrl: url,
+        fullName: candidateName,
+        employer: anchors.company,
+        employerDomain: anchors.companyDomain,
+        title: anchors.title,
+        workEmail: merged.work_email,
+        verified: true,
+      });
+    } catch (e) {
+      console.warn(`[enrich_contact] institution evidence was not saved: ${String(e).slice(0, 160)}`);
+    }
+  }
+
+  // Last resort after both sourced providers: retain an internal hypothesis only.
+  // It never reaches the browser, `found`, candidate fields, exports or charges.
+  if (toFetch.includes("work_email") && !merged.work_email && !lookupIncomplete) {
+    try {
+      stored.work_email_suggestion = await suggestInstitutionWorkEmail(db, {
+        linkedinUrl: url,
+        fullName: candidateName,
+        employer: anchors.company,
+        employerDomain: anchors.companyDomain,
+        title: anchors.title,
+      });
+    } catch (e) {
+      stored.work_email_suggestion = null;
+      console.warn(`[enrich_contact] institution suggestion unavailable: ${String(e).slice(0, 160)}`);
+    }
+  }
   if (Object.keys(sources).length) console.log(`[enrich_contact] sources ${JSON.stringify(sources)}`);
 
   const charge = contactCharge(unlimited, found.map((k) => PRICES[k]));

@@ -46,7 +46,12 @@ export function ApprovedTools({ agentName, items, decisions, projectId, contacts
     for (const i of todo) {
       const p = i.profile as Record<string, unknown>;
       try {
-        const r = await enrichContact(String(p.linkedin_url), kinds, String(p.full_name ?? ""));
+        const r = await enrichContact(String(p.linkedin_url), kinds, String(p.full_name ?? ""), {
+          company: typeof p.current_employer === "string" ? p.current_employer : null,
+          location: typeof p.location === "string" ? p.location : null,
+          title: typeof p.title === "string" ? p.title : null,
+          companyDomain: typeof p.company_domain === "string" ? p.company_domain : null,
+        });
         if (r.error === "insufficient_credits") { stopped = true; break; }
         spent += r.charged ?? 0;
         if (r.found?.length) {

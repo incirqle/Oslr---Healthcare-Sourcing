@@ -1752,6 +1752,54 @@ export type Database = {
           },
         ]
       }
+      institution_email_evidence: {
+        Row: {
+          address_hash: string
+          cohort: string
+          current_affiliation: boolean
+          domain: string
+          expires_at: string
+          identity_bound: boolean
+          observed_at: string
+          organization_key: string
+          organization_name: string
+          patterns: string[]
+          person_hash: string
+          scope_key: string
+          verified: boolean
+        }
+        Insert: {
+          address_hash: string
+          cohort: string
+          current_affiliation?: boolean
+          domain: string
+          expires_at: string
+          identity_bound?: boolean
+          observed_at?: string
+          organization_key: string
+          organization_name: string
+          patterns?: string[]
+          person_hash: string
+          scope_key: string
+          verified?: boolean
+        }
+        Update: {
+          address_hash?: string
+          cohort?: string
+          current_affiliation?: boolean
+          domain?: string
+          expires_at?: string
+          identity_bound?: boolean
+          observed_at?: string
+          organization_key?: string
+          organization_name?: string
+          patterns?: string[]
+          person_hash?: string
+          scope_key?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       internal_job_token: {
         Row: {
           id: number
