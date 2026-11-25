@@ -453,11 +453,13 @@ export async function personSearchV2(
 // ─────────────────────────────────────────────────────────────────────
 export interface CompanySearchV2Input {
   filters: Record<string, unknown>;
+  fields?: string[];
   limit?: number;
 }
 export interface CompanySearchV2Hit {
   company_id: number;
   name: string;
+  basic_info?: Record<string, unknown>;
 }
 export async function companySearchV2(
   input: CompanySearchV2Input,
@@ -465,6 +467,7 @@ export async function companySearchV2(
   const body = {
     filters: input.filters,
     limit: input.limit ?? 100,
+    ...(input.fields ? { fields: input.fields } : {}),
   };
   const r = await rateLimited("/company/search", () =>
     call<Record<string, unknown>>("/company/search", {
@@ -478,9 +481,31 @@ export async function companySearchV2(
     const basic = (row.basic_info ?? row) as Record<string, unknown>;
     const id = basic.crustdata_company_id ?? basic.company_id ?? row.crustdata_company_id;
     const name = basic.name ?? row.name;
-    if (typeof id === "number" && typeof name === "string") hits.push({ company_id: id, name });
+    if (typeof id === "number" && typeof name === "string") hits.push({ company_id: id, name, basic_info: basic });
   }
   return { ok: true, data: hits };
+}
+
+export interface WebSearchLiveResult {
+  title?: unknown;
+  url?: unknown;
+  snippet?: unknown;
+  position?: unknown;
+}
+export interface WebSearchLivePayload {
+  success?: boolean;
+  results?: WebSearchLiveResult[];
+}
+
+/** One bounded live web query for an exact employer's official website. */
+export async function webSearchLiveV2(query: string): Promise<V2Result<WebSearchLivePayload>> {
+  const q = query.trim().slice(0, 300);
+  if (!q) return { ok: false, status: 400, insufficientCredits: false, detail: "query required" };
+  return await rateLimited("/web/search/live", () =>
+    call<WebSearchLivePayload>("/web/search/live", {
+      method: "POST",
+      body: JSON.stringify({ query: q, sources: ["web"] }),
+    }));
 }
 
 // ─────────────────────────────────────────────────────────────────────

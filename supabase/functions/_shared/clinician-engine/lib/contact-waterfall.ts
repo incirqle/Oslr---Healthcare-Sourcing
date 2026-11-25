@@ -17,12 +17,14 @@ export interface SecondaryContact {
   /** True when the record was matched on the person's LinkedIn profile or a stored id
    *  (include_if_matched), so its addresses are confirmed to belong to them. */
   identity_confirmed: boolean;
+  profile_picture_url: string | null;
 }
 
 export interface MergedContact {
   work_email?: string;
   personal_email?: string; // the single best personal address
   phones?: string[];
+  profile_picture_url?: string;
   sources: Partial<Record<WaterfallKind, "primary" | "secondary" | "tertiary">>;
 }
 
@@ -144,7 +146,19 @@ export function mergeContacts(
       else if (t.length) { out.phones = t.slice(0, 3); out.sources.phone = "tertiary"; }
     }
   }
+  const photo = tertiary?.profile_picture_url || secondary?.profile_picture_url;
+  if (photo) out.profile_picture_url = photo;
   return out;
+}
+
+export function safeProfileImageUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 const domainOf = (s: string) => s.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
@@ -167,6 +181,7 @@ export function parsePdlPerson(d: Record<string, unknown>, matched: string[] = [
     mobile_phone: str(d.mobile_phone),
     phone_numbers: arr(d.phone_numbers),
     identity_confirmed: matched.some((m) => m === "profile" || m === "pdl_id" || m === "lid"),
+    profile_picture_url: safeProfileImageUrl(d.profile_picture_url ?? d.profile_pic_url ?? d.picture_url ?? d.photo_url),
   };
 }
 

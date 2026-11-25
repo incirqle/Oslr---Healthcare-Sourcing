@@ -1,0 +1,1 @@
+DELETE FROM public.institution_email_evidence WHERE organization_key = 'maimonides medical center' AND domain = 'kaiserpermanente.org';

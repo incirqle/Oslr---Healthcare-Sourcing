@@ -458,8 +458,7 @@ export function CandidateDrawer({
       company: candidate?.current_employer,
       location: candidate?.location,
       title: candidate?.title,
-      companyDomain: normalizeDomain(typeof rawCompanyDomain === "string" ? rawCompanyDomain : null)
-        ?? resolveCompanyDomain(candidate?.current_employer),
+      companyDomain: normalizeDomain(typeof rawCompanyDomain === "string" ? rawCompanyDomain : null),
     },
   );
   const doctorIntelEntry = useDoctorIntel(candidate?.id);
@@ -773,7 +772,7 @@ export function CandidateDrawer({
     (typeof candidate.raw?.job_company_logo_url === "string" ? (candidate.raw.job_company_logo_url as string) : null);
   const topSchoolDomain = topEducation?.logoDomain ?? null;
   const topSchoolLogo = topEducation?.logoUrl ?? null;
-  const headshot = enriched?.profile_pic_url || candidate.profile_pic_url ||
+  const headshot = contactEnrich.state.contact.profile_pic_url || enriched?.profile_pic_url || candidate.profile_pic_url ||
     (typeof candidate.raw?.profile_picture_url === "string" ? (candidate.raw.profile_picture_url as string) : null);
   const inferredSalary = enriched?.inferred_salary || candidate.inferred_salary || null;
 

@@ -97,7 +97,8 @@ async function rowsFor(db: Db, organization: string, domain: string | null, coho
 /**
  * Reuse learned knowledge for the exact organization + role cohort. Without a
  * supplied domain, exactly one supported domain must exist; affiliate/domain
- * ambiguity always abstains. The result is explicitly unverified and free.
+ * ambiguity always abstains. Verification metadata stays internal; a supported
+ * result is promoted by the contact handler into the ordinary work-email field.
  */
 export async function suggestInstitutionWorkEmail(db: Db, input: {
   linkedinUrl: string;

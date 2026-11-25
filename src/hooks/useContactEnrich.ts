@@ -7,7 +7,7 @@ export type ContactKind = "work_email" | "personal_email" | "phone";
 export const CONTACT_PRICES: Record<ContactKind, number> = { work_email: 2, personal_email: 3, phone: 3 };
 
 export interface ContactState {
-  contact: { work_email?: string | null; personal_emails?: string[]; phone_numbers?: string[] };
+  contact: { work_email?: string | null; personal_emails?: string[]; phone_numbers?: string[]; profile_pic_url?: string | null };
   checked: Partial<Record<ContactKind, string>>;
   balance: number | null;
   unlimited?: boolean;
@@ -65,6 +65,14 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     try {
       const r = await enrichContact(linkedinUrl, kinds, candidateName, anchors);
       setState({ contact: r.contact ?? {}, checked: r.checked ?? {}, balance: r.balance ?? null, unlimited: r.unlimited === true });
+      const photo = r.contact?.profile_pic_url;
+      if (savedContactId && photo) {
+        const { data: saved } = await supabase.from("candidates").select("raw_data").eq("id", savedContactId).maybeSingle();
+        const raw = saved?.raw_data && typeof saved.raw_data === "object" && !Array.isArray(saved.raw_data)
+          ? saved.raw_data as Record<string, unknown>
+          : {};
+        await supabase.from("candidates").update({ raw_data: { ...raw, profile_picture_url: photo } }).eq("id", savedContactId);
+      }
       if (r.error === "insufficient_credits") {
         toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);
       } else if (r.error) {
@@ -96,7 +104,7 @@ export function useContactEnrich(linkedinUrl: string | null | undefined, candida
     } finally {
       setBusy(false);
     }
-  }, [linkedinUrl, candidateName, savedContactId, onAutoSave]);
+  }, [linkedinUrl, candidateName, savedContactId, onAutoSave, anchors.company, anchors.location, anchors.title, anchors.companyDomain]);
 
   return { state, busy, run };
 }

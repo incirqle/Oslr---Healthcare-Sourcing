@@ -1211,6 +1211,65 @@ export type Database = {
           },
         ]
       }
+      contact_enrichment_logs: {
+        Row: {
+          candidate_name: string | null
+          company_id: string
+          created_at: string
+          employer: string | null
+          employer_domain: string | null
+          error: string | null
+          http_status: number
+          id: string
+          linkedin_url: string
+          requested_kinds: string[]
+          result: Json
+          status: string
+          steps: Json
+          user_id: string
+        }
+        Insert: {
+          candidate_name?: string | null
+          company_id: string
+          created_at?: string
+          employer?: string | null
+          employer_domain?: string | null
+          error?: string | null
+          http_status: number
+          id?: string
+          linkedin_url: string
+          requested_kinds?: string[]
+          result?: Json
+          status: string
+          steps?: Json
+          user_id: string
+        }
+        Update: {
+          candidate_name?: string | null
+          company_id?: string
+          created_at?: string
+          employer?: string | null
+          employer_domain?: string | null
+          error?: string | null
+          http_status?: number
+          id?: string
+          linkedin_url?: string
+          requested_kinds?: string[]
+          result?: Json
+          status?: string
+          steps?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_enrichment_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_unlocks: {
         Row: {
           checked: Json

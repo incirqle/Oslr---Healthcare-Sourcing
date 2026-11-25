@@ -97,7 +97,7 @@ export function AgentProfileDialog({ item, candidate, decision, tags, hasPrev, h
           <div className="min-h-0 overflow-y-auto">
             <div className="agent-glow border-b border-border/60 px-6 py-6">
               <div className="flex items-start gap-4">
-                <PersonAvatar name={p.full_name ?? "?"} src={p.profile_pic_url} className="h-20 w-20" textClassName="text-xl" />
+                <PersonAvatar name={p.full_name ?? "?"} src={contactEnrich.state.contact.profile_pic_url || p.profile_pic_url} className="h-20 w-20" textClassName="text-xl" />
                 <div className="min-w-0">
                   <h2 className="font-display text-2xl font-semibold tracking-tight">{p.full_name}</h2>
                   {p.title && <p className="mt-0.5 text-[15px] text-foreground/80">{p.title}</p>}

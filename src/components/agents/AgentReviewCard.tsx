@@ -36,6 +36,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
   const [skipCity, setSkipCity] = useState(false);
   const [busy, setBusy] = useState(false);
   const [contactBusy, setContactBusy] = useState(false);
+  const [photo, setPhoto] = useState(p.profile_pic_url);
   const [contact, setContact] = useState<{ email: string | null; phone: string | null } | null>(() => {
     const email = p.email || p.work_email || null;
     const phone = (p.phone as string) || null;
@@ -43,6 +44,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
   });
 
   useEffect(() => { if (known && (known.email || known.phone)) setContact(known); }, [known?.email, known?.phone]);
+  useEffect(() => { setPhoto(p.profile_pic_url); }, [item.id, p.profile_pic_url]);
   const [pickOpen, setPickOpen] = useState(false);
   const [kinds, setKinds] = useState<ContactKind[]>(["work_email"]);
   const findContact = async () => {
@@ -56,6 +58,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
         companyDomain: p.company_domain,
       });
       setPickOpen(false);
+      if (r.contact.profile_pic_url) setPhoto(r.contact.profile_pic_url);
       if (r.error === "insufficient_credits") {
         toast.error(`Not enough credits. This needs up to ${r.needed} credits.`);
       } else if (r.error) {
@@ -102,7 +105,7 @@ export function AgentReviewCard({ item, decision, tags, active, draft, onDraft, 
     )}>
       <div className="flex items-start gap-3.5">
         <button onClick={onOpen} aria-label={`Open ${p.full_name ?? ""} profile`} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <PersonAvatar name={p.full_name ?? "?"} src={p.profile_pic_url} className="h-12 w-12" textClassName="text-sm" />
+          <PersonAvatar name={p.full_name ?? "?"} src={photo} className="h-12 w-12" textClassName="text-sm" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

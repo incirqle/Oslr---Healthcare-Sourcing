@@ -1,7 +1,7 @@
 // Tertiary contact waterfall provider (ContactOut).
 // Called only for fields left empty by the primary and secondary providers.
 // Provider names and API tokens never leave the server.
-import type { WaterfallKind } from "./contact-waterfall.ts";
+import { safeProfileImageUrl, type WaterfallKind } from "./contact-waterfall.ts";
 
 export interface TertiaryContact {
   work_email: string | null;
@@ -10,6 +10,7 @@ export interface TertiaryContact {
   personal_emails: string[];
   phone_numbers: string[];
   identity_confirmed: boolean;
+  profile_picture_url: string | null;
 }
 
 export type ContactOutLookup =
@@ -113,6 +114,7 @@ export function parseContactOutProfile(
     personal_emails: personalEmails,
     phone_numbers: phones,
     identity_confirmed: true, // /v1/people/linkedin matches strictly on exact LinkedIn profile URL
+    profile_picture_url: safeProfileImageUrl(profile.profile_picture_url ?? profile.profilePictureUrl),
   };
 }
 

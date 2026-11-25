@@ -197,6 +197,34 @@
       "when": 1795573810263,
       "tag": "0027_restrict_institution_email_evidence_access",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1795580070360,
+      "tag": "0028_add_private_contact_enrichment_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1795580892736,
+      "tag": "0029_remove_rejected_maimonides_domain_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1795580964164,
+      "tag": "0030_remove_rejected_maimonides_directory_domain",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1795581068905,
+      "tag": "0031_remove_uncorroborated_maimonides_web_domains",
+      "breakpoints": true
     }
   ]
 }

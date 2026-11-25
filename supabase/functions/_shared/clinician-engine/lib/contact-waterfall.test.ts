@@ -185,6 +185,21 @@ Deno.test("ContactOut tertiary fills missing personal email, verified work email
   assertEquals(withPrimary.sources, { work_email: "primary", personal_email: "secondary", phone: "tertiary" });
 });
 
+Deno.test("a missing headshot backfills from either fallback without becoming a chargeable contact kind", () => {
+  const secondary = parsePdlPerson({ profile_picture_url: "https://images.example.com/pdl.jpg" }, ["profile"]);
+  const tertiary = parseContactOutProfile({ profile_picture_url: "https://images.contactout.com/profiles/person" });
+  assertEquals(secondary.profile_picture_url, "https://images.example.com/pdl.jpg");
+  assertEquals(tertiary.profile_picture_url, "https://images.contactout.com/profiles/person");
+  assertEquals(mergeContacts(["personal_email"], null, secondary).profile_picture_url, "https://images.example.com/pdl.jpg");
+  assertEquals(mergeContacts([], null, secondary, null, tertiary).profile_picture_url, "https://images.contactout.com/profiles/person");
+  assertEquals(mergeContacts([], null, null).profile_picture_url, undefined);
+});
+
+Deno.test("unsafe or missing headshot values are ignored", () => {
+  assertEquals(parseContactOutProfile({ profile_picture_url: "javascript:alert(1)" }).profile_picture_url, null);
+  assertEquals(parsePdlPerson({ profile_pic_url: "not a url" }).profile_picture_url, null);
+});
+
 Deno.test("ContactOut rejects unverified work emails and mismatched employer domains", () => {
   const unverified = parseContactOutProfile({
     work_email: ["jdoe@hospital.org"],

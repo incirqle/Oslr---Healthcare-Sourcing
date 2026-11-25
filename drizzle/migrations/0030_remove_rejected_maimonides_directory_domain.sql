@@ -1,0 +1,1 @@
+DELETE FROM public.crustdata_cache WHERE cache_key = 'contact:employer-domain:v3:maimonides medical center' AND data::text LIKE '%doximity.com%';
